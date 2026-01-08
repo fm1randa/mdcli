@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { homedir } from 'os';
-import { dirname, join } from 'path';
+import { join } from 'path';
 import type { AuthConfig, MdcliConfig } from '../types/index.js';
 
 const CONFIG_DIR = join(homedir(), '.config', 'mdcli');

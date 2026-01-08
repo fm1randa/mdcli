@@ -12,10 +12,6 @@ function formatCurrency(value: number): string {
   return value >= 0 ? chalk.green(formatted) : chalk.red(formatted);
 }
 
-function formatBoolean(value: boolean): string {
-  return value ? chalk.green('✓') : chalk.gray('✗');
-}
-
 function formatStatus(active: boolean, closed: boolean): string {
   if (closed) return chalk.red('Closed');
   return active ? chalk.green('Active') : chalk.gray('Inactive');

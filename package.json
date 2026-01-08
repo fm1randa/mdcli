@@ -10,6 +10,8 @@
     "dev": "bun run bin/cli.ts",
     "start": "bun run bin/cli.ts",
     "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "knip": "knip"
   },
   "keywords": [
@@ -28,9 +30,12 @@
     "puppeteer": "^24.0.0"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.2",
     "@types/bun": "^1.1.14",
     "@types/node": "^22.10.5",
+    "eslint": "^9.39.2",
     "knip": "^5.80.1",
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "typescript-eslint": "^8.52.0"
   }
 }
