@@ -3,6 +3,7 @@ import Table from 'cli-table3';
 import chalk from 'chalk';
 import { logger } from '../utils/logger.js';
 import { fetchEntries, normalizeEntries, createEntry } from '../lib/api.js';
+import { resolveId, resolveIds } from '../lib/aliases.js';
 import type { CreateEntryPayload, CreateEntryAgenda } from '../types/index.js';
 
 const STATUS_FLAGS: Record<string, number> = {
@@ -99,17 +100,44 @@ interface ListOptions {
 
 async function listAction(options: ListOptions): Promise<void> {
   try {
-    const accountIds = options.account ? options.account.split(',').map(Number) : [];
+    if (!options.account) {
+      logger.error('At least one account ID or alias is required. Use --account <id> or --account <id1,id2,...>');
+      process.exit(1);
+    }
+
+    const accountResult = resolveIds('accounts', options.account);
+    if (accountResult.unresolved.length > 0) {
+      logger.error(`Unknown account alias(es): ${accountResult.unresolved.join(', ')}`);
+      process.exit(1);
+    }
+    const accountIds = accountResult.ids;
 
     if (accountIds.length === 0) {
-      logger.error('At least one account ID is required. Use --account <id> or --account <id1,id2,...>');
+      logger.error('At least one account ID or alias is required. Use --account <id> or --account <id1,id2,...>');
       process.exit(1);
     }
 
     const { startDate: defaultStart, endDate: defaultEnd } = getDefaultDateRange();
 
-    const categoryIds = options.category ? options.category.split(',').map(Number) : undefined;
-    const tagIds = options.tag ? options.tag.split(',').map(Number) : undefined;
+    let categoryIds: number[] | undefined;
+    if (options.category) {
+      const categoryResult = resolveIds('categories', options.category);
+      if (categoryResult.unresolved.length > 0) {
+        logger.error(`Unknown category alias(es): ${categoryResult.unresolved.join(', ')}`);
+        process.exit(1);
+      }
+      categoryIds = categoryResult.ids;
+    }
+
+    let tagIds: number[] | undefined;
+    if (options.tag) {
+      const tagResult = resolveIds('tags', options.tag);
+      if (tagResult.unresolved.length > 0) {
+        logger.error(`Unknown tag alias(es): ${tagResult.unresolved.join(', ')}`);
+        process.exit(1);
+      }
+      tagIds = tagResult.ids;
+    }
     const status = options.status ? parseStatusFilter(options.status) : undefined;
     const entryType = options.type ? parseTypeFilter(options.type) : undefined;
     const value = options.value ? Number(options.value) : undefined;
@@ -167,13 +195,13 @@ export const entriesCommand = new Command('entries')
 entriesCommand
   .command('list')
   .description('List entries for an account')
-  .requiredOption('-a, --account <ids>', 'Account ID(s), comma-separated for multiple')
+  .requiredOption('-a, --account <ids>', 'Account ID(s) or alias(es), comma-separated')
   .option('-f, --from <date>', 'Start date (YYYY-MM-DD), defaults to first day of current month')
   .option('-t, --to <date>', 'End date (YYYY-MM-DD), defaults to last day of current month')
   .option('-s, --status <filter>', 'Filter by status: pending, confirmed, reconciled, scheduled (or bitmask 0-15)')
   .option('-T, --type <filter>', 'Filter by type: expense, income, transfer-out, transfer-in (or bitmask 0-15)')
-  .option('-c, --category <ids>', 'Filter by category ID(s), comma-separated')
-  .option('-g, --tag <ids>', 'Filter by tag ID(s), comma-separated')
+  .option('-c, --category <ids>', 'Filter by category ID(s) or alias(es), comma-separated')
+  .option('-g, --tag <ids>', 'Filter by tag ID(s) or alias(es), comma-separated')
   .option('-k, --keywords <text>', 'Search by keywords')
   .option('-v, --value <amount>', 'Filter by value')
   .option('--json', 'Output as JSON')
@@ -259,6 +287,31 @@ async function createAction(options: CreateOptions): Promise<void> {
       process.exit(1);
     }
 
+    const accountId = resolveId('accounts', options.account);
+    if (accountId === null) {
+      logger.error(`Unknown account: ${options.account}`);
+      process.exit(1);
+    }
+
+    let categoryId: number | null = null;
+    if (options.category) {
+      categoryId = resolveId('categories', options.category);
+      if (categoryId === null) {
+        logger.error(`Unknown category: ${options.category}`);
+        process.exit(1);
+      }
+    }
+
+    let tagIds: number[] = [];
+    if (options.tags) {
+      const tagResult = resolveIds('tags', options.tags);
+      if (tagResult.unresolved.length > 0) {
+        logger.error(`Unknown tag alias(es): ${tagResult.unresolved.join(', ')}`);
+        process.exit(1);
+      }
+      tagIds = tagResult.ids;
+    }
+
     const tipo = mapTypeToApi(options.type ?? 'expense');
     const isReconciled = !options.pending;
     const now = new Date();
@@ -282,17 +335,17 @@ async function createAction(options: CreateOptions): Promise<void> {
       anexos: [],
       ...(agenda && { agenda }),
       '#': null,
-      conta: options.account,
+      conta: accountId.toString(),
       inicio: monthStart,
       fim: monthEnd,
       i: 'm',
       valor: finalValue,
       data: now.toISOString(),
       base: null,
-      categoria: options.category ? Number(options.category) : null,
+      categoria: categoryId,
       metaEconomia: null,
       observacoes: options.notes ?? '',
-      tags: options.tags ? options.tags.split(',').map(Number) : [],
+      tags: tagIds,
       transferencia: false,
       conciliado: isReconciled,
       dataEfetiva: dateStr,
@@ -331,13 +384,13 @@ async function createAction(options: CreateOptions): Promise<void> {
 entriesCommand
   .command('create')
   .description('Create a new entry')
-  .requiredOption('-a, --account <id>', 'Account ID')
+  .requiredOption('-a, --account <id>', 'Account ID or alias')
   .requiredOption('-d, --description <text>', 'Entry description')
   .requiredOption('-v, --value <amount>', 'Entry value (positive number)')
   .option('-T, --type <type>', 'Entry type: expense, income, transfer (default: expense)', 'expense')
-  .option('-c, --category <id>', 'Category ID')
+  .option('-c, --category <id>', 'Category ID or alias')
   .option('-D, --date <date>', 'Entry date (YYYY-MM-DD), defaults to today')
-  .option('-g, --tags <ids>', 'Tag ID(s), comma-separated')
+  .option('-g, --tags <ids>', 'Tag ID(s) or alias(es), comma-separated')
   .option('-n, --notes <text>', 'Additional notes/observations')
   .option('-p, --pending', 'Create as pending (not reconciled)')
   .option('-r, --repeat <interval>', 'Recurrence: daily, weekly, monthly, yearly (or d, w, m, y)')

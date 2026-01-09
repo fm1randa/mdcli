@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { homedir } from 'os';
 import { join } from 'path';
-import type { AuthConfig, MdcliConfig } from '../types/index.js';
+import type { AliasMap, AuthConfig, MdcliConfig } from '../types/index.js';
 
 const CONFIG_DIR = join(homedir(), '.config', 'mdcli');
 const CONFIG_FILE = join(CONFIG_DIR, 'mdcli.config.json');
@@ -54,4 +54,10 @@ export function getConfigPath(): string {
 
 export function getFullConfig(): MdcliConfig {
   return loadConfig();
+}
+
+export function setAliases(aliases: AliasMap): void {
+  const config = loadConfig();
+  config.aliases = aliases;
+  saveConfig(config);
 }

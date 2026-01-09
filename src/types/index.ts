@@ -193,9 +193,23 @@ export interface NormalizedTag {
   active: boolean;
 }
 
+export type AliasType = 'accounts' | 'categories' | 'tags';
+
+export interface Alias {
+  id: number;
+  name: string;
+}
+
+export interface AliasMap {
+  accounts: Alias[];
+  categories: Alias[];
+  tags: Alias[];
+}
+
 export interface MdcliConfig {
   auth?: AuthConfig;
   lastUpdated?: string;
+  aliases?: AliasMap;
 }
 
 interface EntryPermissions {
