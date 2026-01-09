@@ -23,6 +23,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "2captcha": "^3.0.5-2",
     "@inquirer/prompts": "^7.2.1",
     "chalk": "^5.4.1",
     "cli-table3": "^0.6.5",

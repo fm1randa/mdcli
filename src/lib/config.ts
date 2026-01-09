@@ -72,3 +72,14 @@ export function setOpItem(itemName: string): void {
   config.opItem = itemName;
   saveConfig(config);
 }
+
+export function getCaptchaApiKey(): string | null {
+  const config = loadConfig();
+  return config.captchaApiKey ?? null;
+}
+
+export function setCaptchaApiKey(apiKey: string): void {
+  const config = loadConfig();
+  config.captchaApiKey = apiKey;
+  saveConfig(config);
+}

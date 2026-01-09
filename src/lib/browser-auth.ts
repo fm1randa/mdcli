@@ -1,6 +1,7 @@
 import puppeteer, { type Page, type Browser } from 'puppeteer';
 import type { AuthConfig } from '../types/index.js';
 import { getCredentialsFromOnePassword } from './onepassword.js';
+import { detectRecaptchaChallenge, solveRecaptcha } from './captcha.js';
 
 const LOGIN_URL = 'https://app.meudinheiroweb.com.br/';
 const API_URL_PATTERN = 'app.meudinheiroweb.com.br/api/';
@@ -216,6 +217,14 @@ async function fillLoginForm(page: Page, username: string, password: string): Pr
 
   await waitForSelector(page, SELECTORS.loginButton);
   await page.click(SELECTORS.loginButton);
+
+  const hasCaptcha = await detectRecaptchaChallenge(page);
+  if (hasCaptcha) {
+    const solved = await solveRecaptcha(page);
+    if (!solved) {
+      throw new Error('Failed to solve reCAPTCHA challenge');
+    }
+  }
 }
 
 async function clearInput(page: Page, selector: string): Promise<void> {

@@ -211,6 +211,7 @@ export interface MdcliConfig {
   lastUpdated?: string;
   aliases?: AliasMap;
   opItem?: string;
+  captchaApiKey?: string;
 }
 
 interface EntryPermissions {

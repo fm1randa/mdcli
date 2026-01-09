@@ -38,6 +38,16 @@ Create a 1Password item with the following fields:
 - `password` - your password
 - `otp` - one-time password (configured as TOTP)
 
+### Optional: 2Captcha API Key
+
+If the login page shows a reCAPTCHA challenge, you can configure a [2Captcha](https://2captcha.com/) API key to automatically solve it:
+
+```bash
+mdcli auth login --captcha-key <your-2captcha-api-key>
+```
+
+The API key is saved to config and reused for future logins.
+
 ## Usage
 
 ```bash

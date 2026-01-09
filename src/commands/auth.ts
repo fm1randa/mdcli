@@ -9,6 +9,8 @@ import {
   getFullConfig,
   getOpItem,
   setOpItem,
+  getCaptchaApiKey,
+  setCaptchaApiKey,
 } from '../lib/config.js';
 import { captureAuthFromBrowser, captureAuthHeadless } from '../lib/browser-auth.js';
 import type { AuthConfig } from '../types/index.js';
@@ -61,8 +63,15 @@ async function loginAction(options: {
   manual?: boolean;
   browser?: boolean;
   item?: string;
+  captchaKey?: string;
 }): Promise<void> {
   try {
+    if (options.captchaKey) {
+      setCaptchaApiKey(options.captchaKey);
+      logger.info('2captcha API key saved to config.');
+      logger.info('To change it, run: mdcli auth login --captcha-key <new-key>');
+    }
+
     let auth: AuthConfig;
 
     if (options.manual) {
@@ -99,6 +108,7 @@ function statusAction(): void {
   const config = getFullConfig();
   const auth = getAuth();
   const opItem = getOpItem();
+  const captchaKey = getCaptchaApiKey();
 
   logger.header('Authentication Status');
 
@@ -106,6 +116,7 @@ function statusAction(): void {
   logger.kv('Last updated', config.lastUpdated ?? null);
   logger.kv('Authenticated', hasAuth() ? 'Yes' : 'No');
   logger.kv('1Password item', opItem ?? '(not configured)');
+  logger.kv('2captcha API key', captchaKey ? `${captchaKey.slice(0, 8)}...` : '(not configured)');
 
   if (auth) {
     logger.blank();
@@ -126,6 +137,7 @@ authCommand
   .option('-m, --manual', 'Manually enter authentication headers')
   .option('-b, --browser', 'Open browser for manual login')
   .option('-i, --item <name>', '1Password item name (saved to config)')
+  .option('-c, --captcha-key <key>', '2captcha API key for solving reCAPTCHA (saved to config)')
   .action(loginAction);
 
 authCommand
