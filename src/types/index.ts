@@ -385,3 +385,24 @@ export interface CreateEntryResponse {
   lembrete: string;
   automatico: boolean;
 }
+
+export interface UpdateEntryPayload {
+  id: number;
+  descricao?: string;
+  valor?: number;
+  valorPrevisto?: number;
+  valorEfetivo?: number;
+  data?: string;
+  dataPrevista?: string;
+  dataEfetiva?: string;
+  conta?: number;
+  categoria?: number | null;
+  tags?: number[];
+  observacoes?: string;
+  status?: {
+    confirmado: boolean;
+    conciliado: boolean;
+  };
+  conciliado?: boolean;
+  tipo?: 'd' | 'r' | 't';
+}

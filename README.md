@@ -137,7 +137,7 @@ mdcli entries create --account mp --description "Groceries" --value 150 --catego
 | Alias support (account/category/tag) | Done |
 | Create (single) | Done |
 | Create (recurring) | Done |
-| Update | Missing |
+| Update | Done |
 | Delete | Missing |
 | Reconcile | Missing |
 | Confirm | Missing |

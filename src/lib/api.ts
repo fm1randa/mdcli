@@ -12,6 +12,8 @@ import type {
   NormalizedEntry,
   CreateEntryPayload,
   CreateEntryResponse,
+  UpdateEntryPayload,
+  Entry,
 } from '../types/index.js';
 import { getAuth, setAuth, getOpItem } from './config.js';
 import { captureAuthHeadless } from './browser-auth.js';
@@ -133,6 +135,37 @@ async function apiPost<T, R>(endpoint: string, body: T): Promise<R> {
   return response.json() as Promise<R>;
 }
 
+async function apiPut<T, R>(endpoint: string, body: T): Promise<R> {
+  const auth = getAuth();
+  if (!auth) {
+    throw new Error('Not authenticated. Run "mdcli auth login" first.');
+  }
+
+  const url = `${BASE_URL}${endpoint}`;
+
+  const response = await fetch(url, {
+    method: 'PUT',
+    headers: buildPostHeaders(auth),
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      return refreshAuthAndRetry<R>((newAuth) =>
+        fetch(url, {
+          method: 'PUT',
+          headers: buildPostHeaders(newAuth),
+          body: JSON.stringify(body),
+        })
+      );
+    }
+    const errorText = await response.text();
+    throw new Error(`API request failed: ${response.status} ${response.statusText} - ${errorText}`);
+  }
+
+  return response.json() as Promise<R>;
+}
+
 export async function fetchCategories(): Promise<CategoriesResponse> {
   return apiRequest<CategoriesResponse>('/v1/cadastros/categorias?meta=true&paginate=false');
 }
@@ -143,6 +176,10 @@ export async function fetchAccounts(): Promise<AccountsResponse> {
 
 export async function fetchTags(): Promise<TagsResponse> {
   return apiRequest<TagsResponse>('/v1/cadastros/tags?paginate=false');
+}
+
+export async function fetchEntry(id: number): Promise<Entry> {
+  return apiRequest<Entry>(`/v1/lancamentos/${id}`);
 }
 
 export async function fetchEntries(params: EntriesParams): Promise<EntriesResponse> {
@@ -257,4 +294,8 @@ export function normalizeEntries(response: EntriesResponse): NormalizedEntry[] {
 
 export async function createEntry(payload: CreateEntryPayload): Promise<CreateEntryResponse> {
   return apiPost<CreateEntryPayload, CreateEntryResponse>('/v1/lancamentos', payload);
+}
+
+export async function updateEntry(id: number, payload: UpdateEntryPayload): Promise<CreateEntryResponse> {
+  return apiPut<UpdateEntryPayload, CreateEntryResponse>(`/v1/lancamentos/${id}`, payload);
 }

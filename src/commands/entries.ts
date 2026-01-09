@@ -2,9 +2,9 @@ import { Command } from 'commander';
 import Table from 'cli-table3';
 import chalk from 'chalk';
 import { logger } from '../utils/logger.js';
-import { fetchEntries, normalizeEntries, createEntry } from '../lib/api.js';
+import { fetchEntries, normalizeEntries, createEntry, updateEntry, fetchEntry } from '../lib/api.js';
 import { resolveId, resolveIds } from '../lib/aliases.js';
-import type { CreateEntryPayload, CreateEntryAgenda } from '../types/index.js';
+import type { CreateEntryPayload, CreateEntryAgenda, UpdateEntryPayload } from '../types/index.js';
 
 const STATUS_FLAGS: Record<string, number> = {
   pending: 1,
@@ -162,15 +162,16 @@ async function listAction(options: ListOptions): Promise<void> {
     }
 
     const table = new Table({
-      head: ['Date', 'Description', 'Value', 'Type', 'Status', 'Installment'],
+      head: ['ID', 'Date', 'Description', 'Value', 'Type', 'Status', 'Installment'],
       style: { head: ['cyan'] },
-      colWidths: [12, 40, 15, 12, 12, 12],
+      colWidths: [12, 12, 36, 15, 12, 12, 12],
     });
 
     for (const entry of entries) {
       table.push([
+        entry.id,
         entry.date,
-        entry.description.length > 37 ? `${entry.description.slice(0, 37)}...` : entry.description,
+        entry.description.length > 33 ? `${entry.description.slice(0, 33)}...` : entry.description,
         formatCurrency(entry.value),
         formatType(entry.type),
         formatStatus(entry.status),
@@ -398,3 +399,150 @@ entriesCommand
   .option('--times <n>', 'Total occurrences, e.g. --times 6 = 6 times then stop (default: infinite)')
   .option('--json', 'Output as JSON')
   .action(createAction);
+
+interface UpdateOptions {
+  description?: string;
+  value?: string;
+  type?: string;
+  category?: string;
+  date?: string;
+  tags?: string;
+  notes?: string;
+  pending?: boolean;
+  reconciled?: boolean;
+  json?: boolean;
+}
+
+async function updateAction(id: string, options: UpdateOptions): Promise<void> {
+  try {
+    const entryId = Number(id);
+    if (Number.isNaN(entryId)) {
+      logger.error('Invalid entry ID. Must be a number.');
+      process.exit(1);
+    }
+
+    // Validate options that need resolution before fetching entry
+    let categoryId: number | null = null;
+    if (options.category !== undefined) {
+      categoryId = resolveId('categories', options.category);
+      if (categoryId === null) {
+        logger.error(`Unknown category: ${options.category}`);
+        process.exit(1);
+      }
+    }
+
+    let tagIds: number[] | undefined;
+    if (options.tags !== undefined) {
+      const tagResult = resolveIds('tags', options.tags);
+      if (tagResult.unresolved.length > 0) {
+        logger.error(`Unknown tag alias(es): ${tagResult.unresolved.join(', ')}`);
+        process.exit(1);
+      }
+      tagIds = tagResult.ids;
+    }
+
+    let value: number | undefined;
+    if (options.value !== undefined) {
+      value = Number(options.value);
+      if (Number.isNaN(value)) {
+        logger.error('Invalid value. Must be a number.');
+        process.exit(1);
+      }
+    }
+
+    const hasChanges = options.description !== undefined ||
+      options.value !== undefined ||
+      options.type !== undefined ||
+      options.category !== undefined ||
+      options.date !== undefined ||
+      options.tags !== undefined ||
+      options.notes !== undefined ||
+      options.pending ||
+      options.reconciled;
+
+    if (!hasChanges) {
+      logger.error('No changes specified. Use options like --description, --value, --date, etc.');
+      process.exit(1);
+    }
+
+    // Fetch existing entry
+    const existing = await fetchEntry(entryId);
+
+    // Build payload by merging existing data with updates
+    const payload: Record<string, unknown> = {
+      id: entryId,
+      descricao: options.description ?? existing.descricao,
+      conciliado: existing.conciliado,
+      status: {
+        confirmado: true,
+        conciliado: existing.conciliado ?? false,
+      },
+      tipo: options.type ? mapTypeToApi(options.type) : existing.tipo,
+      valor: value ?? existing.valor,
+      valorPrevisto: value ?? existing.valorPrevisto ?? existing.valor,
+      valorEfetivo: value ?? existing.valorEfetivo ?? existing.valor,
+      data: existing.data,
+      dataPrevista: options.date ?? existing.dataPrevista,
+      dataEfetiva: options.date ?? existing.dataEfetiva ?? existing.dataPrevista,
+      dataCriacao: existing.dataCriacao,
+      exibirCp: existing.exibirCp ?? true,
+      exibirCr: existing.exibirCr ?? true,
+      permissoes: existing.permissoes,
+      estorno: existing.estorno ?? false,
+      conta: existing.conta,
+      categoria: categoryId ?? existing.categoria ?? null,
+      tags: tagIds ?? existing.tags ?? [],
+      observacoes: options.notes ?? existing.observacoes ?? '',
+      ndocumento: existing.ndocumento ?? '',
+      lembrete: existing.lembrete ?? 0,
+      automatico: existing.automatico ?? false,
+      agenda: existing.agenda,
+      metaEconomia: null,
+      transferencia: existing.transferencia ?? false,
+    };
+
+    // Handle status changes
+    if (options.pending) {
+      payload.status = { confirmado: true, conciliado: false };
+      payload.conciliado = false;
+    } else if (options.reconciled) {
+      payload.status = { confirmado: true, conciliado: true };
+      payload.conciliado = true;
+    }
+
+    const response = await updateEntry(entryId, payload as unknown as UpdateEntryPayload);
+
+    if (options.json) {
+      console.log(JSON.stringify(response, null, 2));
+      return;
+    }
+
+    logger.success(`Entry updated successfully!`);
+    console.log(`  ${chalk.gray('ID:')} ${response.id}`);
+    console.log(`  ${chalk.gray('Description:')} ${response.descricao}`);
+    console.log(`  ${chalk.gray('Value:')} ${formatCurrency(response.valor)}`);
+    console.log(`  ${chalk.gray('Date:')} ${response.data}`);
+    const statusDisplay = response.status === 'conciliado' ? 'reconciled'
+      : response.status === 'pendente' ? 'pending' : 'scheduled';
+    console.log(`  ${chalk.gray('Status:')} ${formatStatus(statusDisplay as 'reconciled' | 'pending' | 'scheduled')}`);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    logger.error(message);
+    process.exit(1);
+  }
+}
+
+entriesCommand
+  .command('update <id>')
+  .description('Update an existing entry (partial update - only send fields you want to change)')
+  .option('-d, --description <text>', 'Entry description')
+  .option('-v, --value <amount>', 'Entry value')
+  .option('-T, --type <type>', 'Entry type: expense, income, transfer')
+  .option('-c, --category <id>', 'Category ID or alias')
+  .option('-D, --date <date>', 'Entry date (YYYY-MM-DD)')
+  .option('-g, --tags <ids>', 'Tag ID(s) or alias(es), comma-separated')
+  .option('-n, --notes <text>', 'Additional notes/observations')
+  .option('-p, --pending', 'Set as pending (not reconciled)')
+  .option('-r, --reconciled', 'Set as reconciled')
+  .option('--json', 'Output as JSON')
+  .action(updateAction);
