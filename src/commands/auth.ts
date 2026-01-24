@@ -3,6 +3,7 @@ import { input, password, select } from '@inquirer/prompts';
 import { logger } from '../utils/logger.js';
 import {
   getAuth,
+  getAuthMethod,
   setAuth,
   hasAuth,
   getConfigPath,
@@ -14,7 +15,7 @@ import {
 } from '../lib/config.js';
 import { captureAuthFromBrowser, captureAuthHeadless } from '../lib/browser-auth.js';
 import { extractSessionFromBrowser } from '../lib/browser-session.js';
-import type { AuthConfig } from '../types/index.js';
+import type { AuthConfig, AuthMethod } from '../types/index.js';
 
 async function promptManualAuth(): Promise<AuthConfig> {
   logger.info('Enter the authentication headers from your browser dev tools:');
@@ -75,12 +76,15 @@ async function loginAction(options: {
     }
 
     let auth: AuthConfig;
+    let method: AuthMethod;
 
     if (options.manual) {
       auth = await promptManualAuth();
+      method = 'manual';
     } else if (options.browser) {
       logger.info('Starting browser authentication...');
       auth = await captureAuthFromBrowser();
+      method = 'browser-manual';
     } else if (options.session) {
       const browserType = options.session === true ? 'chrome' : options.session;
       if (browserType !== 'chrome' && browserType !== 'firefox') {
@@ -88,12 +92,14 @@ async function loginAction(options: {
       }
       logger.info(`Extracting session from ${browserType === 'chrome' ? 'Chrome' : 'Firefox'}...`);
       auth = await extractSessionFromBrowser({ browser: browserType });
+      method = browserType === 'chrome' ? 'browser-chrome' : 'browser-firefox';
     } else if (options.item) {
       const itemName = await resolveOpItemName(options.item);
       const isNewItem = getOpItem() !== itemName;
 
       logger.info(`Starting automatic authentication via 1Password (${itemName})...`);
       auth = await captureAuthHeadless(itemName);
+      method = '1password';
 
       if (isNewItem) {
         setOpItem(itemName);
@@ -104,6 +110,7 @@ async function loginAction(options: {
       try {
         logger.info('Extracting session from Chrome...');
         auth = await extractSessionFromBrowser({ browser: 'chrome' });
+        method = 'browser-chrome';
       } catch (sessionError) {
         const sessionMessage = sessionError instanceof Error ? sessionError.message : 'Unknown error';
         logger.warning(`Browser session extraction failed: ${sessionMessage}`);
@@ -131,6 +138,7 @@ async function loginAction(options: {
 
           logger.info(`Starting automatic authentication via 1Password (${itemName})...`);
           auth = await captureAuthHeadless(itemName);
+          method = '1password';
 
           if (isNewItem) {
             setOpItem(itemName);
@@ -140,16 +148,19 @@ async function loginAction(options: {
         } else if (fallbackChoice === 'firefox') {
           logger.info('Extracting session from Firefox...');
           auth = await extractSessionFromBrowser({ browser: 'firefox' });
+          method = 'browser-firefox';
         } else if (fallbackChoice === 'browser') {
           logger.info('Starting browser authentication...');
           auth = await captureAuthFromBrowser();
+          method = 'browser-manual';
         } else {
           auth = await promptManualAuth();
+          method = 'manual';
         }
       }
     }
 
-    setAuth(auth);
+    setAuth(auth, method);
     logger.success('Authentication saved successfully!');
     logger.log(`  Config file: ${getConfigPath()}`);
   } catch (error) {
@@ -159,10 +170,25 @@ async function loginAction(options: {
   }
 }
 
+function formatAuthMethod(method: AuthMethod | null): string {
+  if (!method) return '(unknown)';
+  
+  const labels: Record<AuthMethod, string> = {
+    'browser-chrome': 'Browser session (Chrome)',
+    'browser-firefox': 'Browser session (Firefox)',
+    '1password': '1Password',
+    'browser-manual': 'Browser (manual login)',
+    'manual': 'Manual entry',
+  };
+  
+  return labels[method];
+}
+
 function statusAction(): void {
   const configPath = getConfigPath();
   const config = getFullConfig();
   const auth = getAuth();
+  const authMethod = getAuthMethod();
   const opItem = getOpItem();
   const captchaKey = getCaptchaApiKey();
 
@@ -171,6 +197,7 @@ function statusAction(): void {
   logger.kv('Config file', configPath);
   logger.kv('Last updated', config.lastUpdated ?? null);
   logger.kv('Authenticated', hasAuth() ? 'Yes' : 'No');
+  logger.kv('Auth method', auth ? formatAuthMethod(authMethod) : null);
   logger.kv('1Password item', opItem ?? '(not configured)');
   logger.kv('2captcha API key', captchaKey ? `${captchaKey.slice(0, 8)}...` : '(not configured)');
 

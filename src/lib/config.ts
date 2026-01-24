@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { homedir } from 'os';
 import { join } from 'path';
-import type { AliasMap, AuthConfig, MdcliConfig } from '../types/index.js';
+import type { AliasMap, AuthConfig, AuthMethod, MdcliConfig } from '../types/index.js';
 
 const CONFIG_DIR = join(homedir(), '.config', 'mdcli');
 const CONFIG_FILE = join(CONFIG_DIR, 'mdcli.config.json');
@@ -37,11 +37,19 @@ export function getAuth(): AuthConfig | null {
   return config.auth ?? null;
 }
 
-export function setAuth(auth: AuthConfig): void {
+export function setAuth(auth: AuthConfig, method?: AuthMethod): void {
   const config = loadConfig();
   config.auth = auth;
+  if (method) {
+    config.authMethod = method;
+  }
   config.lastUpdated = new Date().toISOString();
   saveConfig(config);
+}
+
+export function getAuthMethod(): AuthMethod | null {
+  const config = loadConfig();
+  return config.authMethod ?? null;
 }
 
 export function hasAuth(): boolean {

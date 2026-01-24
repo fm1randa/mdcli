@@ -190,4 +190,20 @@
 
 **Tasks 5.1-5.4 (Error Handling) are now COMPLETE.**
 
-**Next task**: Task 5.5 - Update auth status to show session source
+### Task 5.5: Update auth status to show session source [DONE]
+
+- Added `AuthMethod` type to `src/types/index.ts`:
+  - Type union: `'browser-chrome' | 'browser-firefox' | '1password' | 'browser-manual' | 'manual'`
+- Added `authMethod` field to `MdcliConfig` interface
+- Updated `src/lib/config.ts`:
+  - Added `getAuthMethod()` function to retrieve the auth method
+  - Updated `setAuth()` to accept optional `method` parameter and save it to config
+- Updated `src/commands/auth.ts`:
+  - Added `formatAuthMethod()` helper to convert method to user-friendly label
+  - Updated `loginAction` to track and save auth method for each authentication path
+  - Updated `statusAction` to display "Auth method" field (e.g., "Browser session (Chrome)")
+- Verification: `bun run typecheck` passes, `bun run lint` passes, `bun run knip` passes
+
+**Phase 5 (Error Handling & Polish) is now COMPLETE.**
+
+**Next task**: Phase 6 - Testing & Documentation (manual tests + README update)

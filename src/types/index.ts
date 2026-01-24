@@ -206,8 +206,11 @@ export interface AliasMap {
   tags: Alias[];
 }
 
+export type AuthMethod = 'browser-chrome' | 'browser-firefox' | '1password' | 'browser-manual' | 'manual';
+
 export interface MdcliConfig {
   auth?: AuthConfig;
+  authMethod?: AuthMethod;
   lastUpdated?: string;
   aliases?: AliasMap;
   opItem?: string;

@@ -447,10 +447,11 @@ Try: mdcli auth login --browser
 - **Verification**: Clear message about page load failure
 - **Completed**: 2026-01-24 - Already implemented in Task 3.5 (throws "Failed to extract authentication config from page" when required fields are missing)
 
-#### Task 5.5: Update auth status to show session source
+#### Task 5.5: Update auth status to show session source [DONE]
 - **File**: `src/commands/auth.ts`
 - **Action**: Add "Auth method" field to status output
 - **Verification**: Shows "Browser session (Chrome)" or similar
+- **Completed**: 2026-01-24 - Added `AuthMethod` type, `getAuthMethod()` function, and updated `auth status` to display the authentication method used
 
 ---
 
