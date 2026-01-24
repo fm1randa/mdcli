@@ -296,7 +296,7 @@ Try: mdcli auth login --browser
 
 ### Phase 3: Config Extraction (Optimized Approach)
 
-#### Task 3.1: Implement Playwright persistent context launch
+#### Task 3.1: Implement Playwright persistent context launch [DONE]
 - **File**: `src/lib/browser-session.ts`
 - **Action**: Launch browser with copied profile
 - **Logic**:
@@ -307,6 +307,7 @@ Try: mdcli auth login --browser
   });
   ```
 - **Verification**: Browser opens with user's session
+- **Completed**: 2026-01-24 - Implemented `extractSessionFromBrowser()` with profile detection, temp copy, Playwright launch, and cleanup
 
 #### Task 3.2: Navigate and extract window.loginconfig
 - **File**: `src/lib/browser-session.ts`

@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { cp, mkdtemp, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { homedir, tmpdir } from 'node:os';
+import { chromium, firefox } from 'playwright';
 import type { AuthConfig } from '../types/index.js';
 
 export interface BrowserSessionOptions {
@@ -149,8 +150,29 @@ export async function cleanupTempDir(tempDir: string): Promise<void> {
 }
 
 export async function extractSessionFromBrowser(
-  _options?: BrowserSessionOptions
+  options?: BrowserSessionOptions
 ): Promise<AuthConfig> {
-  // TODO: Implement
-  throw new Error('Not implemented');
+  const browserType = options?.browser ?? 'chrome';
+  const profilePath = browserType === 'chrome' ? getChromeProfilePath() : getFirefoxProfilePath();
+
+  let tempDir: string | null = null;
+
+  try {
+    tempDir = await copyProfileToTemp(profilePath);
+
+    const browserLauncher = browserType === 'chrome' ? chromium : firefox;
+    const context = await browserLauncher.launchPersistentContext(tempDir, {
+      headless: false,
+      channel: browserType === 'chrome' ? 'chrome' : undefined,
+    });
+
+    // TODO: Tasks 3.2-3.5 - Navigate, extract loginconfig, cookies, and return AuthConfig
+    await context.close();
+
+    throw new Error('Not fully implemented: extraction logic pending (Tasks 3.2-3.5)');
+  } finally {
+    if (tempDir) {
+      await cleanupTempDir(tempDir);
+    }
+  }
 }

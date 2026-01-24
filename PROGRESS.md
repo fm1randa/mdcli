@@ -56,4 +56,17 @@
 - Verification: `bun run typecheck` passes, `bun run lint` passes
 - Note: `bun run knip` still flags `browser-session.ts` and `playwright` as unused - expected until Task 4.2
 
-**Next task**: Task 3.1 - Implement Playwright persistent context launch
+### Task 3.1: Implement Playwright persistent context launch [DONE]
+
+- Implemented `extractSessionFromBrowser()` function in `src/lib/browser-session.ts`:
+  - Accepts `BrowserSessionOptions` with browser type (chrome/firefox, defaults to chrome)
+  - Uses `getChromeProfilePath()` or `getFirefoxProfilePath()` based on browser option
+  - Copies profile to temp directory using `copyProfileToTemp()`
+  - Launches Playwright persistent context with `chromium.launchPersistentContext()` or `firefox.launchPersistentContext()`
+  - Uses `channel: 'chrome'` for Chrome to use system browser instead of downloading Chromium
+  - Ensures `cleanupTempDir()` is called in `finally` block (even on errors)
+  - Throws placeholder error for Tasks 3.2-3.5 (extraction logic not yet implemented)
+- Verification: `bun run typecheck` passes, `bun run lint` passes
+- Note: `bun run knip` flags `browser-session.ts` and `playwright` as unused - expected until Task 4.2
+
+**Next task**: Task 3.2 - Navigate and extract window.loginconfig
