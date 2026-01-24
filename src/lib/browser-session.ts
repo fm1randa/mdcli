@@ -257,7 +257,7 @@ export async function extractSessionFromBrowser(
 
     const browserLauncher = browserType === 'chrome' ? chromium : firefox;
     const context = await browserLauncher.launchPersistentContext(tempDir, {
-      headless: false,
+      headless: true,
       channel: browserType === 'chrome' ? 'chrome' : undefined,
     });
 
