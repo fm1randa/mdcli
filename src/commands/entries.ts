@@ -1,8 +1,9 @@
 import { Command } from 'commander';
 import Table from 'cli-table3';
 import chalk from 'chalk';
+import * as readline from 'readline';
 import { logger } from '../utils/logger.js';
-import { fetchEntries, normalizeEntries, createEntry, updateEntry, fetchEntry } from '../lib/api.js';
+import { fetchEntries, normalizeEntries, createEntry, updateEntry, fetchEntry, deleteEntry } from '../lib/api.js';
 import { resolveId, resolveIds } from '../lib/aliases.js';
 import type { CreateEntryPayload, CreateEntryAgenda, UpdateEntryPayload } from '../types/index.js';
 
@@ -546,3 +547,70 @@ entriesCommand
   .option('-r, --reconciled', 'Set as reconciled')
   .option('--json', 'Output as JSON')
   .action(updateAction);
+
+interface DeleteOptions {
+  dangerouslySkipConfirmation?: boolean;
+  json?: boolean;
+}
+
+async function promptConfirmation(message: string): Promise<boolean> {
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+
+  return new Promise((resolve) => {
+    rl.question(message, (answer) => {
+      rl.close();
+      resolve(answer.toLowerCase() === 'y');
+    });
+  });
+}
+
+async function deleteAction(id: string, options: DeleteOptions): Promise<void> {
+  try {
+    const entryId = Number(id);
+    if (Number.isNaN(entryId)) {
+      logger.error('Invalid entry ID. Must be a number.');
+      process.exit(1);
+    }
+
+    const entry = await fetchEntry(entryId);
+
+    if (!options.dangerouslySkipConfirmation) {
+      console.log(chalk.yellow('\nEntry to be deleted:'));
+      console.log(`  ${chalk.gray('ID:')} ${entry.id}`);
+      console.log(`  ${chalk.gray('Description:')} ${entry.descricao}`);
+      console.log(`  ${chalk.gray('Value:')} ${formatCurrency(entry.valor)}`);
+      console.log(`  ${chalk.gray('Date:')} ${entry.data}`);
+      console.log();
+
+      const confirmed = await promptConfirmation(chalk.red('Are you sure you want to delete this entry? (y/N) '));
+
+      if (!confirmed) {
+        logger.info('Deletion cancelled.');
+        process.exit(0);
+      }
+    }
+
+    await deleteEntry(entryId);
+
+    if (options.json) {
+      console.log(JSON.stringify({ deleted: true, id: entryId }, null, 2));
+      return;
+    }
+
+    logger.success(`Entry ${entryId} deleted successfully!`);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    logger.error(message);
+    process.exit(1);
+  }
+}
+
+entriesCommand
+  .command('delete <id>')
+  .description('Delete an entry')
+  .option('--dangerously-skip-confirmation', 'Skip confirmation prompt')
+  .option('--json', 'Output as JSON')
+  .action(deleteAction);
