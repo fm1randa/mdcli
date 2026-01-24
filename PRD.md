@@ -330,7 +330,7 @@ Try: mdcli auth login --browser
 - **Verification**: Config extracted immediately after page load
 - **Completed**: 2026-01-24 - Added `LoginConfigRaw` interface, navigation to MeuDinheiro, and `page.evaluate()` extraction of `window.loginconfig`
 
-#### Task 3.3: Extract JWT token from cookies
+#### Task 3.3: Extract JWT token from cookies [DONE]
 - **File**: `src/lib/browser-session.ts`
 - **Action**: Get `mdauthtoken0` cookie from browser context
 - **Logic**:
@@ -340,6 +340,7 @@ Try: mdcli auth login --browser
   const token = authCookie?.value || '';
   ```
 - **Verification**: Token extracted from HttpOnly cookie
+- **Completed**: 2026-01-24 - Added cookie extraction using `context.cookies()` to get JWT token
 
 #### Task 3.4: Handle user not logged in
 - **File**: `src/lib/browser-session.ts`

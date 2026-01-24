@@ -192,12 +192,15 @@ export async function extractSessionFromBrowser(
         };
       });
 
-      // TODO: Task 3.3 - Extract JWT token from cookies
+      const cookies = await context.cookies();
+      const authCookie = cookies.find((c) => c.name === 'mdauthtoken0');
+      const token = authCookie?.value ?? '';
+
       // TODO: Task 3.4 - Handle user not logged in
       // TODO: Task 3.5 - Convert to AuthConfig format
 
       throw new Error(
-        `Not fully implemented: extraction logic pending (Tasks 3.3-3.5). Config extracted: ${JSON.stringify(loginConfig)}`
+        `Not fully implemented: extraction logic pending (Tasks 3.4-3.5). Config extracted: ${JSON.stringify(loginConfig)}, Token: ${token ? 'present' : 'missing'}`
       );
     } finally {
       await context.close();

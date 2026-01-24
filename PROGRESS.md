@@ -81,4 +81,13 @@
 - Verification: `bun run typecheck` passes, `bun run lint` passes
 - Note: `bun run knip` still flags `browser-session.ts` and `playwright` as unused - expected until Task 4.2
 
-**Next task**: Task 3.3 - Extract JWT token from cookies
+### Task 3.3: Extract JWT token from cookies [DONE]
+
+- Added cookie extraction in `extractSessionFromBrowser()` in `src/lib/browser-session.ts`:
+  - Uses `context.cookies()` to get all cookies from the browser context
+  - Finds `mdauthtoken0` cookie which contains the JWT token
+  - Extracts the cookie value or defaults to empty string if not found
+- Verification: `bun run typecheck` passes, `bun run lint` passes
+- Note: `bun run knip` still flags `browser-session.ts` and `playwright` as unused - expected until Task 4.2
+
+**Next task**: Task 3.4 - Handle user not logged in
