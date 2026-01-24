@@ -148,7 +148,18 @@ function getFirefoxProfilePath(): string {
 
 async function copyProfileToTemp(profilePath: string): Promise<string> {
   const tempDir = await mkdtemp(join(tmpdir(), 'mdcli-profile-'));
-  await cp(profilePath, tempDir, { recursive: true });
+  try {
+    await cp(profilePath, tempDir, { recursive: true });
+  } catch (error) {
+    await rm(tempDir, { recursive: true, force: true }).catch(() => {});
+
+    if (error instanceof Error && 'code' in error && error.code === 'EACCES') {
+      throw new Error(
+        `Cannot access browser profile at: ${profilePath}\nPermission denied. Check file permissions or close the browser and try again.`
+      );
+    }
+    throw error;
+  }
   return tempDir;
 }
 

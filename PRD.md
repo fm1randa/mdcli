@@ -421,27 +421,31 @@ Try: mdcli auth login --browser
 
 ### Phase 5: Error Handling & Polish
 
-#### Task 5.1: Add Chrome not found error
+#### Task 5.1: Add Chrome not found error [DONE]
 - **File**: `src/lib/browser-session.ts`
 - **Action**: Check profile path exists before copying
 - **Verification**: Descriptive error when Chrome not installed
+- **Completed**: 2026-01-24 - Already implemented in Task 2.1 (getChromeProfilePath throws descriptive error if profile doesn't exist)
 
-#### Task 5.2: Add user not logged in error
+#### Task 5.2: Add user not logged in error [DONE]
 - **File**: `src/lib/browser-session.ts`
 - **Action**: Detect when `loginconfig.uid` is null
 - **Logic**: Server sets `uid: null` when user is not authenticated
 - **Verification**: Suggests `--browser` fallback
+- **Completed**: 2026-01-24 - Already implemented in Task 3.4 (throws "User is not logged into MeuDinheiro" when uid is null/undefined)
 
-#### Task 5.3: Add profile access permission error
+#### Task 5.3: Add profile access permission error [DONE]
 - **File**: `src/lib/browser-session.ts`
 - **Action**: Handle EACCES errors during profile copy
 - **Verification**: Suggests checking permissions
+- **Completed**: 2026-01-24 - Added try/catch in `copyProfileToTemp()` to catch EACCES errors and provide helpful message suggesting to check permissions or close the browser
 
-#### Task 5.4: Add loginconfig not found error
+#### Task 5.4: Add loginconfig not found error [DONE]
 - **File**: `src/lib/browser-session.ts`
 - **Action**: Detect when `window.loginconfig` is undefined
 - **Logic**: May indicate page didn't load correctly or site structure changed
 - **Verification**: Clear message about page load failure
+- **Completed**: 2026-01-24 - Already implemented in Task 3.5 (throws "Failed to extract authentication config from page" when required fields are missing)
 
 #### Task 5.5: Update auth status to show session source
 - **File**: `src/commands/auth.ts`

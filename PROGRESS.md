@@ -160,4 +160,34 @@
 
 **Phase 4 (CLI Integration) is now COMPLETE.**
 
-**Next task**: Task 5.1 - Add Chrome not found error
+### Task 5.1: Add Chrome not found error [DONE]
+
+- Already implemented as part of Task 2.1
+- `getChromeProfilePath()` already throws descriptive error if Chrome profile path doesn't exist
+- Error message includes suggestion to try `--session firefox` or `--browser`
+- Verification: Code review confirms lines 40-42 in browser-session.ts implement the expected behavior
+
+### Task 5.2: Add user not logged in error [DONE]
+
+- Already implemented as part of Task 3.4
+- `extractSessionFromBrowser()` throws if `loginConfig.uid` is null or undefined
+- Error message suggests `mdcli auth login --browser`
+- Verification: Code review confirms lines 199-201 in browser-session.ts implement the expected behavior
+
+### Task 5.3: Add profile access permission error [DONE]
+
+- Added try/catch in `copyProfileToTemp()` to handle EACCES errors during profile copy
+- On EACCES error, throws descriptive error: "Cannot access browser profile at: {path}\nPermission denied. Check file permissions or close the browser and try again."
+- Also cleans up the temp directory on copy failure to prevent orphan directories
+- Verification: `bun run typecheck` passes, `bun run lint` passes, `bun run knip` passes
+
+### Task 5.4: Add loginconfig not found error [DONE]
+
+- Already implemented as part of Task 3.5
+- `extractSessionFromBrowser()` throws if required loginconfig fields (mdApiKey, mdPolicy, mdSignature) are missing
+- Error message: "Failed to extract authentication config from page. The site structure may have changed.\nTry: mdcli auth login --browser"
+- Verification: Code review confirms lines 203-207 in browser-session.ts implement the expected behavior
+
+**Tasks 5.1-5.4 (Error Handling) are now COMPLETE.**
+
+**Next task**: Task 5.5 - Update auth status to show session source
