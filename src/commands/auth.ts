@@ -13,6 +13,7 @@ import {
   setCaptchaApiKey,
 } from '../lib/config.js';
 import { captureAuthFromBrowser, captureAuthHeadless } from '../lib/browser-auth.js';
+import { extractSessionFromBrowser } from '../lib/browser-session.js';
 import type { AuthConfig } from '../types/index.js';
 
 async function promptManualAuth(): Promise<AuthConfig> {
@@ -62,6 +63,7 @@ async function resolveOpItemName(providedItem?: string): Promise<string> {
 async function loginAction(options: {
   manual?: boolean;
   browser?: boolean;
+  session?: boolean | string;
   item?: string;
   captchaKey?: string;
 }): Promise<void> {
@@ -79,6 +81,13 @@ async function loginAction(options: {
     } else if (options.browser) {
       logger.info('Starting browser authentication...');
       auth = await captureAuthFromBrowser();
+    } else if (options.session) {
+      const browserType = options.session === true ? 'chrome' : options.session;
+      if (browserType !== 'chrome' && browserType !== 'firefox') {
+        throw new Error(`Invalid browser type: ${browserType}. Use "chrome" or "firefox".`);
+      }
+      logger.info(`Extracting session from ${browserType === 'chrome' ? 'Chrome' : 'Firefox'}...`);
+      auth = await extractSessionFromBrowser({ browser: browserType });
     } else {
       const itemName = await resolveOpItemName(options.item);
       const isNewItem = getOpItem() !== itemName;
@@ -136,6 +145,7 @@ authCommand
   .description('Authenticate with Meu Dinheiro (uses 1Password by default)')
   .option('-m, --manual', 'Manually enter authentication headers')
   .option('-b, --browser', 'Open browser for manual login')
+  .option('-s, --session [browser]', 'Extract session from browser profile (chrome|firefox)')
   .option('-i, --item <name>', '1Password item name (saved to config)')
   .option('-c, --captcha-key <key>', '2captcha API key for solving reCAPTCHA (saved to config)')
   .action(loginAction);

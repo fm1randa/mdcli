@@ -29,7 +29,7 @@ const FIREFOX_PROFILE_PARENT_PATHS: Record<string, string> = {
   linux: join(homedir(), '.mozilla', 'firefox'),
 };
 
-export function getChromeProfilePath(): string {
+function getChromeProfilePath(): string {
   const platform = process.platform;
   const profilePath = CHROME_PROFILE_PATHS[platform];
 
@@ -110,7 +110,7 @@ function parseFirefoxProfilesIni(iniPath: string): FirefoxProfile[] {
   return profiles;
 }
 
-export function getFirefoxProfilePath(): string {
+function getFirefoxProfilePath(): string {
   const platform = process.platform;
   const firefoxDir = FIREFOX_PROFILE_PARENT_PATHS[platform];
 
@@ -146,13 +146,13 @@ export function getFirefoxProfilePath(): string {
   return profilePath;
 }
 
-export async function copyProfileToTemp(profilePath: string): Promise<string> {
+async function copyProfileToTemp(profilePath: string): Promise<string> {
   const tempDir = await mkdtemp(join(tmpdir(), 'mdcli-profile-'));
   await cp(profilePath, tempDir, { recursive: true });
   return tempDir;
 }
 
-export async function cleanupTempDir(tempDir: string): Promise<void> {
+async function cleanupTempDir(tempDir: string): Promise<void> {
   await rm(tempDir, { recursive: true, force: true });
 }
 
