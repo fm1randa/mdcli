@@ -90,4 +90,13 @@
 - Verification: `bun run typecheck` passes, `bun run lint` passes
 - Note: `bun run knip` still flags `browser-session.ts` and `playwright` as unused - expected until Task 4.2
 
-**Next task**: Task 3.4 - Handle user not logged in
+### Task 3.4: Handle user not logged in [DONE]
+
+- Added unauthenticated user detection in `extractSessionFromBrowser()` in `src/lib/browser-session.ts`:
+  - Checks if `loginConfig` is null (page didn't load correctly or site structure changed)
+  - Checks if `loginConfig.uid` is null or undefined (user not authenticated)
+  - Throws descriptive error: "User is not logged into MeuDinheiro. Try: mdcli auth login --browser"
+- Verification: `bun run typecheck` passes, `bun run lint` passes
+- Note: `bun run knip` still flags `browser-session.ts` and `playwright` as unused - expected until Task 4.2
+
+**Next task**: Task 3.5 - Convert to AuthConfig format

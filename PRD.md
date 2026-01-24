@@ -342,7 +342,7 @@ Try: mdcli auth login --browser
 - **Verification**: Token extracted from HttpOnly cookie
 - **Completed**: 2026-01-24 - Added cookie extraction using `context.cookies()` to get JWT token
 
-#### Task 3.4: Handle user not logged in
+#### Task 3.4: Handle user not logged in [DONE]
 - **File**: `src/lib/browser-session.ts`
 - **Action**: Check if `loginconfig.uid` is null (not authenticated)
 - **Logic**:
@@ -352,6 +352,7 @@ Try: mdcli auth login --browser
   }
   ```
 - **Verification**: Clear error message for unauthenticated users
+- **Completed**: 2026-01-24 - Added check for missing loginConfig or null/undefined uid with descriptive error message
 
 #### Task 3.5: Convert to AuthConfig format
 - **File**: `src/lib/browser-session.ts`

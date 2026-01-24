@@ -196,11 +196,12 @@ export async function extractSessionFromBrowser(
       const authCookie = cookies.find((c) => c.name === 'mdauthtoken0');
       const token = authCookie?.value ?? '';
 
-      // TODO: Task 3.4 - Handle user not logged in
-      // TODO: Task 3.5 - Convert to AuthConfig format
+      if (!loginConfig || loginConfig.uid === null || loginConfig.uid === undefined) {
+        throw new Error('User is not logged into MeuDinheiro. Try: mdcli auth login --browser');
+      }
 
       throw new Error(
-        `Not fully implemented: extraction logic pending (Tasks 3.4-3.5). Config extracted: ${JSON.stringify(loginConfig)}, Token: ${token ? 'present' : 'missing'}`
+        `Not fully implemented: extraction logic pending (Task 3.5). Config extracted: ${JSON.stringify(loginConfig)}, Token: ${token ? 'present' : 'missing'}`
       );
     } finally {
       await context.close();
