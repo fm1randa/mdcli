@@ -380,7 +380,7 @@ Try: mdcli auth login --browser
 - **Verification**: Option appears in `mdcli auth login --help`
 - **Completed**: 2026-01-24 - Added --session option, updated loginAction to handle it, validated browser type input
 
-#### Task 4.2: Implement session extraction in loginAction
+#### Task 4.2: Implement session extraction in loginAction [DONE]
 - **File**: `src/commands/auth.ts`
 - **Action**: Call `extractSessionFromBrowser()` when `--session` is used
 - **Logic**:
@@ -391,8 +391,9 @@ Try: mdcli auth login --browser
   }
   ```
 - **Verification**: `mdcli auth login --session` extracts and saves auth
+- **Completed**: 2026-01-24 - Implemented as part of Task 4.1 (session handling integrated when adding --session option)
 
-#### Task 4.3: Make browser session the default auth method
+#### Task 4.3: Make browser session the default auth method [DONE]
 - **File**: `src/commands/auth.ts`
 - **Action**: Try browser session first when no options provided
 - **Logic**:
@@ -405,6 +406,7 @@ Try: mdcli auth login --browser
   }
   ```
 - **Verification**: `mdcli auth login` attempts browser session first
+- **Completed**: 2026-01-24 - Default flow now tries Chrome session first, falls back to 1Password on failure
 
 #### Task 4.4: Add fallback flow when session extraction fails
 - **File**: `src/commands/auth.ts`

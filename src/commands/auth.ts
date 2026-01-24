@@ -88,7 +88,7 @@ async function loginAction(options: {
       }
       logger.info(`Extracting session from ${browserType === 'chrome' ? 'Chrome' : 'Firefox'}...`);
       auth = await extractSessionFromBrowser({ browser: browserType });
-    } else {
+    } else if (options.item) {
       const itemName = await resolveOpItemName(options.item);
       const isNewItem = getOpItem() !== itemName;
 
@@ -99,6 +99,27 @@ async function loginAction(options: {
         setOpItem(itemName);
         logger.info(`1Password item "${itemName}" saved to config.`);
         logger.info('To change it, run: mdcli auth login --item <new-name>');
+      }
+    } else {
+      try {
+        logger.info('Extracting session from Chrome...');
+        auth = await extractSessionFromBrowser({ browser: 'chrome' });
+      } catch (sessionError) {
+        const sessionMessage = sessionError instanceof Error ? sessionError.message : 'Unknown error';
+        logger.warning(`Browser session extraction failed: ${sessionMessage}`);
+        logger.info('Falling back to 1Password authentication...');
+
+        const itemName = await resolveOpItemName(undefined);
+        const isNewItem = getOpItem() !== itemName;
+
+        logger.info(`Starting automatic authentication via 1Password (${itemName})...`);
+        auth = await captureAuthHeadless(itemName);
+
+        if (isNewItem) {
+          setOpItem(itemName);
+          logger.info(`1Password item "${itemName}" saved to config.`);
+          logger.info('To change it, run: mdcli auth login --item <new-name>');
+        }
       }
     }
 

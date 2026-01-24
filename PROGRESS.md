@@ -127,4 +127,19 @@
 - Verification: `bun run typecheck` passes, `bun run lint` passes, `bun run knip` passes
 - Verification: `mdcli auth login --help` shows the new `--session` option
 
-**Next task**: Task 4.2 - Implement session extraction in loginAction
+### Task 4.2: Implement session extraction in loginAction [DONE]
+
+- Already implemented as part of Task 4.1
+- The session extraction logic (calling `extractSessionFromBrowser()` when `--session` is used) was included in the Task 4.1 implementation
+- Verification: Code review confirms lines 84-90 in auth.ts implement the expected behavior
+
+### Task 4.3: Make browser session the default auth method [DONE]
+
+- Modified `loginAction` in `src/commands/auth.ts` to:
+  - Try browser session extraction first when no options are provided (`mdcli auth login`)
+  - Fall back to 1Password authentication if browser session extraction fails
+  - Log warning message with failure reason before falling back
+  - Explicit `--item` flag still directly uses 1Password without trying browser first
+- Verification: `bun run typecheck` passes, `bun run lint` passes, `bun run knip` passes
+
+**Next task**: Task 4.4 - Add fallback flow when session extraction fails
