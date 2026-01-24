@@ -374,10 +374,11 @@ Try: mdcli auth login --browser
 
 ### Phase 4: CLI Integration
 
-#### Task 4.1: Add --session option to auth login
+#### Task 4.1: Add --session option to auth login [DONE]
 - **File**: `src/commands/auth.ts`
 - **Action**: Add `.option('-s, --session [browser]', 'Extract session from browser (chrome|firefox)')`
 - **Verification**: Option appears in `mdcli auth login --help`
+- **Completed**: 2026-01-24 - Added --session option, updated loginAction to handle it, validated browser type input
 
 #### Task 4.2: Implement session extraction in loginAction
 - **File**: `src/commands/auth.ts`

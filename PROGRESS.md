@@ -113,4 +113,18 @@
 
 **Phase 3 (Config Extraction) is now COMPLETE.**
 
-**Next task**: Task 4.1 - Add --session option to auth login
+### Task 4.1: Add --session option to auth login [DONE]
+
+- Added `-s, --session [browser]` option to `auth login` command in `src/commands/auth.ts`:
+  - Import `extractSessionFromBrowser` from `browser-session.ts`
+  - Added `session?: boolean | string` to loginAction options type
+  - Implemented session handling: defaults to 'chrome' when flag provided without argument
+  - Validates browser type (must be 'chrome' or 'firefox')
+  - Logs browser name before extraction (e.g., "Extracting session from Chrome...")
+- Removed unused exports from `src/lib/browser-session.ts`:
+  - `getChromeProfilePath`, `getFirefoxProfilePath`, `copyProfileToTemp`, `cleanupTempDir` are now internal (non-exported)
+  - Only `extractSessionFromBrowser` and `BrowserSessionOptions` are exported
+- Verification: `bun run typecheck` passes, `bun run lint` passes, `bun run knip` passes
+- Verification: `mdcli auth login --help` shows the new `--session` option
+
+**Next task**: Task 4.2 - Implement session extraction in loginAction
