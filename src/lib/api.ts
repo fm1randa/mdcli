@@ -17,6 +17,7 @@ import type {
 } from '../types/index.js';
 import { getAuth, setAuth, getOpItem } from './config.js';
 import { captureAuthHeadless } from './browser-auth.js';
+import { extractSessionFromBrowser } from './browser-session.js';
 
 const BASE_URL = 'https://app.meudinheiroweb.com.br/api';
 
@@ -40,20 +41,29 @@ async function refreshAuthAndRetry<T>(
     throw new Error('Authentication refresh already in progress');
   }
 
-  const opItem = getOpItem();
-  if (!opItem) {
-    throw new Error(
-      'Authentication expired. No 1Password item configured for auto-refresh.\n' +
-        'Run "mdcli auth login --item <name>" to configure automatic login.'
-    );
-  }
-
   isRefreshing = true;
   try {
-    console.log('🔄 Token expired, refreshing via 1Password...');
-    const newAuth = await captureAuthHeadless(opItem);
-    setAuth(newAuth);
-    console.log('✓ Token refreshed successfully');
+    let newAuth: AuthConfig;
+
+    try {
+      console.log('🔄 Token expired, refreshing via browser session...');
+      newAuth = await extractSessionFromBrowser({ browser: 'chrome' });
+      setAuth(newAuth, 'browser-chrome');
+      console.log('✓ Token refreshed successfully via browser session');
+    } catch {
+      const opItem = getOpItem();
+      if (!opItem) {
+        throw new Error(
+          'Authentication expired. Browser session extraction failed and no 1Password item configured.\n' +
+            'Run "mdcli auth login" to re-authenticate.'
+        );
+      }
+
+      console.log('⚠ Browser session failed, falling back to 1Password...');
+      newAuth = await captureAuthHeadless(opItem);
+      setAuth(newAuth, '1password');
+      console.log('✓ Token refreshed successfully via 1Password');
+    }
 
     const response = await requestFn(newAuth);
     if (!response.ok) {
@@ -298,4 +308,36 @@ export async function createEntry(payload: CreateEntryPayload): Promise<CreateEn
 
 export async function updateEntry(id: number, payload: UpdateEntryPayload): Promise<CreateEntryResponse> {
   return apiPut<UpdateEntryPayload, CreateEntryResponse>(`/v1/lancamentos/${id}`, payload);
+}
+
+async function apiDelete(endpoint: string): Promise<void> {
+  const auth = getAuth();
+  if (!auth) {
+    throw new Error('Not authenticated. Run "mdcli auth login" first.');
+  }
+
+  const url = `${BASE_URL}${endpoint}`;
+
+  const response = await fetch(url, {
+    method: 'DELETE',
+    headers: buildPostHeaders(auth),
+  });
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      await refreshAuthAndRetry<void>((newAuth) =>
+        fetch(url, {
+          method: 'DELETE',
+          headers: buildPostHeaders(newAuth),
+        })
+      );
+      return;
+    }
+    const errorText = await response.text();
+    throw new Error(`API request failed: ${response.status} ${response.statusText} - ${errorText}`);
+  }
+}
+
+export async function deleteEntry(id: number): Promise<void> {
+  return apiDelete(`/v1/lancamentos/${id}`);
 }
