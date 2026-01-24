@@ -23,7 +23,7 @@ bun dev --help
 
 ### Optional: 1Password CLI
 
-For automatic login with automatic token refresh, install the [1Password CLI](https://developer.1password.com/docs/cli/get-started/):
+For automatic login when browser session extraction fails, install the [1Password CLI](https://developer.1password.com/docs/cli/get-started/):
 
 ```bash
 # macOS
@@ -48,17 +48,66 @@ mdcli auth login --captcha-key <your-2captcha-api-key>
 
 The API key is saved to config and reused for future logins.
 
+## Authentication
+
+The CLI supports multiple authentication methods:
+
+### Browser Session (Default)
+
+If you're already logged into MeuDinheiro in your browser, the CLI can extract your session automatically:
+
+```bash
+# Extracts session from Chrome (default)
+mdcli auth login
+
+# Explicitly use Chrome
+mdcli auth login --session chrome
+
+# Use Firefox instead
+mdcli auth login --session firefox
+```
+
+If session extraction fails (e.g., not logged in, browser not found), you'll be prompted with fallback options:
+1. Use 1Password for automatic login
+2. Try Firefox session instead
+3. Open browser for manual login
+4. Enter credentials manually
+5. Cancel
+
+### 1Password (Automatic)
+
+```bash
+# Use 1Password item (prompts for item name on first run)
+mdcli auth login --item
+
+# Specify item name directly
+mdcli auth login --item "My Meu Dinheiro"
+```
+
+### Browser Login (Manual)
+
+Opens a browser for you to log in manually:
+
+```bash
+mdcli auth login --browser
+```
+
+### Check Status
+
+```bash
+mdcli auth status
+```
+
+Shows your authentication status including the method used (Browser session, 1Password, etc.).
+
 ## Usage
 
 ```bash
-# Authenticate using 1Password (default, prompts for item name on first run)
+# Authenticate (extracts session from Chrome by default)
 mdcli auth login
 
-# Specify 1Password item name (saved to config for future use)
+# Or use 1Password
 mdcli auth login --item "My Meu Dinheiro"
-
-# Or open browser for manual login
-mdcli auth login --browser
 
 # List accounts
 mdcli accounts list --active
@@ -78,6 +127,7 @@ mdcli entries create --account mp --description "Groceries" --value 150 --catego
 ### Auth
 | Feature | Status |
 |---------|--------|
+| Browser session extraction (Chrome/Firefox) | Done |
 | Browser login (auto-capture) | Done |
 | Automatic login (1Password CLI) | Done |
 | Auto token refresh on 401 | Done |
@@ -139,5 +189,3 @@ mdcli entries create --account mp --description "Groceries" --value 150 --catego
 | Create (recurring) | Done |
 | Update | Done |
 | Delete | Missing |
-| Reconcile | Missing |
-| Confirm | Missing |

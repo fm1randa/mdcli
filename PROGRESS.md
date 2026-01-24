@@ -206,4 +206,18 @@
 
 **Phase 5 (Error Handling & Polish) is now COMPLETE.**
 
-**Next task**: Phase 6 - Testing & Documentation (manual tests + README update)
+### Task 6.6: Update README with new auth flow [DONE]
+
+- Updated `README.md` to document the new browser session authentication:
+  - Updated Usage section to show browser session extraction as the default
+  - Added new "Authentication" section documenting all auth methods:
+    - Browser Session (Default) with Chrome/Firefox options
+    - 1Password (Automatic) for fallback
+    - Browser Login (Manual) option
+    - Check Status command
+  - Updated Features table to add "Browser session extraction (Chrome/Firefox)"
+- Verification: `bun run typecheck` passes, `bun run lint` passes, `bun run knip` passes
+
+**Phase 6 Documentation is COMPLETE.**
+
+**Remaining**: Tasks 6.1-6.5 require manual testing by user (browser interaction)

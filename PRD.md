@@ -482,10 +482,11 @@ Try: mdcli auth login --browser
 - **Expected**: API accepts all headers
 - **Verification**: `mdcli accounts list` returns data
 
-#### Task 6.6: Update README with new auth flow
+#### Task 6.6: Update README with new auth flow [DONE]
 - **File**: `README.md`
 - **Action**: Document new default behavior and options
 - **Verification**: README reflects current behavior
+- **Completed**: 2026-01-24 - Updated Usage section, added Authentication section with all methods documented, updated Features table
 
 ---
 
@@ -569,3 +570,102 @@ window.loginconfig = {
 | `mdSignature` | `signature` | URL-decode before storing |
 | `uid` | `uid` | Convert to string |
 | (cookie `mdauthtoken0`) | `token` | JWT from HttpOnly cookie |
+
+---
+
+## Appendix: Task Updates (2026-01-24 Discovery)
+
+### Discovery: `loginconfig` Behavior Across Pages
+
+Browser testing revealed that `window.loginconfig` behaves differently than initially documented:
+
+| Page | URL | `loginconfig` Present | Structure |
+|------|-----|----------------------|-----------|
+| **Login page** | `https://app.meudinheiroweb.com.br/` | ✅ Yes | `uid: null`, `mdApiKey`, `mdPolicy`, `mdSignature`, `moedas` |
+| **MFA page** | `https://app.meudinheiroweb.com.br/u/{uid}` | ✅ Yes | `mdauthtoken` (JWT), `email`, `mdApiKey`, `mdPolicy`, `mdSignature` — **NO `uid` field** |
+| **Dashboard** | `https://app.meudinheiroweb.com.br/u/{uid}/visaogeral` | ❌ No | `undefined` |
+
+**Key Finding**: `loginconfig` is **NOT set by an API request**. It is server-side rendered directly into the HTML. The relevant API endpoints (`/api/v1/usuarios/login`, `/api/v1/usuarios/mfa`) return page redirects, not JSON.
+
+### MFA Page `loginconfig` Structure
+
+```javascript
+window.loginconfig = {
+  "mdApiKey": "775b1940a83eb7663c43",
+  "mdPolicy": "eyJrZXkiOi...%3D",
+  "mdSignature": "8kFswy94oEyjd8NSuDM%2Bn8DpVPI%3D",
+  "mdauthtoken": "eyJ0eXAiOiJKV1QiLC...",  // JWT token directly available
+  "email": "user@example.com",
+  "isMfaEmail": false
+  // NOTE: No `uid` field - extract from JWT's `uids` claim or URL
+}
+```
+
+---
+
+### Task Updates Required
+
+#### Task 3.2 Update: Handle Redirect Scenario
+
+**Problem**: If user has active session, navigating to `/` redirects to dashboard before `loginconfig` can be extracted.
+
+**Solution**: Add pre-navigation script to capture `loginconfig` immediately:
+
+```typescript
+// Inject script before navigation to capture loginconfig
+await page.addInitScript(() => {
+  Object.defineProperty(window, 'loginconfig', {
+    set(value) {
+      (window as any).__captured_loginconfig = value;
+      Object.defineProperty(window, 'loginconfig', { value, writable: true });
+    },
+    configurable: true
+  });
+});
+
+await page.goto('https://app.meudinheiroweb.com.br/');
+
+// Retrieve captured value even if page redirected
+const loginConfig = await page.evaluate(() => (window as any).__captured_loginconfig || (window as any).loginconfig);
+```
+
+#### Task 3.3 Update: Handle MFA Page Structure
+
+**Problem**: MFA page `loginconfig` has `mdauthtoken` but no `uid` field.
+
+**Solution**: Extract `uid` from JWT's `uids` claim:
+
+```typescript
+function extractUidFromJwt(token: string): string {
+  const payload = JSON.parse(atob(token.split('.')[1]));
+  return payload.uids; // "430631"
+}
+
+// In extraction logic:
+const uid = loginConfig.uid ?? extractUidFromJwt(loginConfig.mdauthtoken || token);
+```
+
+#### Task 3.4 Update: Token Source Priority
+
+**Problem**: JWT token available in multiple places depending on auth state.
+
+**Solution**: Use priority order for token extraction:
+
+```typescript
+// Priority order for JWT token:
+// 1. loginconfig.mdauthtoken (available on MFA page)
+// 2. mdauthtoken0 cookie (available after full auth)
+const token = loginConfig?.mdauthtoken || cookies.find(c => c.name === 'mdauthtoken0')?.value;
+```
+
+---
+
+### Updated Mapping to AuthConfig
+
+| Source | AuthConfig Field | Extraction Logic |
+|--------|------------------|------------------|
+| `loginconfig.mdApiKey` | `apiKey` | Direct mapping |
+| `loginconfig.mdPolicy` | `policy` | URL-decode |
+| `loginconfig.mdSignature` | `signature` | URL-decode |
+| `loginconfig.uid` OR JWT `uids` claim | `uid` | Fallback to JWT if `uid` is null |
+| `loginconfig.mdauthtoken` OR `mdauthtoken0` cookie | `token` | Fallback to cookie if not in loginconfig |
