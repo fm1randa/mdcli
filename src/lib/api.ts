@@ -14,6 +14,11 @@ import type {
   CreateEntryResponse,
   UpdateEntryPayload,
   Entry,
+  CardInvoiceResponse,
+  CardFutureResponse,
+  NormalizedCardEntry,
+  NormalizedCardInstallment,
+  Account,
 } from '../types/index.js';
 import { getAuth, setAuth, getOpItem } from './config.js';
 import { captureAuthHeadless } from './browser-auth.js';
@@ -188,6 +193,18 @@ export async function fetchTags(): Promise<TagsResponse> {
   return apiRequest<TagsResponse>('/v1/cadastros/tags?paginate=false');
 }
 
+export async function fetchFirstInvoiceDate(cardId: number): Promise<string> {
+  return apiRequest<string>(`/v1/cartoes/${cardId}/primeiraFatura?id=${cardId}`);
+}
+
+export async function fetchCardInvoice(cardId: number, dueDate: string): Promise<CardInvoiceResponse> {
+  return apiRequest<CardInvoiceResponse>(`/v1/cartoes/${cardId}/fatura/${dueDate}?id=${cardId}&vencimento=${dueDate}`);
+}
+
+export async function fetchCardFuture(cardId: number): Promise<CardFutureResponse> {
+  return apiRequest<CardFutureResponse>(`/v1/cartoes/${cardId}/parcelasFuturas?id=${cardId}&totalizar=true`);
+}
+
 export async function fetchEntry(id: number): Promise<Entry> {
   return apiRequest<Entry>(`/v1/lancamentos/${id}`);
 }
@@ -300,6 +317,34 @@ export function normalizeEntries(response: EntriesResponse): NormalizedEntry[] {
     categoryId: entry.categoria ?? null,
     installment: entry.parcela ?? null,
   }));
+}
+
+export function normalizeCardEntries(response: CardInvoiceResponse): NormalizedCardEntry[] {
+  return response.list.map((entry) => ({
+    id: entry.id,
+    description: entry.descricao,
+    date: entry.data,
+    value: entry.valor,
+    categoryId: entry.categoria ?? null,
+    installment: entry.parcela ?? null,
+  }));
+}
+
+export function normalizeCardInstallments(response: CardFutureResponse): NormalizedCardInstallment[] {
+  return response.list.map((item) => ({
+    id: item.id,
+    description: item.descricao,
+    date: item.data,
+    value: item.valor,
+    installment: item.parcela,
+    remaining: item.parcelasRestantes ?? 0,
+    categoryId: item.categoria ?? null,
+  }));
+}
+
+export function isCreditCard(account: Account): boolean {
+  const CREDIT_CARD_TYPE_ID = 3;
+  return account.tipoNovo === CREDIT_CARD_TYPE_ID;
 }
 
 export async function createEntry(payload: CreateEntryPayload): Promise<CreateEntryResponse> {

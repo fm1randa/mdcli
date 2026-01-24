@@ -361,6 +361,25 @@ export interface NormalizedEntry {
   installment: string | null;
 }
 
+export interface NormalizedCardEntry {
+  id: number | string;
+  description: string;
+  date: string;
+  value: number;
+  categoryId: number | null;
+  installment: string | null;
+}
+
+export interface NormalizedCardInstallment {
+  id: number | string;
+  description: string;
+  date: string;
+  value: number;
+  installment: string;
+  remaining: number;
+  categoryId: number | null;
+}
+
 export interface CreateEntryStatus {
   confirmado: boolean;
   conciliado: boolean;
