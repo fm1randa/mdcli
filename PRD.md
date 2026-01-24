@@ -285,11 +285,12 @@ Try: mdcli auth login --browser
 - **Verification**: Creates temp directory with profile contents
 - **Completed**: 2026-01-24 - `copyProfileToTemp()` function added using `mkdtemp` and `cp` from `node:fs/promises`
 
-#### Task 2.4: Implement temp directory cleanup
+#### Task 2.4: Implement temp directory cleanup [DONE]
 - **File**: `src/lib/browser-session.ts`
 - **Action**: Add cleanup in `finally` block
 - **Logic**: `await rm(tempDir, { recursive: true, force: true })`
 - **Verification**: Temp directory removed after extraction (success or error)
+- **Completed**: 2026-01-24 - `cleanupTempDir()` function added using `rm` from `node:fs/promises`
 
 ---
 

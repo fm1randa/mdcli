@@ -47,4 +47,13 @@
 - Verification: `bun run typecheck` passes, `bun run lint` passes
 - Note: `bun run knip` still flags `browser-session.ts` and `playwright` as unused - expected until Task 4.2
 
-**Next task**: Task 2.4 - Implement temp directory cleanup
+### Task 2.4: Implement temp directory cleanup [DONE]
+
+- Added `cleanupTempDir()` function to `src/lib/browser-session.ts`:
+  - Imports `rm` from `node:fs/promises`
+  - Removes temp directory with `{ recursive: true, force: true }` options
+  - Will be called in `finally` block when `extractSessionFromBrowser` is fully implemented in Phase 3
+- Verification: `bun run typecheck` passes, `bun run lint` passes
+- Note: `bun run knip` still flags `browser-session.ts` and `playwright` as unused - expected until Task 4.2
+
+**Next task**: Task 3.1 - Implement Playwright persistent context launch

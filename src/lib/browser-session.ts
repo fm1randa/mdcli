@@ -1,5 +1,5 @@
 import { existsSync, readFileSync } from 'node:fs';
-import { cp, mkdtemp } from 'node:fs/promises';
+import { cp, mkdtemp, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { homedir, tmpdir } from 'node:os';
 import type { AuthConfig } from '../types/index.js';
@@ -142,6 +142,10 @@ export async function copyProfileToTemp(profilePath: string): Promise<string> {
   const tempDir = await mkdtemp(join(tmpdir(), 'mdcli-profile-'));
   await cp(profilePath, tempDir, { recursive: true });
   return tempDir;
+}
+
+export async function cleanupTempDir(tempDir: string): Promise<void> {
+  await rm(tempDir, { recursive: true, force: true });
 }
 
 export async function extractSessionFromBrowser(
