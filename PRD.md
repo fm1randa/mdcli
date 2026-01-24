@@ -264,11 +264,12 @@ Try: mdcli auth login --browser
 - **Verification**: Returns correct path for current platform
 - **Completed**: 2026-01-24 - getChromeProfilePath() added with platform detection and existence check
 
-#### Task 2.2: Implement Firefox profile path detection
+#### Task 2.2: Implement Firefox profile path detection [DONE]
 - **File**: `src/lib/browser-session.ts`
 - **Action**: Add `getFirefoxProfilePath()` function
 - **Logic**: Parse `profiles.ini` to find default profile
 - **Verification**: Returns correct path for current platform
+- **Completed**: 2026-01-24 - getFirefoxProfilePath() added with profiles.ini parsing and default profile detection
 
 #### Task 2.3: Implement profile copy to temp directory
 - **File**: `src/lib/browser-session.ts`

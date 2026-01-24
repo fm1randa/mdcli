@@ -26,4 +26,16 @@
 - Verification: `bun run typecheck` passes, `bun run lint` passes
 - Note: `bun run knip` still flags `browser-session.ts` and `playwright` as unused - expected until Task 4.2
 
-**Next task**: Task 2.2 - Implement Firefox profile path detection
+### Task 2.2: Implement Firefox profile path detection [DONE]
+
+- Added `getFirefoxProfilePath()` function to `src/lib/browser-session.ts`:
+  - Platform-specific paths for macOS, Windows, and Linux
+  - Parses `profiles.ini` to find all configured profiles
+  - Selects the default profile (marked with `Default=1`) or falls back to first profile
+  - Handles both relative and absolute profile paths
+  - Validates profile path exists with `existsSync()`
+  - Throws descriptive errors if Firefox not found, profiles.ini missing, or no profiles found (suggests `--session chrome` or `--browser`)
+- Verification: `bun run typecheck` passes, `bun run lint` passes
+- Note: `bun run knip` still flags `browser-session.ts` and `playwright` as unused - expected until Task 4.2
+
+**Next task**: Task 2.3 - Implement profile copy to temp directory
