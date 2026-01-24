@@ -308,6 +308,47 @@ export interface EntriesParams {
   entryType?: number;
 }
 
+// Credit Card Types
+export interface CardInvoiceEntry {
+  id: number | string;
+  descricao: string;
+  valor: number;
+  data: string;
+  categoria?: number;
+  parcela?: string;
+  status?: string;
+  tipo?: string;
+}
+
+export interface CardInvoiceResponse {
+  list: CardInvoiceEntry[];
+  meta?: {
+    total?: number;
+  };
+}
+
+export interface CardFutureInstallment {
+  id: number | string;
+  descricao: string;
+  valor: number;
+  data: string;
+  parcela: string;
+  parcelasRestantes?: number;
+  categoria?: number;
+}
+
+export interface CardFutureResponse {
+  list: CardFutureInstallment[];
+  meta?: {
+    total?: number;
+  };
+}
+
+// Credit card type ID from AccountMeta.tipos[]
+// TODO: Verify this value by inspecting API response from /api/v1/cadastros/contas?meta=true
+// Look for the tipo with nome matching "Cartão de Crédito" or similar
+export const CREDIT_CARD_TYPE_ID = 3;
+
 export interface NormalizedEntry {
   id: number | string;
   description: string;
