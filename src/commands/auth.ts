@@ -5,6 +5,7 @@ import {
   getAuth,
   getAuthMethod,
   setAuth,
+  clearAuth,
   hasAuth,
   getConfigPath,
   getFullConfig,
@@ -211,6 +212,23 @@ function statusAction(): void {
   logger.blank();
 }
 
+function logoutAction(options: { all?: boolean }): void {
+  const wasAuthenticated = hasAuth();
+  clearAuth(options.all);
+
+  if (wasAuthenticated) {
+    logger.success('Logged out. Stored credentials removed.');
+  } else {
+    logger.info('No active session was found.');
+  }
+
+  if (options.all) {
+    logger.info('Also cleared the saved 1Password item and 2captcha API key.');
+  }
+
+  logger.log(`  Config file: ${getConfigPath()}`);
+}
+
 export const authCommand = new Command('auth')
   .description('Manage authentication');
 
@@ -228,3 +246,9 @@ authCommand
   .command('status')
   .description('Show current authentication status')
   .action(statusAction);
+
+authCommand
+  .command('logout')
+  .description('Remove the stored session (use --all to also clear the saved 1Password item and 2captcha key)')
+  .option('--all', 'Also clear the saved 1Password item and 2captcha API key')
+  .action(logoutAction);

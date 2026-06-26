@@ -47,6 +47,18 @@ export function setAuth(auth: AuthConfig, method?: AuthMethod): void {
   saveConfig(config);
 }
 
+export function clearAuth(includePreferences = false): void {
+  const config = loadConfig();
+  delete config.auth;
+  delete config.authMethod;
+  delete config.lastUpdated;
+  if (includePreferences) {
+    delete config.opItem;
+    delete config.captchaApiKey;
+  }
+  saveConfig(config);
+}
+
 export function getAuthMethod(): AuthMethod | null {
   const config = loadConfig();
   return config.authMethod ?? null;

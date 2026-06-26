@@ -100,6 +100,16 @@ mdcli auth status
 
 Shows your authentication status including the method used (Browser session, 1Password, etc.).
 
+### Logout
+
+```bash
+# Remove the stored session
+mdcli auth logout
+
+# Also clear the saved 1Password item and 2Captcha key
+mdcli auth logout --all
+```
+
 ## Usage
 
 ```bash
@@ -148,7 +158,7 @@ mdcli cards future --account <cardId>
 | Auto token refresh on 401 | Done |
 | Manual token entry | Done |
 | Status check | Done |
-| Logout | Missing |
+| Logout | Done |
 
 ### Accounts
 | Feature | Status |
