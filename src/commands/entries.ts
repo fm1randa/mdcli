@@ -125,9 +125,9 @@ async function listAction(options: ListOptions): Promise<void> {
       process.exit(1);
     }
 
-    const accountResult = resolveIds('accounts', options.account);
+    const accountResult = await resolveIds('accounts', options.account);
     if (accountResult.unresolved.length > 0) {
-      logger.error(`Unknown account alias(es): ${accountResult.unresolved.join(', ')}`);
+      logger.error(`Unknown account(s): ${accountResult.unresolved.join(', ')}`);
       process.exit(1);
     }
     const accountIds = accountResult.ids;
@@ -141,9 +141,9 @@ async function listAction(options: ListOptions): Promise<void> {
 
     let categoryIds: number[] | undefined;
     if (options.category) {
-      const categoryResult = resolveIds('categories', options.category);
+      const categoryResult = await resolveIds('categories', options.category);
       if (categoryResult.unresolved.length > 0) {
-        logger.error(`Unknown category alias(es): ${categoryResult.unresolved.join(', ')}`);
+        logger.error(`Unknown category(ies): ${categoryResult.unresolved.join(', ')}`);
         process.exit(1);
       }
       categoryIds = categoryResult.ids;
@@ -151,9 +151,9 @@ async function listAction(options: ListOptions): Promise<void> {
 
     let tagIds: number[] | undefined;
     if (options.tag) {
-      const tagResult = resolveIds('tags', options.tag);
+      const tagResult = await resolveIds('tags', options.tag);
       if (tagResult.unresolved.length > 0) {
-        logger.error(`Unknown tag alias(es): ${tagResult.unresolved.join(', ')}`);
+        logger.error(`Unknown tag(s): ${tagResult.unresolved.join(', ')}`);
         process.exit(1);
       }
       tagIds = tagResult.ids;
@@ -224,13 +224,13 @@ export const entriesCommand = new Command('entries')
 entriesCommand
   .command('list')
   .description('List entries for an account')
-  .requiredOption('-a, --account <ids>', 'Account ID(s) or alias(es), comma-separated')
+  .requiredOption('-a, --account <ids>', 'Account ID(s), alias(es), or exact name(s) (case-insensitive), comma-separated')
   .option('-f, --from <date>', 'Start date (YYYY-MM-DD), defaults to first day of current month')
   .option('-t, --to <date>', 'End date (YYYY-MM-DD), defaults to last day of current month')
   .option('-s, --status <filter>', 'Filter by status: pending, confirmed, reconciled, scheduled (or bitmask 0-15)')
   .option('-T, --type <filter>', 'Filter by type: expense, income, transfer-out, transfer-in (or bitmask 0-15)')
-  .option('-c, --category <ids>', 'Filter by category ID(s) or alias(es), comma-separated')
-  .option('-g, --tag <ids>', 'Filter by tag ID(s) or alias(es), comma-separated')
+  .option('-c, --category <ids>', 'Filter by category ID(s), alias(es), or exact name(s) (case-insensitive), comma-separated')
+  .option('-g, --tag <ids>', 'Filter by tag ID(s), alias(es), or exact name(s) (case-insensitive), comma-separated')
   .option('-k, --keywords <text>', 'Search by keywords')
   .option('-v, --value <amount>', 'Filter by value')
   .option('--json', 'Output as JSON')
@@ -322,7 +322,7 @@ async function createAction(options: CreateOptions): Promise<void> {
       process.exit(1);
     }
 
-    const accountId = resolveId('accounts', options.account);
+    const accountId = await resolveId('accounts', options.account);
     if (accountId === null) {
       logger.error(`Unknown account: ${options.account}`);
       process.exit(1);
@@ -330,7 +330,7 @@ async function createAction(options: CreateOptions): Promise<void> {
 
     let categoryId: number | null = null;
     if (options.category) {
-      categoryId = resolveId('categories', options.category);
+      categoryId = await resolveId('categories', options.category);
       if (categoryId === null) {
         logger.error(`Unknown category: ${options.category}`);
         process.exit(1);
@@ -339,9 +339,9 @@ async function createAction(options: CreateOptions): Promise<void> {
 
     let tagIds: number[] = [];
     if (options.tags) {
-      const tagResult = resolveIds('tags', options.tags);
+      const tagResult = await resolveIds('tags', options.tags);
       if (tagResult.unresolved.length > 0) {
-        logger.error(`Unknown tag alias(es): ${tagResult.unresolved.join(', ')}`);
+        logger.error(`Unknown tag(s): ${tagResult.unresolved.join(', ')}`);
         process.exit(1);
       }
       tagIds = tagResult.ids;
@@ -419,13 +419,13 @@ async function createAction(options: CreateOptions): Promise<void> {
 entriesCommand
   .command('create')
   .description('Create a new entry')
-  .requiredOption('-a, --account <id>', 'Account ID or alias')
+  .requiredOption('-a, --account <id>', 'Account ID, alias, or exact name (case-insensitive)')
   .requiredOption('-d, --description <text>', 'Entry description')
   .requiredOption('-v, --value <amount>', 'Entry value (positive number)')
   .option('-T, --type <type>', 'Entry type: expense, income, transfer (default: expense)', 'expense')
-  .option('-c, --category <id>', 'Category ID or alias (required)')
+  .option('-c, --category <id>', 'Category ID, alias, or exact name (case-insensitive) (required)')
   .option('-D, --date <date>', 'Entry date (YYYY-MM-DD), defaults to today')
-  .option('-g, --tags <ids>', 'Tag ID(s) or alias(es), comma-separated')
+  .option('-g, --tags <ids>', 'Tag ID(s), alias(es), or exact name(s) (case-insensitive), comma-separated')
   .option('-n, --notes <text>', 'Additional notes/observations')
   .option('-p, --pending', 'Create as pending (not reconciled)')
   .option('-r, --repeat <interval>', 'Recurrence: daily, weekly, monthly, yearly (or d, w, m, y)')
@@ -458,7 +458,7 @@ async function updateAction(id: string, options: UpdateOptions): Promise<void> {
     // Validate options that need resolution before fetching entry
     let categoryId: number | null = null;
     if (options.category !== undefined) {
-      categoryId = resolveId('categories', options.category);
+      categoryId = await resolveId('categories', options.category);
       if (categoryId === null) {
         logger.error(`Unknown category: ${options.category}`);
         process.exit(1);
@@ -467,9 +467,9 @@ async function updateAction(id: string, options: UpdateOptions): Promise<void> {
 
     let tagIds: number[] | undefined;
     if (options.tags !== undefined) {
-      const tagResult = resolveIds('tags', options.tags);
+      const tagResult = await resolveIds('tags', options.tags);
       if (tagResult.unresolved.length > 0) {
-        logger.error(`Unknown tag alias(es): ${tagResult.unresolved.join(', ')}`);
+        logger.error(`Unknown tag(s): ${tagResult.unresolved.join(', ')}`);
         process.exit(1);
       }
       tagIds = tagResult.ids;
@@ -572,9 +572,9 @@ entriesCommand
   .option('-d, --description <text>', 'Entry description')
   .option('-v, --value <amount>', 'Entry value')
   .option('-T, --type <type>', 'Entry type: expense, income, transfer')
-  .option('-c, --category <id>', 'Category ID or alias')
+  .option('-c, --category <id>', 'Category ID, alias, or exact name (case-insensitive)')
   .option('-D, --date <date>', 'Entry date (YYYY-MM-DD)')
-  .option('-g, --tags <ids>', 'Tag ID(s) or alias(es), comma-separated')
+  .option('-g, --tags <ids>', 'Tag ID(s), alias(es), or exact name(s) (case-insensitive), comma-separated')
   .option('-n, --notes <text>', 'Additional notes/observations')
   .option('-p, --pending', 'Set as pending (not reconciled)')
   .option('-r, --reconciled', 'Set as reconciled')

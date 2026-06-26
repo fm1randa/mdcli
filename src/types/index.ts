@@ -219,6 +219,17 @@ export interface AliasMap {
   tags: Alias[];
 }
 
+export interface NameCacheEntry {
+  byName: Record<string, number>;
+  cachedAt: string;
+}
+
+export interface NameCache {
+  accounts?: NameCacheEntry;
+  categories?: NameCacheEntry;
+  tags?: NameCacheEntry;
+}
+
 export type AuthMethod = 'browser-chrome' | 'browser-firefox' | '1password' | 'browser-manual' | 'manual';
 
 export interface MdcliConfig {
@@ -226,6 +237,7 @@ export interface MdcliConfig {
   authMethod?: AuthMethod;
   lastUpdated?: string;
   aliases?: AliasMap;
+  nameCache?: NameCache;
   opItem?: string;
   captchaApiKey?: string;
 }

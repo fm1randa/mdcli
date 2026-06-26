@@ -22,7 +22,8 @@ import type {
   CreateTagPayload,
   CreateTagResponse,
 } from '../types/index.js';
-import { getAuth, setAuth, getOpItem } from './config.js';
+import { getAuth, setAuth, getOpItem, invalidateNameCache } from './config.js';
+import { popStaleNameCacheUse } from './cache-invalidation.js';
 import { captureAuthHeadless } from './browser-auth.js';
 import { extractSessionFromBrowser } from './browser-session.js';
 
@@ -105,6 +106,8 @@ async function apiRequest<T>(endpoint: string): Promise<T> {
         })
       );
     }
+    const cachedType = popStaleNameCacheUse();
+    if (cachedType) invalidateNameCache(cachedType);
     throw new Error(`API request failed: ${response.status} ${response.statusText}`);
   }
 
@@ -145,6 +148,8 @@ async function apiPost<T, R>(endpoint: string, body: T): Promise<R> {
         })
       );
     }
+    const cachedType = popStaleNameCacheUse();
+    if (cachedType) invalidateNameCache(cachedType);
     const errorText = await response.text();
     throw new Error(`API request failed: ${response.status} ${response.statusText} - ${errorText}`);
   }
@@ -176,6 +181,8 @@ async function apiPut<T, R>(endpoint: string, body: T): Promise<R> {
         })
       );
     }
+    const cachedType = popStaleNameCacheUse();
+    if (cachedType) invalidateNameCache(cachedType);
     const errorText = await response.text();
     throw new Error(`API request failed: ${response.status} ${response.statusText} - ${errorText}`);
   }
@@ -394,6 +401,8 @@ async function apiDelete(endpoint: string): Promise<void> {
       );
       return;
     }
+    const cachedType = popStaleNameCacheUse();
+    if (cachedType) invalidateNameCache(cachedType);
     const errorText = await response.text();
     throw new Error(`API request failed: ${response.status} ${response.statusText} - ${errorText}`);
   }

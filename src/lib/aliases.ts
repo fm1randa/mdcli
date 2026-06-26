@@ -1,4 +1,5 @@
 import { getFullConfig, setAliases } from './config.js';
+import { getNameIndex } from './name-cache.js';
 import type { Alias, AliasMap, AliasType } from '../types/index.js';
 
 function loadAliases(): AliasMap {
@@ -76,7 +77,7 @@ export function removeAlias(type: AliasType, identifier: string): { success: boo
   return { success: true };
 }
 
-export function resolveId(type: AliasType, input: string): number | null {
+export async function resolveId(type: AliasType, input: string): Promise<number | null> {
   const num = Number(input);
   if (!Number.isNaN(num)) {
     return num;
@@ -84,17 +85,42 @@ export function resolveId(type: AliasType, input: string): number | null {
 
   const aliases = loadAliases()[type];
   const alias = aliases.find((a) => a.name === input);
-  return alias?.id ?? null;
+  if (alias) {
+    return alias.id;
+  }
+
+  const index = await getNameIndex(type);
+  return index[input.toLowerCase()] ?? null;
 }
 
-export function resolveIds(type: AliasType, input: string): { ids: number[]; unresolved: string[] } {
+export async function resolveIds(type: AliasType, input: string): Promise<{ ids: number[]; unresolved: string[] }> {
   const parts = input.split(',').map((s) => s.trim());
   const ids: number[] = [];
-  const unresolved: string[] = [];
+  const remaining: string[] = [];
 
   for (const part of parts) {
-    const id = resolveId(type, part);
-    if (id !== null) {
+    const num = Number(part);
+    if (!Number.isNaN(num)) {
+      ids.push(num);
+      continue;
+    }
+    const alias = loadAliases()[type].find((a) => a.name === part);
+    if (alias) {
+      ids.push(alias.id);
+      continue;
+    }
+    remaining.push(part);
+  }
+
+  if (remaining.length === 0) {
+    return { ids, unresolved: [] };
+  }
+
+  const index = await getNameIndex(type);
+  const unresolved: string[] = [];
+  for (const part of remaining) {
+    const id = index[part.toLowerCase()];
+    if (id !== undefined) {
       ids.push(id);
     } else {
       unresolved.push(part);
