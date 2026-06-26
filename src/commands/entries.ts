@@ -148,7 +148,15 @@ async function listAction(options: ListOptions): Promise<void> {
     }
     const status = options.status ? parseStatusFilter(options.status) : undefined;
     const entryType = options.type ? parseTypeFilter(options.type) : undefined;
-    const value = options.value ? Number(options.value) : undefined;
+
+    let value: number | undefined;
+    if (options.value !== undefined) {
+      value = Number(options.value);
+      if (Number.isNaN(value)) {
+        logger.error('Invalid value. Must be a number.');
+        process.exit(1);
+      }
+    }
 
     const response = await fetchEntries({
       accountIds,
