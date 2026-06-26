@@ -1,8 +1,9 @@
 import { Command } from 'commander';
 import Table from 'cli-table3';
 import chalk from 'chalk';
+import * as readline from 'readline';
 import { logger } from '../utils/logger.js';
-import { fetchTags, normalizeTags } from '../lib/api.js';
+import { fetchTags, normalizeTags, createTag, updateTag, deleteTag } from '../lib/api.js';
 import { addAlias, getAliases, removeAlias, updateAlias } from '../lib/aliases.js';
 
 function formatColor(hex: string): string {
@@ -59,6 +60,189 @@ tagsCommand
   .option('--json', 'Output as JSON')
   .option('--active', 'Show only active tags')
   .action(listAction);
+
+function promptConfirmation(message: string): Promise<boolean> {
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  return new Promise((resolve) => {
+    rl.question(message, (answer) => {
+      rl.close();
+      resolve(answer.toLowerCase() === 'y');
+    });
+  });
+}
+
+interface CreateTagOptions {
+  name: string;
+  color?: string;
+  json?: boolean;
+}
+
+async function createTagAction(options: CreateTagOptions): Promise<void> {
+  try {
+    const cor = (options.color ?? '808080').replace(/^#/, '');
+    if (!/^[0-9a-fA-F]{6}$/.test(cor)) {
+      logger.error('Invalid color. Use a 6-digit hex code, e.g. #FF0000.');
+      process.exit(1);
+    }
+
+    const response = await createTag({ nome: options.name, cor, status: true });
+
+    if (options.json) {
+      console.log(JSON.stringify(response, null, 2));
+      return;
+    }
+
+    logger.success(`Tag "${response.nome}" created successfully!`);
+    console.log(`  ${chalk.gray('ID:')} ${response.id}`);
+    console.log(`  ${chalk.gray('Color:')} ${formatColor('#' + response.cor)}`);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    logger.error(message);
+    process.exit(1);
+  }
+}
+
+tagsCommand
+  .command('create')
+  .description('Create a new tag')
+  .requiredOption('-n, --name <name>', 'Tag name')
+  .option('-C, --color <hex>', 'Tag color as a hex code (e.g. #FF0000), defaults to gray')
+  .option('--json', 'Output as JSON')
+  .action(createTagAction);
+
+interface UpdateTagOptions {
+  name?: string;
+  color?: string;
+  active?: boolean;
+  inactive?: boolean;
+  json?: boolean;
+}
+
+async function updateTagAction(id: string, options: UpdateTagOptions): Promise<void> {
+  try {
+    const tagId = Number(id);
+    if (Number.isNaN(tagId)) {
+      logger.error('Invalid tag ID. Must be a number.');
+      process.exit(1);
+    }
+
+    if (
+      options.name === undefined &&
+      options.color === undefined &&
+      !options.active &&
+      !options.inactive
+    ) {
+      logger.error('No changes specified. Use --name, --color, --active or --inactive.');
+      process.exit(1);
+    }
+
+    if (options.active && options.inactive) {
+      logger.error('Cannot use --active and --inactive together.');
+      process.exit(1);
+    }
+
+    let cor: string | undefined;
+    if (options.color !== undefined) {
+      cor = options.color.replace(/^#/, '');
+      if (!/^[0-9a-fA-F]{6}$/.test(cor)) {
+        logger.error('Invalid color. Use a 6-digit hex code, e.g. #FF0000.');
+        process.exit(1);
+      }
+    }
+
+    const existing = normalizeTags(await fetchTags()).find((t) => t.id === tagId);
+    if (!existing) {
+      logger.error(`Tag ${tagId} not found.`);
+      process.exit(1);
+    }
+
+    let status = existing.active;
+    if (options.active) status = true;
+    if (options.inactive) status = false;
+
+    const response = await updateTag(tagId, {
+      nome: options.name ?? existing.name,
+      cor: cor ?? existing.color.replace(/^#/, ''),
+      status,
+    });
+
+    if (options.json) {
+      console.log(JSON.stringify(response, null, 2));
+      return;
+    }
+
+    logger.success(`Tag "${response.nome}" updated successfully!`);
+    console.log(`  ${chalk.gray('ID:')} ${response.id}`);
+    console.log(`  ${chalk.gray('Color:')} ${formatColor('#' + response.cor)}`);
+    console.log(`  ${chalk.gray('Active:')} ${response.status ? chalk.green('yes') : chalk.gray('no')}`);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    logger.error(message);
+    process.exit(1);
+  }
+}
+
+tagsCommand
+  .command('update <id>')
+  .description('Update a tag (only the fields you pass are changed)')
+  .option('-n, --name <name>', 'New tag name')
+  .option('-C, --color <hex>', 'New tag color as a hex code (e.g. #FF0000)')
+  .option('--active', 'Mark the tag as active')
+  .option('--inactive', 'Mark the tag as inactive (archive)')
+  .option('--json', 'Output as JSON')
+  .action(updateTagAction);
+
+interface DeleteTagOptions {
+  dangerouslySkipConfirmation?: boolean;
+  json?: boolean;
+}
+
+async function deleteTagAction(id: string, options: DeleteTagOptions): Promise<void> {
+  try {
+    const tagId = Number(id);
+    if (Number.isNaN(tagId)) {
+      logger.error('Invalid tag ID. Must be a number.');
+      process.exit(1);
+    }
+
+    if (!options.dangerouslySkipConfirmation) {
+      const tag = normalizeTags(await fetchTags()).find((t) => t.id === tagId);
+      if (!tag) {
+        logger.error(`Tag ${tagId} not found.`);
+        process.exit(1);
+      }
+
+      const confirmed = await promptConfirmation(
+        chalk.red(`Are you sure you want to delete tag "${tag.name}" (${tagId})? (y/N) `)
+      );
+
+      if (!confirmed) {
+        logger.info('Deletion cancelled.');
+        process.exit(0);
+      }
+    }
+
+    await deleteTag(tagId);
+
+    if (options.json) {
+      console.log(JSON.stringify({ deleted: true, id: tagId }, null, 2));
+      return;
+    }
+
+    logger.success(`Tag ${tagId} deleted successfully!`);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    logger.error(message);
+    process.exit(1);
+  }
+}
+
+tagsCommand
+  .command('delete <id>')
+  .description('Delete a tag')
+  .option('--dangerously-skip-confirmation', 'Skip confirmation prompt')
+  .option('--json', 'Output as JSON')
+  .action(deleteTagAction);
 
 const aliasCommand = tagsCommand
   .command('alias')

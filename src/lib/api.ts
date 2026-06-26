@@ -19,6 +19,8 @@ import type {
   NormalizedCardEntry,
   NormalizedCardInstallment,
   Account,
+  CreateTagPayload,
+  CreateTagResponse,
 } from '../types/index.js';
 import { getAuth, setAuth, getOpItem } from './config.js';
 import { captureAuthHeadless } from './browser-auth.js';
@@ -191,6 +193,18 @@ export async function fetchAccounts(): Promise<AccountsResponse> {
 
 export async function fetchTags(): Promise<TagsResponse> {
   return apiRequest<TagsResponse>('/v1/cadastros/tags?paginate=false');
+}
+
+export async function createTag(payload: CreateTagPayload): Promise<CreateTagResponse> {
+  return apiPost<CreateTagPayload, CreateTagResponse>('/v1/cadastros/tags', payload);
+}
+
+export async function updateTag(id: number, payload: CreateTagPayload): Promise<CreateTagResponse> {
+  return apiPut<CreateTagPayload, CreateTagResponse>(`/v1/cadastros/tags/${id}`, payload);
+}
+
+export async function deleteTag(id: number): Promise<void> {
+  return apiDelete(`/v1/cadastros/tags/${id}`);
 }
 
 export async function fetchFirstInvoiceDate(cardId: number): Promise<string> {

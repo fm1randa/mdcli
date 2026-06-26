@@ -193,6 +193,19 @@ export interface NormalizedTag {
   active: boolean;
 }
 
+export interface CreateTagPayload {
+  nome: string;
+  cor: string;
+  status: boolean;
+}
+
+export interface CreateTagResponse {
+  id: number;
+  nome: string;
+  status: boolean;
+  cor: string;
+}
+
 export type AliasType = 'accounts' | 'categories' | 'tags';
 
 export interface Alias {

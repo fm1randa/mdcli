@@ -145,6 +145,19 @@ mdcli cards invoice --account <cardId> --month 2026-02
 
 # Show upcoming installments on a card
 mdcli cards future --account <cardId>
+
+# Create a tag (color is optional, defaults to gray)
+mdcli tags create --name "Travel" --color "#FF6600"
+
+# Update a tag (only the fields you pass are changed)
+mdcli tags update 12345 --color "#00AAFF"
+
+# Archive (deactivate) or reactivate a tag
+mdcli tags update 12345 --inactive
+mdcli tags update 12345 --active
+
+# Delete a tag
+mdcli tags delete 12345
 ```
 
 ## Features
@@ -192,10 +205,10 @@ mdcli cards future --account <cardId>
 | Filter by active | Done |
 | JSON output | Done |
 | Aliases (add/list/rm/update) | Done |
-| Create | Missing |
-| Update | Missing |
-| Delete | Missing |
-| Archive | Missing |
+| Create | Done |
+| Update | Done |
+| Delete | Done |
+| Archive | Done |
 
 ### Entries
 | Feature | Status |
