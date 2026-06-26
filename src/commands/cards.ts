@@ -72,7 +72,7 @@ cardsCommand
 
 async function invoiceAction(options: { account: string; month?: string; json?: boolean }): Promise<void> {
   try {
-    const accountId = resolveId('accounts', options.account);
+    const accountId = await resolveId('accounts', options.account);
     if (!accountId) {
       logger.error(`Unknown account: ${options.account}`);
       process.exit(1);
@@ -141,14 +141,14 @@ async function invoiceAction(options: { account: string; month?: string; json?: 
 cardsCommand
   .command('invoice')
   .description('Show credit card invoice entries')
-  .requiredOption('-a, --account <id>', 'Card ID or alias')
+  .requiredOption('-a, --account <id>', 'Card ID, alias, or exact name (case-insensitive)')
   .option('--month <YYYY-MM>', 'Invoice month (default: current/next invoice)')
   .option('--json', 'Output as JSON')
   .action(invoiceAction);
 
 async function futureAction(options: { account: string; json?: boolean }): Promise<void> {
   try {
-    const accountId = resolveId('accounts', options.account);
+    const accountId = await resolveId('accounts', options.account);
     if (!accountId) {
       logger.error(`Unknown account: ${options.account}`);
       process.exit(1);
@@ -204,6 +204,6 @@ async function futureAction(options: { account: string; json?: boolean }): Promi
 cardsCommand
   .command('future')
   .description('Show future installments for credit card')
-  .requiredOption('-a, --account <id>', 'Card ID or alias')
+  .requiredOption('-a, --account <id>', 'Card ID, alias, or exact name (case-insensitive)')
   .option('--json', 'Output as JSON')
   .action(futureAction);

@@ -112,6 +112,16 @@ mdcli auth logout --all
 
 ## Usage
 
+### Identifying accounts, categories, and tags
+
+`--account`, `--category`, and `--tag` accept three forms, tried in this order:
+
+1. **Numeric ID** — e.g. `--account 1167419`. Fastest, no network needed.
+2. **Alias** — a short name you've mapped to an ID via `mdcli accounts alias add`. Stored locally in `~/.config/mdcli/mdcli.config.json`.
+3. **Exact name** — the entity's real name as shown by `mdcli accounts list`, matched case-insensitively. Names are looked up via a 30-day on-disk cache and auto-invalidated when a request using a cached ID returns a non-2xx.
+
+Aliases win over names when both match the same string, so your shortcuts always take priority.
+
 ```bash
 # Authenticate (extracts session from Chrome by default)
 mdcli auth login
@@ -128,8 +138,14 @@ mdcli accounts alias add --id 1167419 --name mp
 # List entries using alias
 mdcli entries list --account mp --from 2024-01-01 --to 2024-01-31
 
+# List entries using the account's exact name (case-insensitive)
+mdcli entries list --account "Nubank - Conta Corrente" --from 2024-01-01 --to 2024-01-31
+
 # Create an entry
 mdcli entries create --account mp --description "Groceries" --value 150 --category food
+
+# Create an entry using the account name instead of an alias
+mdcli entries create --account "Mercado Pago" --description "Groceries" --value 150 --category food
 
 # Update an entry (only the fields you pass are changed)
 mdcli entries update 12345 --value 200 --category food
@@ -142,6 +158,9 @@ mdcli cards list --active
 
 # Show a credit card invoice (defaults to the current/next one)
 mdcli cards invoice --account <cardId> --month 2026-02
+
+# Show a credit card invoice using the card's exact name
+mdcli cards invoice --account "Itaú Personalité" --month 2026-02
 
 # Show upcoming installments on a card
 mdcli cards future --account <cardId>

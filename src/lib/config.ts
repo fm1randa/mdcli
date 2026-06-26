@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { homedir } from 'os';
 import { join } from 'path';
-import type { AliasMap, AuthConfig, AuthMethod, MdcliConfig } from '../types/index.js';
+import type { AliasMap, AuthConfig, AuthMethod, MdcliConfig, NameCache, AliasType, NameCacheEntry } from '../types/index.js';
 
 const CONFIG_DIR = join(homedir(), '.config', 'mdcli');
 const CONFIG_FILE = join(CONFIG_DIR, 'mdcli.config.json');
@@ -79,6 +79,31 @@ export function getFullConfig(): MdcliConfig {
 export function setAliases(aliases: AliasMap): void {
   const config = loadConfig();
   config.aliases = aliases;
+  saveConfig(config);
+}
+
+export function getNameCache(): NameCache {
+  const config = loadConfig();
+  return config.nameCache ?? {};
+}
+
+export function setNameCacheEntry(type: AliasType, entry: NameCacheEntry): void {
+  const config = loadConfig();
+  config.nameCache = { ...config.nameCache, [type]: entry };
+  saveConfig(config);
+}
+
+export function invalidateNameCache(type?: AliasType): void {
+  const config = loadConfig();
+  if (!config.nameCache) return;
+  if (type) {
+    delete config.nameCache[type];
+    if (Object.keys(config.nameCache).length === 0) {
+      delete config.nameCache;
+    }
+  } else {
+    delete config.nameCache;
+  }
   saveConfig(config);
 }
 
