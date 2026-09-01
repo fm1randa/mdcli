@@ -1,3 +1,5 @@
+
+
 # mdcli
 
 Unofficial CLI client for [Meu Dinheiro](https://meudinheiroweb.com.br) - a Brazilian personal finance app.
@@ -77,7 +79,7 @@ If session extraction fails (e.g., not logged in, browser not found), you'll be 
 ### 1Password (Automatic)
 
 ```bash
-# Use 1Password item (prompts for item name on first run)
+# Use 1Password item (prompts for item name on first run, default: MeuDinheiroWeb)
 mdcli auth login --item
 
 # Specify item name directly
