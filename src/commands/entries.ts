@@ -296,16 +296,21 @@ function getMonthRange(): { start: string; end: string } {
   };
 }
 
+const TYPE_MAP: Record<string, 'd' | 'r' | 't'> = {
+  expense: 'd',
+  income: 'r',
+  transfer: 't',
+  d: 'd',
+  r: 'r',
+  t: 't',
+};
+
+function parseTypeOption(type: string): 'd' | 'r' | 't' | undefined {
+  return TYPE_MAP[type.toLowerCase()];
+}
+
 function mapTypeToApi(type: string): 'd' | 'r' | 't' {
-  const typeMap: Record<string, 'd' | 'r' | 't'> = {
-    expense: 'd',
-    income: 'r',
-    transfer: 't',
-    d: 'd',
-    r: 'r',
-    t: 't',
-  };
-  return typeMap[type.toLowerCase()] ?? 'd';
+  return parseTypeOption(type) ?? 'd';
 }
 
 async function createAction(options: CreateOptions): Promise<void> {
@@ -472,6 +477,12 @@ function reportUpdate(response: CreateEntryResponse, json?: boolean): void {
   console.log(`  ${chalk.gray('Status:')} ${formatStatus(statusDisplay as 'reconciled' | 'pending' | 'scheduled')}`);
 }
 
+function resolveReconciled(options: UpdateOptions, existing: Entry): boolean {
+  if (options.pending) return false;
+  if (options.reconciled) return true;
+  return existing.conciliado ?? false;
+}
+
 interface TransferOverrides {
   description?: string;
   value?: number;
@@ -514,9 +525,28 @@ function buildTransferPayload(
     : (outgoing ? existing.valorT ?? -existing.valor : existing.valor);
 
   const date = overrides.date ?? existing.dataPrevista;
+  // The web app takes whichever half of the pair names a card and sends it as
+  // one plastico, without flipping it along with the accounts. Mirror that.
   const plastico = existing.plastico ?? existing.plasticoT;
 
+  // The payload has to be listed field by field, so anything the entry carries
+  // that the list forgets is dropped on save - the failure #10 fixed for other
+  // entries by echoing the raw entry back. A transfer refuses that echo, so
+  // carry the fields an installment, a card, or a savings-goal transfer needs
+  // one by one, and only when the entry actually has them.
+  const carried: Record<string, unknown> = {};
+  for (const field of ['dataCompetencia', 'parcela', 'agendaId', 'regime', 'estorno', 'detalhes', 'metaEconomiaDestino'] as const) {
+    if (existing[field] !== undefined) carried[field] = existing[field];
+  }
+  // categoriaPai is the parent of categoria and the categories endpoint does
+  // not expose the parent, so a new category leaves us unable to recompute it.
+  // Drop the stale one and let the server derive it.
+  if (overrides.categoryId === null && existing.categoriaPai !== undefined) {
+    carried.categoriaPai = existing.categoriaPai;
+  }
+
   return {
+    ...carried,
     id: entryId,
     descricao: overrides.description ?? existing.descricao,
     transferencia: true,
@@ -544,8 +574,6 @@ function buildTransferPayload(
     automatico: existing.automatico ?? false,
     exibirCp: existing.exibirCp ?? true,
     exibirCr: existing.exibirCr ?? true,
-    metaEconomiaOrigem: null,
-    metaEconomiaDestino: null,
     ...(plastico !== undefined && { plastico }),
   };
 }
@@ -606,9 +634,16 @@ async function updateAction(id: string, options: UpdateOptions): Promise<void> {
     const existing = await fetchEntry(entryId);
 
     if (existing.tipo === 't') {
-      if (options.type !== undefined && mapTypeToApi(options.type) !== 't') {
-        logger.error('A transfer cannot be turned into an expense or an income. Delete it and create the entry you want.');
-        process.exit(1);
+      if (options.type !== undefined) {
+        const requestedType = parseTypeOption(options.type);
+        if (requestedType === undefined) {
+          logger.error(`Unknown type: ${options.type}. Valid: expense, income, transfer`);
+          process.exit(1);
+        }
+        if (requestedType !== 't') {
+          logger.error('A transfer cannot be turned into an expense or an income. Delete it and create the entry you want.');
+          process.exit(1);
+        }
       }
 
       const payload = buildTransferPayload(entryId, existing, {
@@ -618,7 +653,7 @@ async function updateAction(id: string, options: UpdateOptions): Promise<void> {
         categoryId,
         tagIds,
         notes: options.notes,
-        reconciled: options.pending ? false : options.reconciled ? true : existing.conciliado ?? false,
+        reconciled: resolveReconciled(options, existing),
       });
 
       const transferResponse = await updateEntry(entryId, payload as unknown as UpdateEntryPayload);

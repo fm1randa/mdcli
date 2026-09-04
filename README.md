@@ -150,6 +150,10 @@ mdcli entries create --account "Mercado Pago" --description "Groceries" --value 
 # Update an entry (only the fields you pass are changed)
 mdcli entries update 12345 --value 200 --category food
 
+# Update a transfer from either half of the pair - both halves move together.
+# A transfer cannot be turned into an expense or an income.
+mdcli entries update 12345 --value 200
+
 # Delete an entry
 mdcli entries delete 12345
 
