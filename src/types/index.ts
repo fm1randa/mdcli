@@ -291,6 +291,7 @@ export interface Entry {
   conta: number;
   categoria?: number;
   categoriaPai?: number;
+  plastico?: number;
   observacoes?: string;
   ndocumento?: string;
   lembrete?: number;
