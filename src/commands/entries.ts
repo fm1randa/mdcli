@@ -3,7 +3,7 @@ import Table from 'cli-table3';
 import chalk from 'chalk';
 import * as readline from 'readline';
 import { logger } from '../utils/logger.js';
-import { fetchEntries, normalizeEntries, createEntry, updateEntry, fetchEntry, deleteEntry } from '../lib/api.js';
+import { fetchEntries, normalizeEntries, createEntry, updateEntry, fetchEntry, deleteEntry, fetchAccountById, isCreditCard } from '../lib/api.js';
 import { resolveId, resolveIds } from '../lib/aliases.js';
 import type { CreateEntryPayload, CreateEntryAgenda, UpdateEntryPayload } from '../types/index.js';
 
@@ -356,6 +356,14 @@ async function createAction(options: CreateOptions): Promise<void> {
     const finalValue = expenseNeedsNegativeValue ? -Math.abs(value) : Math.abs(value);
     const agenda = parseRecurrence(options);
 
+    // Credit card accounts reject the payload unless dataCompetencia is present.
+    // Regular accounts already work without it, so only cards get the extra field.
+    const account = await fetchAccountById(accountId);
+    if (!account) {
+      logger.warning(`Account ${accountId} was not found in the account list. Creating the entry without the credit card fields.`);
+    }
+    const isCardAccount = account ? isCreditCard(account) : false;
+
     const payload: CreateEntryPayload = {
       descricao: options.description,
       tipo,
@@ -384,6 +392,7 @@ async function createAction(options: CreateOptions): Promise<void> {
       transferencia: false,
       conciliado: isReconciled,
       dataEfetiva: dateStr,
+      ...(isCardAccount && { dataCompetencia: dateStr }),
       dataPrevista: dateStr,
       valorEfetivo: finalValue,
       valorPrevisto: finalValue,

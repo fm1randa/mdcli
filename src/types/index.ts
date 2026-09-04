@@ -440,6 +440,7 @@ export interface CreateEntryPayload {
   transferencia: boolean;
   conciliado: boolean;
   dataEfetiva: string;
+  dataCompetencia?: string;
   dataPrevista: string;
   valorEfetivo: number;
   valorPrevisto: number;
