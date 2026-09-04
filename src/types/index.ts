@@ -304,6 +304,8 @@ export interface Entry {
   agenda?: EntryAgenda;
   valorT?: number;
   valorPrevistoT?: number;
+  valorEfetivoT?: number;
+  plasticoT?: number;
   contaT?: number;
   transferencia?: number;
   metaEconomiaDestino?: number;

@@ -5,7 +5,7 @@ import * as readline from 'readline';
 import { logger } from '../utils/logger.js';
 import { fetchEntries, normalizeEntries, createEntry, updateEntry, fetchEntry, deleteEntry, fetchAccountById, isCreditCard } from '../lib/api.js';
 import { resolveId, resolveIds } from '../lib/aliases.js';
-import type { CreateEntryPayload, CreateEntryAgenda, UpdateEntryPayload } from '../types/index.js';
+import type { CreateEntryPayload, CreateEntryAgenda, CreateEntryResponse, Entry, UpdateEntryPayload } from '../types/index.js';
 
 const STATUS_FLAGS: Record<string, number> = {
   pending: 1,
@@ -456,6 +456,100 @@ interface UpdateOptions {
   json?: boolean;
 }
 
+function reportUpdate(response: CreateEntryResponse, json?: boolean): void {
+  if (json) {
+    console.log(JSON.stringify(response, null, 2));
+    return;
+  }
+
+  logger.success(`Entry updated successfully!`);
+  console.log(`  ${chalk.gray('ID:')} ${response.id}`);
+  console.log(`  ${chalk.gray('Description:')} ${response.descricao}`);
+  console.log(`  ${chalk.gray('Value:')} ${formatCurrency(response.valor)}`);
+  console.log(`  ${chalk.gray('Date:')} ${response.data}`);
+  const statusDisplay = response.status === 'conciliado' ? 'reconciled'
+    : response.status === 'pendente' ? 'pending' : 'scheduled';
+  console.log(`  ${chalk.gray('Status:')} ${formatStatus(statusDisplay as 'reconciled' | 'pending' | 'scheduled')}`);
+}
+
+interface TransferOverrides {
+  description?: string;
+  value?: number;
+  date?: string;
+  categoryId: number | null;
+  tagIds?: number[];
+  notes?: string;
+  reconciled: boolean;
+}
+
+// A transfer (tipo "t") is a pair of mirrored entries, and the API rejects the
+// PUT that works for every other entry - echoing the raw entry back is not
+// enough, it answers 400 "Erro inesperado". The web app never sends the raw
+// entry either: it normalizes the pair to the origin side (the negative half),
+// names the two accounts contaOrigem/contaDestino, and marks the payload with
+// transferencia: true instead of tipo: "t". The entry we were handed can be
+// either half of the pair, so flip it to the origin side first.
+function buildTransferPayload(
+  entryId: number,
+  existing: Entry,
+  overrides: TransferOverrides
+): Record<string, unknown> {
+  const outgoing = existing.valor < 0;
+  const originAccount = outgoing ? existing.conta : existing.contaT;
+  const destinationAccount = outgoing ? existing.contaT : existing.conta;
+
+  if (originAccount === undefined || destinationAccount === undefined) {
+    throw new Error(
+      `Entry ${entryId} is a transfer but only names one account. It cannot be updated by the CLI.`
+    );
+  }
+
+  // A value change makes both halves symmetric. Without one, keep whatever the
+  // two halves hold today - a transfer between currencies has two magnitudes.
+  const originValue = overrides.value !== undefined
+    ? -Math.abs(overrides.value)
+    : (outgoing ? existing.valor : existing.valorT ?? -existing.valor);
+  const destinationValue = overrides.value !== undefined
+    ? Math.abs(overrides.value)
+    : (outgoing ? existing.valorT ?? -existing.valor : existing.valor);
+
+  const date = overrides.date ?? existing.dataPrevista;
+  const plastico = existing.plastico ?? existing.plasticoT;
+
+  return {
+    id: entryId,
+    descricao: overrides.description ?? existing.descricao,
+    transferencia: true,
+    status: { confirmado: true, conciliado: overrides.reconciled },
+    confirmado: true,
+    conciliado: overrides.reconciled,
+    conta: originAccount,
+    contaT: destinationAccount,
+    contaOrigem: originAccount,
+    contaDestino: destinationAccount,
+    valor: originValue,
+    valorPrevisto: originValue,
+    valorEfetivo: originValue,
+    valorT: destinationValue,
+    valorPrevistoT: destinationValue,
+    valorEfetivoT: destinationValue,
+    data: date,
+    dataPrevista: date,
+    dataEfetiva: overrides.date ?? existing.dataEfetiva ?? date,
+    categoria: overrides.categoryId ?? existing.categoria ?? null,
+    tags: overrides.tagIds ?? existing.tags ?? [],
+    observacoes: overrides.notes ?? existing.observacoes ?? '',
+    ndocumento: existing.ndocumento ?? '',
+    lembrete: existing.lembrete ?? 0,
+    automatico: existing.automatico ?? false,
+    exibirCp: existing.exibirCp ?? true,
+    exibirCr: existing.exibirCr ?? true,
+    metaEconomiaOrigem: null,
+    metaEconomiaDestino: null,
+    ...(plastico !== undefined && { plastico }),
+  };
+}
+
 async function updateAction(id: string, options: UpdateOptions): Promise<void> {
   try {
     const entryId = Number(id);
@@ -511,6 +605,27 @@ async function updateAction(id: string, options: UpdateOptions): Promise<void> {
     // Fetch existing entry
     const existing = await fetchEntry(entryId);
 
+    if (existing.tipo === 't') {
+      if (options.type !== undefined && mapTypeToApi(options.type) !== 't') {
+        logger.error('A transfer cannot be turned into an expense or an income. Delete it and create the entry you want.');
+        process.exit(1);
+      }
+
+      const payload = buildTransferPayload(entryId, existing, {
+        description: options.description,
+        value,
+        date: options.date,
+        categoryId,
+        tagIds,
+        notes: options.notes,
+        reconciled: options.pending ? false : options.reconciled ? true : existing.conciliado ?? false,
+      });
+
+      const transferResponse = await updateEntry(entryId, payload as unknown as UpdateEntryPayload);
+      reportUpdate(transferResponse, options.json);
+      return;
+    }
+
     // Echo the whole entry back and layer the changes on top. The API rejects
     // the PUT when a field it sent us is missing from the payload, and an
     // installment carries fields the CLI never modeled - parcela, agendaId,
@@ -562,20 +677,7 @@ async function updateAction(id: string, options: UpdateOptions): Promise<void> {
     }
 
     const response = await updateEntry(entryId, payload as unknown as UpdateEntryPayload);
-
-    if (options.json) {
-      console.log(JSON.stringify(response, null, 2));
-      return;
-    }
-
-    logger.success(`Entry updated successfully!`);
-    console.log(`  ${chalk.gray('ID:')} ${response.id}`);
-    console.log(`  ${chalk.gray('Description:')} ${response.descricao}`);
-    console.log(`  ${chalk.gray('Value:')} ${formatCurrency(response.valor)}`);
-    console.log(`  ${chalk.gray('Date:')} ${response.data}`);
-    const statusDisplay = response.status === 'conciliado' ? 'reconciled'
-      : response.status === 'pendente' ? 'pending' : 'scheduled';
-    console.log(`  ${chalk.gray('Status:')} ${formatStatus(statusDisplay as 'reconciled' | 'pending' | 'scheduled')}`);
+    reportUpdate(response, options.json);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     logger.error(message);
