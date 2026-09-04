@@ -511,8 +511,12 @@ async function updateAction(id: string, options: UpdateOptions): Promise<void> {
     // Fetch existing entry
     const existing = await fetchEntry(entryId);
 
-    // Build payload by merging existing data with updates
+    // Build the payload on top of the raw entry so that fields the CLI does not
+    // model - parcela, agendaId, plastico, dataCompetencia, categoriaPai on
+    // installments - survive the PUT. The API rejects the request when they are
+    // dropped from a record that has them.
     const payload: Record<string, unknown> = {
+      ...(existing as unknown as Record<string, unknown>),
       id: entryId,
       descricao: options.description ?? existing.descricao,
       conciliado: existing.conciliado,
