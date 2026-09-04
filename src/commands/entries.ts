@@ -3,7 +3,7 @@ import Table from 'cli-table3';
 import chalk from 'chalk';
 import * as readline from 'readline';
 import { logger } from '../utils/logger.js';
-import { fetchEntries, normalizeEntries, createEntry, updateEntry, fetchEntry, deleteEntry, fetchAccounts, isCreditCard } from '../lib/api.js';
+import { fetchEntries, normalizeEntries, createEntry, updateEntry, fetchEntry, deleteEntry, fetchAccountById, isCreditCard } from '../lib/api.js';
 import { resolveId, resolveIds } from '../lib/aliases.js';
 import type { CreateEntryPayload, CreateEntryAgenda, UpdateEntryPayload } from '../types/index.js';
 
@@ -358,8 +358,10 @@ async function createAction(options: CreateOptions): Promise<void> {
 
     // Credit card accounts reject the payload unless dataCompetencia is present.
     // Regular accounts already work without it, so only cards get the extra field.
-    const accountsResponse = await fetchAccounts();
-    const account = accountsResponse.items.find((a) => a.id === accountId);
+    const account = await fetchAccountById(accountId);
+    if (!account) {
+      logger.warning(`Account ${accountId} was not found in the account list. Creating the entry without the credit card fields.`);
+    }
     const isCardAccount = account ? isCreditCard(account) : false;
 
     const payload: CreateEntryPayload = {

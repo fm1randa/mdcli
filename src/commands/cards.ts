@@ -2,7 +2,7 @@ import { Command } from 'commander';
 import Table from 'cli-table3';
 import chalk from 'chalk';
 import { logger } from '../utils/logger.js';
-import { fetchAccounts, normalizeAccounts, isCreditCard, fetchCardInvoice, normalizeCardEntries, fetchFirstInvoiceDate, fetchCardFuture, normalizeCardInstallments } from '../lib/api.js';
+import { fetchAccounts, fetchAccountById, normalizeAccounts, isCreditCard, fetchCardInvoice, normalizeCardEntries, fetchFirstInvoiceDate, fetchCardFuture, normalizeCardInstallments } from '../lib/api.js';
 import { resolveId } from '../lib/aliases.js';
 
 function formatCurrency(value: number): string {
@@ -78,9 +78,8 @@ async function invoiceAction(options: { account: string; month?: string; json?: 
       process.exit(1);
     }
 
-    const response = await fetchAccounts();
-    const account = response.items.find(a => a.id === accountId);
-    
+    const account = await fetchAccountById(accountId);
+
     if (!account) {
       logger.error(`Account not found: ${accountId}`);
       process.exit(1);
@@ -154,9 +153,8 @@ async function futureAction(options: { account: string; json?: boolean }): Promi
       process.exit(1);
     }
 
-    const response = await fetchAccounts();
-    const account = response.items.find(a => a.id === accountId);
-    
+    const account = await fetchAccountById(accountId);
+
     if (!account) {
       logger.error(`Account not found: ${accountId}`);
       process.exit(1);

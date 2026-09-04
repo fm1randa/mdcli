@@ -370,6 +370,11 @@ export function isCreditCard(account: Account): boolean {
   return account.tipo === 'CARTAOCREDITO';
 }
 
+export async function fetchAccountById(id: number): Promise<Account | undefined> {
+  const response = await fetchAccounts();
+  return response.items.find((a) => a.id === id);
+}
+
 export async function createEntry(payload: CreateEntryPayload): Promise<CreateEntryResponse> {
   return apiPost<CreateEntryPayload, CreateEntryResponse>('/v1/lancamentos', payload);
 }
