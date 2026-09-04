@@ -492,11 +492,4 @@ export interface UpdateEntryPayload {
   };
   conciliado?: boolean;
   tipo?: 'd' | 'r' | 't';
-  // Installment fields. The API rejects the PUT when a record that carries them
-  // is sent back without them, so they are echoed from the existing entry.
-  parcela?: string;
-  agendaId?: number;
-  plastico?: number;
-  dataCompetencia?: string;
-  categoriaPai?: number;
 }

@@ -511,15 +511,17 @@ async function updateAction(id: string, options: UpdateOptions): Promise<void> {
     // Fetch existing entry
     const existing = await fetchEntry(entryId);
 
-    // Build the payload on top of the raw entry so that fields the CLI does not
-    // model - parcela, agendaId, plastico, dataCompetencia, categoriaPai on
-    // installments - survive the PUT. The API rejects the request when they are
-    // dropped from a record that has them.
+    // Echo the whole entry back and layer the changes on top. The API rejects
+    // the PUT when a field it sent us is missing from the payload, and an
+    // installment carries fields the CLI never modeled - parcela, agendaId,
+    // plastico, dataCompetencia, categoriaPai - so rebuilding the payload field
+    // by field made every installment impossible to edit. Keys below either
+    // apply an option, supply a default, or reshape a value: id can arrive as a
+    // string, and status arrives as a label but has to go back as an object.
     const payload: Record<string, unknown> = {
-      ...(existing as unknown as Record<string, unknown>),
+      ...existing,
       id: entryId,
       descricao: options.description ?? existing.descricao,
-      conciliado: existing.conciliado,
       status: {
         confirmado: true,
         conciliado: existing.conciliado ?? false,
@@ -528,25 +530,27 @@ async function updateAction(id: string, options: UpdateOptions): Promise<void> {
       valor: value ?? existing.valor,
       valorPrevisto: value ?? existing.valorPrevisto ?? existing.valor,
       valorEfetivo: value ?? existing.valorEfetivo ?? existing.valor,
-      data: existing.data,
       dataPrevista: options.date ?? existing.dataPrevista,
       dataEfetiva: options.date ?? existing.dataEfetiva ?? existing.dataPrevista,
-      dataCriacao: existing.dataCriacao,
       exibirCp: existing.exibirCp ?? true,
       exibirCr: existing.exibirCr ?? true,
-      permissoes: existing.permissoes,
       estorno: existing.estorno ?? false,
-      conta: existing.conta,
       categoria: categoryId ?? existing.categoria ?? null,
       tags: tagIds ?? existing.tags ?? [],
       observacoes: options.notes ?? existing.observacoes ?? '',
       ndocumento: existing.ndocumento ?? '',
       lembrete: existing.lembrete ?? 0,
       automatico: existing.automatico ?? false,
-      agenda: existing.agenda,
       metaEconomia: null,
       transferencia: existing.transferencia ?? false,
     };
+
+    // categoriaPai is the parent of categoria, and the categories endpoint does
+    // not expose the parent, so a new category leaves us unable to recompute it.
+    // Drop the stale one and let the server derive it.
+    if (categoryId !== null) {
+      delete payload.categoriaPai;
+    }
 
     // Handle status changes
     if (options.pending) {
