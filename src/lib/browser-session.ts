@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { cp, mkdtemp, rm } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { homedir, tmpdir } from 'node:os';
 import { execSync } from 'node:child_process';
 import { createDecipheriv, pbkdf2Sync } from 'node:crypto';
@@ -36,7 +37,7 @@ function getChromeCookieValue(cookieName: string, domain: string): string | null
     const derivedKey = pbkdf2Sync(safeStorageKey, 'saltysalt', 1003, 16, 'sha1');
 
     // immutable=1 reads the file without taking a lock Chrome already holds
-    const db = new Database(`file:${cookiesPath}?immutable=1`, { readonly: true });
+    const db = new Database(`${pathToFileURL(cookiesPath).href}?immutable=1`, { readonly: true });
     const row = db.query(
       'SELECT encrypted_value FROM cookies WHERE name = ? AND host_key = ?'
     ).get(cookieName, domain) as { encrypted_value: Uint8Array } | null;
@@ -78,7 +79,7 @@ const SESSION_URL = 'https://app.meudinheiroweb.com.br/api/v1/frontend/sessao';
 /** The frontend's public API key, served to logged-out visitors too. */
 async function fetchPublicApiKey(): Promise<string | undefined> {
   try {
-    const response = await fetch(SESSION_URL);
+    const response = await fetch(SESSION_URL, { signal: AbortSignal.timeout(10000) });
     if (!response.ok) return undefined;
     const body = (await response.json()) as { payload?: { api?: { key?: unknown } } };
     const key = body.payload?.api?.key;
