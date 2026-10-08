@@ -518,6 +518,14 @@ function shiftDueDate(dueDate: string, months: number): string {
 
 const MAX_INVOICE_STEPS = 24;
 const ISO_DATE = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
+/** True for a real YYYY-MM-DD calendar day (rejects 2026-02-31). */
+function isCalendarDate(value: string): boolean {
+  if (!ISO_DATE.test(value)) return false;
+  const [year, month, day] = value.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+  return date.getMonth() === month - 1 && date.getDate() === day;
+}
+
 const INVOICE_MONTH = /^(\d{4})-(0[1-9]|1[0-2])$/;
 
 /**
@@ -530,17 +538,17 @@ const INVOICE_MONTH = /^(\d{4})-(0[1-9]|1[0-2])$/;
 async function resolveCardDueDate(account: Account, purchaseDate: string, invoice?: string): Promise<string> {
   const anchor = account.proximoVencimento?.slice(0, 10);
 
-  if (invoice) {
-    const match = invoice.match(INVOICE_MONTH);
-    if (!match) {
-      throw new Error('Invalid invoice month. Use YYYY-MM with a month from 01 to 12 (e.g., 2026-10)');
-    }
-    const anchorDay = anchor ? anchor.slice(8, 10) : '10';
-    return shiftDueDate(`${match[1]}-${match[2]}-${anchorDay}`, 0);
+  const match = invoice ? invoice.match(INVOICE_MONTH) : null;
+  if (invoice && !match) {
+    throw new Error('Invalid invoice month. Use YYYY-MM with a month from 01 to 12 (e.g., 2026-10)');
   }
 
   if (!anchor) {
-    throw new Error(`Card ${account.id} has no next due date. Pass the invoice explicitly with --invoice YYYY-MM.`);
+    throw new Error(`Card ${account.id} has no next due date, so its invoice due day is unknown.`);
+  }
+
+  if (match) {
+    return shiftDueDate(`${match[1]}-${match[2]}-${anchor.slice(8, 10)}`, 0);
   }
 
   const closingOf = async (offset: number): Promise<string> =>
@@ -604,7 +612,7 @@ async function createAction(options: CreateOptions): Promise<void> {
     const isReconciled = !options.pending;
     const now = new Date();
     const dateStr = options.date ?? toLocalDateString(now);
-    if (!ISO_DATE.test(dateStr)) {
+    if (!isCalendarDate(dateStr)) {
       logger.error('Invalid date. Use YYYY-MM-DD (e.g., 2026-10-03).');
       process.exit(1);
     }
