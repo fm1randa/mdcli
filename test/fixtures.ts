@@ -30,6 +30,8 @@ export const CREDIT_CARD_ACCOUNT = {
   tipo: 'CARTAOCREDITO',
   tipoNovo: 102,
   banco: undefined,
+  proximoVencimento: '2026-01-16T00:00:00',
+  proximoFechamento: '2026-01-08T00:00:00',
 };
 
 export const ACCOUNTS_RESPONSE = {
@@ -88,4 +90,9 @@ export const SAMPLE_ENTRIES = [
 
 export function entriesPage(list: unknown[], total = list.length) {
   return { list, meta: { total, page: 1, pageSize: 200 } };
+}
+
+/** Card invoice as GET /v1/cartoes/:id/fatura/:dueDate returns it. */
+export function cardInvoice(vencimento: string, fechamento: string) {
+  return { lancamentos: [], vencimento, fechamento, valor: 0 };
 }
