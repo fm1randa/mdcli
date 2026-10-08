@@ -114,6 +114,9 @@ export async function runCli(args: string[], env: { home: TestHome; api: MockApi
       USERPROFILE: env.home.dir,
       APPDATA: env.home.dir,
       LOCALAPPDATA: env.home.dir,
+      // Overrides the preload's sandbox (inherited via process.env) so the CLI
+      // reads the config this test wrote.
+      MDCLI_CONFIG_DIR: join(env.home.dir, '.config', 'mdcli'),
       MDCLI_API_URL: env.api.url,
       FORCE_COLOR: '0',
     },
