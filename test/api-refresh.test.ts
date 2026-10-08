@@ -1,18 +1,18 @@
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, beforeEach, describe, expect, mock, test } from 'bun:test';
 import { startMockApi, type MockApi } from './helpers.js';
 
 let api: MockApi;
-let homeDir: string;
-let savedHome: string | undefined;
+let configDir: string;
+let savedConfigDir: string | undefined;
 let savedApiUrl: string | undefined;
 let refreshes: number;
 
 function writeStaleConfig(): void {
   writeFileSync(
-    join(homeDir, '.config', 'mdcli', 'mdcli.config.json'),
+    join(configDir, 'mdcli.config.json'),
     JSON.stringify({
       auth: { apiKey: 'stale-key', uid: '42', token: 'stale-token' },
       authMethod: 'browser-chrome',
@@ -26,12 +26,13 @@ function writeStaleConfig(): void {
 beforeAll(() => {
   api = startMockApi();
 
-  savedHome = process.env.HOME;
+  savedConfigDir = process.env.MDCLI_CONFIG_DIR;
   savedApiUrl = process.env.MDCLI_API_URL;
-  homeDir = mkdtempSync(join(tmpdir(), 'mdcli-refresh-test-'));
-  process.env.HOME = homeDir;
+  // The refresh path saves through src/lib/config.ts in this process, so the
+  // config dir must be a temp one or the fresh credentials land in the real file.
+  configDir = mkdtempSync(join(tmpdir(), 'mdcli-refresh-test-'));
+  process.env.MDCLI_CONFIG_DIR = configDir;
   process.env.MDCLI_API_URL = api.url;
-  mkdirSync(join(homeDir, '.config', 'mdcli'), { recursive: true });
 
   mock.module('../src/lib/browser-session.js', () => ({
     extractSessionFromBrowser: async () => {
@@ -50,12 +51,12 @@ beforeEach(() => {
 
 afterAll(() => {
   api.stop();
-  rmSync(homeDir, { recursive: true, force: true });
+  rmSync(configDir, { recursive: true, force: true });
   mock.restore();
-  if (savedHome === undefined) {
-    delete process.env.HOME;
+  if (savedConfigDir === undefined) {
+    delete process.env.MDCLI_CONFIG_DIR;
   } else {
-    process.env.HOME = savedHome;
+    process.env.MDCLI_CONFIG_DIR = savedConfigDir;
   }
   if (savedApiUrl === undefined) {
     delete process.env.MDCLI_API_URL;
@@ -82,6 +83,10 @@ describe('concurrent refresh after 401', () => {
     // Both retries went out with the refreshed credentials.
     expect(api.requests[2].headers.get('mdapikey')).toBe('fresh-key');
     expect(api.requests[3].headers.get('mdapikey')).toBe('fresh-key');
+    // The refreshed credentials were saved to the temp config, not the real one.
+    const { getConfigPath } = await import('../src/lib/config.js');
+    expect(getConfigPath()).toBe(join(configDir, 'mdcli.config.json'));
+    expect(JSON.parse(readFileSync(getConfigPath(), 'utf-8')).auth.apiKey).toBe('fresh-key');
   });
 
   test('refresh progress goes to stderr so --json/--csv stdout stays parseable', async () => {

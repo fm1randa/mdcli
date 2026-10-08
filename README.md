@@ -255,7 +255,7 @@ bun run lint
 bun run knip        # unused files, dependencies, and exports
 ```
 
-The tests in `test/` run the real CLI as a subprocess against a local mock of the Meu Dinheiro API (`MDCLI_API_URL` overrides the API base URL), with `HOME` pointed at a temp dir. They never touch your real config, browser profiles, or the live API, and they check both what the CLI prints and the exact requests it sends.
+The tests in `test/` run the real CLI as a subprocess against a local mock of the Meu Dinheiro API (`MDCLI_API_URL` overrides the API base URL), with `HOME` pointed at a temp dir. `MDCLI_CONFIG_DIR` overrides the config directory; `bunfig.toml` preloads `test/setup.ts`, which points it at a temp dir for the whole run, so in-process tests are isolated too. They never touch your real config, browser profiles, or the live API, and they check both what the CLI prints and the exact requests it sends.
 
 ## Features
 

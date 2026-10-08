@@ -3,24 +3,32 @@ import { homedir } from 'os';
 import { join } from 'path';
 import type { AliasMap, AuthConfig, AuthMethod, MdcliConfig, NameCache, AliasType, NameCacheEntry } from '../types/index.js';
 
-const CONFIG_DIR = join(homedir(), '.config', 'mdcli');
-const CONFIG_FILE = join(CONFIG_DIR, 'mdcli.config.json');
+// Resolved on every call, not at import time, so MDCLI_CONFIG_DIR (or HOME)
+// set after this module loads still decides where the config lives.
+function configDir(): string {
+  return process.env.MDCLI_CONFIG_DIR || join(homedir(), '.config', 'mdcli');
+}
+
+function configFile(): string {
+  return join(configDir(), 'mdcli.config.json');
+}
 
 function ensureConfigDir(): void {
-  if (!existsSync(CONFIG_DIR)) {
-    mkdirSync(CONFIG_DIR, { recursive: true });
+  if (!existsSync(configDir())) {
+    mkdirSync(configDir(), { recursive: true });
   }
 }
 
 function loadConfig(): MdcliConfig {
   ensureConfigDir();
   
-  if (!existsSync(CONFIG_FILE)) {
+  const file = configFile();
+  if (!existsSync(file)) {
     return {};
   }
 
   try {
-    const data = readFileSync(CONFIG_FILE, 'utf-8');
+    const data = readFileSync(file, 'utf-8');
     return JSON.parse(data) as MdcliConfig;
   } catch {
     return {};
@@ -29,7 +37,7 @@ function loadConfig(): MdcliConfig {
 
 function saveConfig(config: MdcliConfig): void {
   ensureConfigDir();
-  writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2), 'utf-8');
+  writeFileSync(configFile(), JSON.stringify(config, null, 2), 'utf-8');
 }
 
 export function getAuth(): AuthConfig | null {
@@ -69,7 +77,7 @@ export function hasAuth(): boolean {
 }
 
 export function getConfigPath(): string {
-  return CONFIG_FILE;
+  return configFile();
 }
 
 export function getFullConfig(): MdcliConfig {
