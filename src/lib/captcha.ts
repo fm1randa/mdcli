@@ -1,5 +1,5 @@
 import Solver from '2captcha';
-import type { Page } from 'puppeteer';
+import type { Page } from 'playwright';
 import { getCaptchaApiKey } from './config.js';
 
 const RECAPTCHA_SITEKEY_PATTERN = /sitekey['":\s]+['"]([^'"]+)['"]/i;

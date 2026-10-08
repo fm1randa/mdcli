@@ -3,9 +3,29 @@ import Table from 'cli-table3';
 import chalk from 'chalk';
 import * as readline from 'readline';
 import { logger } from '../utils/logger.js';
-import { fetchEntries, normalizeEntries, createEntry, updateEntry, fetchEntry, deleteEntry, fetchAccountById, isCreditCard } from '../lib/api.js';
+import {
+  fetchAllEntries,
+  fetchAccounts,
+  fetchCategories,
+  normalizeEntries,
+  createEntry,
+  updateEntry,
+  fetchEntry,
+  deleteEntry,
+  fetchAccountById,
+  isCreditCard,
+} from '../lib/api.js';
+import { toCsv } from '../lib/csv.js';
+import { summarize, totalRow } from '../lib/summary.js';
 import { resolveId, resolveIds } from '../lib/aliases.js';
-import type { CreateEntryPayload, CreateEntryAgenda, CreateEntryResponse, Entry, UpdateEntryPayload } from '../types/index.js';
+import type {
+  CreateEntryPayload,
+  CreateEntryAgenda,
+  CreateEntryResponse,
+  EntriesParams,
+  Entry,
+  UpdateEntryPayload,
+} from '../types/index.js';
 
 const STATUS_FLAGS: Record<string, number> = {
   pending: 1,
@@ -67,6 +87,11 @@ function formatCurrency(value: number): string {
   return value >= 0 ? chalk.green(formatted) : chalk.red(formatted);
 }
 
+function formatSignedCurrency(value: number): string {
+  const formatted = value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  return value >= 0 ? chalk.green(formatted) : chalk.red(formatted);
+}
+
 function formatStatus(status: 'reconciled' | 'pending' | 'scheduled'): string {
   const statusConfig = {
     reconciled: { label: 'Reconciled', color: chalk.green },
@@ -105,8 +130,7 @@ function getDefaultDateRange(): { startDate: string; endDate: string } {
   };
 }
 
-interface ListOptions {
-  json?: boolean;
+interface FilterOptions {
   account?: string;
   from?: string;
   to?: string;
@@ -116,76 +140,143 @@ interface ListOptions {
   tag?: string;
   keywords?: string;
   value?: string;
+  excludeCategory?: string;
+}
+
+function fail(message: string): never {
+  logger.error(message);
+  process.exit(1);
+}
+
+async function resolveEntryFilters(options: FilterOptions): Promise<Omit<EntriesParams, 'page' | 'pageSize'>> {
+  if (!options.account) {
+    fail('At least one account ID or alias is required. Use --account <id> or --account <id1,id2,...>');
+  }
+
+  const accountResult = await resolveIds('accounts', options.account);
+  if (accountResult.unresolved.length > 0) {
+    fail(`Unknown account(s): ${accountResult.unresolved.join(', ')}`);
+  }
+  if (accountResult.ids.length === 0) {
+    fail('At least one account ID or alias is required. Use --account <id> or --account <id1,id2,...>');
+  }
+
+  let categoryIds: number[] | undefined;
+  if (options.category) {
+    const categoryResult = await resolveIds('categories', options.category);
+    if (categoryResult.unresolved.length > 0) {
+      fail(`Unknown category(ies): ${categoryResult.unresolved.join(', ')}`);
+    }
+    categoryIds = categoryResult.ids;
+  }
+
+  let tagIds: number[] | undefined;
+  if (options.tag) {
+    const tagResult = await resolveIds('tags', options.tag);
+    if (tagResult.unresolved.length > 0) {
+      fail(`Unknown tag(s): ${tagResult.unresolved.join(', ')}`);
+    }
+    tagIds = tagResult.ids;
+  }
+
+  let value: number | undefined;
+  if (options.value !== undefined) {
+    value = Number(options.value);
+    if (Number.isNaN(value)) {
+      fail('Invalid value. Must be a number.');
+    }
+  }
+
+  const { startDate: defaultStart, endDate: defaultEnd } = getDefaultDateRange();
+
+  return {
+    accountIds: accountResult.ids,
+    startDate: options.from ?? defaultStart,
+    endDate: options.to ?? defaultEnd,
+    categoryIds,
+    tagIds,
+    keywords: options.keywords,
+    value,
+    status: options.status ? parseStatusFilter(options.status) : undefined,
+    entryType: options.type ? parseTypeFilter(options.type) : undefined,
+  };
+}
+
+/** Resolves --exclude-category to those categories plus all of their subcategories. */
+async function resolveExcludedCategories(input: string | undefined): Promise<Set<number>> {
+  const excluded = new Set<number>();
+  if (!input) return excluded;
+
+  const result = await resolveIds('categories', input);
+  if (result.unresolved.length > 0) {
+    fail(`Unknown category(ies) in --exclude-category: ${result.unresolved.join(', ')}`);
+  }
+
+  const { items } = await fetchCategories();
+  const pending = [...result.ids];
+  for (let id = pending.pop(); id !== undefined; id = pending.pop()) {
+    if (excluded.has(id)) continue;
+    excluded.add(id);
+    pending.push(...items.filter((c) => c.pai === id).map((c) => c.id));
+  }
+  return excluded;
+}
+
+async function loadEntries(options: FilterOptions) {
+  const params = await resolveEntryFilters(options);
+  const excludedCategories = await resolveExcludedCategories(options.excludeCategory);
+  const all = normalizeEntries(await fetchAllEntries(params));
+  const entries = all.filter((e) => e.categoryId === null || !excludedCategories.has(e.categoryId));
+  return { params, entries, excludedByCategory: all.length - entries.length };
+}
+
+async function loadNames(): Promise<{ accounts: Map<number, string>; categories: Map<number, string> }> {
+  const [accounts, categories] = await Promise.all([fetchAccounts(), fetchCategories()]);
+  return {
+    accounts: new Map(accounts.items.map((a) => [a.id, a.nome])),
+    categories: new Map(categories.items.map((c) => [c.id, c.nome])),
+  };
+}
+
+function checkOutputFormat(options: { json?: boolean; csv?: boolean }): void {
+  if (options.json && options.csv) {
+    fail('Use either --json or --csv, not both.');
+  }
+}
+
+interface ListOptions extends FilterOptions {
+  json?: boolean;
+  csv?: boolean;
 }
 
 async function listAction(options: ListOptions): Promise<void> {
   try {
-    if (!options.account) {
-      logger.error('At least one account ID or alias is required. Use --account <id> or --account <id1,id2,...>');
-      process.exit(1);
-    }
-
-    const accountResult = await resolveIds('accounts', options.account);
-    if (accountResult.unresolved.length > 0) {
-      logger.error(`Unknown account(s): ${accountResult.unresolved.join(', ')}`);
-      process.exit(1);
-    }
-    const accountIds = accountResult.ids;
-
-    if (accountIds.length === 0) {
-      logger.error('At least one account ID or alias is required. Use --account <id> or --account <id1,id2,...>');
-      process.exit(1);
-    }
-
-    const { startDate: defaultStart, endDate: defaultEnd } = getDefaultDateRange();
-
-    let categoryIds: number[] | undefined;
-    if (options.category) {
-      const categoryResult = await resolveIds('categories', options.category);
-      if (categoryResult.unresolved.length > 0) {
-        logger.error(`Unknown category(ies): ${categoryResult.unresolved.join(', ')}`);
-        process.exit(1);
-      }
-      categoryIds = categoryResult.ids;
-    }
-
-    let tagIds: number[] | undefined;
-    if (options.tag) {
-      const tagResult = await resolveIds('tags', options.tag);
-      if (tagResult.unresolved.length > 0) {
-        logger.error(`Unknown tag(s): ${tagResult.unresolved.join(', ')}`);
-        process.exit(1);
-      }
-      tagIds = tagResult.ids;
-    }
-    const status = options.status ? parseStatusFilter(options.status) : undefined;
-    const entryType = options.type ? parseTypeFilter(options.type) : undefined;
-
-    let value: number | undefined;
-    if (options.value !== undefined) {
-      value = Number(options.value);
-      if (Number.isNaN(value)) {
-        logger.error('Invalid value. Must be a number.');
-        process.exit(1);
-      }
-    }
-
-    const response = await fetchEntries({
-      accountIds,
-      startDate: options.from ?? defaultStart,
-      endDate: options.to ?? defaultEnd,
-      categoryIds,
-      tagIds,
-      keywords: options.keywords,
-      value,
-      status,
-      entryType,
-    });
-
-    const entries = normalizeEntries(response);
+    checkOutputFormat(options);
+    const { entries } = await loadEntries(options);
 
     if (options.json) {
       console.log(JSON.stringify(entries, null, 2));
+      return;
+    }
+
+    if (options.csv) {
+      const names = await loadNames();
+      process.stdout.write(
+        toCsv(
+          ['id', 'date', 'description', 'value', 'type', 'status', 'account', 'category', 'installment'],
+          entries.map((e) => [
+            e.id,
+            e.date,
+            e.description,
+            e.value,
+            e.type,
+            e.status,
+            names.accounts.get(e.accountId) ?? e.accountId,
+            e.categoryId === null ? '' : (names.categories.get(e.categoryId) ?? e.categoryId),
+            e.installment,
+          ])
+        )
+      );
       return;
     }
 
@@ -210,31 +301,131 @@ async function listAction(options: ListOptions): Promise<void> {
     const total = entries.reduce((sum, e) => sum + e.value, 0);
     logger.header(`Entries (${entries.length}) | Total: ${formatCurrency(total)}`);
     console.log(table.toString());
-    console.log(chalk.gray(`\nPage ${response.meta.page} of ${Math.ceil(response.meta.total / response.meta.pageSize)} (${response.meta.total} total entries)`));
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    logger.error(message);
-    process.exit(1);
+    fail(error instanceof Error ? error.message : 'Unknown error');
+  }
+}
+
+const SUMMARY_GROUPINGS = ['category', 'month', 'account'] as const;
+type SummaryGrouping = (typeof SUMMARY_GROUPINGS)[number];
+
+interface SummaryOptions extends FilterOptions {
+  by?: string;
+  includeTransfers?: boolean;
+  json?: boolean;
+  csv?: boolean;
+}
+
+async function summaryAction(options: SummaryOptions): Promise<void> {
+  try {
+    checkOutputFormat(options);
+    const by = (options.by ?? 'category') as SummaryGrouping;
+    if (!SUMMARY_GROUPINGS.includes(by)) {
+      fail(`Invalid --by "${options.by}". Use category, month, or account.`);
+    }
+
+    const { params, entries: filtered, excludedByCategory } = await loadEntries(options);
+    const entries = options.includeTransfers ? filtered : filtered.filter((e) => e.type !== 'transfer');
+    const skippedTransfers = filtered.length - entries.length;
+
+    const names = by === 'month' ? null : await loadNames();
+    const rows = summarize(entries, (e) => {
+      if (by === 'month') {
+        const month = e.date.slice(0, 7);
+        return { key: month, label: month };
+      }
+      if (by === 'account') {
+        return { key: String(e.accountId), label: names?.accounts.get(e.accountId) ?? String(e.accountId) };
+      }
+      if (e.categoryId === null) {
+        return { key: 'none', label: '(no category)' };
+      }
+      return { key: String(e.categoryId), label: names?.categories.get(e.categoryId) ?? String(e.categoryId) };
+    });
+
+    // Months read chronologically; other groupings put the biggest spending first.
+    rows.sort((a, b) => (by === 'month' ? a.key.localeCompare(b.key) : a.net - b.net));
+    const total = totalRow(rows);
+
+    if (options.json) {
+      console.log(
+        JSON.stringify(
+          { groupBy: by, from: params.startDate, to: params.endDate, skippedTransfers, excludedByCategory, rows, total },
+          null,
+          2
+        )
+      );
+      return;
+    }
+
+    if (options.csv) {
+      process.stdout.write(
+        toCsv(
+          [by, 'entries', 'income', 'expenses', 'net'],
+          [...rows, total].map((r) => [r.label, r.count, r.income, r.expenses, r.net])
+        )
+      );
+      return;
+    }
+
+    const table = new Table({
+      head: [by[0].toUpperCase() + by.slice(1), 'Entries', 'Income', 'Expenses', 'Net'],
+      style: { head: ['cyan'] },
+    });
+    for (const row of rows) {
+      table.push([row.label, row.count, formatCurrency(row.income), formatCurrency(row.expenses), formatSignedCurrency(row.net)]);
+    }
+    table.push([
+      chalk.bold(total.label),
+      chalk.bold(String(total.count)),
+      formatCurrency(total.income),
+      formatCurrency(total.expenses),
+      formatSignedCurrency(total.net),
+    ]);
+
+    logger.header(`Summary by ${by} | ${params.startDate} to ${params.endDate}`);
+    console.log(table.toString());
+    if (excludedByCategory > 0) {
+      console.log(chalk.gray(`\n${excludedByCategory} entr${excludedByCategory === 1 ? 'y' : 'ies'} left out by --exclude-category.`));
+    }
+    if (skippedTransfers > 0) {
+      console.log(chalk.gray(`\n${skippedTransfers} transfer(s) left out. Use --include-transfers to count them.`));
+    }
+  } catch (error) {
+    fail(error instanceof Error ? error.message : 'Unknown error');
   }
 }
 
 export const entriesCommand = new Command('entries')
   .description('Manage entries (lancamentos)');
 
-entriesCommand
-  .command('list')
-  .description('List entries for an account')
-  .requiredOption('-a, --account <ids>', 'Account ID(s), alias(es), or exact name(s) (case-insensitive), comma-separated')
-  .option('-f, --from <date>', 'Start date (YYYY-MM-DD), defaults to first day of current month')
-  .option('-t, --to <date>', 'End date (YYYY-MM-DD), defaults to last day of current month')
-  .option('-s, --status <filter>', 'Filter by status: pending, confirmed, reconciled, scheduled (or bitmask 0-15)')
-  .option('-T, --type <filter>', 'Filter by type: expense, income, transfer-out, transfer-in (or bitmask 0-15)')
-  .option('-c, --category <ids>', 'Filter by category ID(s), alias(es), or exact name(s) (case-insensitive), comma-separated')
-  .option('-g, --tag <ids>', 'Filter by tag ID(s), alias(es), or exact name(s) (case-insensitive), comma-separated')
-  .option('-k, --keywords <text>', 'Search by keywords')
-  .option('-v, --value <amount>', 'Filter by value')
+function addFilterOptions(command: Command): Command {
+  return command
+    .requiredOption('-a, --account <ids>', 'Account ID(s), alias(es), or exact name(s) (case-insensitive), comma-separated')
+    .option('-f, --from <date>', 'Start date (YYYY-MM-DD), defaults to first day of current month')
+    .option('-t, --to <date>', 'End date (YYYY-MM-DD), defaults to last day of current month')
+    .option('-s, --status <filter>', 'Filter by status: pending, confirmed, reconciled, scheduled (or bitmask 0-15)')
+    .option('-T, --type <filter>', 'Filter by type: expense, income, transfer-out, transfer-in (or bitmask 0-15)')
+    .option('-c, --category <ids>', 'Filter by category ID(s), alias(es), or exact name(s) (case-insensitive), comma-separated')
+    .option('-g, --tag <ids>', 'Filter by tag ID(s), alias(es), or exact name(s) (case-insensitive), comma-separated')
+    .option('-k, --keywords <text>', 'Search by keywords')
+    .option('-v, --value <amount>', 'Filter by value')
+    .option('-x, --exclude-category <ids>', 'Leave out these categories and their subcategories, comma-separated');
+}
+
+addFilterOptions(entriesCommand.command('list').description('List entries for one or more accounts'))
   .option('--json', 'Output as JSON')
+  .option('--csv', 'Output as CSV (with account and category names)')
   .action(listAction);
+
+addFilterOptions(
+  entriesCommand.command('summary').description('Total income and expenses grouped by category, month, or account')
+)
+  .option('-b, --by <grouping>', 'Group by: category, month, or account', 'category')
+  .option('--include-transfers', 'Count transfers between accounts (left out by default)')
+  .option('--json', 'Output as JSON')
+  .option('--csv', 'Output as CSV')
+  .action(summaryAction);
 
 interface CreateOptions {
   account: string;

@@ -1,4 +1,4 @@
-import puppeteer, { type Page, type Browser } from 'puppeteer';
+import { chromium, type Page, type Browser } from 'playwright';
 import type { AuthConfig } from '../types/index.js';
 import { getCredentialsFromOnePassword } from './onepassword.js';
 import { detectRecaptchaChallenge, solveRecaptcha } from './captcha.js';
@@ -6,7 +6,33 @@ import { detectRecaptchaChallenge, solveRecaptcha } from './captcha.js';
 const LOGIN_URL = 'https://app.meudinheiroweb.com.br/';
 const API_URL_PATTERN = 'app.meudinheiroweb.com.br/api/';
 
-const REQUIRED_HEADERS = ['authorization', 'mdapikey', 'mdpolicy', 'mdsignature', 'mduid'] as const;
+const CHROMIUM_CHANNELS = ['chrome', 'msedge'] as const;
+
+function isChannelNotFoundError(error: unknown): boolean {
+  return error instanceof Error && /is not found|Executable doesn't exist/i.test(error.message);
+}
+
+async function launchAvailableChromiumChannel(
+  launch: (channel: string) => Promise<Browser>
+): Promise<Browser> {
+  let lastError: unknown;
+  for (const channel of CHROMIUM_CHANNELS) {
+    try {
+      return await launch(channel);
+    } catch (error) {
+      lastError = error;
+      if (!isChannelNotFoundError(error)) {
+        throw error;
+      }
+    }
+  }
+  throw lastError;
+}
+
+// Login captures must carry authorization: pre-login API traffic can already
+// send mdapikey/mduid, and accepting it would close the browser and save a
+// token-less auth before the user logs in.
+const REQUIRED_HEADERS = ['authorization', 'mdapikey', 'mduid'] as const;
 
 const SELECTORS = {
   loginInput: '#container > div > div > form > mdw-input-container > input',
@@ -19,21 +45,13 @@ const SELECTORS = {
 } as const;
 
 interface CapturedHeaders {
-  authorization: string;
-  cookie: string;
+  authorization?: string;
   mdapikey: string;
-  mdpolicy: string;
-  mdsignature: string;
   mduid: string;
 }
 
 function extractTokenFromAuth(authorization: string): string {
   return authorization.replace(/^Bearer\s+/i, '');
-}
-
-function extractTokenFromCookie(cookie: string): string {
-  const match = cookie.match(/mdauthtoken0=([^;]+)/);
-  return match?.[1] ?? '';
 }
 
 function hasAllRequiredHeaders(headers: Record<string, string>): boolean {
@@ -43,60 +61,47 @@ function hasAllRequiredHeaders(headers: Record<string, string>): boolean {
   });
 }
 
-function getMissingHeaders(headers: Record<string, string>): string[] {
-  return REQUIRED_HEADERS.filter((key) => {
-    const value = headers[key];
-    return value === undefined || value === '';
-  });
-}
-
 function validateCapturedAuth(auth: AuthConfig): string[] {
   const missing: string[] = [];
-  if (!auth.token) missing.push('token');
   if (!auth.apiKey) missing.push('apiKey');
-  if (!auth.policy) missing.push('policy');
-  if (!auth.signature) missing.push('signature');
   if (!auth.uid) missing.push('uid');
   return missing;
 }
 
 export async function captureAuthFromBrowser(): Promise<AuthConfig> {
-  const browser = await puppeteer.launch({
-    headless: false,
-    args: ['--window-size=1280,800'],
-    defaultViewport: { width: 1280, height: 800 },
+  const browser = await launchAvailableChromiumChannel((channel) =>
+    chromium.launch({
+      headless: false,
+      channel,
+      args: ['--window-size=1280,800'],
+    })
+  );
+
+  let browserDisconnected = false;
+  browser.on('disconnected', () => {
+    browserDisconnected = true;
   });
 
-  const page = await browser.newPage();
-  await page.setRequestInterception(true);
+  const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  const page = await context.newPage();
 
   let capturedHeaders: CapturedHeaders | null = null;
-  let partialCaptures = 0;
 
   page.on('request', (request) => {
     const url = request.url();
 
     if (url.includes(API_URL_PATTERN) && !capturedHeaders) {
       const headers = request.headers();
-      
+
       if (hasAllRequiredHeaders(headers)) {
         capturedHeaders = {
           authorization: headers['authorization'],
-          cookie: headers['cookie'] ?? '',
           mdapikey: headers['mdapikey'],
-          mdpolicy: headers['mdpolicy'],
-          mdsignature: headers['mdsignature'],
           mduid: headers['mduid'],
         };
-        console.log('✓ All authentication headers captured successfully.');
-      } else if (headers['authorization']) {
-        partialCaptures++;
-        const missing = getMissingHeaders(headers);
-        console.log(`⚠ Partial capture #${partialCaptures} - missing: ${missing.join(', ')}`);
+        console.log('✓ Authentication headers captured successfully.');
       }
     }
-
-    request.continue();
   });
 
   await page.goto(LOGIN_URL);
@@ -105,28 +110,20 @@ export async function captureAuthFromBrowser(): Promise<AuthConfig> {
   console.log('   The browser will close automatically after capturing all credentials.\n');
 
   while (!capturedHeaders) {
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    
-    const pages = await browser.pages();
-    if (pages.length === 0) {
+    if (browserDisconnected) {
       throw new Error('Browser was closed before all credentials were captured.');
     }
+    await new Promise((resolve) => setTimeout(resolve, 500));
   }
 
   await browser.close();
 
   const result: CapturedHeaders = capturedHeaders;
 
-  const token = result.authorization 
-    ? extractTokenFromAuth(result.authorization)
-    : extractTokenFromCookie(result.cookie);
-
   const auth: AuthConfig = {
-    token,
     apiKey: result.mdapikey,
-    policy: result.mdpolicy,
-    signature: result.mdsignature,
     uid: result.mduid,
+    ...(result.authorization ? { token: extractTokenFromAuth(result.authorization) } : {}),
   };
 
   const missingFields = validateCapturedAuth(auth);
@@ -138,15 +135,10 @@ export async function captureAuthFromBrowser(): Promise<AuthConfig> {
 }
 
 async function waitForSelector(page: Page, selector: string, timeout = 30000): Promise<void> {
-  await page.waitForSelector(selector, { visible: true, timeout });
+  await page.waitForSelector(selector, { state: 'visible', timeout });
 }
 
-async function setupAuthCapture(
-  page: Page,
-  onCaptured: (headers: CapturedHeaders) => void
-): Promise<void> {
-  await page.setRequestInterception(true);
-
+function setupAuthCapture(page: Page, onCaptured: (headers: CapturedHeaders) => void): void {
   page.on('request', (request) => {
     const url = request.url();
 
@@ -156,40 +148,32 @@ async function setupAuthCapture(
       if (hasAllRequiredHeaders(headers)) {
         onCaptured({
           authorization: headers['authorization'],
-          cookie: headers['cookie'] ?? '',
           mdapikey: headers['mdapikey'],
-          mdpolicy: headers['mdpolicy'],
-          mdsignature: headers['mdsignature'],
           mduid: headers['mduid'],
         });
       }
     }
-
-    request.continue();
   });
 }
 
 function headersToAuthConfig(headers: CapturedHeaders): AuthConfig {
-  const token = headers.authorization
-    ? extractTokenFromAuth(headers.authorization)
-    : extractTokenFromCookie(headers.cookie);
-
   return {
-    token,
     apiKey: headers.mdapikey,
-    policy: headers.mdpolicy,
-    signature: headers.mdsignature,
     uid: headers.mduid,
+    ...(headers.authorization ? { token: extractTokenFromAuth(headers.authorization) } : {}),
   };
 }
 
 export async function captureAuthHeadless(opItemName: string): Promise<AuthConfig> {
   const credentials = await getCredentialsFromOnePassword(opItemName);
 
-  const browser = await puppeteer.launch({
-    headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
-  });
+  const browser = await launchAvailableChromiumChannel((channel) =>
+    chromium.launch({
+      headless: true,
+      channel,
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    })
+  );
 
   try {
     const auth = await performHeadlessLogin(browser, credentials, opItemName);
@@ -296,11 +280,11 @@ async function performHeadlessLogin(
   const page = await browser.newPage();
   const capturedRef: { headers: CapturedHeaders | null } = { headers: null };
 
-  await setupAuthCapture(page, (headers) => {
+  setupAuthCapture(page, (headers) => {
     capturedRef.headers = headers;
   });
 
-  await page.goto(LOGIN_URL, { waitUntil: 'networkidle2' });
+  await page.goto(LOGIN_URL, { waitUntil: 'networkidle' });
   await fillLoginForm(page, credentials.username, credentials.password);
   await fillOtpForm(page, credentials.otp);
   await retryOtpIfInvalid(page, opItemName);

@@ -22,4 +22,10 @@ program.addCommand(tagsCommand);
 program.addCommand(entriesCommand);
 program.addCommand(cardsCommand);
 
-program.parse();
+process.on('unhandledRejection', (reason) => {
+  const message = reason instanceof Error ? reason.stack ?? reason.message : String(reason);
+  console.error(`✗ Unexpected error: ${message}`);
+  process.exit(1);
+});
+
+await program.parseAsync();

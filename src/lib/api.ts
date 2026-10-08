@@ -1,7 +1,11 @@
 import type {
   ApiHeaders,
   AuthConfig,
+  AuthMethod,
   CategoriesResponse,
+  Category,
+  CreateCategoryPayload,
+  UpdateCategoryPayload,
   AccountsResponse,
   TagsResponse,
   EntriesResponse,
@@ -19,68 +23,90 @@ import type {
   NormalizedCardEntry,
   NormalizedCardInstallment,
   Account,
+  CreateAccountPayload,
+  UpdateAccountPayload,
   CreateTagPayload,
   CreateTagResponse,
 } from '../types/index.js';
-import { getAuth, setAuth, getOpItem, invalidateNameCache } from './config.js';
+import { getAuth, getAuthMethod, setAuth, getOpItem, invalidateNameCache } from './config.js';
 import { popStaleNameCacheUse } from './cache-invalidation.js';
 import { captureAuthHeadless } from './browser-auth.js';
 import { extractSessionFromBrowser } from './browser-session.js';
 
-const BASE_URL = 'https://app.meudinheiroweb.com.br/api';
+const BASE_URL = process.env.MDCLI_API_URL ?? 'https://app.meudinheiroweb.com.br/api';
 
-let isRefreshing = false;
+let refreshPromise: Promise<AuthConfig> | null = null;
 
 function buildHeaders(auth: AuthConfig): ApiHeaders {
-  return {
-    Authorization: `Bearer ${auth.token}`,
-    Cookie: `mdauthtoken0=${auth.token}`,
+  const headers: ApiHeaders = {
     Mdapikey: auth.apiKey,
-    Mdpolicy: auth.policy,
-    Mdsignature: auth.signature,
     Mduid: auth.uid,
   };
+  if (auth.token) {
+    headers.Authorization = `Bearer ${auth.token}`;
+    headers.Cookie = `mdauthtoken0=${auth.token}`;
+  }
+  return headers;
+}
+
+async function reacquireAuth(): Promise<{ auth: AuthConfig; method: AuthMethod }> {
+  const method = getAuthMethod();
+
+  switch (method) {
+    case 'browser-chrome':
+      return { auth: await extractSessionFromBrowser({ browser: 'chrome' }), method };
+    case 'browser-edge':
+      return { auth: await extractSessionFromBrowser({ browser: 'edge' }), method };
+    case 'browser-firefox':
+      return { auth: await extractSessionFromBrowser({ browser: 'firefox' }), method };
+    case '1password': {
+      const opItem = getOpItem();
+      if (opItem) {
+        return { auth: await captureAuthHeadless(opItem), method };
+      }
+      break;
+    }
+  }
+
+  // manual and browser-manual need a human in the loop, so there's nothing to retry automatically.
+  throw new Error('The API rejected the saved credentials (401). Run "mdcli auth login" to re-authenticate.');
+}
+
+/** Refreshes auth once and shares the result: concurrent 401s (e.g. the
+ * parallel lookups in entries loadNames) all wait for the same refresh and
+ * then retry with the new credentials instead of failing. */
+async function getRefreshedAuth(): Promise<AuthConfig> {
+  if (!refreshPromise) {
+    refreshPromise = (async () => {
+      // stderr: a refresh can fire inside --json/--csv commands, where
+      // stdout must stay machine-readable.
+      console.error('🔄 Credentials rejected, refreshing with the last login method...');
+      const { auth: newAuth, method } = await reacquireAuth();
+      setAuth(newAuth, method);
+      console.error('✓ Credentials refreshed');
+      return newAuth;
+    })().finally(() => {
+      refreshPromise = null;
+    });
+  }
+  return refreshPromise;
 }
 
 async function refreshAuthAndRetry<T>(
   requestFn: (auth: AuthConfig) => Promise<Response>
 ): Promise<T> {
-  if (isRefreshing) {
-    throw new Error('Authentication refresh already in progress');
+  const newAuth = await getRefreshedAuth();
+
+  const response = await requestFn(newAuth);
+  if (!response.ok) {
+    // Same failure handling as the non-refresh paths: invalidate a possibly
+    // stale name-cache use and keep the API's error body in the message.
+    const cachedType = popStaleNameCacheUse();
+    if (cachedType) invalidateNameCache(cachedType);
+    const errorText = await response.text();
+    throw new Error(`API request failed after refresh: ${response.status} ${response.statusText} - ${errorText}`);
   }
-
-  isRefreshing = true;
-  try {
-    let newAuth: AuthConfig;
-
-    try {
-      console.log('🔄 Token expired, refreshing via browser session...');
-      newAuth = await extractSessionFromBrowser({ browser: 'chrome' });
-      setAuth(newAuth, 'browser-chrome');
-      console.log('✓ Token refreshed successfully via browser session');
-    } catch {
-      const opItem = getOpItem();
-      if (!opItem) {
-        throw new Error(
-          'Authentication expired. Browser session extraction failed and no 1Password item configured.\n' +
-            'Run "mdcli auth login" to re-authenticate.'
-        );
-      }
-
-      console.log('⚠ Browser session failed, falling back to 1Password...');
-      newAuth = await captureAuthHeadless(opItem);
-      setAuth(newAuth, '1password');
-      console.log('✓ Token refreshed successfully via 1Password');
-    }
-
-    const response = await requestFn(newAuth);
-    if (!response.ok) {
-      throw new Error(`API request failed after refresh: ${response.status} ${response.statusText}`);
-    }
-    return response.json() as Promise<T>;
-  } finally {
-    isRefreshing = false;
-  }
+  return response.json() as Promise<T>;
 }
 
 async function apiRequest<T>(endpoint: string): Promise<T> {
@@ -194,8 +220,32 @@ export async function fetchCategories(): Promise<CategoriesResponse> {
   return apiRequest<CategoriesResponse>('/v1/cadastros/categorias?meta=true&paginate=false');
 }
 
+export async function createCategory(payload: CreateCategoryPayload): Promise<Category> {
+  return apiPost<CreateCategoryPayload, Category>('/v1/cadastros/categorias', payload);
+}
+
+export async function updateCategory(id: number, payload: UpdateCategoryPayload): Promise<Category> {
+  return apiPut<UpdateCategoryPayload, Category>(`/v1/cadastros/categorias/${id}`, payload);
+}
+
+export async function deleteCategory(id: number, moveEntriesToId: number): Promise<void> {
+  return apiDelete(`/v1/cadastros/categorias/${id}?idDestino=${moveEntriesToId}`);
+}
+
 export async function fetchAccounts(): Promise<AccountsResponse> {
   return apiRequest<AccountsResponse>('/v1/cadastros/contas?meta=true&paginate=false');
+}
+
+export async function createAccount(payload: CreateAccountPayload): Promise<Account> {
+  return apiPost<CreateAccountPayload, Account>('/v1/cadastros/contas', payload);
+}
+
+export async function updateAccount(id: number, payload: UpdateAccountPayload): Promise<Account> {
+  return apiPut<UpdateAccountPayload, Account>(`/v1/cadastros/contas/${id}`, payload);
+}
+
+export async function deleteAccount(id: number): Promise<void> {
+  return apiDelete(`/v1/cadastros/contas/${id}`);
 }
 
 export async function fetchTags(): Promise<TagsResponse> {
@@ -230,7 +280,35 @@ export async function fetchEntry(id: number): Promise<Entry> {
   return apiRequest<Entry>(`/v1/lancamentos/${id}`);
 }
 
-export async function fetchEntries(params: EntriesParams): Promise<EntriesResponse> {
+const ENTRIES_PAGE_SIZE = 200;
+const MAX_ENTRIES_PAGES = 100;
+
+/** Fetches every page of entries matching the filters. */
+export async function fetchAllEntries(params: Omit<EntriesParams, 'page' | 'pageSize'>): Promise<Entry[]> {
+  const entries: Entry[] = [];
+  for (let page = 1; page <= MAX_ENTRIES_PAGES; page++) {
+    const response = await fetchEntries({ ...params, page, pageSize: ENTRIES_PAGE_SIZE });
+    entries.push(...response.list);
+    if (response.list.length === 0) {
+      return entries;
+    }
+    const total = response.meta?.total;
+    if (total !== undefined) {
+      // The server may cap pageSize below what was requested, so a short page
+      // alone does not mean the last page — only total does.
+      if (entries.length >= total) {
+        return entries;
+      }
+    } else if (response.list.length < ENTRIES_PAGE_SIZE) {
+      return entries;
+    }
+  }
+  throw new Error(
+    `More than ${MAX_ENTRIES_PAGES * ENTRIES_PAGE_SIZE} entries match these filters. Narrow the date range or filters.`
+  );
+}
+
+async function fetchEntries(params: EntriesParams): Promise<EntriesResponse> {
   const contas = JSON.stringify({
     faturas: params.includeFaturas ?? true,
     ids: params.accountIds,
@@ -326,8 +404,8 @@ function mapEntryStatus(status: string): 'reconciled' | 'pending' | 'scheduled' 
   return statusMap[status] ?? 'pending';
 }
 
-export function normalizeEntries(response: EntriesResponse): NormalizedEntry[] {
-  return response.list.map((entry) => ({
+export function normalizeEntries(entries: Entry[]): NormalizedEntry[] {
+  return entries.map((entry) => ({
     id: entry.id,
     description: entry.descricao,
     date: entry.data,

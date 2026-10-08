@@ -1,18 +1,15 @@
 export interface AuthConfig {
-  token: string;
   apiKey: string;
-  policy: string;
-  signature: string;
   uid: string;
+  /** Optional bearer token (JWT). The app only sends Authorization when it has one. */
+  token?: string;
 }
 
 export interface ApiHeaders {
-  Authorization: string;
-  Cookie: string;
   Mdapikey: string;
-  Mdpolicy: string;
-  Mdsignature: string;
   Mduid: string;
+  Authorization?: string;
+  Cookie?: string;
 }
 
 interface CategoryDfcDre {
@@ -72,12 +69,24 @@ export interface Category {
   _ordenacao: string;
   sistema: boolean;
   tipoL?: number;
+  /** Parent category ID. Absent on top-level categories. */
+  pai?: number;
 }
 
 export interface CategoriesResponse {
   meta: CategoryMeta;
   items: Category[];
 }
+
+export interface CreateCategoryPayload {
+  nome: string;
+  nomeRel: string;
+  tipo: 'd' | 'r';
+  /** 0 for a top-level category; the web app sends the parent ID as a string. */
+  pai: number | string;
+}
+
+export type UpdateCategoryPayload = Category & { pai: number };
 
 export interface NormalizedCategory {
   id: number;
@@ -177,6 +186,19 @@ export interface NormalizedAccount {
   closed: boolean;
 }
 
+export interface CreateAccountPayload {
+  nome: string;
+  tipoNovo: number;
+  saldoInicial: number;
+  dataSaldoInicial: string;
+  exibirBP: boolean;
+  moeda: number;
+  liquidez?: number;
+  banco?: string;
+}
+
+export type UpdateAccountPayload = Omit<Account, 'banco'> & { banco?: string };
+
 interface Tag {
   id: number;
   nome: string;
@@ -230,7 +252,7 @@ export interface NameCache {
   tags?: NameCacheEntry;
 }
 
-export type AuthMethod = 'browser-chrome' | 'browser-firefox' | '1password' | 'browser-manual' | 'manual';
+export type AuthMethod = 'browser-chrome' | 'browser-firefox' | 'browser-edge' | '1password' | 'browser-manual' | 'manual';
 
 export interface MdcliConfig {
   auth?: AuthConfig;
