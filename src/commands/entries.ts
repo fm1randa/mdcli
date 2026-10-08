@@ -517,21 +517,25 @@ function shiftDueDate(dueDate: string, months: number): string {
 }
 
 const MAX_INVOICE_STEPS = 24;
+const ISO_DATE = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
+const INVOICE_MONTH = /^(\d{4})-(0[1-9]|1[0-2])$/;
 
 /**
  * Due date of the invoice a card purchase belongs to. With --invoice the user
  * picks it; otherwise walk from the card's next due date using each invoice's
  * real closing date, since closing days drift by a day or two between months.
+ * Every step is an offset from the anchor, so a clamped day (31 -> Feb 28)
+ * never carries into later months.
  */
 async function resolveCardDueDate(account: Account, purchaseDate: string, invoice?: string): Promise<string> {
-  const anchor = account.proximoVencimento;
-  const anchorDay = anchor ? anchor.slice(8, 10) : '10';
+  const anchor = account.proximoVencimento?.slice(0, 10);
 
   if (invoice) {
-    const match = invoice.match(/^(\d{4})-(\d{2})$/);
+    const match = invoice.match(INVOICE_MONTH);
     if (!match) {
-      throw new Error('Invalid invoice month. Use YYYY-MM (e.g., 2026-10)');
+      throw new Error('Invalid invoice month. Use YYYY-MM with a month from 01 to 12 (e.g., 2026-10)');
     }
+    const anchorDay = anchor ? anchor.slice(8, 10) : '10';
     return shiftDueDate(`${match[1]}-${match[2]}-${anchorDay}`, 0);
   }
 
@@ -539,21 +543,20 @@ async function resolveCardDueDate(account: Account, purchaseDate: string, invoic
     throw new Error(`Card ${account.id} has no next due date. Pass the invoice explicitly with --invoice YYYY-MM.`);
   }
 
-  const closingOf = async (dueDate: string): Promise<string> =>
-    (await fetchCardInvoice(account.id, dueDate)).fechamento.slice(0, 10);
+  const closingOf = async (offset: number): Promise<string> =>
+    (await fetchCardInvoice(account.id, shiftDueDate(anchor, offset))).fechamento.slice(0, 10);
 
-  let dueDate = anchor;
+  let offset = 0;
   for (let step = 0; step < MAX_INVOICE_STEPS; step++) {
-    if (purchaseDate > (await closingOf(dueDate))) {
-      dueDate = shiftDueDate(dueDate, 1);
+    if (purchaseDate > (await closingOf(offset))) {
+      offset += 1;
       continue;
     }
-    const previousDueDate = shiftDueDate(dueDate, -1);
-    if (purchaseDate <= (await closingOf(previousDueDate))) {
-      dueDate = previousDueDate;
+    if (purchaseDate <= (await closingOf(offset - 1))) {
+      offset -= 1;
       continue;
     }
-    return dueDate;
+    return shiftDueDate(anchor, offset);
   }
   throw new Error(`Could not find the invoice for ${purchaseDate}. Pass it explicitly with --invoice YYYY-MM.`);
 }
@@ -601,6 +604,10 @@ async function createAction(options: CreateOptions): Promise<void> {
     const isReconciled = !options.pending;
     const now = new Date();
     const dateStr = options.date ?? toLocalDateString(now);
+    if (!ISO_DATE.test(dateStr)) {
+      logger.error('Invalid date. Use YYYY-MM-DD (e.g., 2026-10-03).');
+      process.exit(1);
+    }
     const { start: monthStart, end: monthEnd } = getMonthRange();
     const expenseNeedsNegativeValue = tipo === 'd';
     const finalValue = expenseNeedsNegativeValue ? -Math.abs(value) : Math.abs(value);
