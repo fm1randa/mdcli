@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
-import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, EMPTY_ENTRIES_RESPONSE } from './fixtures.js';
+import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, CREDIT_CARD_ACCOUNT, EMPTY_ENTRIES_RESPONSE, cardInvoice } from './fixtures.js';
 
 let api: MockApi;
 let home: TestHome;
@@ -86,8 +86,10 @@ describe('entries create', () => {
     expect(body).not.toHaveProperty('dataCompetencia');
   });
 
-  test('adds dataCompetencia on a credit card account', async () => {
+  test('puts a credit card purchase on the open invoice', async () => {
     api.on('POST /v1/lancamentos', created);
+    api.on('GET /v1/cartoes/1002/fatura/2026-01-16', cardInvoice('2026-01-16', '2026-01-08'));
+    api.on('GET /v1/cartoes/1002/fatura/2025-12-16', cardInvoice('2025-12-16', '2025-12-08'));
 
     const result = await runCli(
       ['entries', 'create', '-a', '1002', '-d', 'Voo', '-v', '10', '-c', '10', '-D', '2026-01-05', '--json'],
@@ -95,7 +97,28 @@ describe('entries create', () => {
     );
 
     expect(result.exitCode).toBe(0);
-    expect(mutations(api)[0].body).toMatchObject({ dataCompetencia: '2026-01-05' });
+    expect(mutations(api)[0].body).toMatchObject({
+      dataCompetencia: '2026-01-05',
+      dataPrevista: '2026-01-16',
+      dataEfetiva: null,
+      conciliado: false,
+    });
+  });
+
+  test('refuses a card purchase when the card has no next due date', async () => {
+    api.on('GET /v1/cadastros/contas', {
+      ...ACCOUNTS_RESPONSE,
+      items: [{ ...CREDIT_CARD_ACCOUNT, proximoVencimento: undefined }],
+    });
+
+    const result = await runCli(
+      ['entries', 'create', '-a', '1002', '-d', 'Voo', '-v', '10', '-c', '10', '-D', '2026-01-05'],
+      { home, api }
+    );
+
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain('Card 1002 has no next due date');
+    expect(mutations(api)).toHaveLength(0);
   });
 
   test('requires a category', async () => {
