@@ -35,7 +35,8 @@ function getChromeCookieValue(cookieName: string, domain: string): string | null
 
     const derivedKey = pbkdf2Sync(safeStorageKey, 'saltysalt', 1003, 16, 'sha1');
 
-    const db = new Database(cookiesPath, { readonly: true });
+    // immutable=1 reads the file without taking a lock Chrome already holds
+    const db = new Database(`file:${cookiesPath}?immutable=1`, { readonly: true });
     const row = db.query(
       'SELECT encrypted_value FROM cookies WHERE name = ? AND host_key = ?'
     ).get(cookieName, domain) as { encrypted_value: Uint8Array } | null;
@@ -69,6 +70,21 @@ function getChromeCookieValue(cookieName: string, domain: string): string | null
     return decrypted.slice(jwtStart, jwtEnd).toString('utf-8');
   } catch {
     return null;
+  }
+}
+
+const SESSION_URL = 'https://app.meudinheiroweb.com.br/api/v1/frontend/sessao';
+
+/** The frontend's public API key, served to logged-out visitors too. */
+async function fetchPublicApiKey(): Promise<string | undefined> {
+  try {
+    const response = await fetch(SESSION_URL);
+    if (!response.ok) return undefined;
+    const body = (await response.json()) as { payload?: { api?: { key?: unknown } } };
+    const key = body.payload?.api?.key;
+    return typeof key === 'string' && key !== '' ? key : undefined;
+  } catch {
+    return undefined;
   }
 }
 
@@ -530,10 +546,17 @@ export async function extractSessionFromBrowser(
         token = getChromeCookieValue('mdauthtoken0', '.meudinheiroweb.com.br') ?? '';
       }
 
-      const apiKey = loginConfig?.mdApiKey ?? capturedApiHeaders?.mdapikey;
+      // The current frontend no longer sets window.loginconfig: it reads the
+      // public API key from /frontend/sessao instead. A copied Chrome profile
+      // also loses its encrypted cookies, so the token above may only come
+      // from the Keychain fallback -- pair it with that public key.
+      const apiKey =
+        loginConfig?.mdApiKey ??
+        capturedApiHeaders?.mdapikey ??
+        (token ? await fetchPublicApiKey() : undefined);
 
       if (!apiKey) {
-        if (!loginConfig && !capturedApiHeaders) {
+        if (!loginConfig && !capturedApiHeaders && !token) {
           throw new Error('User is not logged into MeuDinheiro. Try: mdcli auth login --browser');
         }
         throw new Error(

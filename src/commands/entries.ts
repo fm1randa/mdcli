@@ -14,11 +14,13 @@ import {
   deleteEntry,
   fetchAccountById,
   isCreditCard,
+  fetchCardInvoice,
 } from '../lib/api.js';
 import { toCsv } from '../lib/csv.js';
 import { summarize, totalRow } from '../lib/summary.js';
 import { resolveId, resolveIds } from '../lib/aliases.js';
 import type {
+  Account,
   CreateEntryPayload,
   CreateEntryAgenda,
   CreateEntryResponse,
@@ -440,6 +442,7 @@ interface CreateOptions {
   repeat?: string;
   frequency?: string;
   times?: string;
+  invoice?: string;
   json?: boolean;
 }
 
@@ -504,6 +507,57 @@ function mapTypeToApi(type: string): 'd' | 'r' | 't' {
   return parseTypeOption(type) ?? 'd';
 }
 
+/** Shifts a YYYY-MM-DD due date by whole months, clamping the day. */
+function shiftDueDate(dueDate: string, months: number): string {
+  const [year, month, day] = dueDate.split('-').map(Number);
+  const target = new Date(year, month - 1 + months, 1);
+  const lastDay = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
+  target.setDate(Math.min(day, lastDay));
+  return toLocalDateString(target);
+}
+
+const MAX_INVOICE_STEPS = 24;
+
+/**
+ * Due date of the invoice a card purchase belongs to. With --invoice the user
+ * picks it; otherwise walk from the card's next due date using each invoice's
+ * real closing date, since closing days drift by a day or two between months.
+ */
+async function resolveCardDueDate(account: Account, purchaseDate: string, invoice?: string): Promise<string> {
+  const anchor = account.proximoVencimento;
+  const anchorDay = anchor ? anchor.slice(8, 10) : '10';
+
+  if (invoice) {
+    const match = invoice.match(/^(\d{4})-(\d{2})$/);
+    if (!match) {
+      throw new Error('Invalid invoice month. Use YYYY-MM (e.g., 2026-10)');
+    }
+    return shiftDueDate(`${match[1]}-${match[2]}-${anchorDay}`, 0);
+  }
+
+  if (!anchor) {
+    throw new Error(`Card ${account.id} has no next due date. Pass the invoice explicitly with --invoice YYYY-MM.`);
+  }
+
+  const closingOf = async (dueDate: string): Promise<string> =>
+    (await fetchCardInvoice(account.id, dueDate)).fechamento.slice(0, 10);
+
+  let dueDate = anchor;
+  for (let step = 0; step < MAX_INVOICE_STEPS; step++) {
+    if (purchaseDate > (await closingOf(dueDate))) {
+      dueDate = shiftDueDate(dueDate, 1);
+      continue;
+    }
+    const previousDueDate = shiftDueDate(dueDate, -1);
+    if (purchaseDate <= (await closingOf(previousDueDate))) {
+      dueDate = previousDueDate;
+      continue;
+    }
+    return dueDate;
+  }
+  throw new Error(`Could not find the invoice for ${purchaseDate}. Pass it explicitly with --invoice YYYY-MM.`);
+}
+
 async function createAction(options: CreateOptions): Promise<void> {
   try {
     const value = Number(options.value);
@@ -559,13 +613,26 @@ async function createAction(options: CreateOptions): Promise<void> {
       logger.warning(`Account ${accountId} was not found in the account list. Creating the entry without the credit card fields.`);
     }
     const isCardAccount = account ? isCreditCard(account) : false;
+    if (options.invoice && !isCardAccount) {
+      logger.error('--invoice only applies to credit card accounts.');
+      process.exit(1);
+    }
+
+    // Card purchases belong to an open invoice: the web app sends the purchase
+    // date as dataCompetencia, the invoice due date as dataPrevista, and leaves
+    // them unreconciled. Sending the purchase date as dataPrevista pins them
+    // to the nearest (often already closed) invoice instead (#17).
+    const cardDueDate = account && isCardAccount
+      ? await resolveCardDueDate(account, dateStr, options.invoice)
+      : null;
+    const entryReconciled = cardDueDate ? false : isReconciled;
 
     const payload: CreateEntryPayload = {
       descricao: options.description,
       tipo,
       status: {
         confirmado: true,
-        conciliado: isReconciled,
+        conciliado: entryReconciled,
       },
       exibirCp: true,
       exibirCr: true,
@@ -586,11 +653,11 @@ async function createAction(options: CreateOptions): Promise<void> {
       observacoes: options.notes ?? '',
       tags: tagIds,
       transferencia: false,
-      conciliado: isReconciled,
-      dataEfetiva: dateStr,
+      conciliado: entryReconciled,
+      dataEfetiva: cardDueDate ? null : dateStr,
       ...(isCardAccount && { dataCompetencia: dateStr }),
-      dataPrevista: dateStr,
-      valorEfetivo: finalValue,
+      dataPrevista: cardDueDate ?? dateStr,
+      valorEfetivo: cardDueDate ? null : finalValue,
       valorPrevisto: finalValue,
     };
 
@@ -636,6 +703,7 @@ entriesCommand
   .option('-r, --repeat <interval>', 'Recurrence: daily, weekly, monthly, yearly (or d, w, m, y)')
   .option('--frequency <n>', 'Repeat every N intervals, e.g. --frequency 2 = every 2 months (default: 1)')
   .option('--times <n>', 'Total occurrences, e.g. --times 6 = 6 times then stop (default: infinite)')
+  .option('--invoice <YYYY-MM>', 'Credit cards: invoice month to post to (default: the invoice the date falls in)')
   .option('--json', 'Output as JSON')
   .action(createAction);
 
