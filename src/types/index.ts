@@ -464,10 +464,10 @@ export interface CreateEntryPayload {
   tags: number[];
   transferencia: boolean;
   conciliado: boolean;
-  dataEfetiva: string;
+  dataEfetiva: string | null;
   dataCompetencia?: string;
   dataPrevista: string;
-  valorEfetivo: number;
+  valorEfetivo: number | null;
   valorPrevisto: number;
 }
 
