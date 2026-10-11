@@ -23,7 +23,7 @@ function writeStaleConfig(): void {
 // One server for the whole file: src/lib/api.ts reads MDCLI_API_URL once at
 // import time, so per-test servers would leave later tests pointing at a
 // stopped port. Each test re-registers its routes and resets the config.
-beforeAll(() => {
+beforeAll(async () => {
   api = startMockApi();
 
   savedConfigDir = process.env.MDCLI_CONFIG_DIR;
@@ -34,7 +34,11 @@ beforeAll(() => {
   process.env.MDCLI_CONFIG_DIR = configDir;
   process.env.MDCLI_API_URL = api.url;
 
+  // mock.module replaces the module for every test file in the run, so keep the
+  // real exports (e.g. parseFirefoxInstallDefaults) and override only what we need.
+  const realBrowserSession = { ...(await import('../src/lib/browser-session.js')) };
   mock.module('../src/lib/browser-session.js', () => ({
+    ...realBrowserSession,
     extractSessionFromBrowser: async () => {
       refreshes += 1;
       // Slow enough that both concurrent requests 401 while refreshing.
