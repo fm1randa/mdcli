@@ -101,7 +101,7 @@ function extractUidFromJwt(token: string): string | null {
   }
 }
 
-export interface BrowserSessionOptions {
+interface BrowserSessionOptions {
   browser: 'chrome' | 'firefox' | 'edge';
   timeout?: number;
 }
