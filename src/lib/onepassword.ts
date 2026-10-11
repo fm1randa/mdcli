@@ -1,6 +1,6 @@
 import { $ } from 'bun';
 
-export interface OnePasswordCredentials {
+interface OnePasswordCredentials {
   username: string;
   password: string;
   otp: string;
