@@ -106,7 +106,9 @@ async function refreshAuthAndRetry<T>(
     const errorText = await response.text();
     throw new Error(`API request failed after refresh: ${response.status} ${response.statusText} - ${errorText}`);
   }
-  return response.json() as Promise<T>;
+  // DELETE (and some writes) answer 204 or an empty body; only parse when there is JSON.
+  const text = await response.text();
+  return (text ? JSON.parse(text) : undefined) as T;
 }
 
 async function apiRequest<T>(endpoint: string): Promise<T> {
