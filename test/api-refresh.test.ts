@@ -139,3 +139,41 @@ describe('concurrent refresh after 401', () => {
     await expect(deleteAccount(1001)).rejects.toThrow('account has entries');
   });
 });
+
+describe('response handling', () => {
+  test('a non-JSON success body fails with the method and endpoint, not a raw SyntaxError', async () => {
+    api.on('GET /v1/cadastros/contas', () => new Response('<html>maintenance</html>', { status: 200 }));
+
+    const { fetchAccounts } = await import('../src/lib/api.js');
+
+    await expect(fetchAccounts()).rejects.toThrow(
+      'API returned invalid JSON (GET /v1/cadastros/contas?meta=true&paginate=false)'
+    );
+  });
+
+  test('an API failure names the request and keeps the error body', async () => {
+    api.on('PUT /v1/cadastros/contas/1001', () =>
+      new Response(JSON.stringify({ error: 'name taken' }), { status: 409 })
+    );
+
+    const { updateAccount } = await import('../src/lib/api.js');
+
+    await expect(updateAccount(1001, { nome: 'X' } as never)).rejects.toThrow(
+      /API request failed \(PUT \/v1\/cadastros\/contas\/1001\): 409 .*name taken/
+    );
+  });
+
+  test('a failure after refresh is labeled as such', async () => {
+    let calls = 0;
+    api.on('DELETE /v1/cadastros/contas/1001', () => {
+      calls += 1;
+      return calls === 1
+        ? new Response(JSON.stringify({ error: 'expired' }), { status: 401 })
+        : new Response(JSON.stringify({ error: 'still no' }), { status: 403 });
+    });
+
+    const { deleteAccount } = await import('../src/lib/api.js');
+
+    await expect(deleteAccount(1001)).rejects.toThrow('(DELETE /v1/cadastros/contas/1001, after refresh): 403');
+  });
+});
