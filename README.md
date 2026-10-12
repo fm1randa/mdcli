@@ -249,6 +249,14 @@ mdcli tags delete 12345
 ## Development
 
 ```bash
+scripts/verify.sh   # full verification: install, typecheck, lint, knip, tests, CLI end-to-end
+```
+
+`scripts/verify.sh` is the official check: CI runs it on every pull request and on pushes to `main`, and branch protection requires it to pass before merging. It succeeds when it exits with code 0 and prints `VERIFICAÇÃO OK` as its last line.
+
+While iterating, you can run the individual steps:
+
+```bash
 bun run test        # test suite
 bun run typecheck
 bun run lint
