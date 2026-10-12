@@ -111,38 +111,7 @@ async function refreshAuthAndRetry<T>(
   return (text ? JSON.parse(text) : undefined) as T;
 }
 
-async function apiRequest<T>(endpoint: string): Promise<T> {
-  const auth = getAuth();
-  if (!auth) {
-    throw new Error('Not authenticated. Run "mdcli auth login" first.');
-  }
-
-  const headers = buildHeaders(auth);
-  const url = `${BASE_URL}${endpoint}`;
-
-  const response = await fetch(url, {
-    method: 'GET',
-    headers: headers as unknown as Record<string, string>,
-  });
-
-  if (!response.ok) {
-    if (response.status === 401) {
-      return refreshAuthAndRetry<T>((newAuth) =>
-        fetch(url, {
-          method: 'GET',
-          headers: buildHeaders(newAuth) as unknown as Record<string, string>,
-        })
-      );
-    }
-    const cachedType = popStaleNameCacheUse();
-    if (cachedType) invalidateNameCache(cachedType);
-    throw new Error(`API request failed: ${response.status} ${response.statusText}`);
-  }
-
-  return response.json() as Promise<T>;
-}
-
-function buildPostHeaders(auth: AuthConfig): Record<string, string> {
+function buildWriteHeaders(auth: AuthConfig): Record<string, string> {
   return {
     ...(buildHeaders(auth) as unknown as Record<string, string>),
     'Content-Type': 'application/json;charset=UTF-8',
@@ -152,29 +121,33 @@ function buildPostHeaders(auth: AuthConfig): Record<string, string> {
   };
 }
 
-async function apiPost<T, R>(endpoint: string, body: T): Promise<R> {
+type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE';
+
+/** Shared auth + fetch + 401-retry + error handling for GET/POST/PUT/DELETE. */
+async function request<T>(method: HttpMethod, endpoint: string, body?: unknown): Promise<T> {
   const auth = getAuth();
   if (!auth) {
     throw new Error('Not authenticated. Run "mdcli auth login" first.');
   }
 
   const url = `${BASE_URL}${endpoint}`;
+  const headersFor = (a: AuthConfig): Record<string, string> =>
+    method === 'GET'
+      ? (buildHeaders(a) as unknown as Record<string, string>)
+      : buildWriteHeaders(a);
 
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: buildPostHeaders(auth),
-    body: JSON.stringify(body),
-  });
+  const doFetch = (a: AuthConfig) =>
+    fetch(url, {
+      method,
+      headers: headersFor(a),
+      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+    });
+
+  const response = await doFetch(auth);
 
   if (!response.ok) {
     if (response.status === 401) {
-      return refreshAuthAndRetry<R>((newAuth) =>
-        fetch(url, {
-          method: 'POST',
-          headers: buildPostHeaders(newAuth),
-          body: JSON.stringify(body),
-        })
-      );
+      return refreshAuthAndRetry<T>((newAuth) => doFetch(newAuth));
     }
     const cachedType = popStaleNameCacheUse();
     if (cachedType) invalidateNameCache(cachedType);
@@ -182,104 +155,73 @@ async function apiPost<T, R>(endpoint: string, body: T): Promise<R> {
     throw new Error(`API request failed: ${response.status} ${response.statusText} - ${errorText}`);
   }
 
-  return response.json() as Promise<R>;
-}
-
-async function apiPut<T, R>(endpoint: string, body: T): Promise<R> {
-  const auth = getAuth();
-  if (!auth) {
-    throw new Error('Not authenticated. Run "mdcli auth login" first.');
-  }
-
-  const url = `${BASE_URL}${endpoint}`;
-
-  const response = await fetch(url, {
-    method: 'PUT',
-    headers: buildPostHeaders(auth),
-    body: JSON.stringify(body),
-  });
-
-  if (!response.ok) {
-    if (response.status === 401) {
-      return refreshAuthAndRetry<R>((newAuth) =>
-        fetch(url, {
-          method: 'PUT',
-          headers: buildPostHeaders(newAuth),
-          body: JSON.stringify(body),
-        })
-      );
-    }
-    const cachedType = popStaleNameCacheUse();
-    if (cachedType) invalidateNameCache(cachedType);
-    const errorText = await response.text();
-    throw new Error(`API request failed: ${response.status} ${response.statusText} - ${errorText}`);
-  }
-
-  return response.json() as Promise<R>;
+  // DELETE (and some writes) answer 204 or an empty body; only parse when there is JSON.
+  const text = await response.text();
+  return (text ? JSON.parse(text) : undefined) as T;
 }
 
 export async function fetchCategories(): Promise<CategoriesResponse> {
-  return apiRequest<CategoriesResponse>('/v1/cadastros/categorias?meta=true&paginate=false');
+  return request<CategoriesResponse>('GET', '/v1/cadastros/categorias?meta=true&paginate=false');
 }
 
 export async function createCategory(payload: CreateCategoryPayload): Promise<Category> {
-  return apiPost<CreateCategoryPayload, Category>('/v1/cadastros/categorias', payload);
+  return request<Category>('POST', '/v1/cadastros/categorias', payload);
 }
 
 export async function updateCategory(id: number, payload: UpdateCategoryPayload): Promise<Category> {
-  return apiPut<UpdateCategoryPayload, Category>(`/v1/cadastros/categorias/${id}`, payload);
+  return request<Category>('PUT', `/v1/cadastros/categorias/${id}`, payload);
 }
 
 export async function deleteCategory(id: number, moveEntriesToId: number): Promise<void> {
-  return apiDelete(`/v1/cadastros/categorias/${id}?idDestino=${moveEntriesToId}`);
+  return request<void>('DELETE', `/v1/cadastros/categorias/${id}?idDestino=${moveEntriesToId}`);
 }
 
 export async function fetchAccounts(): Promise<AccountsResponse> {
-  return apiRequest<AccountsResponse>('/v1/cadastros/contas?meta=true&paginate=false');
+  return request<AccountsResponse>('GET', '/v1/cadastros/contas?meta=true&paginate=false');
 }
 
 export async function createAccount(payload: CreateAccountPayload): Promise<Account> {
-  return apiPost<CreateAccountPayload, Account>('/v1/cadastros/contas', payload);
+  return request<Account>('POST', '/v1/cadastros/contas', payload);
 }
 
 export async function updateAccount(id: number, payload: UpdateAccountPayload): Promise<Account> {
-  return apiPut<UpdateAccountPayload, Account>(`/v1/cadastros/contas/${id}`, payload);
+  return request<Account>('PUT', `/v1/cadastros/contas/${id}`, payload);
 }
 
 export async function deleteAccount(id: number): Promise<void> {
-  return apiDelete(`/v1/cadastros/contas/${id}`);
+  return request<void>('DELETE', `/v1/cadastros/contas/${id}`);
 }
 
 export async function fetchTags(): Promise<TagsResponse> {
-  return apiRequest<TagsResponse>('/v1/cadastros/tags?paginate=false');
+  return request<TagsResponse>('GET', '/v1/cadastros/tags?paginate=false');
 }
 
 export async function createTag(payload: CreateTagPayload): Promise<CreateTagResponse> {
-  return apiPost<CreateTagPayload, CreateTagResponse>('/v1/cadastros/tags', payload);
+  return request<CreateTagResponse>('POST', '/v1/cadastros/tags', payload);
 }
 
 export async function updateTag(id: number, payload: CreateTagPayload): Promise<CreateTagResponse> {
-  return apiPut<CreateTagPayload, CreateTagResponse>(`/v1/cadastros/tags/${id}`, payload);
+  return request<CreateTagResponse>('PUT', `/v1/cadastros/tags/${id}`, payload);
 }
 
 export async function deleteTag(id: number): Promise<void> {
-  return apiDelete(`/v1/cadastros/tags/${id}`);
+  return request<void>('DELETE', `/v1/cadastros/tags/${id}`);
 }
 
 export async function fetchFirstInvoiceDate(cardId: number): Promise<string> {
-  return apiRequest<string>(`/v1/cartoes/${cardId}/primeiraFatura?id=${cardId}`);
+  return request<string>('GET', `/v1/cartoes/${cardId}/primeiraFatura?id=${cardId}`);
 }
 
 export async function fetchCardInvoice(cardId: number, dueDate: string): Promise<CardInvoiceResponse> {
-  return apiRequest<CardInvoiceResponse>(`/v1/cartoes/${cardId}/fatura/${dueDate}?id=${cardId}&vencimento=${dueDate}`);
+  return request<CardInvoiceResponse>('GET', `/v1/cartoes/${cardId}/fatura/${dueDate}?id=${cardId}&vencimento=${dueDate}`);
 }
 
 export async function fetchCardFuture(cardId: number): Promise<CardFutureResponse> {
-  return apiRequest<CardFutureResponse>(`/v1/cartoes/${cardId}/parcelasFuturas?id=${cardId}`);
+  return request<CardFutureResponse>('GET', `/v1/cartoes/${cardId}/parcelasFuturas?id=${cardId}`);
 }
 
 export async function fetchEntry(id: number): Promise<Entry> {
-  return apiRequest<Entry>(`/v1/lancamentos/${id}`);
+  return request<Entry>('GET', `/v1/lancamentos/${id}`);
 }
 
 const ENTRIES_PAGE_SIZE = 200;
@@ -354,7 +296,7 @@ async function fetchEntries(params: EntriesParams): Promise<EntriesResponse> {
     queryParams.set('valor', params.value.toString());
   }
 
-  return apiRequest<EntriesResponse>(`/v2/lancamentos?${queryParams.toString()}`);
+  return request<EntriesResponse>('GET', `/v2/lancamentos?${queryParams.toString()}`);
 }
 
 function mapCategoryType(tipo: 'd' | 'r' | 't'): 'expense' | 'income' | 'transfer' {
@@ -456,43 +398,13 @@ export async function fetchAccountById(id: number): Promise<Account | undefined>
 }
 
 export async function createEntry(payload: CreateEntryPayload): Promise<CreateEntryResponse> {
-  return apiPost<CreateEntryPayload, CreateEntryResponse>('/v1/lancamentos', payload);
+  return request<CreateEntryResponse>('POST', '/v1/lancamentos', payload);
 }
 
 export async function updateEntry(id: number, payload: UpdateEntryPayload): Promise<CreateEntryResponse> {
-  return apiPut<UpdateEntryPayload, CreateEntryResponse>(`/v1/lancamentos/${id}`, payload);
-}
-
-async function apiDelete(endpoint: string): Promise<void> {
-  const auth = getAuth();
-  if (!auth) {
-    throw new Error('Not authenticated. Run "mdcli auth login" first.');
-  }
-
-  const url = `${BASE_URL}${endpoint}`;
-
-  const response = await fetch(url, {
-    method: 'DELETE',
-    headers: buildPostHeaders(auth),
-  });
-
-  if (!response.ok) {
-    if (response.status === 401) {
-      await refreshAuthAndRetry<void>((newAuth) =>
-        fetch(url, {
-          method: 'DELETE',
-          headers: buildPostHeaders(newAuth),
-        })
-      );
-      return;
-    }
-    const cachedType = popStaleNameCacheUse();
-    if (cachedType) invalidateNameCache(cachedType);
-    const errorText = await response.text();
-    throw new Error(`API request failed: ${response.status} ${response.statusText} - ${errorText}`);
-  }
+  return request<CreateEntryResponse>('PUT', `/v1/lancamentos/${id}`, payload);
 }
 
 export async function deleteEntry(id: number): Promise<void> {
-  return apiDelete(`/v1/lancamentos/${id}`);
+  return request<void>('DELETE', `/v1/lancamentos/${id}`);
 }
