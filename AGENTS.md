@@ -1,5 +1,10 @@
 # Agent Instructions
 
+## Language
+
+Everything code-related must be written in American English. Examples: variables, functions, comments, commits.
+Issues and pull requests must be written in Brazilian Portuguese.
+
 ## Post-Completion Verification
 
 After completing any user request that modifies code:
