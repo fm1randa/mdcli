@@ -92,23 +92,26 @@ async function getRefreshedAuth(): Promise<AuthConfig> {
   return refreshPromise;
 }
 
-async function refreshAuthAndRetry<T>(
-  requestFn: (auth: AuthConfig) => Promise<Response>
-): Promise<T> {
-  const newAuth = await getRefreshedAuth();
-
-  const response = await requestFn(newAuth);
+/** Shared response handling for every request: a failure invalidates a
+ * possibly stale name-cache use and keeps the API's error body in the message;
+ * an empty body (DELETE answers 204) resolves to undefined. `context` (method +
+ * endpoint) goes into every error so a bad response points at its request. */
+async function readResponse<T>(response: Response, context: string): Promise<T> {
   if (!response.ok) {
-    // Same failure handling as the non-refresh paths: invalidate a possibly
-    // stale name-cache use and keep the API's error body in the message.
     const cachedType = popStaleNameCacheUse();
     if (cachedType) invalidateNameCache(cachedType);
     const errorText = await response.text();
-    throw new Error(`API request failed after refresh: ${response.status} ${response.statusText} - ${errorText}`);
+    throw new Error(`API request failed (${context}): ${response.status} ${response.statusText} - ${errorText}`);
   }
-  // DELETE (and some writes) answer 204 or an empty body; only parse when there is JSON.
+
   const text = await response.text();
-  return (text ? JSON.parse(text) : undefined) as T;
+  if (!text) return undefined as T;
+  try {
+    return JSON.parse(text) as T;
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    throw new Error(`API returned invalid JSON (${context}): ${reason}`, { cause: error });
+  }
 }
 
 function buildWriteHeaders(auth: AuthConfig): Record<string, string> {
@@ -143,21 +146,16 @@ async function request<T>(method: HttpMethod, endpoint: string, body?: unknown):
       ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
     });
 
+  const context = `${method} ${endpoint}`;
   const response = await doFetch(auth);
 
-  if (!response.ok) {
-    if (response.status === 401) {
-      return refreshAuthAndRetry<T>((newAuth) => doFetch(newAuth));
-    }
-    const cachedType = popStaleNameCacheUse();
-    if (cachedType) invalidateNameCache(cachedType);
-    const errorText = await response.text();
-    throw new Error(`API request failed: ${response.status} ${response.statusText} - ${errorText}`);
+  if (response.status === 401) {
+    // Refresh once (shared with concurrent 401s) and retry with the new credentials.
+    const retried = await doFetch(await getRefreshedAuth());
+    return readResponse<T>(retried, `${context}, after refresh`);
   }
 
-  // DELETE (and some writes) answer 204 or an empty body; only parse when there is JSON.
-  const text = await response.text();
-  return (text ? JSON.parse(text) : undefined) as T;
+  return readResponse<T>(response, context);
 }
 
 export async function fetchCategories(): Promise<CategoriesResponse> {
