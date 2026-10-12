@@ -16,4 +16,6 @@ const server = Bun.serve({
   },
 });
 
-console.log(server.port);
+// Line 1: port. Line 2: our own pid, so verify.sh can stop exactly this process
+// even when `bun` is a wrapper script that does not exec.
+console.log(`${server.port}\n${process.pid}`);
