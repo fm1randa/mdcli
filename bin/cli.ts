@@ -7,13 +7,14 @@ import { categoriesCommand } from '../src/commands/categories.js';
 import { tagsCommand } from '../src/commands/tags.js';
 import { entriesCommand } from '../src/commands/entries.js';
 import { cardsCommand } from '../src/commands/cards.js';
+import pkg from '../package.json' with { type: 'json' };
 
 const program = new Command();
 
 program
   .name('mdcli')
   .description('Unofficial CLI client for Meu Dinheiro (meudinheiroweb.com.br)')
-  .version('1.0.0');
+  .version(pkg.version);
 
 program.addCommand(authCommand);
 program.addCommand(categoriesCommand);

@@ -38,7 +38,9 @@ expect_fail() { # expect_fail <regex> <args...>
   grep -Eq "$re" <<<"$out" || { echo "esperava /$re/ em: $out"; return 1; }
 }
 
-step "cli --version"        expect_ok '^1\.0\.0' --version
+# --version must match package.json exactly (single source of truth).
+PKG_VERSION=$(bun -e 'console.log((await Bun.file("package.json").json()).version)')
+step "cli --version"        expect_ok "^${PKG_VERSION//./\\.}\$" --version
 step "cli --help"           expect_ok 'accounts' --help
 for c in auth accounts categories tags entries cards; do
   step "cli $c --help"      expect_ok 'Usage' "$c" --help
