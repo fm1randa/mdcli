@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Unofficial CLI client for Meu Dinheiro (meudinheiroweb.com.br)",
   "type": "module",
+  "packageManager": "bun@1.4.2",
   "bin": {
     "mdcli": "./bin/cli.ts"
   },
