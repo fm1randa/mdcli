@@ -40,6 +40,12 @@ expect_ok() {   # expect_ok <regex> <args...>
   local out; out=$("${CLI[@]}" "$@" </dev/null 2>&1) || { echo "saída: $out"; return 1; }
   grep -Eq "$re" <<<"$out" || { echo "esperava /$re/ em: $out"; return 1; }
 }
+expect_json() { # expect_json <js condition on d> <args...> — d = JSON parsed from stdout
+  local cond="$1"; shift
+  local out; out=$("${CLI[@]}" "$@" </dev/null) || { echo "saída: $out"; return 1; }
+  OUT="$out" COND="$cond" bun -e 'const d = JSON.parse(process.env.OUT); if (!eval(process.env.COND)) process.exit(1);' \
+    || { echo "esperava ($cond) em: $out"; return 1; }
+}
 expect_fail() { # expect_fail <regex> <args...>
   local re="$1"; shift
   local out
@@ -69,6 +75,15 @@ cat >"$SANDBOX/mdcli.config.json" <<JSON
 JSON
 step "cli accounts list (mock)"        expect_ok 'Nubank' accounts list
 step "cli accounts list --json (mock)" bash -c '"$@" accounts list --json </dev/null | bun -e "const d=JSON.parse(await Bun.stdin.text()); if(!JSON.stringify(d).includes(\"Nubank\")) process.exit(1)"' _ "${CLI[@]}"
+# Writes (POST/PUT/DELETE) go through the same request() path as reads; the
+# mock checks the JSON payload, echoes it back and answers DELETE with 204.
+step "cli accounts create (mock)"        expect_ok 'Type: Poupança' accounts create --name Reserva --type Poupança --balance 100
+step "cli accounts create --json (mock)" expect_json 'd.id === 2001 && d.nome === "Reserva" && d.tipoNovo === 122 && d.saldoInicial === 100' accounts create --name Reserva --type Poupança --balance 100 --json
+step "cli accounts update (mock)"        expect_ok 'Account "Nubank PF" updated' accounts update 1001 --name "Nubank PF" --inactive
+step "cli accounts update --json (mock)" expect_json 'd.id === 1001 && d.nome === "Nubank PF" && d.status === false' accounts update 1001 --name "Nubank PF" --inactive --json
+step "cli accounts delete (mock)"        expect_ok 'Account 1001 deleted' accounts delete 1001 --dangerously-skip-confirmation
+step "cli accounts delete --json (mock)" expect_json 'd.deleted === true && d.id === 1001' accounts delete 1001 --dangerously-skip-confirmation --json
+step "cli accounts delete inexistente (mock)" expect_fail 'DELETE /v1/cadastros/contas/9999\): 404' accounts delete 9999 --dangerously-skip-confirmation
 
 echo
 if [ ${#FAILED[@]} -gt 0 ]; then
