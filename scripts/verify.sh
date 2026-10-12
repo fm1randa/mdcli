@@ -21,8 +21,17 @@ step "test"      bun run test
 # --- E2E da CLI -------------------------------------------------------------
 SANDBOX=$(mktemp -d)
 export MDCLI_CONFIG_DIR="$SANDBOX"
-MOCK_PID=""
-cleanup() { [ -n "$MOCK_PID" ] && kill "$MOCK_PID" 2>/dev/null; pkill -f "scripts/mock-api.ts" 2>/dev/null; rm -rf "$SANDBOX"; }
+MOCK_PID=""     # pid of the background job (may be a wrapper script around bun)
+MOCK_SERVER_PID="" # pid reported by the mock server itself
+# Only stop the processes this run started, so parallel verify runs (other
+# clones or agents) on the same machine keep their own mock alive.
+cleanup() {
+  local pid
+  for pid in "$MOCK_SERVER_PID" "$MOCK_PID"; do
+    [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null && kill "$pid" 2>/dev/null
+  done
+  rm -rf "$SANDBOX"
+}
 trap cleanup EXIT
 CLI=(bun bin/cli.ts)
 
@@ -38,7 +47,9 @@ expect_fail() { # expect_fail <regex> <args...>
   grep -Eq "$re" <<<"$out" || { echo "esperava /$re/ em: $out"; return 1; }
 }
 
-step "cli --version"        expect_ok '^1\.0\.0' --version
+# --version must match package.json exactly (single source of truth).
+PKG_VERSION=$(bun -e 'console.log((await Bun.file("package.json").json()).version)')
+step "cli --version"        expect_ok "^${PKG_VERSION//./\\.}\$" --version
 step "cli --help"           expect_ok 'accounts' --help
 for c in auth accounts categories tags entries cards; do
   step "cli $c --help"      expect_ok 'Usage' "$c" --help
@@ -50,7 +61,8 @@ step "cli sem login"        expect_fail 'Not authenticated' accounts list
 PORT_FILE="$SANDBOX/port"
 bun scripts/mock-api.ts >"$PORT_FILE" 2>/dev/null </dev/null &
 MOCK_PID=$!
-for _ in $(seq 50); do [ -s "$PORT_FILE" ] && break; sleep 0.1; done
+for _ in $(seq 50); do [ "$(wc -l <"$PORT_FILE")" -ge 2 ] && break; sleep 0.1; done
+MOCK_SERVER_PID=$(sed -n 2p "$PORT_FILE")
 export MDCLI_API_URL="http://127.0.0.1:$(head -1 "$PORT_FILE")/api"
 cat >"$SANDBOX/mdcli.config.json" <<JSON
 {"auth":{"apiKey":"verify-key","uid":"verify-uid"},"authMethod":"manual"}
