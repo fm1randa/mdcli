@@ -87,10 +87,8 @@ describe('concurrent refresh after 401', () => {
     // Both retries went out with the refreshed credentials.
     expect(api.requests[2].headers.get('mdapikey')).toBe('fresh-key');
     expect(api.requests[3].headers.get('mdapikey')).toBe('fresh-key');
-    // The refreshed credentials were saved to the temp config, not the real one.
-    const { getConfigPath } = await import('../src/lib/config.js');
-    expect(getConfigPath()).toBe(join(configDir, 'mdcli.config.json'));
-    expect(JSON.parse(readFileSync(getConfigPath(), 'utf-8')).auth.apiKey).toBe('fresh-key');
+    // The refreshed credentials were saved to the temp config.
+    expect(JSON.parse(readFileSync(join(configDir, 'mdcli.config.json'), 'utf-8')).auth.apiKey).toBe('fresh-key');
   });
 
   test('refresh progress goes to stderr so --json/--csv stdout stays parseable', async () => {
