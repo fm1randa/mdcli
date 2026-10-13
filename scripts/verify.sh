@@ -85,6 +85,39 @@ step "cli accounts delete (mock)"        expect_ok 'Account 1001 deleted' accoun
 step "cli accounts delete --json (mock)" expect_json 'd.deleted === true && d.id === 1001' accounts delete 1001 --dangerously-skip-confirmation --json
 step "cli accounts delete inexistente (mock)" expect_fail 'DELETE /v1/cadastros/contas/9999\): 404' accounts delete 9999 --dangerously-skip-confirmation
 
+# Self-update of a global install, fully offline: a fake global layout like the
+# one `bun install -g github:fm1randa/mdcli` creates, the mock answering the
+# GitHub "latest commit" endpoint and a recorder in place of `bun install -g`.
+GLOBAL="$SANDBOX/bun/install/global"
+mkdir -p "$GLOBAL/node_modules/mdcli"
+cp -r bin src package.json "$GLOBAL/node_modules/mdcli/"
+ln -s "$PWD/node_modules" "$GLOBAL/node_modules/mdcli/node_modules"
+echo '"mdcli": ["mdcli@github:fm1randa/mdcli#1111111", {}, "fm1randa-mdcli-1111111", "sha512-x"],' >"$GLOBAL/bun.lock"
+printf '#!/bin/sh\necho "$@" > "%s"\n' "$SANDBOX/update-args" >"$SANDBOX/fake-bun"; chmod +x "$SANDBOX/fake-bun"
+self_update() {
+  local out err
+  out=$(env -u CI MDCLI_UPDATE_CHECK_URL="http://127.0.0.1:$(head -1 "$PORT_FILE")/github/repos/fm1randa/mdcli/commits/main" \
+    MDCLI_UPDATE_BUN="$SANDBOX/fake-bun" bun "$GLOBAL/node_modules/mdcli/bin/cli.ts" accounts list --json 2>"$SANDBOX/update-err" </dev/null) || return 1
+  grep -q 'atualizando em segundo plano (1111111 → 0123456)' "$SANDBOX/update-err" || { echo "stderr: $(cat "$SANDBOX/update-err")"; return 1; }
+  OUT="$out" bun -e 'JSON.parse(process.env.OUT)' || { echo "stdout não é JSON: $out"; return 1; }
+  for _ in $(seq 50); do [ -s "$SANDBOX/update-args" ] && break; sleep 0.1; done
+  grep -qx 'install -g github:fm1randa/mdcli#0123456789abcdef0123456789abcdef01234567' "$SANDBOX/update-args" \
+    || { echo "install: $(cat "$SANDBOX/update-args" 2>/dev/null)"; return 1; }
+  # Within 24h of that check the next run must not check again.
+  rm -f "$SANDBOX/update-args"
+  env -u CI MDCLI_UPDATE_BUN="$SANDBOX/fake-bun" bun "$GLOBAL/node_modules/mdcli/bin/cli.ts" --version >/dev/null 2>&1 </dev/null
+  sleep 0.3; [ ! -e "$SANDBOX/update-args" ] || { echo "verificou de novo antes de 24h"; return 1; }
+}
+opt_out() {
+  rm -f "$SANDBOX/update-check.json" "$SANDBOX/update-args"
+  local err
+  err=$(env -u CI MDCLI_NO_AUTO_UPDATE=1 MDCLI_UPDATE_CHECK_URL="http://127.0.0.1:$(head -1 "$PORT_FILE")/github/repos/fm1randa/mdcli/commits/main" \
+    MDCLI_UPDATE_BUN="$SANDBOX/fake-bun" bun "$GLOBAL/node_modules/mdcli/bin/cli.ts" --version 2>&1 >/dev/null </dev/null)
+  sleep 0.3; [ -z "$err" ] && [ ! -e "$SANDBOX/update-args" ] || { echo "opt-out ignorado: $err"; return 1; }
+}
+step "cli auto-update (instalação global, mock)" self_update
+step "cli auto-update desligado (MDCLI_NO_AUTO_UPDATE=1)" opt_out
+
 echo
 if [ ${#FAILED[@]} -gt 0 ]; then
   echo "VERIFICAÇÃO FALHOU: ${FAILED[*]}"; exit 1

@@ -2,6 +2,10 @@
 // Usa as mesmas fixtures dos testes; nunca toca a API real.
 import { ACCOUNTS_RESPONSE } from '../test/fixtures.js';
 
+// GitHub "latest commit on main" endpoint used by the self-updater (no auth).
+const MOCK_LATEST_SHA = '0123456789abcdef0123456789abcdef01234567';
+const LATEST_COMMIT_PATH = '/github/repos/fm1randa/mdcli/commits/main';
+
 const ACCOUNTS_PATH = '/api/v1/cadastros/contas';
 const NEW_ACCOUNT_ID = 2001;
 
@@ -66,6 +70,7 @@ const server = Bun.serve({
   port: 0,
   fetch(req) {
     const url = new URL(req.url);
+    if (url.pathname === LATEST_COMMIT_PATH) return Response.json({ sha: MOCK_LATEST_SHA });
     if (req.headers.get('Mdapikey') !== 'verify-key') {
       return Response.json({ message: 'unauthorized' }, { status: 401 });
     }

@@ -12,6 +12,18 @@ Unofficial CLI client for [Meu Dinheiro](https://meudinheiroweb.com.br) - a Braz
 bun install -g github:fm1randa/mdcli
 ```
 
+#### Automatic updates
+
+A global install keeps itself up to date. At most once every 24 hours, mdcli asks GitHub for the latest commit on `main` (1.5 s timeout, no token) and compares it with the commit Bun recorded when installing (`~/.bun/install/global/bun.lock`). If there is a newer one, it runs `bun install -g github:fm1randa/mdcli#<commit>` in the background and prints a one-line notice to stderr; the new version is used from the next run on. stdout is never touched, so `--json` and `--csv` output stays clean.
+
+The check is skipped when running from a source checkout, when `CI` is set, and when offline; a failed check or update never fails the command. The last check time is stored in `update-check.json` inside the config directory (`MDCLI_CONFIG_DIR`, default `~/.config/mdcli`).
+
+To turn it off:
+
+```bash
+export MDCLI_NO_AUTO_UPDATE=1
+```
+
 ### From Source
 
 ```bash
