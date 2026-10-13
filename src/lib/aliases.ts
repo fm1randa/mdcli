@@ -2,6 +2,7 @@ import { Command } from 'commander';
 import Table from 'cli-table3';
 import { getFullConfig, setAliases } from './config.js';
 import { logger } from '../utils/logger.js';
+import { exitWithError } from '../utils/action.js';
 import type { Alias, AliasMap, AliasType } from '../types/index.js';
 
 function loadAliases(): AliasMap {
@@ -156,15 +157,13 @@ export function buildAliasCommand(parent: Command, type: AliasType): Command {
     .action((options: { id: string; name: string }) => {
       const id = Number(options.id);
       if (Number.isNaN(id)) {
-        logger.error('Invalid ID. Must be a number.');
-        process.exit(1);
+        exitWithError('Invalid ID. Must be a number.');
       }
       const result = addAlias(type, id, options.name);
       if (result.success) {
         logger.success(`Alias "${options.name}" added for ${singular} ${id}`);
       } else {
-        logger.error(result.error ?? 'Failed to add alias');
-        process.exit(1);
+        exitWithError(result.error ?? 'Failed to add alias');
       }
     });
 
@@ -201,15 +200,13 @@ export function buildAliasCommand(parent: Command, type: AliasType): Command {
     .action((options: { id?: string; name?: string }) => {
       const identifier = options.id ?? options.name;
       if (!identifier) {
-        logger.error('Either --id or --name is required');
-        process.exit(1);
+        exitWithError('Either --id or --name is required');
       }
       const result = removeAlias(type, identifier);
       if (result.success) {
         logger.success(`Alias removed`);
       } else {
-        logger.error(result.error ?? 'Failed to remove alias');
-        process.exit(1);
+        exitWithError(result.error ?? 'Failed to remove alias');
       }
     });
 
@@ -221,15 +218,13 @@ export function buildAliasCommand(parent: Command, type: AliasType): Command {
     .action((options: { id: string; name: string }) => {
       const id = Number(options.id);
       if (Number.isNaN(id)) {
-        logger.error('Invalid ID. Must be a number.');
-        process.exit(1);
+        exitWithError('Invalid ID. Must be a number.');
       }
       const result = updateAlias(type, id, options.name);
       if (result.success) {
         logger.success(`Alias updated to "${options.name}" for ${singular} ${id}`);
       } else {
-        logger.error(result.error ?? 'Failed to update alias');
-        process.exit(1);
+        exitWithError(result.error ?? 'Failed to update alias');
       }
     });
 

@@ -2,7 +2,7 @@ import { Command } from 'commander';
 import Table from 'cli-table3';
 import chalk from 'chalk';
 import { logger } from '../utils/logger.js';
-import { action } from '../utils/action.js';
+import { action, exitWithError } from '../utils/action.js';
 import { fetchAccounts, fetchAccountById, normalizeAccounts, isCreditCard, fetchCardInvoice, normalizeCardEntries, fetchFirstInvoiceDate, fetchCardFuture, normalizeCardInstallments } from '../lib/api.js';
 import { resolveId } from '../lib/aliases.js';
 
@@ -68,28 +68,24 @@ cardsCommand
 async function invoiceAction(options: { account: string; month?: string; json?: boolean }): Promise<void> {
   const accountId = await resolveId('accounts', options.account);
   if (!accountId) {
-    logger.error(`Unknown account: ${options.account}`);
-    process.exit(1);
+    exitWithError(`Unknown account: ${options.account}`);
   }
 
   const account = await fetchAccountById(accountId);
 
   if (!account) {
-    logger.error(`Account not found: ${accountId}`);
-    process.exit(1);
+    exitWithError(`Account not found: ${accountId}`);
   }
 
   if (!isCreditCard(account)) {
-    logger.error(`Account ${accountId} is not a credit card`);
-    process.exit(1);
+    exitWithError(`Account ${accountId} is not a credit card`);
   }
 
   let dueDate: string;
   if (options.month) {
     const match = options.month.match(/^(\d{4})-(\d{2})$/);
     if (!match) {
-      logger.error('Invalid month format. Use YYYY-MM (e.g., 2026-02)');
-      process.exit(1);
+      exitWithError('Invalid month format. Use YYYY-MM (e.g., 2026-02)');
     }
     const [, year, month] = match;
     const dayOfMonth = account.proximoVencimento ? new Date(account.proximoVencimento).getDate() : 10;
@@ -137,20 +133,17 @@ cardsCommand
 async function futureAction(options: { account: string; json?: boolean }): Promise<void> {
   const accountId = await resolveId('accounts', options.account);
   if (!accountId) {
-    logger.error(`Unknown account: ${options.account}`);
-    process.exit(1);
+    exitWithError(`Unknown account: ${options.account}`);
   }
 
   const account = await fetchAccountById(accountId);
 
   if (!account) {
-    logger.error(`Account not found: ${accountId}`);
-    process.exit(1);
+    exitWithError(`Account not found: ${accountId}`);
   }
 
   if (!isCreditCard(account)) {
-    logger.error(`Account ${accountId} is not a credit card`);
-    process.exit(1);
+    exitWithError(`Account ${accountId} is not a credit card`);
   }
 
   const futureResponse = await fetchCardFuture(accountId);

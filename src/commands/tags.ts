@@ -3,7 +3,7 @@ import Table from 'cli-table3';
 import chalk from 'chalk';
 import * as readline from 'readline';
 import { logger } from '../utils/logger.js';
-import { action } from '../utils/action.js';
+import { action, exitWithError } from '../utils/action.js';
 import { fetchTags, normalizeTags, createTag, updateTag, deleteTag } from '../lib/api.js';
 import { buildAliasCommand } from '../lib/aliases.js';
 
@@ -75,8 +75,7 @@ interface CreateTagOptions {
 async function createTagAction(options: CreateTagOptions): Promise<void> {
   const cor = (options.color ?? '808080').replace(/^#/, '');
   if (!/^[0-9a-fA-F]{6}$/.test(cor)) {
-    logger.error('Invalid color. Use a 6-digit hex code, e.g. #FF0000.');
-    process.exit(1);
+    exitWithError('Invalid color. Use a 6-digit hex code, e.g. #FF0000.');
   }
 
   const response = await createTag({ nome: options.name, cor, status: true });
@@ -110,8 +109,7 @@ interface UpdateTagOptions {
 async function updateTagAction(id: string, options: UpdateTagOptions): Promise<void> {
   const tagId = Number(id);
   if (Number.isNaN(tagId)) {
-    logger.error('Invalid tag ID. Must be a number.');
-    process.exit(1);
+    exitWithError('Invalid tag ID. Must be a number.');
   }
 
   if (
@@ -120,28 +118,24 @@ async function updateTagAction(id: string, options: UpdateTagOptions): Promise<v
     !options.active &&
     !options.inactive
   ) {
-    logger.error('No changes specified. Use --name, --color, --active or --inactive.');
-    process.exit(1);
+    exitWithError('No changes specified. Use --name, --color, --active or --inactive.');
   }
 
   if (options.active && options.inactive) {
-    logger.error('Cannot use --active and --inactive together.');
-    process.exit(1);
+    exitWithError('Cannot use --active and --inactive together.');
   }
 
   let cor: string | undefined;
   if (options.color !== undefined) {
     cor = options.color.replace(/^#/, '');
     if (!/^[0-9a-fA-F]{6}$/.test(cor)) {
-      logger.error('Invalid color. Use a 6-digit hex code, e.g. #FF0000.');
-      process.exit(1);
+      exitWithError('Invalid color. Use a 6-digit hex code, e.g. #FF0000.');
     }
   }
 
   const existing = normalizeTags(await fetchTags()).find((t) => t.id === tagId);
   if (!existing) {
-    logger.error(`Tag ${tagId} not found.`);
-    process.exit(1);
+    exitWithError(`Tag ${tagId} not found.`);
   }
 
   let status = existing.active;
@@ -183,15 +177,13 @@ interface DeleteTagOptions {
 async function deleteTagAction(id: string, options: DeleteTagOptions): Promise<void> {
   const tagId = Number(id);
   if (Number.isNaN(tagId)) {
-    logger.error('Invalid tag ID. Must be a number.');
-    process.exit(1);
+    exitWithError('Invalid tag ID. Must be a number.');
   }
 
   if (!options.dangerouslySkipConfirmation) {
     const tag = normalizeTags(await fetchTags()).find((t) => t.id === tagId);
     if (!tag) {
-      logger.error(`Tag ${tagId} not found.`);
-      process.exit(1);
+      exitWithError(`Tag ${tagId} not found.`);
     }
 
     const confirmed = await promptConfirmation(
