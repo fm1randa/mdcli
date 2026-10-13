@@ -13,3 +13,9 @@ After completing any user request that modifies code:
 2. The run passes only when it exits with code 0 and the last line is `VERIFICAÇÃO OK`. On failure it ends with `VERIFICAÇÃO FALHOU: <steps>`.
 3. Fix any issues it reports. To iterate on a single step, you can run it directly (`bun run typecheck`, `bun run lint`, `bun run knip`, `bun run test`), but finish with a full `scripts/verify.sh` run.
 4. Ensure no new warnings are introduced
+
+## Versionamento
+
+- CalVer `YYYY.M.D` sem zeros à esquerda (ex.: `2026.10.13`), válido como semver para o npm.
+- A versão só sobe no `package.json` ao fazer release (é a fonte única; `--version` e `verify.sh` leem de lá).
+- Segunda release no mesmo dia: `YYYY.M.D-N` com N a partir de 2 (ex.: `2026.10.13-2`). Atenção: no semver isso é pré-release e ordena *antes* de `2026.10.13`; use só quando necessário e prefira a data do dia seguinte se possível.
