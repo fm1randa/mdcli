@@ -3,6 +3,7 @@ import Table from 'cli-table3';
 import chalk from 'chalk';
 import * as readline from 'readline';
 import { logger } from '../utils/logger.js';
+import { action } from '../utils/action.js';
 import { fetchTags, normalizeTags, createTag, updateTag, deleteTag } from '../lib/api.js';
 import { buildAliasCommand } from '../lib/aliases.js';
 
@@ -15,40 +16,34 @@ function formatBoolean(value: boolean): string {
 }
 
 async function listAction(options: { json?: boolean; active?: boolean }): Promise<void> {
-  try {
-    const response = await fetchTags();
-    let tags = normalizeTags(response);
+  const response = await fetchTags();
+  let tags = normalizeTags(response);
 
-    if (options.active) {
-      tags = tags.filter((t) => t.active);
-    }
-
-    if (options.json) {
-      console.log(JSON.stringify(tags, null, 2));
-      return;
-    }
-
-    const table = new Table({
-      head: ['ID', 'Name', 'Color', 'Active'],
-      style: { head: ['cyan'] },
-    });
-
-    for (const tag of tags) {
-      table.push([
-        tag.id.toString(),
-        tag.name,
-        formatColor(tag.color),
-        formatBoolean(tag.active),
-      ]);
-    }
-
-    logger.header(`Tags (${tags.length})`);
-    console.log(table.toString());
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    logger.error(message);
-    process.exit(1);
+  if (options.active) {
+    tags = tags.filter((t) => t.active);
   }
+
+  if (options.json) {
+    console.log(JSON.stringify(tags, null, 2));
+    return;
+  }
+
+  const table = new Table({
+    head: ['ID', 'Name', 'Color', 'Active'],
+    style: { head: ['cyan'] },
+  });
+
+  for (const tag of tags) {
+    table.push([
+      tag.id.toString(),
+      tag.name,
+      formatColor(tag.color),
+      formatBoolean(tag.active),
+    ]);
+  }
+
+  logger.header(`Tags (${tags.length})`);
+  console.log(table.toString());
 }
 
 export const tagsCommand = new Command('tags')
@@ -59,7 +54,7 @@ tagsCommand
   .description('List all tags')
   .option('--json', 'Output as JSON')
   .option('--active', 'Show only active tags')
-  .action(listAction);
+  .action(action(listAction));
 
 function promptConfirmation(message: string): Promise<boolean> {
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
@@ -78,28 +73,22 @@ interface CreateTagOptions {
 }
 
 async function createTagAction(options: CreateTagOptions): Promise<void> {
-  try {
-    const cor = (options.color ?? '808080').replace(/^#/, '');
-    if (!/^[0-9a-fA-F]{6}$/.test(cor)) {
-      logger.error('Invalid color. Use a 6-digit hex code, e.g. #FF0000.');
-      process.exit(1);
-    }
-
-    const response = await createTag({ nome: options.name, cor, status: true });
-
-    if (options.json) {
-      console.log(JSON.stringify(response, null, 2));
-      return;
-    }
-
-    logger.success(`Tag "${response.nome}" created successfully!`);
-    console.log(`  ${chalk.gray('ID:')} ${response.id}`);
-    console.log(`  ${chalk.gray('Color:')} ${formatColor('#' + response.cor)}`);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    logger.error(message);
+  const cor = (options.color ?? '808080').replace(/^#/, '');
+  if (!/^[0-9a-fA-F]{6}$/.test(cor)) {
+    logger.error('Invalid color. Use a 6-digit hex code, e.g. #FF0000.');
     process.exit(1);
   }
+
+  const response = await createTag({ nome: options.name, cor, status: true });
+
+  if (options.json) {
+    console.log(JSON.stringify(response, null, 2));
+    return;
+  }
+
+  logger.success(`Tag "${response.nome}" created successfully!`);
+  console.log(`  ${chalk.gray('ID:')} ${response.id}`);
+  console.log(`  ${chalk.gray('Color:')} ${formatColor('#' + response.cor)}`);
 }
 
 tagsCommand
@@ -108,7 +97,7 @@ tagsCommand
   .requiredOption('-n, --name <name>', 'Tag name')
   .option('-C, --color <hex>', 'Tag color as a hex code (e.g. #FF0000), defaults to gray')
   .option('--json', 'Output as JSON')
-  .action(createTagAction);
+  .action(action(createTagAction));
 
 interface UpdateTagOptions {
   name?: string;
@@ -119,67 +108,61 @@ interface UpdateTagOptions {
 }
 
 async function updateTagAction(id: string, options: UpdateTagOptions): Promise<void> {
-  try {
-    const tagId = Number(id);
-    if (Number.isNaN(tagId)) {
-      logger.error('Invalid tag ID. Must be a number.');
-      process.exit(1);
-    }
-
-    if (
-      options.name === undefined &&
-      options.color === undefined &&
-      !options.active &&
-      !options.inactive
-    ) {
-      logger.error('No changes specified. Use --name, --color, --active or --inactive.');
-      process.exit(1);
-    }
-
-    if (options.active && options.inactive) {
-      logger.error('Cannot use --active and --inactive together.');
-      process.exit(1);
-    }
-
-    let cor: string | undefined;
-    if (options.color !== undefined) {
-      cor = options.color.replace(/^#/, '');
-      if (!/^[0-9a-fA-F]{6}$/.test(cor)) {
-        logger.error('Invalid color. Use a 6-digit hex code, e.g. #FF0000.');
-        process.exit(1);
-      }
-    }
-
-    const existing = normalizeTags(await fetchTags()).find((t) => t.id === tagId);
-    if (!existing) {
-      logger.error(`Tag ${tagId} not found.`);
-      process.exit(1);
-    }
-
-    let status = existing.active;
-    if (options.active) status = true;
-    if (options.inactive) status = false;
-
-    const response = await updateTag(tagId, {
-      nome: options.name ?? existing.name,
-      cor: cor ?? existing.color.replace(/^#/, ''),
-      status,
-    });
-
-    if (options.json) {
-      console.log(JSON.stringify(response, null, 2));
-      return;
-    }
-
-    logger.success(`Tag "${response.nome}" updated successfully!`);
-    console.log(`  ${chalk.gray('ID:')} ${response.id}`);
-    console.log(`  ${chalk.gray('Color:')} ${formatColor('#' + response.cor)}`);
-    console.log(`  ${chalk.gray('Active:')} ${response.status ? chalk.green('yes') : chalk.gray('no')}`);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    logger.error(message);
+  const tagId = Number(id);
+  if (Number.isNaN(tagId)) {
+    logger.error('Invalid tag ID. Must be a number.');
     process.exit(1);
   }
+
+  if (
+    options.name === undefined &&
+    options.color === undefined &&
+    !options.active &&
+    !options.inactive
+  ) {
+    logger.error('No changes specified. Use --name, --color, --active or --inactive.');
+    process.exit(1);
+  }
+
+  if (options.active && options.inactive) {
+    logger.error('Cannot use --active and --inactive together.');
+    process.exit(1);
+  }
+
+  let cor: string | undefined;
+  if (options.color !== undefined) {
+    cor = options.color.replace(/^#/, '');
+    if (!/^[0-9a-fA-F]{6}$/.test(cor)) {
+      logger.error('Invalid color. Use a 6-digit hex code, e.g. #FF0000.');
+      process.exit(1);
+    }
+  }
+
+  const existing = normalizeTags(await fetchTags()).find((t) => t.id === tagId);
+  if (!existing) {
+    logger.error(`Tag ${tagId} not found.`);
+    process.exit(1);
+  }
+
+  let status = existing.active;
+  if (options.active) status = true;
+  if (options.inactive) status = false;
+
+  const response = await updateTag(tagId, {
+    nome: options.name ?? existing.name,
+    cor: cor ?? existing.color.replace(/^#/, ''),
+    status,
+  });
+
+  if (options.json) {
+    console.log(JSON.stringify(response, null, 2));
+    return;
+  }
+
+  logger.success(`Tag "${response.nome}" updated successfully!`);
+  console.log(`  ${chalk.gray('ID:')} ${response.id}`);
+  console.log(`  ${chalk.gray('Color:')} ${formatColor('#' + response.cor)}`);
+  console.log(`  ${chalk.gray('Active:')} ${response.status ? chalk.green('yes') : chalk.gray('no')}`);
 }
 
 tagsCommand
@@ -190,7 +173,7 @@ tagsCommand
   .option('--active', 'Mark the tag as active')
   .option('--inactive', 'Mark the tag as inactive (archive)')
   .option('--json', 'Output as JSON')
-  .action(updateTagAction);
+  .action(action(updateTagAction));
 
 interface DeleteTagOptions {
   dangerouslySkipConfirmation?: boolean;
@@ -198,43 +181,37 @@ interface DeleteTagOptions {
 }
 
 async function deleteTagAction(id: string, options: DeleteTagOptions): Promise<void> {
-  try {
-    const tagId = Number(id);
-    if (Number.isNaN(tagId)) {
-      logger.error('Invalid tag ID. Must be a number.');
+  const tagId = Number(id);
+  if (Number.isNaN(tagId)) {
+    logger.error('Invalid tag ID. Must be a number.');
+    process.exit(1);
+  }
+
+  if (!options.dangerouslySkipConfirmation) {
+    const tag = normalizeTags(await fetchTags()).find((t) => t.id === tagId);
+    if (!tag) {
+      logger.error(`Tag ${tagId} not found.`);
       process.exit(1);
     }
 
-    if (!options.dangerouslySkipConfirmation) {
-      const tag = normalizeTags(await fetchTags()).find((t) => t.id === tagId);
-      if (!tag) {
-        logger.error(`Tag ${tagId} not found.`);
-        process.exit(1);
-      }
+    const confirmed = await promptConfirmation(
+      chalk.red(`Are you sure you want to delete tag "${tag.name}" (${tagId})? (y/N) `)
+    );
 
-      const confirmed = await promptConfirmation(
-        chalk.red(`Are you sure you want to delete tag "${tag.name}" (${tagId})? (y/N) `)
-      );
-
-      if (!confirmed) {
-        logger.info('Deletion cancelled.');
-        process.exit(0);
-      }
+    if (!confirmed) {
+      logger.info('Deletion cancelled.');
+      process.exit(0);
     }
-
-    await deleteTag(tagId);
-
-    if (options.json) {
-      console.log(JSON.stringify({ deleted: true, id: tagId }, null, 2));
-      return;
-    }
-
-    logger.success(`Tag ${tagId} deleted successfully!`);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    logger.error(message);
-    process.exit(1);
   }
+
+  await deleteTag(tagId);
+
+  if (options.json) {
+    console.log(JSON.stringify({ deleted: true, id: tagId }, null, 2));
+    return;
+  }
+
+  logger.success(`Tag ${tagId} deleted successfully!`);
 }
 
 tagsCommand
@@ -242,6 +219,6 @@ tagsCommand
   .description('Delete a tag')
   .option('--dangerously-skip-confirmation', 'Skip confirmation prompt')
   .option('--json', 'Output as JSON')
-  .action(deleteTagAction);
+  .action(action(deleteTagAction));
 
 buildAliasCommand(tagsCommand, 'tags');

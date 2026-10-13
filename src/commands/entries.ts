@@ -3,6 +3,7 @@ import Table from 'cli-table3';
 import chalk from 'chalk';
 import * as readline from 'readline';
 import { logger } from '../utils/logger.js';
+import { action, exitWithError } from '../utils/action.js';
 import {
   fetchAllEntries,
   fetchAccounts,
@@ -145,29 +146,25 @@ interface FilterOptions {
   excludeCategory?: string;
 }
 
-function fail(message: string): never {
-  logger.error(message);
-  process.exit(1);
-}
 
 async function resolveEntryFilters(options: FilterOptions): Promise<Omit<EntriesParams, 'page' | 'pageSize'>> {
   if (!options.account) {
-    fail('At least one account ID or alias is required. Use --account <id> or --account <id1,id2,...>');
+    exitWithError('At least one account ID or alias is required. Use --account <id> or --account <id1,id2,...>');
   }
 
   const accountResult = await resolveIds('accounts', options.account);
   if (accountResult.unresolved.length > 0) {
-    fail(`Unknown account(s): ${accountResult.unresolved.join(', ')}`);
+    exitWithError(`Unknown account(s): ${accountResult.unresolved.join(', ')}`);
   }
   if (accountResult.ids.length === 0) {
-    fail('At least one account ID or alias is required. Use --account <id> or --account <id1,id2,...>');
+    exitWithError('At least one account ID or alias is required. Use --account <id> or --account <id1,id2,...>');
   }
 
   let categoryIds: number[] | undefined;
   if (options.category) {
     const categoryResult = await resolveIds('categories', options.category);
     if (categoryResult.unresolved.length > 0) {
-      fail(`Unknown category(ies): ${categoryResult.unresolved.join(', ')}`);
+      exitWithError(`Unknown category(ies): ${categoryResult.unresolved.join(', ')}`);
     }
     categoryIds = categoryResult.ids;
   }
@@ -176,7 +173,7 @@ async function resolveEntryFilters(options: FilterOptions): Promise<Omit<Entries
   if (options.tag) {
     const tagResult = await resolveIds('tags', options.tag);
     if (tagResult.unresolved.length > 0) {
-      fail(`Unknown tag(s): ${tagResult.unresolved.join(', ')}`);
+      exitWithError(`Unknown tag(s): ${tagResult.unresolved.join(', ')}`);
     }
     tagIds = tagResult.ids;
   }
@@ -185,7 +182,7 @@ async function resolveEntryFilters(options: FilterOptions): Promise<Omit<Entries
   if (options.value !== undefined) {
     value = Number(options.value);
     if (Number.isNaN(value)) {
-      fail('Invalid value. Must be a number.');
+      exitWithError('Invalid value. Must be a number.');
     }
   }
 
@@ -211,7 +208,7 @@ async function resolveExcludedCategories(input: string | undefined): Promise<Set
 
   const result = await resolveIds('categories', input);
   if (result.unresolved.length > 0) {
-    fail(`Unknown category(ies) in --exclude-category: ${result.unresolved.join(', ')}`);
+    exitWithError(`Unknown category(ies) in --exclude-category: ${result.unresolved.join(', ')}`);
   }
 
   const { items } = await fetchCategories();
@@ -242,7 +239,7 @@ async function loadNames(): Promise<{ accounts: Map<number, string>; categories:
 
 function checkOutputFormat(options: { json?: boolean; csv?: boolean }): void {
   if (options.json && options.csv) {
-    fail('Use either --json or --csv, not both.');
+    exitWithError('Use either --json or --csv, not both.');
   }
 }
 
@@ -252,60 +249,56 @@ interface ListOptions extends FilterOptions {
 }
 
 async function listAction(options: ListOptions): Promise<void> {
-  try {
-    checkOutputFormat(options);
-    const { entries } = await loadEntries(options);
+  checkOutputFormat(options);
+  const { entries } = await loadEntries(options);
 
-    if (options.json) {
-      console.log(JSON.stringify(entries, null, 2));
-      return;
-    }
-
-    if (options.csv) {
-      const names = await loadNames();
-      process.stdout.write(
-        toCsv(
-          ['id', 'date', 'description', 'value', 'type', 'status', 'account', 'category', 'installment'],
-          entries.map((e) => [
-            e.id,
-            e.date,
-            e.description,
-            e.value,
-            e.type,
-            e.status,
-            names.accounts.get(e.accountId) ?? e.accountId,
-            e.categoryId === null ? '' : (names.categories.get(e.categoryId) ?? e.categoryId),
-            e.installment,
-          ])
-        )
-      );
-      return;
-    }
-
-    const table = new Table({
-      head: ['ID', 'Date', 'Description', 'Value', 'Type', 'Status', 'Installment'],
-      style: { head: ['cyan'] },
-      colWidths: [12, 12, 36, 15, 12, 12, 12],
-    });
-
-    for (const entry of entries) {
-      table.push([
-        entry.id,
-        entry.date,
-        entry.description.length > 33 ? `${entry.description.slice(0, 33)}...` : entry.description,
-        formatCurrency(entry.value),
-        formatType(entry.type),
-        formatStatus(entry.status),
-        entry.installment ?? chalk.gray('-'),
-      ]);
-    }
-
-    const total = entries.reduce((sum, e) => sum + e.value, 0);
-    logger.header(`Entries (${entries.length}) | Total: ${formatCurrency(total)}`);
-    console.log(table.toString());
-  } catch (error) {
-    fail(error instanceof Error ? error.message : 'Unknown error');
+  if (options.json) {
+    console.log(JSON.stringify(entries, null, 2));
+    return;
   }
+
+  if (options.csv) {
+    const names = await loadNames();
+    process.stdout.write(
+      toCsv(
+        ['id', 'date', 'description', 'value', 'type', 'status', 'account', 'category', 'installment'],
+        entries.map((e) => [
+          e.id,
+          e.date,
+          e.description,
+          e.value,
+          e.type,
+          e.status,
+          names.accounts.get(e.accountId) ?? e.accountId,
+          e.categoryId === null ? '' : (names.categories.get(e.categoryId) ?? e.categoryId),
+          e.installment,
+        ])
+      )
+    );
+    return;
+  }
+
+  const table = new Table({
+    head: ['ID', 'Date', 'Description', 'Value', 'Type', 'Status', 'Installment'],
+    style: { head: ['cyan'] },
+    colWidths: [12, 12, 36, 15, 12, 12, 12],
+  });
+
+  for (const entry of entries) {
+    table.push([
+      entry.id,
+      entry.date,
+      entry.description.length > 33 ? `${entry.description.slice(0, 33)}...` : entry.description,
+      formatCurrency(entry.value),
+      formatType(entry.type),
+      formatStatus(entry.status),
+      entry.installment ?? chalk.gray('-'),
+    ]);
+  }
+
+  const total = entries.reduce((sum, e) => sum + e.value, 0);
+  logger.header(`Entries (${entries.length}) | Total: ${formatCurrency(total)}`);
+  console.log(table.toString());
 }
 
 const SUMMARY_GROUPINGS = ['category', 'month', 'account'] as const;
@@ -319,82 +312,78 @@ interface SummaryOptions extends FilterOptions {
 }
 
 async function summaryAction(options: SummaryOptions): Promise<void> {
-  try {
-    checkOutputFormat(options);
-    const by = (options.by ?? 'category') as SummaryGrouping;
-    if (!SUMMARY_GROUPINGS.includes(by)) {
-      fail(`Invalid --by "${options.by}". Use category, month, or account.`);
+  checkOutputFormat(options);
+  const by = (options.by ?? 'category') as SummaryGrouping;
+  if (!SUMMARY_GROUPINGS.includes(by)) {
+    exitWithError(`Invalid --by "${options.by}". Use category, month, or account.`);
+  }
+
+  const { params, entries: filtered, excludedByCategory } = await loadEntries(options);
+  const entries = options.includeTransfers ? filtered : filtered.filter((e) => e.type !== 'transfer');
+  const skippedTransfers = filtered.length - entries.length;
+
+  const names = by === 'month' ? null : await loadNames();
+  const rows = summarize(entries, (e) => {
+    if (by === 'month') {
+      const month = e.date.slice(0, 7);
+      return { key: month, label: month };
     }
-
-    const { params, entries: filtered, excludedByCategory } = await loadEntries(options);
-    const entries = options.includeTransfers ? filtered : filtered.filter((e) => e.type !== 'transfer');
-    const skippedTransfers = filtered.length - entries.length;
-
-    const names = by === 'month' ? null : await loadNames();
-    const rows = summarize(entries, (e) => {
-      if (by === 'month') {
-        const month = e.date.slice(0, 7);
-        return { key: month, label: month };
-      }
-      if (by === 'account') {
-        return { key: String(e.accountId), label: names?.accounts.get(e.accountId) ?? String(e.accountId) };
-      }
-      if (e.categoryId === null) {
-        return { key: 'none', label: '(no category)' };
-      }
-      return { key: String(e.categoryId), label: names?.categories.get(e.categoryId) ?? String(e.categoryId) };
-    });
-
-    // Months read chronologically; other groupings put the biggest spending first.
-    rows.sort((a, b) => (by === 'month' ? a.key.localeCompare(b.key) : a.net - b.net));
-    const total = totalRow(rows);
-
-    if (options.json) {
-      console.log(
-        JSON.stringify(
-          { groupBy: by, from: params.startDate, to: params.endDate, skippedTransfers, excludedByCategory, rows, total },
-          null,
-          2
-        )
-      );
-      return;
+    if (by === 'account') {
+      return { key: String(e.accountId), label: names?.accounts.get(e.accountId) ?? String(e.accountId) };
     }
+    if (e.categoryId === null) {
+      return { key: 'none', label: '(no category)' };
+    }
+    return { key: String(e.categoryId), label: names?.categories.get(e.categoryId) ?? String(e.categoryId) };
+  });
 
-    if (options.csv) {
-      process.stdout.write(
-        toCsv(
-          [by, 'entries', 'income', 'expenses', 'net'],
-          [...rows, total].map((r) => [r.label, r.count, r.income, r.expenses, r.net])
-        )
-      );
-      return;
-    }
+  // Months read chronologically; other groupings put the biggest spending first.
+  rows.sort((a, b) => (by === 'month' ? a.key.localeCompare(b.key) : a.net - b.net));
+  const total = totalRow(rows);
 
-    const table = new Table({
-      head: [by[0].toUpperCase() + by.slice(1), 'Entries', 'Income', 'Expenses', 'Net'],
-      style: { head: ['cyan'] },
-    });
-    for (const row of rows) {
-      table.push([row.label, row.count, formatCurrency(row.income), formatCurrency(row.expenses), formatSignedCurrency(row.net)]);
-    }
-    table.push([
-      chalk.bold(total.label),
-      chalk.bold(String(total.count)),
-      formatCurrency(total.income),
-      formatCurrency(total.expenses),
-      formatSignedCurrency(total.net),
-    ]);
+  if (options.json) {
+    console.log(
+      JSON.stringify(
+        { groupBy: by, from: params.startDate, to: params.endDate, skippedTransfers, excludedByCategory, rows, total },
+        null,
+        2
+      )
+    );
+    return;
+  }
 
-    logger.header(`Summary by ${by} | ${params.startDate} to ${params.endDate}`);
-    console.log(table.toString());
-    if (excludedByCategory > 0) {
-      console.log(chalk.gray(`\n${excludedByCategory} entr${excludedByCategory === 1 ? 'y' : 'ies'} left out by --exclude-category.`));
-    }
-    if (skippedTransfers > 0) {
-      console.log(chalk.gray(`\n${skippedTransfers} transfer(s) left out. Use --include-transfers to count them.`));
-    }
-  } catch (error) {
-    fail(error instanceof Error ? error.message : 'Unknown error');
+  if (options.csv) {
+    process.stdout.write(
+      toCsv(
+        [by, 'entries', 'income', 'expenses', 'net'],
+        [...rows, total].map((r) => [r.label, r.count, r.income, r.expenses, r.net])
+      )
+    );
+    return;
+  }
+
+  const table = new Table({
+    head: [by[0].toUpperCase() + by.slice(1), 'Entries', 'Income', 'Expenses', 'Net'],
+    style: { head: ['cyan'] },
+  });
+  for (const row of rows) {
+    table.push([row.label, row.count, formatCurrency(row.income), formatCurrency(row.expenses), formatSignedCurrency(row.net)]);
+  }
+  table.push([
+    chalk.bold(total.label),
+    chalk.bold(String(total.count)),
+    formatCurrency(total.income),
+    formatCurrency(total.expenses),
+    formatSignedCurrency(total.net),
+  ]);
+
+  logger.header(`Summary by ${by} | ${params.startDate} to ${params.endDate}`);
+  console.log(table.toString());
+  if (excludedByCategory > 0) {
+    console.log(chalk.gray(`\n${excludedByCategory} entr${excludedByCategory === 1 ? 'y' : 'ies'} left out by --exclude-category.`));
+  }
+  if (skippedTransfers > 0) {
+    console.log(chalk.gray(`\n${skippedTransfers} transfer(s) left out. Use --include-transfers to count them.`));
   }
 }
 
@@ -418,7 +407,7 @@ function addFilterOptions(command: Command): Command {
 addFilterOptions(entriesCommand.command('list').description('List entries for one or more accounts'))
   .option('--json', 'Output as JSON')
   .option('--csv', 'Output as CSV (with account and category names)')
-  .action(listAction);
+  .action(action(listAction));
 
 addFilterOptions(
   entriesCommand.command('summary').description('Total income and expenses grouped by category, month, or account')
@@ -427,7 +416,7 @@ addFilterOptions(
   .option('--include-transfers', 'Count transfers between accounts (left out by default)')
   .option('--json', 'Output as JSON')
   .option('--csv', 'Output as CSV')
-  .action(summaryAction);
+  .action(action(summaryAction));
 
 interface CreateOptions {
   account: string;
@@ -570,136 +559,130 @@ async function resolveCardDueDate(account: Account, purchaseDate: string, invoic
 }
 
 async function createAction(options: CreateOptions): Promise<void> {
-  try {
-    const value = Number(options.value);
-    if (Number.isNaN(value)) {
-      logger.error('Invalid value. Must be a number.');
-      process.exit(1);
-    }
-
-    if (!options.category) {
-      logger.error('A category is required to create an entry. Use -c, --category <id|alias>.');
-      logger.info('See available categories with: mdcli categories list');
-      process.exit(1);
-    }
-
-    const accountId = await resolveId('accounts', options.account);
-    if (accountId === null) {
-      logger.error(`Unknown account: ${options.account}`);
-      process.exit(1);
-    }
-
-    let categoryId: number | null = null;
-    if (options.category) {
-      categoryId = await resolveId('categories', options.category);
-      if (categoryId === null) {
-        logger.error(`Unknown category: ${options.category}`);
-        process.exit(1);
-      }
-    }
-
-    let tagIds: number[] = [];
-    if (options.tags) {
-      const tagResult = await resolveIds('tags', options.tags);
-      if (tagResult.unresolved.length > 0) {
-        logger.error(`Unknown tag(s): ${tagResult.unresolved.join(', ')}`);
-        process.exit(1);
-      }
-      tagIds = tagResult.ids;
-    }
-
-    const tipo = mapTypeToApi(options.type ?? 'expense');
-    const isReconciled = !options.pending;
-    const now = new Date();
-    const dateStr = options.date ?? toLocalDateString(now);
-    if (!isCalendarDate(dateStr)) {
-      logger.error('Invalid date. Use YYYY-MM-DD (e.g., 2026-10-03).');
-      process.exit(1);
-    }
-    const { start: monthStart, end: monthEnd } = getMonthRange();
-    const expenseNeedsNegativeValue = tipo === 'd';
-    const finalValue = expenseNeedsNegativeValue ? -Math.abs(value) : Math.abs(value);
-    const agenda = parseRecurrence(options);
-
-    // Credit card accounts reject the payload unless dataCompetencia is present.
-    // Regular accounts already work without it, so only cards get the extra field.
-    const account = await fetchAccountById(accountId);
-    if (!account) {
-      logger.warning(`Account ${accountId} was not found in the account list. Creating the entry without the credit card fields.`);
-    }
-    const isCardAccount = account ? isCreditCard(account) : false;
-    if (options.invoice && !isCardAccount) {
-      logger.error('--invoice only applies to credit card accounts.');
-      process.exit(1);
-    }
-
-    // Card purchases belong to an open invoice: the web app sends the purchase
-    // date as dataCompetencia, the invoice due date as dataPrevista, and leaves
-    // them unreconciled. Sending the purchase date as dataPrevista pins them
-    // to the nearest (often already closed) invoice instead (#17).
-    const cardDueDate = account && isCardAccount
-      ? await resolveCardDueDate(account, dateStr, options.invoice)
-      : null;
-    const entryReconciled = cardDueDate ? false : isReconciled;
-
-    const payload: CreateEntryPayload = {
-      descricao: options.description,
-      tipo,
-      status: {
-        confirmado: true,
-        conciliado: entryReconciled,
-      },
-      exibirCp: true,
-      exibirCr: true,
-      automatico: false,
-      lembrete: 0,
-      anexos: [],
-      ...(agenda && { agenda }),
-      '#': null,
-      conta: accountId.toString(),
-      inicio: monthStart,
-      fim: monthEnd,
-      i: 'm',
-      valor: finalValue,
-      data: now.toISOString(),
-      base: null,
-      categoria: categoryId,
-      metaEconomia: null,
-      observacoes: options.notes ?? '',
-      tags: tagIds,
-      transferencia: false,
-      conciliado: entryReconciled,
-      dataEfetiva: cardDueDate ? null : dateStr,
-      ...(isCardAccount && { dataCompetencia: dateStr }),
-      dataPrevista: cardDueDate ?? dateStr,
-      valorEfetivo: cardDueDate ? null : finalValue,
-      valorPrevisto: finalValue,
-    };
-
-    const response = await createEntry(payload);
-
-    if (options.json) {
-      console.log(JSON.stringify(response, null, 2));
-      return;
-    }
-
-    logger.success(`Entry created successfully!`);
-    console.log(`  ${chalk.gray('ID:')} ${response.id}`);
-    console.log(`  ${chalk.gray('Description:')} ${response.descricao}`);
-    console.log(`  ${chalk.gray('Value:')} ${formatCurrency(response.valor)}`);
-    console.log(`  ${chalk.gray('Date:')} ${response.data}`);
-    const statusDisplay = response.status === 'conciliado' ? 'reconciled' 
-      : response.status === 'pendente' ? 'pending' : 'scheduled';
-    console.log(`  ${chalk.gray('Status:')} ${formatStatus(statusDisplay as 'reconciled' | 'pending' | 'scheduled')}`);
-    if (agenda) {
-      const intervalLabels: Record<string, string> = { d: 'daily', w: 'weekly', M: 'monthly', y: 'yearly' };
-      const timesLabel = agenda.quantidade === -1 ? 'infinite' : `${agenda.quantidade} times`;
-      console.log(`  ${chalk.gray('Recurrence:')} ${intervalLabels[agenda.intervalo]} (every ${agenda.frequencia}, ${timesLabel})`);
-    }
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    logger.error(message);
+  const value = Number(options.value);
+  if (Number.isNaN(value)) {
+    logger.error('Invalid value. Must be a number.');
     process.exit(1);
+  }
+
+  if (!options.category) {
+    logger.error('A category is required to create an entry. Use -c, --category <id|alias>.');
+    logger.info('See available categories with: mdcli categories list');
+    process.exit(1);
+  }
+
+  const accountId = await resolveId('accounts', options.account);
+  if (accountId === null) {
+    logger.error(`Unknown account: ${options.account}`);
+    process.exit(1);
+  }
+
+  let categoryId: number | null = null;
+  if (options.category) {
+    categoryId = await resolveId('categories', options.category);
+    if (categoryId === null) {
+      logger.error(`Unknown category: ${options.category}`);
+      process.exit(1);
+    }
+  }
+
+  let tagIds: number[] = [];
+  if (options.tags) {
+    const tagResult = await resolveIds('tags', options.tags);
+    if (tagResult.unresolved.length > 0) {
+      logger.error(`Unknown tag(s): ${tagResult.unresolved.join(', ')}`);
+      process.exit(1);
+    }
+    tagIds = tagResult.ids;
+  }
+
+  const tipo = mapTypeToApi(options.type ?? 'expense');
+  const isReconciled = !options.pending;
+  const now = new Date();
+  const dateStr = options.date ?? toLocalDateString(now);
+  if (!isCalendarDate(dateStr)) {
+    logger.error('Invalid date. Use YYYY-MM-DD (e.g., 2026-10-03).');
+    process.exit(1);
+  }
+  const { start: monthStart, end: monthEnd } = getMonthRange();
+  const expenseNeedsNegativeValue = tipo === 'd';
+  const finalValue = expenseNeedsNegativeValue ? -Math.abs(value) : Math.abs(value);
+  const agenda = parseRecurrence(options);
+
+  // Credit card accounts reject the payload unless dataCompetencia is present.
+  // Regular accounts already work without it, so only cards get the extra field.
+  const account = await fetchAccountById(accountId);
+  if (!account) {
+    logger.warning(`Account ${accountId} was not found in the account list. Creating the entry without the credit card fields.`);
+  }
+  const isCardAccount = account ? isCreditCard(account) : false;
+  if (options.invoice && !isCardAccount) {
+    logger.error('--invoice only applies to credit card accounts.');
+    process.exit(1);
+  }
+
+  // Card purchases belong to an open invoice: the web app sends the purchase
+  // date as dataCompetencia, the invoice due date as dataPrevista, and leaves
+  // them unreconciled. Sending the purchase date as dataPrevista pins them
+  // to the nearest (often already closed) invoice instead (#17).
+  const cardDueDate = account && isCardAccount
+    ? await resolveCardDueDate(account, dateStr, options.invoice)
+    : null;
+  const entryReconciled = cardDueDate ? false : isReconciled;
+
+  const payload: CreateEntryPayload = {
+    descricao: options.description,
+    tipo,
+    status: {
+      confirmado: true,
+      conciliado: entryReconciled,
+    },
+    exibirCp: true,
+    exibirCr: true,
+    automatico: false,
+    lembrete: 0,
+    anexos: [],
+    ...(agenda && { agenda }),
+    '#': null,
+    conta: accountId.toString(),
+    inicio: monthStart,
+    fim: monthEnd,
+    i: 'm',
+    valor: finalValue,
+    data: now.toISOString(),
+    base: null,
+    categoria: categoryId,
+    metaEconomia: null,
+    observacoes: options.notes ?? '',
+    tags: tagIds,
+    transferencia: false,
+    conciliado: entryReconciled,
+    dataEfetiva: cardDueDate ? null : dateStr,
+    ...(isCardAccount && { dataCompetencia: dateStr }),
+    dataPrevista: cardDueDate ?? dateStr,
+    valorEfetivo: cardDueDate ? null : finalValue,
+    valorPrevisto: finalValue,
+  };
+
+  const response = await createEntry(payload);
+
+  if (options.json) {
+    console.log(JSON.stringify(response, null, 2));
+    return;
+  }
+
+  logger.success(`Entry created successfully!`);
+  console.log(`  ${chalk.gray('ID:')} ${response.id}`);
+  console.log(`  ${chalk.gray('Description:')} ${response.descricao}`);
+  console.log(`  ${chalk.gray('Value:')} ${formatCurrency(response.valor)}`);
+  console.log(`  ${chalk.gray('Date:')} ${response.data}`);
+  const statusDisplay = response.status === 'conciliado' ? 'reconciled' 
+    : response.status === 'pendente' ? 'pending' : 'scheduled';
+  console.log(`  ${chalk.gray('Status:')} ${formatStatus(statusDisplay as 'reconciled' | 'pending' | 'scheduled')}`);
+  if (agenda) {
+    const intervalLabels: Record<string, string> = { d: 'daily', w: 'weekly', M: 'monthly', y: 'yearly' };
+    const timesLabel = agenda.quantidade === -1 ? 'infinite' : `${agenda.quantidade} times`;
+    console.log(`  ${chalk.gray('Recurrence:')} ${intervalLabels[agenda.intervalo]} (every ${agenda.frequencia}, ${timesLabel})`);
   }
 }
 
@@ -720,7 +703,7 @@ entriesCommand
   .option('--times <n>', 'Total occurrences, e.g. --times 6 = 6 times then stop (default: infinite)')
   .option('--invoice <YYYY-MM>', 'Credit cards: invoice month to post to (default: the invoice the date falls in)')
   .option('--json', 'Output as JSON')
-  .action(createAction);
+  .action(action(createAction));
 
 interface UpdateOptions {
   description?: string;
@@ -853,145 +836,139 @@ function buildTransferPayload(
 }
 
 async function updateAction(id: string, options: UpdateOptions): Promise<void> {
-  try {
-    const entryId = Number(id);
-    if (Number.isNaN(entryId)) {
-      logger.error('Invalid entry ID. Must be a number.');
-      process.exit(1);
-    }
-
-    // Validate options that need resolution before fetching entry
-    let categoryId: number | null = null;
-    if (options.category !== undefined) {
-      categoryId = await resolveId('categories', options.category);
-      if (categoryId === null) {
-        logger.error(`Unknown category: ${options.category}`);
-        process.exit(1);
-      }
-    }
-
-    let tagIds: number[] | undefined;
-    if (options.tags !== undefined) {
-      const tagResult = await resolveIds('tags', options.tags);
-      if (tagResult.unresolved.length > 0) {
-        logger.error(`Unknown tag(s): ${tagResult.unresolved.join(', ')}`);
-        process.exit(1);
-      }
-      tagIds = tagResult.ids;
-    }
-
-    let value: number | undefined;
-    if (options.value !== undefined) {
-      value = Number(options.value);
-      if (Number.isNaN(value)) {
-        logger.error('Invalid value. Must be a number.');
-        process.exit(1);
-      }
-    }
-
-    const hasChanges = options.description !== undefined ||
-      options.value !== undefined ||
-      options.type !== undefined ||
-      options.category !== undefined ||
-      options.date !== undefined ||
-      options.tags !== undefined ||
-      options.notes !== undefined ||
-      options.pending ||
-      options.reconciled;
-
-    if (!hasChanges) {
-      logger.error('No changes specified. Use options like --description, --value, --date, etc.');
-      process.exit(1);
-    }
-
-    // Fetch existing entry
-    const existing = await fetchEntry(entryId);
-
-    if (existing.tipo === 't') {
-      if (options.type !== undefined) {
-        const requestedType = parseTypeOption(options.type);
-        if (requestedType === undefined) {
-          logger.error(`Unknown type: ${options.type}. Valid: expense, income, transfer`);
-          process.exit(1);
-        }
-        if (requestedType !== 't') {
-          logger.error('A transfer cannot be turned into an expense or an income. Delete it and create the entry you want.');
-          process.exit(1);
-        }
-      }
-
-      const payload = buildTransferPayload(entryId, existing, {
-        description: options.description,
-        value,
-        date: options.date,
-        categoryId,
-        tagIds,
-        notes: options.notes,
-        reconciled: resolveReconciled(options, existing),
-      });
-
-      const transferResponse = await updateEntry(entryId, payload as unknown as UpdateEntryPayload);
-      reportUpdate(transferResponse, options.json);
-      return;
-    }
-
-    // Echo the whole entry back and layer the changes on top. The API rejects
-    // the PUT when a field it sent us is missing from the payload, and an
-    // installment carries fields the CLI never modeled - parcela, agendaId,
-    // plastico, dataCompetencia, categoriaPai - so rebuilding the payload field
-    // by field made every installment impossible to edit. Keys below either
-    // apply an option, supply a default, or reshape a value: id can arrive as a
-    // string, and status arrives as a label but has to go back as an object.
-    const payload: Record<string, unknown> = {
-      ...existing,
-      id: entryId,
-      descricao: options.description ?? existing.descricao,
-      status: {
-        confirmado: true,
-        conciliado: existing.conciliado ?? false,
-      },
-      tipo: options.type ? mapTypeToApi(options.type) : existing.tipo,
-      valor: value ?? existing.valor,
-      valorPrevisto: value ?? existing.valorPrevisto ?? existing.valor,
-      valorEfetivo: value ?? existing.valorEfetivo ?? existing.valor,
-      dataPrevista: options.date ?? existing.dataPrevista,
-      dataEfetiva: options.date ?? existing.dataEfetiva ?? existing.dataPrevista,
-      exibirCp: existing.exibirCp ?? true,
-      exibirCr: existing.exibirCr ?? true,
-      estorno: existing.estorno ?? false,
-      categoria: categoryId ?? existing.categoria ?? null,
-      tags: tagIds ?? existing.tags ?? [],
-      observacoes: options.notes ?? existing.observacoes ?? '',
-      ndocumento: existing.ndocumento ?? '',
-      lembrete: existing.lembrete ?? 0,
-      automatico: existing.automatico ?? false,
-      metaEconomia: null,
-      transferencia: existing.transferencia ?? false,
-    };
-
-    // categoriaPai is the parent of categoria, and the categories endpoint does
-    // not expose the parent, so a new category leaves us unable to recompute it.
-    // Drop the stale one and let the server derive it.
-    if (categoryId !== null) {
-      delete payload.categoriaPai;
-    }
-
-    // Handle status changes
-    if (options.pending) {
-      payload.status = { confirmado: true, conciliado: false };
-      payload.conciliado = false;
-    } else if (options.reconciled) {
-      payload.status = { confirmado: true, conciliado: true };
-      payload.conciliado = true;
-    }
-
-    const response = await updateEntry(entryId, payload as unknown as UpdateEntryPayload);
-    reportUpdate(response, options.json);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    logger.error(message);
+  const entryId = Number(id);
+  if (Number.isNaN(entryId)) {
+    logger.error('Invalid entry ID. Must be a number.');
     process.exit(1);
   }
+
+  // Validate options that need resolution before fetching entry
+  let categoryId: number | null = null;
+  if (options.category !== undefined) {
+    categoryId = await resolveId('categories', options.category);
+    if (categoryId === null) {
+      logger.error(`Unknown category: ${options.category}`);
+      process.exit(1);
+    }
+  }
+
+  let tagIds: number[] | undefined;
+  if (options.tags !== undefined) {
+    const tagResult = await resolveIds('tags', options.tags);
+    if (tagResult.unresolved.length > 0) {
+      logger.error(`Unknown tag(s): ${tagResult.unresolved.join(', ')}`);
+      process.exit(1);
+    }
+    tagIds = tagResult.ids;
+  }
+
+  let value: number | undefined;
+  if (options.value !== undefined) {
+    value = Number(options.value);
+    if (Number.isNaN(value)) {
+      logger.error('Invalid value. Must be a number.');
+      process.exit(1);
+    }
+  }
+
+  const hasChanges = options.description !== undefined ||
+    options.value !== undefined ||
+    options.type !== undefined ||
+    options.category !== undefined ||
+    options.date !== undefined ||
+    options.tags !== undefined ||
+    options.notes !== undefined ||
+    options.pending ||
+    options.reconciled;
+
+  if (!hasChanges) {
+    logger.error('No changes specified. Use options like --description, --value, --date, etc.');
+    process.exit(1);
+  }
+
+  // Fetch existing entry
+  const existing = await fetchEntry(entryId);
+
+  if (existing.tipo === 't') {
+    if (options.type !== undefined) {
+      const requestedType = parseTypeOption(options.type);
+      if (requestedType === undefined) {
+        logger.error(`Unknown type: ${options.type}. Valid: expense, income, transfer`);
+        process.exit(1);
+      }
+      if (requestedType !== 't') {
+        logger.error('A transfer cannot be turned into an expense or an income. Delete it and create the entry you want.');
+        process.exit(1);
+      }
+    }
+
+    const payload = buildTransferPayload(entryId, existing, {
+      description: options.description,
+      value,
+      date: options.date,
+      categoryId,
+      tagIds,
+      notes: options.notes,
+      reconciled: resolveReconciled(options, existing),
+    });
+
+    const transferResponse = await updateEntry(entryId, payload as unknown as UpdateEntryPayload);
+    reportUpdate(transferResponse, options.json);
+    return;
+  }
+
+  // Echo the whole entry back and layer the changes on top. The API rejects
+  // the PUT when a field it sent us is missing from the payload, and an
+  // installment carries fields the CLI never modeled - parcela, agendaId,
+  // plastico, dataCompetencia, categoriaPai - so rebuilding the payload field
+  // by field made every installment impossible to edit. Keys below either
+  // apply an option, supply a default, or reshape a value: id can arrive as a
+  // string, and status arrives as a label but has to go back as an object.
+  const payload: Record<string, unknown> = {
+    ...existing,
+    id: entryId,
+    descricao: options.description ?? existing.descricao,
+    status: {
+      confirmado: true,
+      conciliado: existing.conciliado ?? false,
+    },
+    tipo: options.type ? mapTypeToApi(options.type) : existing.tipo,
+    valor: value ?? existing.valor,
+    valorPrevisto: value ?? existing.valorPrevisto ?? existing.valor,
+    valorEfetivo: value ?? existing.valorEfetivo ?? existing.valor,
+    dataPrevista: options.date ?? existing.dataPrevista,
+    dataEfetiva: options.date ?? existing.dataEfetiva ?? existing.dataPrevista,
+    exibirCp: existing.exibirCp ?? true,
+    exibirCr: existing.exibirCr ?? true,
+    estorno: existing.estorno ?? false,
+    categoria: categoryId ?? existing.categoria ?? null,
+    tags: tagIds ?? existing.tags ?? [],
+    observacoes: options.notes ?? existing.observacoes ?? '',
+    ndocumento: existing.ndocumento ?? '',
+    lembrete: existing.lembrete ?? 0,
+    automatico: existing.automatico ?? false,
+    metaEconomia: null,
+    transferencia: existing.transferencia ?? false,
+  };
+
+  // categoriaPai is the parent of categoria, and the categories endpoint does
+  // not expose the parent, so a new category leaves us unable to recompute it.
+  // Drop the stale one and let the server derive it.
+  if (categoryId !== null) {
+    delete payload.categoriaPai;
+  }
+
+  // Handle status changes
+  if (options.pending) {
+    payload.status = { confirmado: true, conciliado: false };
+    payload.conciliado = false;
+  } else if (options.reconciled) {
+    payload.status = { confirmado: true, conciliado: true };
+    payload.conciliado = true;
+  }
+
+  const response = await updateEntry(entryId, payload as unknown as UpdateEntryPayload);
+  reportUpdate(response, options.json);
 }
 
 entriesCommand
@@ -1007,7 +984,7 @@ entriesCommand
   .option('-p, --pending', 'Set as pending (not reconciled)')
   .option('-r, --reconciled', 'Set as reconciled')
   .option('--json', 'Output as JSON')
-  .action(updateAction);
+  .action(action(updateAction));
 
 interface DeleteOptions {
   dangerouslySkipConfirmation?: boolean;
@@ -1029,44 +1006,38 @@ async function promptConfirmation(message: string): Promise<boolean> {
 }
 
 async function deleteAction(id: string, options: DeleteOptions): Promise<void> {
-  try {
-    const entryId = Number(id);
-    if (Number.isNaN(entryId)) {
-      logger.error('Invalid entry ID. Must be a number.');
-      process.exit(1);
-    }
-
-    const entry = await fetchEntry(entryId);
-
-    if (!options.dangerouslySkipConfirmation) {
-      console.log(chalk.yellow('\nEntry to be deleted:'));
-      console.log(`  ${chalk.gray('ID:')} ${entry.id}`);
-      console.log(`  ${chalk.gray('Description:')} ${entry.descricao}`);
-      console.log(`  ${chalk.gray('Value:')} ${formatCurrency(entry.valor)}`);
-      console.log(`  ${chalk.gray('Date:')} ${entry.data}`);
-      console.log();
-
-      const confirmed = await promptConfirmation(chalk.red('Are you sure you want to delete this entry? (y/N) '));
-
-      if (!confirmed) {
-        logger.info('Deletion cancelled.');
-        process.exit(0);
-      }
-    }
-
-    await deleteEntry(entryId);
-
-    if (options.json) {
-      console.log(JSON.stringify({ deleted: true, id: entryId }, null, 2));
-      return;
-    }
-
-    logger.success(`Entry ${entryId} deleted successfully!`);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    logger.error(message);
+  const entryId = Number(id);
+  if (Number.isNaN(entryId)) {
+    logger.error('Invalid entry ID. Must be a number.');
     process.exit(1);
   }
+
+  const entry = await fetchEntry(entryId);
+
+  if (!options.dangerouslySkipConfirmation) {
+    console.log(chalk.yellow('\nEntry to be deleted:'));
+    console.log(`  ${chalk.gray('ID:')} ${entry.id}`);
+    console.log(`  ${chalk.gray('Description:')} ${entry.descricao}`);
+    console.log(`  ${chalk.gray('Value:')} ${formatCurrency(entry.valor)}`);
+    console.log(`  ${chalk.gray('Date:')} ${entry.data}`);
+    console.log();
+
+    const confirmed = await promptConfirmation(chalk.red('Are you sure you want to delete this entry? (y/N) '));
+
+    if (!confirmed) {
+      logger.info('Deletion cancelled.');
+      process.exit(0);
+    }
+  }
+
+  await deleteEntry(entryId);
+
+  if (options.json) {
+    console.log(JSON.stringify({ deleted: true, id: entryId }, null, 2));
+    return;
+  }
+
+  logger.success(`Entry ${entryId} deleted successfully!`);
 }
 
 entriesCommand
@@ -1074,4 +1045,4 @@ entriesCommand
   .description('Delete an entry')
   .option('--dangerously-skip-confirmation', 'Skip confirmation prompt')
   .option('--json', 'Output as JSON')
-  .action(deleteAction);
+  .action(action(deleteAction));
