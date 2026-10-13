@@ -96,3 +96,8 @@ export function entriesPage(list: unknown[], total = list.length) {
 export function cardInvoice(vencimento: string, fechamento: string) {
   return { lancamentos: [], vencimento, fechamento, valor: 0 };
 }
+
+export const TAG_WORK = { id: 501, nome: 'Trabalho', status: true, cor: 'FF0000' };
+export const TAG_PERSONAL = { id: 502, nome: 'Pessoal', status: false, cor: '00FF00' };
+
+export const TAGS_RESPONSE = [TAG_WORK, TAG_PERSONAL];
