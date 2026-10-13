@@ -23,7 +23,7 @@ import {
   getFirefoxProfilePath,
   checkChromeProfileReadable,
   checkEdgeProfileReadable,
-} from '../lib/browser-session.js';
+} from '../lib/browser-session/index.js';
 import type { AuthConfig, AuthMethod } from '../types/index.js';
 
 async function promptManualAuth(): Promise<AuthConfig> {

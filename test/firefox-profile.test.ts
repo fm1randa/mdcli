@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { parseFirefoxInstallDefaults } from '../src/lib/browser-session.js';
+import { parseFirefoxInstallDefaults } from '../src/lib/browser-session/index.js';
 
 let dir: string;
 

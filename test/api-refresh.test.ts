@@ -36,8 +36,8 @@ beforeAll(async () => {
 
   // mock.module replaces the module for every test file in the run, so keep the
   // real exports (e.g. parseFirefoxInstallDefaults) and override only what we need.
-  const realBrowserSession = { ...(await import('../src/lib/browser-session.js')) };
-  mock.module('../src/lib/browser-session.js', () => ({
+  const realBrowserSession = { ...(await import('../src/lib/browser-session/index.js')) };
+  mock.module('../src/lib/browser-session/index.js', () => ({
     ...realBrowserSession,
     extractSessionFromBrowser: async () => {
       refreshes += 1;

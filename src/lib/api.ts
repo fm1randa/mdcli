@@ -31,7 +31,7 @@ import type {
 import { getAuth, getAuthMethod, setAuth, getOpItem, invalidateNameCache } from './config.js';
 import { popStaleNameCacheUse } from './cache-invalidation.js';
 import { captureAuthHeadless } from './browser-auth.js';
-import { extractSessionFromBrowser } from './browser-session.js';
+import { extractSessionFromBrowser } from './browser-session/index.js';
 
 const BASE_URL = process.env.MDCLI_API_URL ?? 'https://app.meudinheiroweb.com.br/api';
 
