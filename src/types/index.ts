@@ -262,6 +262,8 @@ export interface MdcliConfig {
   nameCache?: NameCache;
   opItem?: string;
   captchaApiKey?: string;
+  /** false turns off the background self-update check. */
+  autoUpdate?: boolean;
 }
 
 interface EntryPermissions {

@@ -14,15 +14,25 @@ bun install -g github:fm1randa/mdcli
 
 #### Automatic updates
 
-A global install keeps itself up to date. At most once every 24 hours, mdcli asks GitHub for the latest commit on `main` (1.5 s timeout, no token) and compares it with the commit Bun recorded when installing (`~/.bun/install/global/bun.lock`). If there is a newer one, it runs `bun install -g github:fm1randa/mdcli#<commit>` in the background and prints a one-line notice to stderr; the new version is used from the next run on. stdout is never touched, so `--json` and `--csv` output stays clean.
+A global install keeps itself on the latest **release** (a `vYYYY.M.D` tag with a GitHub Release). Commits merged to `main` without a release are not installed.
+
+At most once every 24 hours, mdcli asks GitHub for the latest release (`api.github.com/repos/fm1randa/mdcli/releases/latest`, 1.5 s timeout, no token) and compares it with the installed version (the `package.json` of the install). If the release is newer, it runs `bun install -g github:fm1randa/mdcli#<tag>` in the background; the new version is used from the next run on, which prints one line to stderr, e.g. `mdcli atualizado de 2026.10.13 para 2026.10.20`. stdout is never touched, so `--json` and `--csv` output stays clean.
 
 The check is skipped when running from a source checkout, when `CI` is set, and when offline; a failed check or update never fails the command. The last check time is stored in `update-check.json` inside the config directory (`MDCLI_CONFIG_DIR`, default `~/.config/mdcli`).
 
-To turn it off:
+To update right away (in the foreground, reporting the result; works even with automatic updates off):
+
+```bash
+mdcli update
+```
+
+To turn automatic updates off, either set the environment variable:
 
 ```bash
 export MDCLI_NO_AUTO_UPDATE=1
 ```
+
+or add `"autoUpdate": false` to `~/.config/mdcli/mdcli.config.json`.
 
 ### From Source
 
