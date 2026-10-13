@@ -1,5 +1,6 @@
 #!/usr/bin/env bun
 
+import { join } from 'node:path';
 import { Command } from 'commander';
 import { authCommand } from '../src/commands/auth.js';
 import { accountsCommand } from '../src/commands/accounts.js';
@@ -8,6 +9,7 @@ import { tagsCommand } from '../src/commands/tags.js';
 import { entriesCommand } from '../src/commands/entries.js';
 import { cardsCommand } from '../src/commands/cards.js';
 import pkg from '../package.json' with { type: 'json' };
+import { checkForUpdate } from '../src/lib/self-update.js';
 
 const program = new Command();
 
@@ -29,4 +31,8 @@ process.on('unhandledRejection', (reason) => {
   process.exit(1);
 });
 
+// Runs alongside the command; never blocks it for longer than the check timeout.
+const updateCheck = checkForUpdate({ packageRoot: join(import.meta.dir, '..') });
+
 await program.parseAsync();
+await updateCheck;
