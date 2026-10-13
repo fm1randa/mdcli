@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Page } from 'playwright';
-import { detectRecaptchaChallenge, solveRecaptcha } from '../src/lib/captcha.js';
+import { solveRecaptcha } from '../src/lib/captcha.js';
 
 const configDir = process.env.MDCLI_CONFIG_DIR!;
 
@@ -49,11 +49,4 @@ describe('solveRecaptcha', () => {
 
     expect(ok).toBe(false);
   });
-});
-
-describe('detectRecaptchaChallenge', () => {
-  test('returns the boolean from page.evaluate', async () => {
-    expect(await detectRecaptchaChallenge(fakePage({ evaluateResult: true }))).toBe(true);
-    expect(await detectRecaptchaChallenge(fakePage({ evaluateResult: false }))).toBe(false);
-  }, 10_000);
 });

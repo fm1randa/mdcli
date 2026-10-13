@@ -19,3 +19,7 @@ After completing any user request that modifies code:
 - CalVer `YYYY.M.D` sem zeros à esquerda (ex.: `2026.10.13`), válido como semver para o npm.
 - A versão só sobe no `package.json` ao fazer release (é a fonte única; `--version` e `verify.sh` leem de lá).
 - Segunda release no mesmo dia: `YYYY.M.D-N` com N a partir de 2 (ex.: `2026.10.13-2`). Atenção: no semver isso é pré-release e ordena *antes* de `2026.10.13`; use só quando necessário e prefira a data do dia seguinte se possível.
+
+## Tests
+
+Tautological tests are considered harmful. Do not write tests that only re-assert a mock or stub, re-implement the code under test, assert constants or types, or cannot fail when the behavior breaks.

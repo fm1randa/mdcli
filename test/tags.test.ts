@@ -48,7 +48,6 @@ describe('tags create', () => {
 
     expect(result.exitCode).toBe(0);
     expect(mutations(api)[0].body).toEqual({ nome: 'Viagem', cor: '808080', status: true });
-    expect(result.output).toContain('Viagem');
   });
 
   test('strips leading # from --color', async () => {
@@ -61,7 +60,6 @@ describe('tags create', () => {
 
     expect(result.exitCode).toBe(0);
     expect(mutations(api)[0].body).toEqual({ nome: 'Urgente', cor: 'FF00AA', status: true });
-    expect(JSON.parse(result.stdout)).toMatchObject({ id: 601, nome: 'Urgente', cor: 'FF00AA' });
   });
 
   test('rejects an invalid color without calling the API', async () => {
