@@ -2,33 +2,32 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { checkForUpdate, installedCommit } from '../src/lib/self-update.js';
-
-const LATEST = 'abcdef0123456789abcdef0123456789abcdef01';
-// Shape of the entry bun writes in <BUN_INSTALL>/install/global/bun.lock.
-const lockWith = (sha: string) =>
-  `{\n  "packages": {\n    "mdcli": ["mdcli@github:fm1randa/mdcli#${sha}", { "bin": { "mdcli": "./bin/cli.ts" } }, "fm1randa-mdcli-${sha}", "sha512-x"],\n  }\n}\n`;
+import { checkForUpdate, compareVersions, isGlobalInstall, runManualUpdate } from '../src/lib/self-update.js';
 
 let dir: string;
 let server: ReturnType<typeof Bun.serve>;
 let hits: number;
-let latest: string | null;
-const originalConfigDir = process.env.MDCLI_CONFIG_DIR;
+let latestTag: string | null;
 
-function globalInstall(sha: string): string {
+// Layout `bun install -g github:fm1randa/mdcli` creates, with the installed package.json.
+function globalInstall(version: string): string {
   const root = join(dir, 'install', 'global', 'node_modules', 'mdcli');
   mkdirSync(root, { recursive: true });
-  writeFileSync(join(dir, 'install', 'global', 'bun.lock'), lockWith(sha));
+  writeFileSync(
+    join(dir, 'install', 'global', 'bun.lock'),
+    `{ "packages": { "mdcli": ["mdcli@github:fm1randa/mdcli#v${version}", {}, "fm1randa-mdcli-abc1234", "sha512-x"] } }\n`,
+  );
+  writeFileSync(join(root, 'package.json'), JSON.stringify({ name: 'mdcli', version }));
   return root;
 }
 
-function recorder(): { env: NodeJS.ProcessEnv; calls: () => string | null } {
+function recorder(exitCode = 0): { env: NodeJS.ProcessEnv; calls: () => string | null } {
   const log = join(dir, 'install-args');
   const script = join(dir, 'fake-bun');
-  writeFileSync(script, `#!/bin/sh\necho "$@" > "${log}"\n`);
+  writeFileSync(script, `#!/bin/sh\necho "$@" > "${log}"\nexit ${exitCode}\n`);
   chmodSync(script, 0o755);
   return {
-    env: { MDCLI_UPDATE_BUN: script, MDCLI_UPDATE_CHECK_URL: `${server.url}commits/main` },
+    env: { MDCLI_UPDATE_BUN: script, MDCLI_UPDATE_CHECK_URL: `${server.url}releases/latest`, MDCLI_CONFIG_DIR: join(dir, 'config') },
     calls: () => (existsSync(log) ? readFileSync(log, 'utf-8').trim() : null),
   };
 }
@@ -44,56 +43,69 @@ async function waitFor<T>(fn: () => T | null): Promise<T | null> {
 
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), 'mdcli-self-update-'));
-  process.env.MDCLI_CONFIG_DIR = join(dir, 'config');
   hits = 0;
-  latest = LATEST;
+  latestTag = 'v2026.10.20';
   server = Bun.serve({
     port: 0,
     fetch() {
       hits++;
-      return latest ? Response.json({ sha: latest }) : new Response('boom', { status: 500 });
+      return latestTag ? Response.json({ tag_name: latestTag }) : new Response('boom', { status: 500 });
     },
   });
 });
 
 afterEach(() => {
-  process.env.MDCLI_CONFIG_DIR = originalConfigDir;
   server.stop(true);
   rmSync(dir, { recursive: true, force: true });
 });
 
-describe('installedCommit', () => {
-  test('reads the short sha bun recorded for a global install', () => {
-    expect(installedCommit(globalInstall('bd1501f'))).toBe('bd1501f');
+describe('compareVersions', () => {
+  test('orders CalVer numerically, not lexically', () => {
+    expect(compareVersions('2026.10.2', '2026.9.30')).toBe(1);
+    expect(compareVersions('2026.10.13', '2026.10.13')).toBe(0);
+    expect(compareVersions('2026.1.1', '2025.12.31')).toBe(1);
   });
 
-  test('a checkout (no global bun.lock above it) is not a global install', () => {
-    expect(installedCommit(join(import.meta.dir, '..'))).toBeNull();
+  test('a same-day re-release is newer than the base date', () => {
+    expect(compareVersions('2026.10.13-2', '2026.10.13')).toBe(1);
+    expect(compareVersions('2026.10.13-2', '2026.10.14')).toBe(-1);
+  });
+});
+
+describe('isGlobalInstall', () => {
+  test('recognizes the bun global layout but not a checkout', () => {
+    expect(isGlobalInstall(globalInstall('2026.10.13'))).toBe(true);
+    expect(isGlobalInstall(join(import.meta.dir, '..'))).toBe(false);
   });
 });
 
 describe('checkForUpdate', () => {
-  test('installs the exact latest commit in the background and notifies once', async () => {
-    const root = globalInstall('1111111');
+  test('installs the newer release tag in the background, silently', async () => {
     const { env, calls } = recorder();
     const notices: string[] = [];
-    const result = await checkForUpdate({ packageRoot: root, env, notify: (m) => notices.push(m) });
-    expect(result).toBe('updating');
-    expect(await waitFor(calls)).toBe(`install -g github:fm1randa/mdcli#${LATEST}`);
-    expect(notices).toHaveLength(1);
-    expect(notices[0]).toContain('1111111 → abcdef0');
+    expect(await checkForUpdate({ packageRoot: globalInstall('2026.10.13'), env, notify: (m) => notices.push(m) })).toBe('updating');
+    expect(await waitFor(calls)).toBe('install -g github:fm1randa/mdcli#v2026.10.20');
+    expect(notices).toEqual([]);
   });
 
-  test('does nothing when the installed commit is the latest', async () => {
+  test('does not install when the release is not newer', async () => {
     const { env, calls } = recorder();
-    const result = await checkForUpdate({ packageRoot: globalInstall(LATEST.slice(0, 7)), env, notify: () => {} });
-    expect(result).toBe('up-to-date');
+    expect(await checkForUpdate({ packageRoot: globalInstall('2026.10.20'), env })).toBe('up-to-date');
+    latestTag = 'v2026.10.1';
+    expect(await checkForUpdate({ packageRoot: globalInstall('2026.10.20'), env: { ...env, MDCLI_CONFIG_DIR: join(dir, 'c2') } })).toBe('up-to-date');
     await Bun.sleep(100);
     expect(calls()).toBeNull();
   });
 
+  test('ignores a latest release whose tag is not CalVer', async () => {
+    const { env, calls } = recorder();
+    latestTag = 'nightly';
+    expect(await checkForUpdate({ packageRoot: globalInstall('2026.10.13'), env })).toBe('offline');
+    expect(calls()).toBeNull();
+  });
+
   test('checks the network at most once per 24h', async () => {
-    const root = globalInstall(LATEST.slice(0, 7));
+    const root = globalInstall('2026.10.20');
     const { env } = recorder();
     const now = Date.UTC(2026, 9, 13, 12);
     expect(await checkForUpdate({ packageRoot: root, env, now })).toBe('up-to-date');
@@ -103,23 +115,64 @@ describe('checkForUpdate', () => {
     expect(hits).toBe(2);
   });
 
-  test('skips without touching the network when disabled, in CI or outside a global install', async () => {
+  test('announces a version change once, on the first run after it', async () => {
     const { env } = recorder();
-    const root = globalInstall('1111111');
+    const notices: string[] = [];
+    const notify = (m: string) => notices.push(m);
+    const opts = { env: { ...env, MDCLI_NO_AUTO_UPDATE: '1' }, notify };
+    await checkForUpdate({ packageRoot: globalInstall('2026.10.13'), ...opts });
+    expect(notices).toEqual([]);
+    await checkForUpdate({ packageRoot: globalInstall('2026.10.20'), ...opts });
+    await checkForUpdate({ packageRoot: globalInstall('2026.10.20'), ...opts });
+    expect(notices).toEqual(['mdcli atualizado de 2026.10.13 para 2026.10.20']);
+  });
+
+  test('skips the network when opted out by env or config, in CI, or outside a global install', async () => {
+    const { env } = recorder();
+    const root = globalInstall('2026.10.13');
     expect(await checkForUpdate({ packageRoot: root, env: { ...env, MDCLI_NO_AUTO_UPDATE: '1' } })).toBe('disabled');
     expect(await checkForUpdate({ packageRoot: root, env: { ...env, CI: 'true' } })).toBe('disabled');
+    writeFileSync(join(dir, 'config', 'mdcli.config.json'), JSON.stringify({ autoUpdate: false }));
+    expect(await checkForUpdate({ packageRoot: root, env })).toBe('disabled');
     expect(await checkForUpdate({ packageRoot: join(import.meta.dir, '..'), env })).toBe('not-global');
     expect(hits).toBe(0);
   });
 
   test('a failing or unreachable check resolves quietly without installing', async () => {
-    const root = globalInstall('1111111');
+    const root = globalInstall('2026.10.13');
     const { env, calls } = recorder();
-    latest = null;
-    expect(await checkForUpdate({ packageRoot: root, env, notify: () => {} })).toBe('offline');
-    rmSync(join(dir, 'config'), { recursive: true, force: true });
-    const unreachable = { ...env, MDCLI_UPDATE_CHECK_URL: 'http://127.0.0.1:1/commits/main' };
-    expect(await checkForUpdate({ packageRoot: root, env: unreachable, notify: () => {} })).toBe('offline');
+    latestTag = null;
+    expect(await checkForUpdate({ packageRoot: root, env })).toBe('offline');
+    const unreachable = { ...env, MDCLI_UPDATE_CHECK_URL: 'http://127.0.0.1:1/releases/latest', MDCLI_CONFIG_DIR: join(dir, 'c3') };
+    expect(await checkForUpdate({ packageRoot: root, env: unreachable })).toBe('offline');
     expect(calls()).toBeNull();
+  });
+});
+
+describe('runManualUpdate', () => {
+  test('installs the latest release in the foreground, even when auto-update is off', async () => {
+    const { env, calls } = recorder();
+    const notices: string[] = [];
+    const code = await runManualUpdate({ packageRoot: globalInstall('2026.10.13'), env: { ...env, MDCLI_NO_AUTO_UPDATE: '1' }, notify: (m) => notices.push(m) });
+    expect(code).toBe(0);
+    expect(calls()).toBe('install -g github:fm1randa/mdcli#v2026.10.20');
+    expect(notices.at(-1)).toBe('mdcli atualizado de 2026.10.13 para 2026.10.20');
+  });
+
+  test('reports when already up to date without installing', async () => {
+    const { env, calls } = recorder();
+    const notices: string[] = [];
+    expect(await runManualUpdate({ packageRoot: globalInstall('2026.10.20'), env, notify: (m) => notices.push(m) })).toBe(0);
+    expect(calls()).toBeNull();
+    expect(notices[0]).toContain('versão mais recente (2026.10.20)');
+  });
+
+  test('fails when the install fails, the check fails, or outside a global install', async () => {
+    const quiet = () => {};
+    const failing = recorder(3);
+    expect(await runManualUpdate({ packageRoot: globalInstall('2026.10.13'), env: failing.env, notify: quiet })).toBe(1);
+    latestTag = null;
+    expect(await runManualUpdate({ packageRoot: globalInstall('2026.10.13'), env: failing.env, notify: quiet })).toBe(1);
+    expect(await runManualUpdate({ packageRoot: join(import.meta.dir, '..'), env: failing.env, notify: quiet })).toBe(1);
   });
 });

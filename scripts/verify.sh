@@ -87,36 +87,69 @@ step "cli accounts delete inexistente (mock)" expect_fail 'DELETE /v1/cadastros/
 
 # Self-update of a global install, fully offline: a fake global layout like the
 # one `bun install -g github:fm1randa/mdcli` creates, the mock answering the
-# GitHub "latest commit" endpoint and a recorder in place of `bun install -g`.
+# GitHub "latest release" endpoint (v2099.1.1) and a recorder in place of `bun`.
 GLOBAL="$SANDBOX/bun/install/global"
+GCLI="$GLOBAL/node_modules/mdcli/bin/cli.ts"
 mkdir -p "$GLOBAL/node_modules/mdcli"
 cp -r bin src package.json "$GLOBAL/node_modules/mdcli/"
 ln -s "$PWD/node_modules" "$GLOBAL/node_modules/mdcli/node_modules"
-echo '"mdcli": ["mdcli@github:fm1randa/mdcli#1111111", {}, "fm1randa-mdcli-1111111", "sha512-x"],' >"$GLOBAL/bun.lock"
+echo '"mdcli": ["mdcli@github:fm1randa/mdcli#v2026.10.13", {}, "fm1randa-mdcli-abc1234", "sha512-x"],' >"$GLOBAL/bun.lock"
 printf '#!/bin/sh\necho "$@" > "%s"\n' "$SANDBOX/update-args" >"$SANDBOX/fake-bun"; chmod +x "$SANDBOX/fake-bun"
+RELEASE_URL() { echo "http://127.0.0.1:$(head -1 "$PORT_FILE")/github/repos/fm1randa/mdcli/releases/latest"; }
+gcli() { env -u CI MDCLI_UPDATE_CHECK_URL="$(RELEASE_URL)" MDCLI_UPDATE_BUN="$SANDBOX/fake-bun" "$@"; }
+set_global_version() { V="$1" F="$GLOBAL/node_modules/mdcli/package.json" bun -e 'const f=process.env.F; const p=await Bun.file(f).json(); p.version=process.env.V; await Bun.write(f, JSON.stringify(p))'; }
+reset_update() { rm -f "$SANDBOX/update-check.json" "$SANDBOX/update-args"; set_global_version "$PKG_VERSION"; }
 self_update() {
-  local out err
-  out=$(env -u CI MDCLI_UPDATE_CHECK_URL="http://127.0.0.1:$(head -1 "$PORT_FILE")/github/repos/fm1randa/mdcli/commits/main" \
-    MDCLI_UPDATE_BUN="$SANDBOX/fake-bun" bun "$GLOBAL/node_modules/mdcli/bin/cli.ts" accounts list --json 2>"$SANDBOX/update-err" </dev/null) || return 1
-  grep -q 'atualizando em segundo plano (1111111 → 0123456)' "$SANDBOX/update-err" || { echo "stderr: $(cat "$SANDBOX/update-err")"; return 1; }
+  reset_update
+  local out
+  out=$(gcli bun "$GCLI" accounts list --json 2>"$SANDBOX/update-err" </dev/null) || return 1
   OUT="$out" bun -e 'JSON.parse(process.env.OUT)' || { echo "stdout não é JSON: $out"; return 1; }
+  [ ! -s "$SANDBOX/update-err" ] || { echo "stderr inesperado: $(cat "$SANDBOX/update-err")"; return 1; }
   for _ in $(seq 50); do [ -s "$SANDBOX/update-args" ] && break; sleep 0.1; done
-  grep -qx 'install -g github:fm1randa/mdcli#0123456789abcdef0123456789abcdef01234567' "$SANDBOX/update-args" \
+  grep -qx 'install -g github:fm1randa/mdcli#v2099.1.1' "$SANDBOX/update-args" \
     || { echo "install: $(cat "$SANDBOX/update-args" 2>/dev/null)"; return 1; }
   # Within 24h of that check the next run must not check again.
   rm -f "$SANDBOX/update-args"
-  env -u CI MDCLI_UPDATE_BUN="$SANDBOX/fake-bun" bun "$GLOBAL/node_modules/mdcli/bin/cli.ts" --version >/dev/null 2>&1 </dev/null
+  gcli bun "$GCLI" --version >/dev/null 2>&1 </dev/null
   sleep 0.3; [ ! -e "$SANDBOX/update-args" ] || { echo "verificou de novo antes de 24h"; return 1; }
 }
-opt_out() {
-  rm -f "$SANDBOX/update-check.json" "$SANDBOX/update-args"
+update_notice() {
+  # The background install replaced the package: the next run says so once, on stderr.
+  set_global_version 2099.1.1
+  local out err
+  out=$(gcli bun "$GCLI" --version 2>"$SANDBOX/update-err" </dev/null) || return 1
+  [ "$out" = "2099.1.1" ] || { echo "stdout: $out"; return 1; }
+  err=$(cat "$SANDBOX/update-err")
+  [ "$err" = "mdcli atualizado de $PKG_VERSION para 2099.1.1" ] || { echo "stderr: $err"; return 1; }
+  err=$(gcli bun "$GCLI" --version 2>&1 >/dev/null </dev/null)
+  [ -z "$err" ] || { echo "aviso repetido: $err"; return 1; }
+}
+opt_out() { # opt_out env|config
+  reset_update
   local err
-  err=$(env -u CI MDCLI_NO_AUTO_UPDATE=1 MDCLI_UPDATE_CHECK_URL="http://127.0.0.1:$(head -1 "$PORT_FILE")/github/repos/fm1randa/mdcli/commits/main" \
-    MDCLI_UPDATE_BUN="$SANDBOX/fake-bun" bun "$GLOBAL/node_modules/mdcli/bin/cli.ts" --version 2>&1 >/dev/null </dev/null)
+  if [ "$1" = env ]; then
+    err=$(MDCLI_NO_AUTO_UPDATE=1 gcli bun "$GCLI" --version 2>&1 >/dev/null </dev/null)
+  else
+    echo '{"autoUpdate": false}' >"$SANDBOX/mdcli.config.json"
+    err=$(gcli bun "$GCLI" --version 2>&1 >/dev/null </dev/null)
+    rm -f "$SANDBOX/mdcli.config.json"
+  fi
   sleep 0.3; [ -z "$err" ] && [ ! -e "$SANDBOX/update-args" ] || { echo "opt-out ignorado: $err"; return 1; }
 }
+manual_update() {
+  reset_update
+  local out
+  out=$(gcli bun "$GCLI" update 2>&1 </dev/null) || { echo "saída: $out"; return 1; }
+  grep -q "mdcli atualizado de $PKG_VERSION para 2099.1.1" <<<"$out" || { echo "saída: $out"; return 1; }
+  grep -qx 'install -g github:fm1randa/mdcli#v2099.1.1' "$SANDBOX/update-args" \
+    || { echo "install: $(cat "$SANDBOX/update-args" 2>/dev/null)"; return 1; }
+}
 step "cli auto-update (instalação global, mock)" self_update
-step "cli auto-update desligado (MDCLI_NO_AUTO_UPDATE=1)" opt_out
+step "cli aviso de atualização no stderr" update_notice
+step "cli auto-update desligado (MDCLI_NO_AUTO_UPDATE=1)" opt_out env
+step "cli auto-update desligado (config autoUpdate=false)" opt_out config
+step "cli update manual (mock)" manual_update
+step "cli update fora de instalação global" expect_fail 'não está instalado globalmente' update
 
 echo
 if [ ${#FAILED[@]} -gt 0 ]; then

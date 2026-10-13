@@ -9,7 +9,7 @@ import { tagsCommand } from '../src/commands/tags.js';
 import { entriesCommand } from '../src/commands/entries.js';
 import { cardsCommand } from '../src/commands/cards.js';
 import pkg from '../package.json' with { type: 'json' };
-import { checkForUpdate } from '../src/lib/self-update.js';
+import { checkForUpdate, runManualUpdate } from '../src/lib/self-update.js';
 
 const program = new Command();
 
@@ -25,6 +25,15 @@ program.addCommand(tagsCommand);
 program.addCommand(entriesCommand);
 program.addCommand(cardsCommand);
 
+const packageRoot = join(import.meta.dir, '..');
+
+program
+  .command('update')
+  .description('Update a global install to the latest release now')
+  .action(async () => {
+    process.exitCode = await runManualUpdate({ packageRoot });
+  });
+
 process.on('unhandledRejection', (reason) => {
   const message = reason instanceof Error ? reason.stack ?? reason.message : String(reason);
   console.error(`✗ Unexpected error: ${message}`);
@@ -32,7 +41,8 @@ process.on('unhandledRejection', (reason) => {
 });
 
 // Runs alongside the command; never blocks it for longer than the check timeout.
-const updateCheck = checkForUpdate({ packageRoot: join(import.meta.dir, '..') });
+// Skipped for `mdcli update`, which does the same work in the foreground.
+const updateCheck = process.argv[2] === 'update' ? Promise.resolve() : checkForUpdate({ packageRoot });
 
 await program.parseAsync();
 await updateCheck;

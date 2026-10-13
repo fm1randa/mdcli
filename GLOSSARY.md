@@ -30,6 +30,14 @@ _Avoid_: "input", "argument" (too generic)
 **Name cache**:
 A persistent on-disk map of `nome → id` for Accounts, Categories, and Tags. Lives alongside Aliases in the same config file. The cache exists so that resolving an Identifier by name does not require an API call on every CLI invocation.
 
+**Release**:
+A published version of mdcli: a CalVer version (e.g. `2026.10.13`) marked by a git tag `v2026.10.13` and a GitHub Release with notes. Only a Release reaches users; commits merged to `main` without a Release do not.
+_Avoid_: "deploy", "build", "latest commit"
+
+**Self-update**:
+A global install replacing itself with the newest Release, without the user asking. Can be turned off by the user and never interrupts the command being run; `mdcli update` does the same on demand.
+_Avoid_: "auto-upgrade", "sync with main"
+
 ## Relationships
 
 - An **Account** is the holder of one or many **Entries**
@@ -62,4 +70,5 @@ Aliases intentionally win over names so that short user-chosen shortcuts are nev
 ## Flagged ambiguities
 
 - "Account" was at risk of being confused with the user's bank login — resolved: here it always means a financial account within Meu Dinheiro, never the user's authentication context.
+- "Update" can mean `mdcli <entity> update` (editing an Account, Category, Tag, or Entry) or Self-update — resolved: Self-update is always named as such; the top-level `mdcli update` is the only command that refers to it.
 - "ID" can mean the numeric API ID, an Alias, or a name — resolved: the term **Identifier** covers all three; **ID** (bare) always means the numeric API ID.
