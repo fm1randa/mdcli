@@ -14,6 +14,8 @@ export default tseslint.config(
       },
     },
     rules: {
+      // Warn while god files are being split; becomes "error" at the end of the split.
+      "max-lines": ["warn", { max: 300, skipBlankLines: true, skipComments: true }],
       "@typescript-eslint/no-unused-vars": [
         "error",
         {
