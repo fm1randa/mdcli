@@ -2,8 +2,8 @@
 
 import { join } from 'node:path';
 import { Command } from 'commander';
-import { authCommand } from '../src/commands/auth.js';
-import { accountsCommand } from '../src/commands/accounts.js';
+import { authCommand } from '../src/commands/auth/index.js';
+import { accountsCommand } from '../src/commands/accounts/index.js';
 import { categoriesCommand } from '../src/commands/categories.js';
 import { tagsCommand } from '../src/commands/tags.js';
 import { entriesCommand } from '../src/commands/entries/index.js';
