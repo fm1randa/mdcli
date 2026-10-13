@@ -1,37 +1,18 @@
-import type {
-  ApiHeaders,
-  AuthConfig,
-  AuthMethod,
-  CategoriesResponse,
-  Category,
-  CreateCategoryPayload,
-  UpdateCategoryPayload,
-  AccountsResponse,
-  TagsResponse,
-  EntriesResponse,
-  EntriesParams,
-  NormalizedCategory,
-  NormalizedAccount,
-  NormalizedTag,
-  NormalizedEntry,
-  CreateEntryPayload,
-  CreateEntryResponse,
-  UpdateEntryPayload,
-  Entry,
-  CardInvoiceResponse,
-  CardFutureResponse,
-  NormalizedCardEntry,
-  NormalizedCardInstallment,
-  Account,
-  CreateAccountPayload,
-  UpdateAccountPayload,
-  CreateTagPayload,
-  CreateTagResponse,
-} from '../types/index.js';
+import type { ApiHeaders, AuthConfig, AuthMethod, CategoriesResponse, Category, CreateCategoryPayload, UpdateCategoryPayload, AccountsResponse, TagsResponse, EntriesResponse, EntriesParams, CreateEntryPayload, CreateEntryResponse, UpdateEntryPayload, Entry, CardInvoiceResponse, CardFutureResponse, Account, CreateAccountPayload, UpdateAccountPayload, CreateTagPayload, CreateTagResponse } from '../types/index.js';
 import { getAuth, getAuthMethod, setAuth, getOpItem, invalidateNameCache } from './config.js';
 import { popStaleNameCacheUse } from './cache-invalidation.js';
 import { captureAuthHeadless } from './browser-auth.js';
 import { extractSessionFromBrowser } from './browser-session/index.js';
+
+
+export {
+  normalizeCategories,
+  normalizeAccounts,
+  normalizeTags,
+  normalizeEntries,
+  normalizeCardEntries,
+  normalizeCardInstallments,
+} from './normalize.js';
 
 const BASE_URL = process.env.MDCLI_API_URL ?? 'https://app.meudinheiroweb.com.br/api';
 
@@ -295,95 +276,6 @@ async function fetchEntries(params: EntriesParams): Promise<EntriesResponse> {
   }
 
   return request<EntriesResponse>('GET', `/v2/lancamentos?${queryParams.toString()}`);
-}
-
-function mapCategoryType(tipo: 'd' | 'r' | 't'): 'expense' | 'income' | 'transfer' {
-  const typeMap: Record<string, 'expense' | 'income' | 'transfer'> = {
-    d: 'expense',
-    r: 'income',
-    t: 'transfer',
-  };
-  return typeMap[tipo] ?? 'expense';
-}
-
-export function normalizeCategories(response: CategoriesResponse): NormalizedCategory[] {
-  return response.items.map((cat) => ({
-    id: cat.id,
-    name: cat.nome,
-    type: mapCategoryType(cat.tipo),
-    active: cat.status,
-    system: cat.sistema,
-  }));
-}
-
-export function normalizeAccounts(response: AccountsResponse): NormalizedAccount[] {
-  return response.items.map((acc) => ({
-    id: acc.id,
-    name: acc.nome,
-    type: acc.tipo,
-    bank: acc.banco?.nome ?? null,
-    balance: acc.saldoUltimoExtrato ?? acc.saldoInicial ?? 0,
-    active: acc.status,
-    closed: acc.encerrada,
-  }));
-}
-
-export function normalizeTags(response: TagsResponse): NormalizedTag[] {
-  return response.map((tag) => ({
-    id: tag.id,
-    name: tag.nome,
-    color: `#${tag.cor}`,
-    active: tag.status,
-  }));
-}
-
-function mapEntryStatus(status: string): 'reconciled' | 'pending' | 'scheduled' {
-  const statusMap: Record<string, 'reconciled' | 'pending' | 'scheduled'> = {
-    conciliado: 'reconciled',
-    pendente: 'pending',
-    agendado: 'scheduled',
-  };
-  return statusMap[status] ?? 'pending';
-}
-
-export function normalizeEntries(entries: Entry[]): NormalizedEntry[] {
-  return entries.map((entry) => ({
-    id: entry.id,
-    description: entry.descricao,
-    date: entry.data,
-    value: entry.valor,
-    type: mapCategoryType(entry.tipo ?? 'd'),
-    status: mapEntryStatus(entry.status),
-    accountId: entry.conta,
-    categoryId: entry.categoria ?? null,
-    installment: entry.parcela ?? null,
-  }));
-}
-
-export function normalizeCardEntries(response: CardInvoiceResponse): NormalizedCardEntry[] {
-  return response.lancamentos.map((entry) => ({
-    id: entry.id,
-    description: entry.descricao,
-    date: entry.data,
-    value: entry.valor,
-    categoryId: entry.categoria ?? null,
-    installment: entry.parcela ?? null,
-  }));
-}
-
-export function normalizeCardInstallments(response: CardFutureResponse): NormalizedCardInstallment[] {
-  if (!response.parcelas || !Array.isArray(response.parcelas)) {
-    return [];
-  }
-  return response.parcelas.map((item) => ({
-    id: item.id,
-    description: item.descricao,
-    date: item.data,
-    value: item.valor,
-    installment: item.parcela,
-    remaining: item.parcelasRestantes ?? 0,
-    categoryId: item.categoria ?? null,
-  }));
 }
 
 export function isCreditCard(account: Account): boolean {
