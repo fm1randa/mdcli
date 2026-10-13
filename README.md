@@ -88,7 +88,7 @@ You'll be asked for `Mdapikey`, `Mduid`, and the bearer token (the `Authorizatio
 mdcli auth login --item "My Meu Dinheiro"
 ```
 
-The item name is saved and reused on later logins.
+The item name is saved and reused on later logins. If you run `mdcli auth login` without `--item` and no item is saved yet, you'll be prompted for the name, with `MeuDinheiroWeb` as the default.
 
 ### Browser login
 
