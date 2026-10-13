@@ -1,4 +1,7 @@
+import { Command } from 'commander';
+import Table from 'cli-table3';
 import { getFullConfig, setAliases } from './config.js';
+import { logger } from '../utils/logger.js';
 import type { Alias, AliasMap, AliasType } from '../types/index.js';
 
 function loadAliases(): AliasMap {
@@ -131,4 +134,104 @@ export async function resolveIds(type: AliasType, input: string): Promise<{ ids:
   }
 
   return { ids, unresolved };
+}
+
+const ALIAS_LABELS: Record<AliasType, { singular: string; header: string }> = {
+  accounts: { singular: 'account', header: 'Account Aliases' },
+  categories: { singular: 'category', header: 'Category Aliases' },
+  tags: { singular: 'tag', header: 'Tag Aliases' },
+};
+
+/** Attach identical `alias` add/list/rm/update subcommands for the given entity type. */
+export function buildAliasCommand(parent: Command, type: AliasType): Command {
+  const { singular, header } = ALIAS_LABELS[type];
+
+  const aliasCommand = parent.command('alias').description(`Manage ${singular} aliases`);
+
+  aliasCommand
+    .command('add')
+    .description(`Add an alias for ${singular === 'account' ? 'an' : 'a'} ${singular}`)
+    .requiredOption('--id <id>', `${singular.charAt(0).toUpperCase()}${singular.slice(1)} ID`)
+    .requiredOption('--name <name>', 'Alias name')
+    .action((options: { id: string; name: string }) => {
+      const id = Number(options.id);
+      if (Number.isNaN(id)) {
+        logger.error('Invalid ID. Must be a number.');
+        process.exit(1);
+      }
+      const result = addAlias(type, id, options.name);
+      if (result.success) {
+        logger.success(`Alias "${options.name}" added for ${singular} ${id}`);
+      } else {
+        logger.error(result.error ?? 'Failed to add alias');
+        process.exit(1);
+      }
+    });
+
+  aliasCommand
+    .command('list')
+    .description(`List all ${singular} aliases`)
+    .option('--json', 'Output as JSON')
+    .action((options: { json?: boolean }) => {
+      const aliases = getAliases(type);
+      if (options.json) {
+        console.log(JSON.stringify(aliases, null, 2));
+        return;
+      }
+      if (aliases.length === 0) {
+        logger.info('No aliases defined');
+        return;
+      }
+      const table = new Table({
+        head: ['ID', 'Alias'],
+        style: { head: ['cyan'] },
+      });
+      for (const alias of aliases) {
+        table.push([alias.id.toString(), alias.name]);
+      }
+      logger.header(`${header} (${aliases.length})`);
+      console.log(table.toString());
+    });
+
+  aliasCommand
+    .command('rm')
+    .description(`Remove a ${singular} alias`)
+    .option('--id <id>', `${singular.charAt(0).toUpperCase()}${singular.slice(1)} ID`)
+    .option('--name <name>', 'Alias name')
+    .action((options: { id?: string; name?: string }) => {
+      const identifier = options.id ?? options.name;
+      if (!identifier) {
+        logger.error('Either --id or --name is required');
+        process.exit(1);
+      }
+      const result = removeAlias(type, identifier);
+      if (result.success) {
+        logger.success(`Alias removed`);
+      } else {
+        logger.error(result.error ?? 'Failed to remove alias');
+        process.exit(1);
+      }
+    });
+
+  aliasCommand
+    .command('update')
+    .description(`Update a ${singular} alias`)
+    .requiredOption('--id <id>', `${singular.charAt(0).toUpperCase()}${singular.slice(1)} ID`)
+    .requiredOption('--name <name>', 'New alias name')
+    .action((options: { id: string; name: string }) => {
+      const id = Number(options.id);
+      if (Number.isNaN(id)) {
+        logger.error('Invalid ID. Must be a number.');
+        process.exit(1);
+      }
+      const result = updateAlias(type, id, options.name);
+      if (result.success) {
+        logger.success(`Alias updated to "${options.name}" for ${singular} ${id}`);
+      } else {
+        logger.error(result.error ?? 'Failed to update alias');
+        process.exit(1);
+      }
+    });
+
+  return aliasCommand;
 }

@@ -10,7 +10,7 @@ import {
   updateCategory,
   deleteCategory,
 } from '../lib/api.js';
-import { addAlias, getAliases, removeAlias, resolveId, updateAlias } from '../lib/aliases.js';
+import { buildAliasCommand, resolveId } from '../lib/aliases.js';
 import { invalidateNameCache } from '../lib/config.js';
 import type { Category } from '../types/index.js';
 
@@ -315,91 +315,4 @@ categoriesCommand
   .option('--json', 'Output as JSON')
   .action(deleteCategoryAction);
 
-const aliasCommand = categoriesCommand
-  .command('alias')
-  .description('Manage category aliases');
-
-aliasCommand
-  .command('add')
-  .description('Add an alias for a category')
-  .requiredOption('--id <id>', 'Category ID')
-  .requiredOption('--name <name>', 'Alias name')
-  .action((options: { id: string; name: string }) => {
-    const id = Number(options.id);
-    if (Number.isNaN(id)) {
-      logger.error('Invalid ID. Must be a number.');
-      process.exit(1);
-    }
-    const result = addAlias('categories', id, options.name);
-    if (result.success) {
-      logger.success(`Alias "${options.name}" added for category ${id}`);
-    } else {
-      logger.error(result.error ?? 'Failed to add alias');
-      process.exit(1);
-    }
-  });
-
-aliasCommand
-  .command('list')
-  .description('List all category aliases')
-  .option('--json', 'Output as JSON')
-  .action((options: { json?: boolean }) => {
-    const aliases = getAliases('categories');
-    if (options.json) {
-      console.log(JSON.stringify(aliases, null, 2));
-      return;
-    }
-    if (aliases.length === 0) {
-      logger.info('No aliases defined');
-      return;
-    }
-    const table = new Table({
-      head: ['ID', 'Alias'],
-      style: { head: ['cyan'] },
-    });
-    for (const alias of aliases) {
-      table.push([alias.id.toString(), alias.name]);
-    }
-    logger.header(`Category Aliases (${aliases.length})`);
-    console.log(table.toString());
-  });
-
-aliasCommand
-  .command('rm')
-  .description('Remove a category alias')
-  .option('--id <id>', 'Category ID')
-  .option('--name <name>', 'Alias name')
-  .action((options: { id?: string; name?: string }) => {
-    const identifier = options.id ?? options.name;
-    if (!identifier) {
-      logger.error('Either --id or --name is required');
-      process.exit(1);
-    }
-    const result = removeAlias('categories', identifier);
-    if (result.success) {
-      logger.success(`Alias removed`);
-    } else {
-      logger.error(result.error ?? 'Failed to remove alias');
-      process.exit(1);
-    }
-  });
-
-aliasCommand
-  .command('update')
-  .description('Update a category alias')
-  .requiredOption('--id <id>', 'Category ID')
-  .requiredOption('--name <name>', 'New alias name')
-  .action((options: { id: string; name: string }) => {
-    const id = Number(options.id);
-    if (Number.isNaN(id)) {
-      logger.error('Invalid ID. Must be a number.');
-      process.exit(1);
-    }
-    const result = updateAlias('categories', id, options.name);
-    if (result.success) {
-      logger.success(`Alias updated to "${options.name}" for category ${id}`);
-    } else {
-      logger.error(result.error ?? 'Failed to update alias');
-      process.exit(1);
-    }
-  });
+buildAliasCommand(categoriesCommand, 'categories');
