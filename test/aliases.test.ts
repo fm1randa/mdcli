@@ -17,9 +17,6 @@ beforeEach(() => {
       categories: [],
       tags: [],
     },
-    nameCache: {
-      accounts: { byName: { nubank: 1001, itau: 1003 }, cachedAt: new Date().toISOString() },
-    },
   });
 });
 
@@ -79,24 +76,21 @@ describe('getAliases / addAlias / updateAlias / removeAlias', () => {
   });
 });
 
-describe('resolveId / resolveIds', () => {
+describe('resolveId / resolveIds (offline paths)', () => {
+  // These paths return before name-cache (and api.ts) load, so this file stays
+  // safe to run before api-refresh.test.ts in CI's alphabetical order.
   test('numeric identifiers win without looking up aliases', async () => {
     expect(await resolveId('accounts', '1002')).toBe(1002);
   });
 
-  test('aliases win over the name cache', async () => {
+  test('aliases resolve offline', async () => {
     expect(await resolveId('accounts', 'nu')).toBe(1001);
   });
 
-  test('falls through to the name cache when there is no alias', async () => {
-    expect(await resolveId('accounts', 'Itau')).toBe(1003);
-    expect(await resolveId('accounts', 'unknown')).toBeNull();
-  });
-
-  test('resolveIds splits a comma list and reports unresolved names', async () => {
-    expect(await resolveIds('accounts', '1001, nu, Itau, missing')).toEqual({
+  test('resolveIds splits a comma list of ids and aliases', async () => {
+    expect(await resolveIds('accounts', '1001, nu, 1003')).toEqual({
       ids: [1001, 1001, 1003],
-      unresolved: ['missing'],
+      unresolved: [],
     });
   });
 });

@@ -1,5 +1,4 @@
 import { getFullConfig, setAliases } from './config.js';
-import { getNameIndex } from './name-cache.js';
 import type { Alias, AliasMap, AliasType } from '../types/index.js';
 
 function loadAliases(): AliasMap {
@@ -89,6 +88,9 @@ export async function resolveId(type: AliasType, input: string): Promise<number 
     return alias.id;
   }
 
+  // Lazy: importing name-cache pulls in api.ts, which reads MDCLI_API_URL at
+  // module load. Keep that off the path for alias CRUD and offline resolution.
+  const { getNameIndex } = await import('./name-cache.js');
   const index = await getNameIndex(type);
   return index[input.toLowerCase()] ?? null;
 }
@@ -116,6 +118,7 @@ export async function resolveIds(type: AliasType, input: string): Promise<{ ids:
     return { ids, unresolved: [] };
   }
 
+  const { getNameIndex } = await import('./name-cache.js');
   const index = await getNameIndex(type);
   const unresolved: string[] = [];
   for (const part of remaining) {
