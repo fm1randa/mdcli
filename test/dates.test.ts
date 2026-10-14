@@ -1,7 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import {
-  getDefaultDateRange,
-  getMonthRange,
+  getCurrentMonthRange,
   isCalendarDate,
   shiftDueDate,
   toLocalDateString,
@@ -48,17 +47,12 @@ describe('isCalendarDate', () => {
   });
 });
 
-describe('getDefaultDateRange / getMonthRange', () => {
-  test('both report the same current calendar month', () => {
-    const defaultRange = getDefaultDateRange();
-    const monthRange = getMonthRange();
-    expect(defaultRange.startDate).toBe(monthRange.start);
-    expect(defaultRange.endDate).toBe(monthRange.end);
-
+describe('getCurrentMonthRange', () => {
+  test('returns the first and last day of the current local month', () => {
+    const range = getCurrentMonthRange();
     const now = new Date();
     const expectedStart = toLocalDateString(new Date(now.getFullYear(), now.getMonth(), 1));
     const expectedEnd = toLocalDateString(new Date(now.getFullYear(), now.getMonth() + 1, 0));
-    expect(defaultRange.startDate).toBe(expectedStart);
-    expect(defaultRange.endDate).toBe(expectedEnd);
+    expect(range).toEqual({ startDate: expectedStart, endDate: expectedEnd });
   });
 });
