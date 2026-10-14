@@ -1,0 +1,35 @@
+name: Pedido de funcionalidade
+description: Sugestão de melhoria ou novo comando/flag no mdcli
+title: "feat: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Descreva o problema que a funcionalidade resolveria e a proposta. Alternativas ajudam a escolher o caminho certo.
+  - type: textarea
+    id: problema
+    attributes:
+      label: Problema
+      description: Qual dor ou lacuna você está tentando resolver? (contexto de uso real ajuda.)
+      placeholder: Hoje preciso fazer X manualmente porque o CLI não expõe Y...
+    validations:
+      required: true
+  - type: textarea
+    id: proposta
+    attributes:
+      label: Proposta
+      description: Como você imagina a solução (comando, flag, saída, etc.).
+      placeholder: |
+        Novo subcomando `mdcli entries foo` que...
+        Flags: `--bar`, `--json`
+    validations:
+      required: true
+  - type: textarea
+    id: alternativas
+    attributes:
+      label: Alternativas consideradas
+      description: Outros caminhos que você já tentou ou descartou, e por quê.
+      placeholder: Usei alias + script externo, mas...
+    validations:
+      required: false

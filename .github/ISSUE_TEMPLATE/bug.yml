@@ -1,0 +1,55 @@
+name: Relatório de bug
+description: Algo no mdcli não funciona como esperado
+title: "bug: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Obrigado por reportar. Preencha o máximo que puder — quanto mais contexto, mais rápido o diagnóstico.
+        **Não cole tokens, senhas, nomes reais de contas, valores financeiros nem outros dados sensíveis.**
+  - type: textarea
+    id: comando
+    attributes:
+      label: Comando executado
+      description: O comando exato (e flags) que reproduz o problema.
+      placeholder: mdcli entries create -a 1002 -d "Compra" -v 10 -c 10 -D 2026-01-05
+    validations:
+      required: true
+  - type: textarea
+    id: doctor-or-version
+    attributes:
+      label: Saída de diagnóstico
+      description: Cole a saída de `mdcli auth doctor` (não existe `mdcli doctor`) ou, se o auth doctor falhar, de `mdcli --version`.
+      placeholder: |
+        $ mdcli auth doctor
+        ...
+        # ou
+        $ mdcli --version
+        2026.10.14
+    validations:
+      required: true
+  - type: textarea
+    id: api-payload
+    attributes:
+      label: Payload / resposta da API (sem dados sensíveis)
+      description: Se o bug envolve a API, cole o payload enviado e/ou a resposta (status + corpo), **redigindo tokens, nomes, valores e IDs pessoais**. Prefira `--json` quando existir.
+      placeholder: |
+        Request: POST /v1/lancamentos { "descricao": "...", "conta": "<id>", ... }
+        Response: 400 { "message": "..." }
+    validations:
+      required: false
+  - type: textarea
+    id: esperado
+    attributes:
+      label: Comportamento esperado
+      description: O que deveria ter acontecido.
+    validations:
+      required: true
+  - type: textarea
+    id: obtido
+    attributes:
+      label: Comportamento obtido
+      description: O que aconteceu de fato (mensagem de erro, saída inesperada, etc.).
+    validations:
+      required: true
