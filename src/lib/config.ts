@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { homedir } from 'os';
 import { join } from 'path';
 import type { AliasMap, AuthConfig, AuthMethod, MdcliConfig, NameCache, AliasType, NameCacheEntry } from '../types/index.js';
@@ -13,10 +13,33 @@ function configFile(): string {
   return join(configDir(), 'mdcli.config.json');
 }
 
-function ensureConfigDir(): void {
-  if (!existsSync(configDir())) {
-    mkdirSync(configDir(), { recursive: true });
+// The config holds session tokens, captchaApiKey and opItem: keep it private
+// to the current user. chmod also tightens files created by older versions.
+const CONFIG_DIR_MODE = 0o700;
+const CONFIG_FILE_MODE = 0o600;
+
+function restrictMode(path: string, mode: number): void {
+  try {
+    chmodSync(path, mode);
+  } catch {
+    // Best effort (e.g. Windows or a read-only filesystem).
   }
+}
+
+export function ensurePrivateDir(dir: string): void {
+  if (!existsSync(dir)) {
+    mkdirSync(dir, { recursive: true, mode: CONFIG_DIR_MODE });
+  }
+  restrictMode(dir, CONFIG_DIR_MODE);
+}
+
+export function writePrivateFile(file: string, data: string): void {
+  writeFileSync(file, data, { encoding: 'utf-8', mode: CONFIG_FILE_MODE });
+  restrictMode(file, CONFIG_FILE_MODE);
+}
+
+function ensureConfigDir(): void {
+  ensurePrivateDir(configDir());
 }
 
 function loadConfig(): MdcliConfig {
@@ -26,6 +49,7 @@ function loadConfig(): MdcliConfig {
   if (!existsSync(file)) {
     return {};
   }
+  restrictMode(file, CONFIG_FILE_MODE);
 
   try {
     const data = readFileSync(file, 'utf-8');
@@ -37,7 +61,7 @@ function loadConfig(): MdcliConfig {
 
 function saveConfig(config: MdcliConfig): void {
   ensureConfigDir();
-  writeFileSync(configFile(), JSON.stringify(config, null, 2), 'utf-8');
+  writePrivateFile(configFile(), JSON.stringify(config, null, 2));
 }
 
 export function getAuth(): AuthConfig | null {
