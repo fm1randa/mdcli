@@ -5,7 +5,8 @@ export function toLocalDateString(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
-export function getDefaultDateRange(): { startDate: string; endDate: string } {
+/** First and last calendar day of the current local month. */
+export function getCurrentMonthRange(): { startDate: string; endDate: string } {
   const now = new Date();
   const startDate = new Date(now.getFullYear(), now.getMonth(), 1);
   const endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
@@ -13,16 +14,6 @@ export function getDefaultDateRange(): { startDate: string; endDate: string } {
   return {
     startDate: toLocalDateString(startDate),
     endDate: toLocalDateString(endDate),
-  };
-}
-
-export function getMonthRange(): { start: string; end: string } {
-  const now = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth(), 1);
-  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-  return {
-    start: toLocalDateString(start),
-    end: toLocalDateString(end),
   };
 }
 

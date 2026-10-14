@@ -5,7 +5,7 @@ import { createEntry, fetchAccountById, isCreditCard, fetchCardInvoice } from '.
 import { resolveId, resolveIds } from '../../lib/aliases.js';
 import type { Account, CreateEntryPayload, CreateEntryAgenda } from '../../types/index.js';
 import { formatCurrency, formatStatus } from './format.js';
-import { getMonthRange, isCalendarDate, shiftDueDate, toLocalDateString } from '../../lib/dates.js';
+import { getCurrentMonthRange, isCalendarDate, shiftDueDate, toLocalDateString } from '../../lib/dates.js';
 
 interface CreateOptions {
   account: string;
@@ -158,7 +158,7 @@ export async function createAction(options: CreateOptions): Promise<void> {
   if (!isCalendarDate(dateStr)) {
     exitWithError('Invalid date. Use YYYY-MM-DD (e.g., 2026-10-03).');
   }
-  const { start: monthStart, end: monthEnd } = getMonthRange();
+  const { startDate: monthStart, endDate: monthEnd } = getCurrentMonthRange();
   const expenseNeedsNegativeValue = tipo === 'd';
   const finalValue = expenseNeedsNegativeValue ? -Math.abs(value) : Math.abs(value);
   const agenda = parseRecurrence(options);

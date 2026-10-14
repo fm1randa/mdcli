@@ -3,7 +3,7 @@ import { exitWithError } from '../../utils/action.js';
 import { fetchCategories } from '../../lib/api.js';
 import { resolveIds } from '../../lib/aliases.js';
 import type { EntriesParams } from '../../types/index.js';
-import { getDefaultDateRange } from '../../lib/dates.js';
+import { getCurrentMonthRange } from '../../lib/dates.js';
 
 const STATUS_FLAGS: Record<string, number> = {
   pending: 1,
@@ -107,7 +107,7 @@ export async function resolveEntryFilters(options: FilterOptions): Promise<Omit<
     }
   }
 
-  const { startDate: defaultStart, endDate: defaultEnd } = getDefaultDateRange();
+  const { startDate: defaultStart, endDate: defaultEnd } = getCurrentMonthRange();
 
   return {
     accountIds: accountResult.ids,
