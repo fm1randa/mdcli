@@ -85,6 +85,25 @@ step "cli accounts delete (mock)"        expect_ok 'Account 1001 deleted' accoun
 step "cli accounts delete --json (mock)" expect_json 'd.deleted === true && d.id === 1001' accounts delete 1001 --dangerously-skip-confirmation --json
 step "cli accounts delete inexistente (mock)" expect_fail 'DELETE /v1/cadastros/contas/9999\): 404' accounts delete 9999 --dangerously-skip-confirmation
 
+# Card / invoice / entries writes — regressions #12/#17 (card dates) and #10/#15
+# (installment/transfer update). Mock only; never the real API.
+step "cli cards list (mock)"                 expect_ok 'Cartão Azul' cards list
+step "cli cards invoice (mock)"              expect_ok 'Mercado' cards invoice -a 1002 --month 2026-01
+step "cli cards invoice --json (mock)"       expect_json 'Array.isArray(d) && d[0]?.description === "Mercado"' cards invoice -a 1002 --month 2026-01 --json
+step "cli cards invoice primeiraFatura (mock)" expect_ok 'Mercado' cards invoice -a 1003
+step "cli cards future (mock)"               expect_ok 'Notebook' cards future -a 1002
+step "cli cards future --json (mock)"        expect_json 'Array.isArray(d) && d[0]?.installment === "3/6"' cards future -a 1002 --json
+# Card create: dataCompetencia=purchase, dataPrevista=invoice due, not reconciled.
+step "cli entries create cartão (mock)"      expect_ok 'Entry created' entries create -a 1002 -d Voo -v 10 -c 10 -D 2026-01-05
+step "cli entries create cartão --json (mock)" expect_json 'd.id === 9001 && d.dataCompetencia === "2026-01-05" && d.dataPrevista === "2026-01-16" && d.conciliado === false && d.status === "pendente"' entries create -a 1002 -d Voo -v 10 -c 10 -D 2026-01-05 --json
+step "cli entries update parcela (mock)"     expect_ok 'Entry updated' entries update 60 -d "Notebook (2/6)"
+step "cli entries update parcela --json (mock)" expect_json 'd.id === 60 && d.descricao === "Notebook (2/6)"' entries update 60 -d "Notebook (2/6)" --json
+step "cli entries update transferência (mock)" expect_ok 'Entry updated' entries update 50 -d "Poupança mensal" -v 1200
+step "cli entries update transferência --json (mock)" expect_json 'd.id === 50 && d.descricao === "Poupança mensal"' entries update 50 -d "Poupança mensal" -v 1200 --json
+step "cli entries delete (mock)"             expect_ok 'Entry 70 deleted' entries delete 70 --dangerously-skip-confirmation
+step "cli entries delete --json (mock)"      expect_json 'd.deleted === true && d.id === 70' entries delete 70 --dangerously-skip-confirmation --json
+step "cli entries delete inexistente (mock)" expect_fail 'GET /v1/lancamentos/9999\): 404' entries delete 9999 --dangerously-skip-confirmation
+
 # Self-update of a global install, fully offline: a fake global layout like the
 # one `bun install -g github:fm1randa/mdcli` creates, the mock answering the
 # GitHub "latest release" endpoint (v2099.1.1) and a recorder in place of `bun`.
