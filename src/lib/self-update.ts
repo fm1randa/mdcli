@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
+import { ensurePrivateDir, writePrivateFile } from './config.js';
 import { homedir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
 
@@ -79,8 +80,8 @@ function readState(env: NodeJS.ProcessEnv): UpdateState {
 
 function writeState(env: NodeJS.ProcessEnv, patch: UpdateState): void {
   const dir = configDir(env);
-  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-  writeFileSync(join(dir, STATE_FILE), JSON.stringify({ ...readState(env), ...patch }), 'utf-8');
+  ensurePrivateDir(dir);
+  writePrivateFile(join(dir, STATE_FILE), JSON.stringify({ ...readState(env), ...patch }));
 }
 
 /** `"autoUpdate": false` in mdcli.config.json turns the background check off. */
