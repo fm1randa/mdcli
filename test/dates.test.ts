@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test';
+import { afterEach, describe, expect, setSystemTime, test } from 'bun:test';
 import {
   getCurrentMonthRange,
   isCalendarDate,
@@ -48,11 +48,23 @@ describe('isCalendarDate', () => {
 });
 
 describe('getCurrentMonthRange', () => {
-  test('returns the first and last day of the current local month', () => {
-    const range = getCurrentMonthRange();
-    const now = new Date();
-    const expectedStart = toLocalDateString(new Date(now.getFullYear(), now.getMonth(), 1));
-    const expectedEnd = toLocalDateString(new Date(now.getFullYear(), now.getMonth() + 1, 0));
-    expect(range).toEqual({ startDate: expectedStart, endDate: expectedEnd });
+  afterEach(() => {
+    setSystemTime(); // restore real clock
+  });
+
+  test('returns first and last day for a mid-month leap February', () => {
+    setSystemTime(new Date(2024, 1, 10)); // 2024-02-10 local
+    expect(getCurrentMonthRange()).toEqual({
+      startDate: '2024-02-01',
+      endDate: '2024-02-29',
+    });
+  });
+
+  test('returns first and last day for the last day of December', () => {
+    setSystemTime(new Date(2026, 11, 31)); // 2026-12-31 local
+    expect(getCurrentMonthRange()).toEqual({
+      startDate: '2026-12-01',
+      endDate: '2026-12-31',
+    });
   });
 });
