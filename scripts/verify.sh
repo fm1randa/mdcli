@@ -17,6 +17,16 @@ step "typecheck" bun run typecheck
 step "lint"      bun run lint
 step "knip"      bun run knip
 step "test"      bun run test
+# Audit: high/critical in runtime dependencies fails; in dev only warns.
+# `bun audit --prod` (honored by bun 1.4.2 though absent from --help) audits
+# only the "dependencies" graph.
+audit_deps() {
+  bun audit --prod --audit-level=high || return 1
+  bun audit --audit-level=high >/dev/null 2>&1 \
+    || echo "⚠ audit: vulnerabilidade high/critical em devDependencies (aviso, não reprova); rode \`bun audit\`"
+  return 0
+}
+step "audit"     audit_deps
 
 # --- E2E da CLI -------------------------------------------------------------
 SANDBOX=$(mktemp -d)

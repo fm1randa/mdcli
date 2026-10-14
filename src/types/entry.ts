@@ -104,7 +104,7 @@ export interface NormalizedEntry {
   installment: string | null;
 }
 
-export interface CreateEntryStatus {
+interface CreateEntryStatus {
   confirmado: boolean;
   conciliado: boolean;
 }

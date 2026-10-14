@@ -1,5 +1,5 @@
 // Credit Card Types
-export interface CardInvoiceEntry {
+interface CardInvoiceEntry {
   id: number | string;
   descricao: string;
   valor: number;
@@ -21,7 +21,7 @@ export interface CardInvoiceResponse {
   };
 }
 
-export interface CardFutureInstallment {
+interface CardFutureInstallment {
   id: number | string;
   descricao: string;
   valor: number;
