@@ -1,9 +1,9 @@
 import { Command } from 'commander';
 import Table from 'cli-table3';
 import chalk from 'chalk';
-import * as readline from 'readline';
 import { logger } from '../utils/logger.js';
 import { action, exitWithError } from '../utils/action.js';
+import { promptConfirmation } from '../utils/prompt.js';
 import { fetchTags, normalizeTags, createTag, updateTag, deleteTag } from '../lib/api.js';
 import { buildAliasCommand } from '../lib/aliases.js';
 
@@ -56,15 +56,6 @@ tagsCommand
   .option('--active', 'Show only active tags')
   .action(action(listAction));
 
-function promptConfirmation(message: string): Promise<boolean> {
-  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-  return new Promise((resolve) => {
-    rl.question(message, (answer) => {
-      rl.close();
-      resolve(answer.toLowerCase() === 'y');
-    });
-  });
-}
 
 interface CreateTagOptions {
   name: string;
