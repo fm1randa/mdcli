@@ -124,8 +124,9 @@ export async function createAction(options: CreateOptions): Promise<void> {
   }
 
   if (!options.category) {
-    exitWithError('A category is required to create an entry. Use -c, --category <id|alias>.');
-    logger.info('See available categories with: mdcli categories list');
+    exitWithError(
+      'A category is required to create an entry. Use -c, --category <id|alias>. See available categories with: mdcli categories list'
+    );
   }
 
   const accountId = await resolveId('accounts', options.account);
