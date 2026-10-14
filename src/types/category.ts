@@ -4,7 +4,7 @@ interface CategoryDfcDre {
   label: string;
 }
 
-export interface CategoryMeta {
+interface CategoryMeta {
   dfc: CategoryDfcDre[];
   dre: CategoryDfcDre[];
 }
