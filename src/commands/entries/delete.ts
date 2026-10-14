@@ -1,7 +1,7 @@
 import chalk from 'chalk';
-import * as readline from 'readline';
 import { logger } from '../../utils/logger.js';
 import { exitWithError } from '../../utils/action.js';
+import { promptConfirmation } from '../../utils/prompt.js';
 import { fetchEntry, deleteEntry } from '../../lib/api.js';
 import { formatCurrency } from './format.js';
 
@@ -10,19 +10,6 @@ interface DeleteOptions {
   json?: boolean;
 }
 
-async function promptConfirmation(message: string): Promise<boolean> {
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
-
-  return new Promise((resolve) => {
-    rl.question(message, (answer) => {
-      rl.close();
-      resolve(answer.toLowerCase() === 'y');
-    });
-  });
-}
 
 export async function deleteAction(id: string, options: DeleteOptions): Promise<void> {
   const entryId = Number(id);

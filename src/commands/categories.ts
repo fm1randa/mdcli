@@ -1,9 +1,9 @@
 import { Command } from 'commander';
 import Table from 'cli-table3';
 import chalk from 'chalk';
-import * as readline from 'readline';
 import { logger } from '../utils/logger.js';
 import { action, exitWithError } from '../utils/action.js';
+import { promptConfirmation } from '../utils/prompt.js';
 import {
   fetchCategories,
   normalizeCategories,
@@ -33,15 +33,6 @@ async function resolveCategory(input: string, categories: Category[]): Promise<C
   return category;
 }
 
-function promptConfirmation(message: string): Promise<boolean> {
-  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-  return new Promise((resolve) => {
-    rl.question(message, (answer) => {
-      rl.close();
-      resolve(answer.toLowerCase() === 'y');
-    });
-  });
-}
 
 function formatType(type: string): string {
   const colors: Record<string, typeof chalk.red> = {

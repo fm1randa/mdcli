@@ -1,19 +1,10 @@
 import chalk from 'chalk';
-import * as readline from 'readline';
 import { logger } from '../../utils/logger.js';
 import { exitWithError } from '../../utils/action.js';
+import { promptConfirmation } from '../../utils/prompt.js';
 import { fetchAccounts, normalizeAccounts, deleteAccount } from '../../lib/api.js';
 import { invalidateNameCache } from '../../lib/config.js';
 
-function promptConfirmation(message: string): Promise<boolean> {
-  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-  return new Promise((resolve) => {
-    rl.question(message, (answer) => {
-      rl.close();
-      resolve(answer.toLowerCase() === 'y');
-    });
-  });
-}
 
 interface DeleteAccountOptions {
   dangerouslySkipConfirmation?: boolean;
