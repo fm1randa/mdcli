@@ -159,6 +159,18 @@ function cardsRoute(req: Request, path: string): Response {
   return notFound();
 }
 
+/** GET /v2/lancamentos: the seeded entries of the requested accounts and dates. */
+function entriesListRoute(url: URL): Response {
+  const ids = (JSON.parse(url.searchParams.get('contas') ?? '{}') as { ids?: number[] }).ids ?? [];
+  const from = url.searchParams.get('inicio') ?? '';
+  const to = url.searchParams.get('fim') ?? '';
+  const list = Object.values(SEEDED_ENTRIES).filter((e) => {
+    const date = String(e.dataPrevista);
+    return ids.includes(Number(e.conta)) && date >= from && date <= to;
+  });
+  return Response.json({ list, meta: { total: list.length, page: 1, pageSize: 200 } });
+}
+
 async function entriesRoute(req: Request, path: string): Promise<Response> {
   if (path === ENTRIES_PATH) {
     if (req.method !== 'POST') return notFound();
@@ -265,6 +277,9 @@ const server = Bun.serve({
     }
     if (url.pathname.startsWith('/api/v1/cartoes/')) {
       return cardsRoute(req, url.pathname);
+    }
+    if (url.pathname === '/api/v2/lancamentos' && req.method === 'GET') {
+      return entriesListRoute(url);
     }
     if (url.pathname === ENTRIES_PATH || url.pathname.startsWith(`${ENTRIES_PATH}/`)) {
       return entriesRoute(req, url.pathname);

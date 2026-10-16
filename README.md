@@ -197,6 +197,11 @@ mdcli entries list --account mp --from 2024-01-01 --to 2024-01-31
 # List entries using the account's exact name (case-insensitive)
 mdcli entries list --account "Nubank - Conta Corrente" --from 2024-01-01 --to 2024-01-31
 
+# Meu Dinheiro loads entries up to 2031-12-31; a later --to is refused before
+# any request. Errors go to stderr with exit code 1; under --json they are
+# JSON too ({"error": "..."}), so stdout only ever holds the result.
+mdcli entries list --account mp --from 2026-11-01 --to 2031-12-31 --json
+
 # Export entries to CSV (all pages, with account and category names)
 mdcli entries list --account mp --from 2026-01-01 --to 2026-03-31 --csv > entries.csv
 
