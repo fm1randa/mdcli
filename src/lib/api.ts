@@ -295,6 +295,12 @@ export async function updateEntry(id: number, payload: UpdateEntryPayload): Prom
   return request<CreateEntryResponse>('PUT', `/v1/lancamentos/${id}`, payload);
 }
 
-export async function deleteEntry(id: number): Promise<void> {
-  return request<void>('DELETE', `/v1/lancamentos/${id}`);
+/**
+ * `todos` is the web app's delete scope, sent as a query parameter exactly
+ * like its lancamentosService.delete does ($http.delete(url, { params: { todos } })):
+ * true = this and the following occurrences of the series, false = only this one.
+ */
+export async function deleteEntry(id: number, todos?: boolean): Promise<void> {
+  const query = todos === undefined ? '' : `?todos=${todos}`;
+  return request<void>('DELETE', `/v1/lancamentos/${id}${query}`);
 }

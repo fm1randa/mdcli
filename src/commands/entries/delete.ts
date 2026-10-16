@@ -4,10 +4,16 @@ import { exitWithError } from '../../utils/action.js';
 import { promptConfirmation } from '../../utils/prompt.js';
 import { fetchEntry, deleteEntry } from '../../lib/api.js';
 import { formatCurrency } from './format.js';
+import { resolveSeriesScope, type SeriesScope } from './series.js';
 
 interface DeleteOptions {
   dangerouslySkipConfirmation?: boolean;
+  scope?: SeriesScope;
   json?: boolean;
+}
+
+function describeScope(todos: boolean): string {
+  return todos ? 'this and the following occurrences' : 'this occurrence only';
 }
 
 
@@ -18,6 +24,9 @@ export async function deleteAction(id: string, options: DeleteOptions): Promise<
   }
 
   const entry = await fetchEntry(entryId);
+  const todos = resolveSeriesScope(entryId, entry, options.scope, {
+    thisOnlyWarning: `Entry ${entryId} is an occurrence of a recurring series (${entry.parcela}): only this occurrence will be deleted. Use --scope following to delete this and the following occurrences, or --scope this to silence this warning.`,
+  });
 
   if (!options.dangerouslySkipConfirmation) {
     console.log(chalk.yellow('\nEntry to be deleted:'));
@@ -25,9 +34,16 @@ export async function deleteAction(id: string, options: DeleteOptions): Promise<
     console.log(`  ${chalk.gray('Description:')} ${entry.descricao}`);
     console.log(`  ${chalk.gray('Value:')} ${formatCurrency(entry.valor)}`);
     console.log(`  ${chalk.gray('Date:')} ${entry.data}`);
+    if (todos !== undefined) {
+      console.log(`  ${chalk.gray('Series:')} ${entry.parcela}`);
+      console.log(`  ${chalk.gray('Scope:')} ${describeScope(todos)}`);
+    }
     console.log();
 
-    const confirmed = await promptConfirmation(chalk.red('Are you sure you want to delete this entry? (y/N) '));
+    const question = todos
+      ? 'Are you sure you want to delete this occurrence and all the following ones? (y/N) '
+      : 'Are you sure you want to delete this entry? (y/N) ';
+    const confirmed = await promptConfirmation(chalk.red(question));
 
     if (!confirmed) {
       logger.info('Deletion cancelled.');
@@ -35,12 +51,15 @@ export async function deleteAction(id: string, options: DeleteOptions): Promise<
     }
   }
 
-  await deleteEntry(entryId);
+  await deleteEntry(entryId, todos);
 
   if (options.json) {
-    console.log(JSON.stringify({ deleted: true, id: entryId }, null, 2));
+    const scope = todos === undefined ? {} : { scope: todos ? 'following' : 'this' };
+    console.log(JSON.stringify({ deleted: true, id: entryId, ...scope }, null, 2));
     return;
   }
 
-  logger.success(`Entry ${entryId} deleted successfully!`);
+  logger.success(
+    todos ? `Entry ${entryId} and the following occurrences deleted successfully!` : `Entry ${entryId} deleted successfully!`
+  );
 }

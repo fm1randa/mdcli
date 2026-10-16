@@ -258,6 +258,13 @@ async function entriesRoute(req: Request, path: string): Promise<Response> {
   }
 
   if (req.method === 'DELETE') {
+    // The web app sends the scope as ?todos=true|false; it only means
+    // something for an occurrence of a series.
+    const todos = new URL(req.url).searchParams.get('todos');
+    const inSeries = Boolean(existing.agendaId) && Boolean(existing.parcela);
+    if (todos !== null && (!['true', 'false'].includes(todos) || !inSeries)) {
+      return badRequest('todos only applies to an occurrence of a series, as true or false');
+    }
     return new Response(null, { status: 204 });
   }
 

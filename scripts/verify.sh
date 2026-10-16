@@ -138,6 +138,11 @@ step "cli erro da API em --json (mock)" expect_json_error 'GET /v1/lancamentos/9
 step "cli entries delete (mock)"             expect_ok 'Entry 70 deleted' entries delete 70 --dangerously-skip-confirmation
 step "cli entries delete --json (mock)"      expect_json 'd.deleted === true && d.id === 70' entries delete 70 --dangerously-skip-confirmation --json
 step "cli entries delete inexistente (mock)" expect_fail 'GET /v1/lancamentos/9999\): 404' entries delete 9999 --dangerously-skip-confirmation
+# Delete with scope (#65): ?todos=true|false only for a series occurrence;
+# the mock answers 400 to any other todos.
+step "cli entries delete --scope following (mock)" expect_json 'd.deleted === true && d.id === 80 && d.scope === "following"' entries delete 80 --scope following --dangerously-skip-confirmation --json
+step "cli entries delete série sem --scope avisa (mock)" expect_ok 'only this occurrence will be deleted' entries delete 80 --dangerously-skip-confirmation
+step "cli entries delete --scope fora de série (mock)" expect_fail 'not part of a recurring series' entries delete 70 --scope following --dangerously-skip-confirmation
 
 # Self-update of a global install, fully offline: a fake global layout like the
 # one `bun install -g github:fm1randa/mdcli` creates, the mock answering the
