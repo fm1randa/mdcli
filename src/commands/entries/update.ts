@@ -7,7 +7,7 @@ import { resolveId, resolveIds } from '../../lib/aliases.js';
 import type { CreateEntryResponse, Entry, UpdateEntryPayload } from '../../types/index.js';
 import { mapTypeToApi, parseTypeOption } from './create.js';
 import { formatCurrency, formatStatus } from './format.js';
-import { resolveSeriesScope, type SeriesScope } from './series.js';
+import { describeScope, resolveSeriesScope, type SeriesScope } from './series.js';
 
 interface UpdateOptions {
   description?: string;
@@ -39,7 +39,8 @@ function describeStatus(status: unknown): string {
 
 function reportUpdate(response: CreateEntryResponse, json?: boolean, todos?: boolean): void {
   if (json) {
-    console.log(JSON.stringify(response, null, 2));
+    const scope = todos === undefined ? {} : { scope: todos ? 'following' : 'this' };
+    console.log(JSON.stringify({ ...response, ...scope }, null, 2));
     return;
   }
 
@@ -50,7 +51,7 @@ function reportUpdate(response: CreateEntryResponse, json?: boolean, todos?: boo
   console.log(`  ${chalk.gray('Date:')} ${response.data}`);
   console.log(`  ${chalk.gray('Status:')} ${describeStatus(response.status)}`);
   if (todos !== undefined) {
-    console.log(`  ${chalk.gray('Scope:')} ${todos ? 'this and the following occurrences' : 'this occurrence only'}`);
+    console.log(`  ${chalk.gray('Scope:')} ${describeScope(todos)}`);
   }
 }
 

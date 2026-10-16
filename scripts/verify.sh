@@ -123,9 +123,9 @@ step "cli entries update transferência --json (mock)" expect_json 'd.id === 50 
 # Recurring series (#65): a scheduled occurrence stays scheduled, --scope maps
 # to todos (the mock keeps it in the series only with todos: true) and editing
 # without --scope warns on stderr.
-step "cli entries update agendado mantém status (mock)" expect_json 'd.status === "agendado" && d.agendaId === null && d.dataEfetiva === null' entries update 80 -D 2027-01-25 --json
+step "cli entries update agendado mantém status (mock)" expect_json 'd.status === "agendado" && d.agendaId === null && d.dataEfetiva === null && d.scope === "this"' entries update 80 -D 2027-01-25 --json
 step "cli entries update agendado avisa no stderr (mock)" expect_ok 'only this occurrence will be changed' entries update 80 -D 2027-01-25
-step "cli entries update --scope following (mock)" expect_json 'd.status === "agendado" && d.agendaId === 77 && d.parcela === "fixa"' entries update 80 -D 2027-01-25 --scope following --json
+step "cli entries update --scope following (mock)" expect_json 'd.status === "agendado" && d.agendaId === 77 && d.parcela === "fixa" && d.scope === "following"' entries update 80 -D 2027-01-25 --scope following --json
 step "cli entries update --scope following texto (mock)" expect_ok 'Status: Scheduled' entries update 80 -D 2027-01-25 --scope following
 step "cli entries update --pending confirma (mock)" expect_json 'd.status === "pendente"' entries update 80 --pending --scope this --json
 step "cli entries update --scope fora de série (mock)" expect_fail 'not part of a recurring series' entries update 70 -d X --scope following

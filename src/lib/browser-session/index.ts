@@ -4,6 +4,7 @@ import { getChromeCookieValue, getChromeProfilePath, getEdgeProfilePath } from '
 import { getFirefoxProfilePath } from './firefox.js';
 import { extractUidFromJwt, fetchPublicApiKey } from './jwt.js';
 import { cleanupTempDir, copyProfileToTemp } from './profile-copy.js';
+import { setupAuthCapture } from '../browser-auth.js';
 
 
 export {
@@ -14,7 +15,6 @@ export {
 } from './chromium.js';
 export { getFirefoxProfilePath, parseFirefoxInstallDefaults } from './firefox.js';
 
-const API_URL_PATTERN = 'app.meudinheiroweb.com.br/api/';
 
 interface LoginConfigRaw {
   mdApiKey?: string;
@@ -85,15 +85,14 @@ export async function extractSessionFromBrowser(
       // still carry the auth headers, so capture those too. Authorization is
       // required: pre-login traffic can already send mdapikey/mduid, and
       // accepting it would save a token-less auth from a logged-out profile.
-      const apiHeadersRef: { captured: Record<string, string> | null } = { captured: null };
-      page.on('request', (request) => {
+      // Context-wide, same as auth login --browser (#63): a page-level
+      // listener misses API traffic from another tab/popup during the wait.
+      const apiHeadersRef: { captured: { authorization?: string; mdapikey: string; mduid: string } | null } = {
+        captured: null,
+      };
+      setupAuthCapture(context, (headers) => {
         if (apiHeadersRef.captured) return;
-        const url = request.url();
-        if (!url.includes(API_URL_PATTERN)) return;
-        const headers = request.headers();
-        if (headers['mdapikey'] && headers['mduid'] && headers['authorization']) {
-          apiHeadersRef.captured = headers;
-        }
+        apiHeadersRef.captured = headers;
       });
 
       await page.goto('https://app.meudinheiroweb.com.br/', { waitUntil: 'domcontentloaded' });
