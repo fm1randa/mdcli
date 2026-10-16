@@ -1,4 +1,4 @@
-import { chromium, type Page, type Browser } from 'playwright';
+import { chromium, type Page, type Browser, type BrowserContext } from 'playwright';
 import type { AuthConfig } from '../types/index.js';
 import { getCredentialsFromOnePassword } from './onepassword.js';
 import { detectRecaptchaChallenge, solveRecaptcha } from './captcha.js';
@@ -87,21 +87,12 @@ export async function captureAuthFromBrowser(): Promise<AuthConfig> {
 
   let capturedHeaders: CapturedHeaders | null = null;
 
-  page.on('request', (request) => {
-    const url = request.url();
-
-    if (url.includes(API_URL_PATTERN) && !capturedHeaders) {
-      const headers = request.headers();
-
-      if (hasAllRequiredHeaders(headers)) {
-        capturedHeaders = {
-          authorization: headers['authorization'],
-          mdapikey: headers['mdapikey'],
-          mduid: headers['mduid'],
-        };
-        console.log('✓ Authentication headers captured successfully.');
-      }
-    }
+  // Listen on the whole context: the authenticated traffic often happens in
+  // another tab (new tab, popup, a page opened via CDP), not the first page.
+  setupAuthCapture(context, (headers) => {
+    if (capturedHeaders) return;
+    capturedHeaders = headers;
+    console.log('✓ Authentication headers captured successfully.');
   });
 
   await page.goto(LOGIN_URL);
@@ -138,20 +129,23 @@ async function waitForSelector(page: Page, selector: string, timeout = 30000): P
   await page.waitForSelector(selector, { state: 'visible', timeout });
 }
 
-function setupAuthCapture(page: Page, onCaptured: (headers: CapturedHeaders) => void): void {
-  page.on('request', (request) => {
-    const url = request.url();
+// Context-wide on purpose: a page-level listener misses requests from any tab
+// other than the first one, leaving the login stuck forever.
+export function setupAuthCapture(
+  context: BrowserContext,
+  onCaptured: (headers: CapturedHeaders) => void,
+  apiUrlPattern: string = API_URL_PATTERN
+): void {
+  context.on('request', (request) => {
+    if (!request.url().includes(apiUrlPattern)) return;
 
-    if (url.includes(API_URL_PATTERN)) {
-      const headers = request.headers();
-
-      if (hasAllRequiredHeaders(headers)) {
-        onCaptured({
-          authorization: headers['authorization'],
-          mdapikey: headers['mdapikey'],
-          mduid: headers['mduid'],
-        });
-      }
+    const headers = request.headers();
+    if (hasAllRequiredHeaders(headers)) {
+      onCaptured({
+        authorization: headers['authorization'],
+        mdapikey: headers['mdapikey'],
+        mduid: headers['mduid'],
+      });
     }
   });
 }
@@ -277,10 +271,11 @@ async function performHeadlessLogin(
   credentials: LoginCredentials,
   opItemName: string
 ): Promise<AuthConfig> {
-  const page = await browser.newPage();
+  const context = await browser.newContext();
+  const page = await context.newPage();
   const capturedRef: { headers: CapturedHeaders | null } = { headers: null };
 
-  setupAuthCapture(page, (headers) => {
+  setupAuthCapture(context, (headers) => {
     capturedRef.headers = headers;
   });
 
