@@ -239,6 +239,10 @@ mdcli entries update 12345 --date 2027-01-25 --scope following
 # Delete an entry
 mdcli entries delete 12345
 
+# Delete this occurrence of a recurring series and the following ones
+# (the web app's "Neste e em todos na sequência"); the default is --scope this
+mdcli entries delete 12345 --scope following
+
 # List credit cards
 mdcli cards list --active
 

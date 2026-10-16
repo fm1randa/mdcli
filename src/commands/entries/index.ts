@@ -62,6 +62,7 @@ entriesCommand
 entriesCommand
   .command('delete <id>')
   .description('Delete an entry')
+  .addOption(scopeOption('delete'))
   .option('--dangerously-skip-confirmation', 'Skip confirmation prompt')
   .option('--json', 'Output as JSON')
   .action(action(deleteAction));
