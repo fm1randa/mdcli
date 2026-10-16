@@ -1,3 +1,4 @@
+import { ENTRY_STATUS_LABELS } from '../../lib/normalize.js';
 import chalk from 'chalk';
 import { logger } from '../../utils/logger.js';
 import { exitWithError } from '../../utils/action.js';
@@ -229,9 +230,8 @@ export async function createAction(options: CreateOptions): Promise<void> {
   console.log(`  ${chalk.gray('Description:')} ${response.descricao}`);
   console.log(`  ${chalk.gray('Value:')} ${formatCurrency(response.valor)}`);
   console.log(`  ${chalk.gray('Date:')} ${response.data}`);
-  const statusDisplay = response.status === 'conciliado' ? 'reconciled' 
-    : response.status === 'pendente' ? 'pending' : 'scheduled';
-  console.log(`  ${chalk.gray('Status:')} ${formatStatus(statusDisplay as 'reconciled' | 'pending' | 'scheduled')}`);
+  const statusDisplay = ENTRY_STATUS_LABELS[String(response.status)];
+  console.log(`  ${chalk.gray('Status:')} ${statusDisplay ? formatStatus(statusDisplay) : chalk.gray(String(response.status))}`);
   if (agenda) {
     const intervalLabels: Record<string, string> = { d: 'daily', w: 'weekly', M: 'monthly', y: 'yearly' };
     const timesLabel = agenda.quantidade === -1 ? 'infinite' : `${agenda.quantidade} times`;

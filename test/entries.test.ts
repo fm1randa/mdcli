@@ -121,6 +121,21 @@ describe('entries create', () => {
     expect(mutations(api)).toHaveLength(0);
   });
 
+  test('shows an unreconciled entry (-p) as Pending, the way list does', async () => {
+    // Real API answer for `entries create -p` on 2026-10-16: status "confirmado".
+    api.on('POST /v1/lancamentos', { ...created, status: 'confirmado', conciliado: false, dataEfetiva: '2026-11-05' });
+
+    const result = await runCli(
+      ['entries', 'create', '-a', '1001', '-d', 'Mercado', '-v', '1', '-c', '10', '-D', '2026-11-05', '-p'],
+      { home, api }
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(result.output).toContain('Pending');
+    expect(result.output).not.toContain('Scheduled');
+    expect(mutations(api)[0].body).toMatchObject({ status: { confirmado: true, conciliado: false }, conciliado: false });
+  });
+
   test('requires a category', async () => {
     const result = await runCli(['entries', 'create', '-a', '1001', '-d', 'X', '-v', '10'], { home, api });
 

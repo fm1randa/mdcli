@@ -201,7 +201,8 @@ async function entriesRoute(req: Request, path: string): Promise<Response> {
         descricao: body.descricao,
         conciliado: reconciled,
         dataCompetencia: body.dataCompetencia ?? null,
-        status: reconciled ? 'conciliado' : 'pendente',
+        // The real API answers confirmado for a confirmed, unreconciled entry (#70).
+        status: reconciled ? 'conciliado' : 'confirmado',
         tipo: body.tipo,
         valor: body.valor,
         valorPrevisto: body.valorPrevisto ?? body.valor,

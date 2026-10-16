@@ -1,3 +1,4 @@
+import { ENTRY_STATUS_LABELS } from '../../lib/normalize.js';
 import chalk from 'chalk';
 import { logger } from '../../utils/logger.js';
 import { exitWithError } from '../../utils/action.js';
@@ -22,11 +23,7 @@ interface UpdateOptions {
   json?: boolean;
 }
 
-const STATUS_LABELS: Record<string, 'reconciled' | 'pending' | 'scheduled'> = {
-  conciliado: 'reconciled',
-  pendente: 'pending',
-  agendado: 'scheduled',
-};
+const STATUS_LABELS = ENTRY_STATUS_LABELS;
 
 /** The status the API answered with - never assumed from what we sent. */
 function describeStatus(status: unknown): string {
