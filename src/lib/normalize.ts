@@ -40,13 +40,20 @@ export function normalizeTags(response: TagsResponse): NormalizedTag[] {
   }));
 }
 
+/**
+ * The API labels an entry conciliado, confirmado (confirmed, not reconciled -
+ * what `-p` creates), pendente, or agendado. The CLI calls both confirmado and
+ * pendente "pending", as the web app's "Não conciliado" does.
+ */
+export const ENTRY_STATUS_LABELS: Record<string, 'reconciled' | 'pending' | 'scheduled'> = {
+  conciliado: 'reconciled',
+  confirmado: 'pending',
+  pendente: 'pending',
+  agendado: 'scheduled',
+};
+
 function mapEntryStatus(status: string): 'reconciled' | 'pending' | 'scheduled' {
-  const statusMap: Record<string, 'reconciled' | 'pending' | 'scheduled'> = {
-    conciliado: 'reconciled',
-    pendente: 'pending',
-    agendado: 'scheduled',
-  };
-  return statusMap[status] ?? 'pending';
+  return ENTRY_STATUS_LABELS[status] ?? 'pending';
 }
 
 export function normalizeEntries(entries: Entry[]): NormalizedEntry[] {

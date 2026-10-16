@@ -115,7 +115,7 @@ step "cli cards future (mock)"               expect_ok 'Notebook' cards future -
 step "cli cards future --json (mock)"        expect_json 'Array.isArray(d) && d[0]?.installment === "3/6"' cards future -a 1002 --json
 # Card create: dataCompetencia=purchase, dataPrevista=invoice due, not reconciled.
 step "cli entries create cartão (mock)"      expect_ok 'Entry created' entries create -a 1002 -d Voo -v 10 -c 10 -D 2026-01-05
-step "cli entries create cartão --json (mock)" expect_json 'd.id === 9001 && d.dataCompetencia === "2026-01-05" && d.dataPrevista === "2026-01-16" && d.conciliado === false && d.status === "pendente"' entries create -a 1002 -d Voo -v 10 -c 10 -D 2026-01-05 --json
+step "cli entries create cartão --json (mock)" expect_json 'd.id === 9001 && d.dataCompetencia === "2026-01-05" && d.dataPrevista === "2026-01-16" && d.conciliado === false && d.status === "confirmado"' entries create -a 1002 -d Voo -v 10 -c 10 -D 2026-01-05 --json
 step "cli entries update parcela (mock)"     expect_ok 'Entry updated' entries update 60 -d "Notebook (2/6)"
 step "cli entries update parcela --json (mock)" expect_json 'd.id === 60 && d.descricao === "Notebook (2/6)"' entries update 60 -d "Notebook (2/6)" --json
 step "cli entries update transferência (mock)" expect_ok 'Entry updated' entries update 50 -d "Poupança mensal" -v 1200
