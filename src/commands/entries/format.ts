@@ -23,11 +23,12 @@ export function formatStatus(status: 'reconciled' | 'pending' | 'scheduled'): st
   return config.color(config.label);
 }
 
-export function formatType(type: 'expense' | 'income' | 'transfer'): string {
+export function formatType(type: 'expense' | 'income' | 'transfer' | 'invoice'): string {
   const typeConfig = {
     expense: { label: 'Expense', color: chalk.red },
     income: { label: 'Income', color: chalk.green },
     transfer: { label: 'Transfer', color: chalk.cyan },
+    invoice: { label: 'Invoice', color: chalk.magenta },
   };
   const config = typeConfig[type];
   return config.color(config.label);

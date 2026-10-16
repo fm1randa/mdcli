@@ -76,7 +76,7 @@ export async function listAction(options: ListOptions): Promise<void> {
       entry.id,
       entry.date,
       entry.description.length > 33 ? `${entry.description.slice(0, 33)}...` : entry.description,
-      formatCurrency(entry.value),
+      formatSignedCurrency(entry.value),
       formatType(entry.type),
       formatStatus(entry.status),
       entry.installment ?? chalk.gray('-'),
@@ -84,7 +84,7 @@ export async function listAction(options: ListOptions): Promise<void> {
   }
 
   const total = entries.reduce((sum, e) => sum + e.value, 0);
-  logger.header(`Entries (${entries.length}) | Total: ${formatCurrency(total)}`);
+  logger.header(`Entries (${entries.length}) | Total: ${formatSignedCurrency(total)}`);
   console.log(table.toString());
 }
 

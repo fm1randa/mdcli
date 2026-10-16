@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
-import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, CREDIT_CARD_ACCOUNT, EMPTY_ENTRIES_RESPONSE, cardInvoice } from './fixtures.js';
+import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, CREDIT_CARD_ACCOUNT, EMPTY_ENTRIES_RESPONSE, SAMPLE_ENTRIES, cardInvoice, entriesPage } from './fixtures.js';
 
 let api: MockApi;
 let home: TestHome;
@@ -66,6 +66,61 @@ describe('entries list', () => {
 
     expect(result.exitCode).toBe(1);
     expect(result.output).toContain('Unknown account(s): nope');
+  });
+
+  test('--no-invoices sends faturas: false', async () => {
+    const result = await runCli(
+      ['entries', 'list', '-a', '1001', '--from', '2026-01-01', '--to', '2026-01-31', '--no-invoices', '--json'],
+      { home, api }
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(JSON.parse(entriesQuery().get('contas') ?? '')).toEqual({ faturas: false, ids: [1001] });
+  });
+
+  test('shows signed values in the list Total and Value column', async () => {
+    api.on('GET /v2/lancamentos', entriesPage([SAMPLE_ENTRIES[0], SAMPLE_ENTRIES[2]]));
+
+    const result = await runCli(
+      ['entries', 'list', '-a', '1001', '--from', '2026-01-01', '--to', '2026-01-31'],
+      { home, api }
+    );
+
+    expect(result.exitCode).toBe(0);
+    const stdout = result.stdout.replace(/\u00a0/g, ' ');
+    // Expense row keeps the minus; header Total is income + expense = 4899.5
+    expect(stdout).toContain('-R$ 100,50');
+    expect(stdout).toContain('Total: R$ 4.899,50');
+  });
+
+  test('marks invoice projections as type invoice', async () => {
+    const projection = {
+      descricao: 'Fatura Cartão Azul',
+      valor: -450.0,
+      data: '2026-01-16',
+      dataPrevista: '2026-01-16',
+      status: 'pendente',
+      conta: 1001,
+      projecaoFatura: 1002,
+    };
+    api.on('GET /v2/lancamentos', entriesPage([projection]));
+
+    const result = await runCli(
+      ['entries', 'list', '-a', '1001', '--from', '2026-01-01', '--to', '2026-01-31', '--json'],
+      { home, api }
+    );
+
+    expect(result.exitCode).toBe(0);
+    const entries = JSON.parse(result.stdout);
+    expect(entries).toEqual([
+      expect.objectContaining({
+        id: 'invoice:1002',
+        description: 'Fatura Cartão Azul',
+        value: -450,
+        type: 'invoice',
+        accountId: 1001,
+      }),
+    ]);
   });
 });
 
