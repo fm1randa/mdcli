@@ -110,6 +110,15 @@ step "cli entries update parcela (mock)"     expect_ok 'Entry updated' entries u
 step "cli entries update parcela --json (mock)" expect_json 'd.id === 60 && d.descricao === "Notebook (2/6)"' entries update 60 -d "Notebook (2/6)" --json
 step "cli entries update transferência (mock)" expect_ok 'Entry updated' entries update 50 -d "Poupança mensal" -v 1200
 step "cli entries update transferência --json (mock)" expect_json 'd.id === 50 && d.descricao === "Poupança mensal"' entries update 50 -d "Poupança mensal" -v 1200 --json
+# Recurring series (#65): a scheduled occurrence stays scheduled, --scope maps
+# to todos (the mock keeps it in the series only with todos: true) and editing
+# without --scope warns on stderr.
+step "cli entries update agendado mantém status (mock)" expect_json 'd.status === "agendado" && d.agendaId === null && d.dataEfetiva === null' entries update 80 -D 2027-01-25 --json
+step "cli entries update agendado avisa no stderr (mock)" expect_ok 'only this occurrence will be changed' entries update 80 -D 2027-01-25
+step "cli entries update --scope following (mock)" expect_json 'd.status === "agendado" && d.agendaId === 77 && d.parcela === "fixa"' entries update 80 -D 2027-01-25 --scope following --json
+step "cli entries update --scope following texto (mock)" expect_ok 'Status: Scheduled' entries update 80 -D 2027-01-25 --scope following
+step "cli entries update --pending confirma (mock)" expect_json 'd.status === "pendente"' entries update 80 --pending --scope this --json
+step "cli entries update --scope fora de série (mock)" expect_fail 'not part of a recurring series' entries update 70 -d X --scope following
 step "cli entries delete (mock)"             expect_ok 'Entry 70 deleted' entries delete 70 --dangerously-skip-confirmation
 step "cli entries delete --json (mock)"      expect_json 'd.deleted === true && d.id === 70' entries delete 70 --dangerously-skip-confirmation --json
 step "cli entries delete inexistente (mock)" expect_fail 'GET /v1/lancamentos/9999\): 404' entries delete 9999 --dangerously-skip-confirmation

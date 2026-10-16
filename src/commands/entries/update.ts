@@ -6,6 +6,7 @@ import { resolveId, resolveIds } from '../../lib/aliases.js';
 import type { CreateEntryResponse, Entry, UpdateEntryPayload } from '../../types/index.js';
 import { mapTypeToApi, parseTypeOption } from './create.js';
 import { formatCurrency, formatStatus } from './format.js';
+import { resolveSeriesScope, type SeriesScope } from './series.js';
 
 interface UpdateOptions {
   description?: string;
@@ -17,10 +18,29 @@ interface UpdateOptions {
   notes?: string;
   pending?: boolean;
   reconciled?: boolean;
+  scope?: SeriesScope;
   json?: boolean;
 }
 
-function reportUpdate(response: CreateEntryResponse, json?: boolean): void {
+const STATUS_LABELS: Record<string, 'reconciled' | 'pending' | 'scheduled'> = {
+  conciliado: 'reconciled',
+  pendente: 'pending',
+  agendado: 'scheduled',
+};
+
+/** The status the API answered with - never assumed from what we sent. */
+function describeStatus(status: unknown): string {
+  if (typeof status === 'string' && STATUS_LABELS[status]) {
+    return formatStatus(STATUS_LABELS[status]);
+  }
+  if (status !== null && typeof status === 'object' && 'confirmado' in status) {
+    const { confirmado, conciliado } = status as { confirmado?: boolean; conciliado?: boolean };
+    return formatStatus(conciliado ? 'reconciled' : confirmado ? 'pending' : 'scheduled');
+  }
+  return chalk.gray(status === undefined ? '(not returned by the API)' : String(status));
+}
+
+function reportUpdate(response: CreateEntryResponse, json?: boolean, todos?: boolean): void {
   if (json) {
     console.log(JSON.stringify(response, null, 2));
     return;
@@ -31,9 +51,25 @@ function reportUpdate(response: CreateEntryResponse, json?: boolean): void {
   console.log(`  ${chalk.gray('Description:')} ${response.descricao}`);
   console.log(`  ${chalk.gray('Value:')} ${formatCurrency(response.valor)}`);
   console.log(`  ${chalk.gray('Date:')} ${response.data}`);
-  const statusDisplay = response.status === 'conciliado' ? 'reconciled'
-    : response.status === 'pendente' ? 'pending' : 'scheduled';
-  console.log(`  ${chalk.gray('Status:')} ${formatStatus(statusDisplay as 'reconciled' | 'pending' | 'scheduled')}`);
+  console.log(`  ${chalk.gray('Status:')} ${describeStatus(response.status)}`);
+  if (todos !== undefined) {
+    console.log(`  ${chalk.gray('Scope:')} ${todos ? 'this and the following occurrences' : 'this occurrence only'}`);
+  }
+}
+
+/** A scheduled entry stays scheduled unless a status flag says otherwise. */
+function staysScheduled(options: UpdateOptions, existing: Entry): boolean {
+  return existing.status === 'agendado' && !options.pending && !options.reconciled;
+}
+
+// A scheduled occurrence has no effective date or value yet, and filling them
+// in is what confirms it: the API then ignores confirmado: false. Send back
+// whatever the entry already had (usually nothing) for these fields.
+function keepUnconfirmed(payload: Record<string, unknown>, existing: Entry, fields: readonly (keyof Entry)[]): void {
+  for (const field of fields) {
+    if (existing[field] === undefined) delete payload[field];
+    else payload[field] = existing[field];
+  }
 }
 
 function resolveReconciled(options: UpdateOptions, existing: Entry): boolean {
@@ -50,6 +86,7 @@ interface TransferOverrides {
   tagIds?: number[];
   notes?: string;
   reconciled: boolean;
+  scheduled: boolean;
 }
 
 // A transfer (tipo "t") is a pair of mirrored entries, and the API rejects the
@@ -104,14 +141,15 @@ function buildTransferPayload(
     carried.categoriaPai = existing.categoriaPai;
   }
 
-  return {
+  const confirmed = !overrides.scheduled;
+  const payload: Record<string, unknown> = {
     ...carried,
     id: entryId,
     descricao: overrides.description ?? existing.descricao,
     transferencia: true,
-    status: { confirmado: true, conciliado: overrides.reconciled },
-    confirmado: true,
-    conciliado: overrides.reconciled,
+    status: { confirmado: confirmed, conciliado: confirmed && overrides.reconciled },
+    confirmado: confirmed,
+    conciliado: confirmed && overrides.reconciled,
     conta: originAccount,
     contaT: destinationAccount,
     contaOrigem: originAccount,
@@ -135,6 +173,10 @@ function buildTransferPayload(
     exibirCr: existing.exibirCr ?? true,
     ...(plastico !== undefined && { plastico }),
   };
+  if (overrides.scheduled) {
+    keepUnconfirmed(payload, existing, ['dataEfetiva', 'valorEfetivo', 'valorEfetivoT']);
+  }
+  return payload;
 }
 
 export async function updateAction(id: string, options: UpdateOptions): Promise<void> {
@@ -185,6 +227,10 @@ export async function updateAction(id: string, options: UpdateOptions): Promise<
 
   // Fetch existing entry
   const existing = await fetchEntry(entryId);
+  const todos = resolveSeriesScope(entryId, existing, options.scope, {
+    thisOnlyWarning: `Entry ${entryId} is an occurrence of a recurring series (${existing.parcela}): only this occurrence will be changed, and it will leave the series. Use --scope following to change this and the following occurrences, or --scope this to silence this warning.`,
+  });
+  const scheduled = staysScheduled(options, existing);
 
   if (existing.tipo === 't') {
     if (options.type !== undefined) {
@@ -205,10 +251,12 @@ export async function updateAction(id: string, options: UpdateOptions): Promise<
       tagIds,
       notes: options.notes,
       reconciled: resolveReconciled(options, existing),
+      scheduled,
     });
+    if (todos !== undefined) payload.todos = todos;
 
     const transferResponse = await updateEntry(entryId, payload as unknown as UpdateEntryPayload);
-    reportUpdate(transferResponse, options.json);
+    reportUpdate(transferResponse, options.json, todos);
     return;
   }
 
@@ -224,8 +272,8 @@ export async function updateAction(id: string, options: UpdateOptions): Promise<
     id: entryId,
     descricao: options.description ?? existing.descricao,
     status: {
-      confirmado: true,
-      conciliado: existing.conciliado ?? false,
+      confirmado: !scheduled,
+      conciliado: !scheduled && (existing.conciliado ?? false),
     },
     tipo: options.type ? mapTypeToApi(options.type) : existing.tipo,
     valor: value ?? existing.valor,
@@ -253,6 +301,19 @@ export async function updateAction(id: string, options: UpdateOptions): Promise<
     delete payload.categoriaPai;
   }
 
+  if (scheduled) {
+    keepUnconfirmed(payload, existing, ['dataEfetiva', 'valorEfetivo']);
+    // Moving a scheduled occurrence moves its schedule along with it (what
+    // the tested reference patch for #65 sent).
+    if (existing.agenda && options.date) {
+      payload.agenda = { ...existing.agenda, primeiraData: options.date };
+    }
+  }
+  // todos: true is the web app's "Neste e em todos na sequência": the server
+  // applies the change to this and the following occurrences and splits the
+  // series, leaving earlier ones untouched. false is "Apenas neste".
+  if (todos !== undefined) payload.todos = todos;
+
   // Handle status changes
   if (options.pending) {
     payload.status = { confirmado: true, conciliado: false };
@@ -263,5 +324,5 @@ export async function updateAction(id: string, options: UpdateOptions): Promise<
   }
 
   const response = await updateEntry(entryId, payload as unknown as UpdateEntryPayload);
-  reportUpdate(response, options.json);
+  reportUpdate(response, options.json, todos);
 }
