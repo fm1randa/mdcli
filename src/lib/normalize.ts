@@ -56,13 +56,20 @@ function mapEntryStatus(status: string): 'reconciled' | 'pending' | 'scheduled' 
   return ENTRY_STATUS_LABELS[status] ?? 'pending';
 }
 
+function mapEntryType(entry: Entry): NormalizedEntry['type'] {
+  // Invoice projections (faturas: true) have no tipo; treating them as expense
+  // double-counts when the card is also in the filter. Flag them explicitly.
+  if (entry.projecaoFatura != null) return 'invoice';
+  return mapCategoryType(entry.tipo ?? 'd');
+}
+
 export function normalizeEntries(entries: Entry[]): NormalizedEntry[] {
   return entries.map((entry) => ({
-    id: entry.id,
+    id: entry.id != null && entry.id !== '' ? entry.id : `invoice:${entry.projecaoFatura}`,
     description: entry.descricao,
     date: entry.data,
     value: entry.valor,
-    type: mapCategoryType(entry.tipo ?? 'd'),
+    type: mapEntryType(entry),
     status: mapEntryStatus(entry.status),
     accountId: entry.conta,
     categoryId: entry.categoria ?? null,

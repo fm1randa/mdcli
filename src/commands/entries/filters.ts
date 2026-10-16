@@ -83,6 +83,8 @@ export interface FilterOptions {
   keywords?: string;
   value?: string;
   excludeCategory?: string;
+  /** Commander --no-invoices; default true (API faturas). */
+  invoices?: boolean;
 }
 
 export async function resolveEntryFilters(options: FilterOptions): Promise<Omit<EntriesParams, 'page' | 'pageSize'>> {
@@ -137,6 +139,7 @@ export async function resolveEntryFilters(options: FilterOptions): Promise<Omit<
     value,
     status: options.status ? parseStatusFilter(options.status) : undefined,
     entryType: options.type ? parseTypeFilter(options.type) : undefined,
+    includeFaturas: options.invoices,
   };
 }
 
@@ -171,5 +174,6 @@ export function addFilterOptions(command: Command): Command {
     .option('-g, --tag <ids>', 'Filter by tag ID(s), alias(es), or exact name(s) (case-insensitive), comma-separated')
     .option('-k, --keywords <text>', 'Search by keywords')
     .option('-v, --value <amount>', 'Filter by value')
-    .option('-x, --exclude-category <ids>', 'Leave out these categories and their subcategories, comma-separated');
+    .option('-x, --exclude-category <ids>', 'Leave out these categories and their subcategories, comma-separated')
+    .option('--no-invoices', 'Omit credit-card invoice projections (API faturas: false; default includes them)');
 }

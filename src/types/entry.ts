@@ -97,7 +97,7 @@ export interface NormalizedEntry {
   description: string;
   date: string;
   value: number;
-  type: 'expense' | 'income' | 'transfer';
+  type: 'expense' | 'income' | 'transfer' | 'invoice';
   status: 'reconciled' | 'pending' | 'scheduled';
   accountId: number;
   categoryId: number | null;

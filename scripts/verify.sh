@@ -132,6 +132,8 @@ step "cli entries update --scope fora de série (mock)" expect_fail 'not part of
 # entries list: the API refuses end dates past 2031-12-31 (#65), so the CLI
 # checks first; under --json any error is {"error": ...} on stderr, exit 1.
 step "cli entries list --json (mock)" expect_json 'Array.isArray(d) && d.some((e) => e.id === 70 && e.description === "Café")' entries list -a 1001 -f 2026-01-01 -t 2026-01-31 --json
+step "cli entries list --no-invoices (mock)" expect_ok 'Entries' entries list -a 1001 -f 2026-01-01 -t 2026-01-31 --no-invoices
+step "cli entries list total com sinal (mock)" expect_ok 'Total:' entries list -a 1001 -f 2026-01-01 -t 2026-01-31
 step "cli entries list --to > 2031 (mock)" expect_fail 'is past 2031-12-31' entries list -a 1001 -f 2026-11-01 -t 2035-12-31
 step "cli entries list --to > 2031 --json (mock)" expect_json_error 'is past 2031-12-31' entries list -a 1001 -f 2026-11-01 -t 2035-12-31 --json
 step "cli erro da API em --json (mock)" expect_json_error 'GET /v1/lancamentos/9999\): 404' entries delete 9999 --dangerously-skip-confirmation --json
