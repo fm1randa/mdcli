@@ -167,7 +167,7 @@ export function addFilterOptions(command: Command): Command {
   return command
     .requiredOption('-a, --account <ids>', 'Account ID(s), alias(es), or exact name(s) (case-insensitive), comma-separated')
     .option('-f, --from <date>', 'Start date (YYYY-MM-DD), defaults to first day of current month')
-    .option('-t, --to <date>', 'End date (YYYY-MM-DD), defaults to last day of current month')
+    .option('-t, --to <date>', 'End date (YYYY-MM-DD), defaults to last day of current month (API limit 2031-12-31)')
     .option('-s, --status <filter>', 'Filter by status: pending, confirmed, reconciled, scheduled (or bitmask 0-15)')
     .option('-T, --type <filter>', 'Filter by type: expense, income, transfer-out, transfer-in (or bitmask 0-15)')
     .option('-c, --category <ids>', 'Filter by category ID(s), alias(es), or exact name(s) (case-insensitive), comma-separated')

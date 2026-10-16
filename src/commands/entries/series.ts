@@ -5,6 +5,11 @@ import type { Entry } from '../../types/index.js';
 
 export type SeriesScope = 'this' | 'following';
 
+/** Human-readable label for the API's `todos` flag. */
+export function describeScope(todos: boolean): string {
+  return todos ? 'this and the following occurrences' : 'this occurrence only';
+}
+
 /** --scope for commands that act on one occurrence of a recurring series. */
 export function scopeOption(verb: string): Option {
   return new Option(

@@ -19,6 +19,10 @@ A free-form label that can be attached to an entry.
 A single financial transaction (lancamento). Has an account, a category, optional tags, a value, and a date.
 _Avoid_: "transaction", "record"
 
+**Series**:
+A recurring Entry rule (agenda). Occurrences carry `agendaId` and `parcela` (e.g. `fixa`, `2/6`). On update/delete, `--scope this` (default) touches only the current occurrence; `--scope following` touches this one and the ones after it. Both map to the API flag `todos` (`false` / `true`). The web labels are "Apenas neste" / "Neste e em todos na sequência". There is no `--scope all` — the web only exposes that boolean.
+_Avoid_: "recurrence" alone (prefer Series when talking about `--scope`)
+
 **Alias**:
 A user-defined short string mapped to exactly one Account, Category, or Tag ID. Stored locally in `~/.config/mdcli/mdcli.config.json`. Aliases are offline — no API call needed to resolve them.
 _Avoid_: "shortcut", "nickname"
@@ -44,6 +48,7 @@ _Avoid_: "auto-upgrade", "sync with main"
 - A **Category** classifies one or many **Entries**
 - A **Tag** may be attached to zero or many **Entries**
 - An **Alias** points to exactly one **Account**, **Category**, or **Tag**
+- A **Series** groups one or many **Entry** occurrences under one agenda rule
 - An **Identifier** resolves (via the resolver pipeline) to exactly one numeric ID, which is then used in the API call
 
 ## Resolver pipeline

@@ -76,7 +76,9 @@ describe('entries update on a recurring series', () => {
       agenda: { frequencia: 1, intervalo: 'M', quantidade: -1, primeiraData: '2027-01-25' },
     });
     expect(result.stderr).toContain('only this occurrence will be changed, and it will leave the series');
-    expect(JSON.parse(result.stdout).status).toBe('agendado');
+    const json = JSON.parse(result.stdout);
+    expect(json.status).toBe('agendado');
+    expect(json.scope).toBe('this');
   });
 
   test('--scope following sends todos: true and prints the status the API answered', async () => {
@@ -90,6 +92,27 @@ describe('entries update on a recurring series', () => {
     expect(result.stderr).not.toContain('only this occurrence');
     expect(result.stdout).toContain('Status: Scheduled');
     expect(result.stdout).toContain('Scope: this and the following occurrences');
+  });
+
+  test('--scope following --json includes scope alongside the API response', async () => {
+    api.on('PUT /v1/lancamentos/80', { id: 80, descricao: 'NuCel', valor: -45, data: '2027-01-25', status: 'agendado' });
+
+    const result = await runCli(
+      ['entries', 'update', '80', '-D', '2027-01-25', '--scope', 'following', '--json'],
+      { home, api }
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(JSON.parse(result.stdout)).toMatchObject({ id: 80, status: 'agendado', scope: 'following' });
+  });
+
+  test('an entry outside a series --json has no scope field', async () => {
+    api.on('PUT /v1/lancamentos/70', { ...PENDING_ENTRY, descricao: 'Café X' });
+
+    const result = await runCli(['entries', 'update', '70', '-d', 'Café X', '--json'], { home, api });
+
+    expect(result.exitCode).toBe(0);
+    expect(JSON.parse(result.stdout)).not.toHaveProperty('scope');
   });
 
   test('--scope this is explicit, so no warning', async () => {

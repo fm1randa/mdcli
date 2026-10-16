@@ -4,16 +4,12 @@ import { exitWithError } from '../../utils/action.js';
 import { promptConfirmation } from '../../utils/prompt.js';
 import { fetchEntry, deleteEntry } from '../../lib/api.js';
 import { formatCurrency } from './format.js';
-import { resolveSeriesScope, type SeriesScope } from './series.js';
+import { describeScope, resolveSeriesScope, type SeriesScope } from './series.js';
 
 interface DeleteOptions {
   dangerouslySkipConfirmation?: boolean;
   scope?: SeriesScope;
   json?: boolean;
-}
-
-function describeScope(todos: boolean): string {
-  return todos ? 'this and the following occurrences' : 'this occurrence only';
 }
 
 
