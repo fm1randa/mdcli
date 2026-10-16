@@ -36,41 +36,39 @@ const TYPE_FLAGS: Record<string, number> = {
   'transfer-in': 8,
 };
 
-function parseStatusFilter(input: string): number {
+// The web app's Repetição filter (tipoRepeticao): única, parcelada, fixa.
+const REPETITION_FLAGS: Record<string, number> = {
+  single: 1,
+  installment: 2,
+  installments: 2,
+  fixed: 4,
+};
+
+/** Turns comma-separated names (or a raw bitmask up to `max`) into the API bitmask. */
+function parseFlagFilter(input: string, flags: Record<string, number>, max: number, label: string, valid: string): number {
   const num = Number(input);
-  if (!Number.isNaN(num) && num >= 0 && num <= 15) return num;
+  if (!Number.isNaN(num) && num >= 0 && num <= max) return num;
 
   const unknown: string[] = [];
   const mask = input.split(',').reduce((acc, name) => {
-    const flag = STATUS_FLAGS[name.trim().toLowerCase()];
+    const flag = flags[name.trim().toLowerCase()];
     if (!flag) unknown.push(name.trim());
     return acc | (flag ?? 0);
   }, 0);
 
   if (unknown.length > 0) {
-    exitWithError(`Unknown status: ${unknown.join(', ')}. Valid: pending, confirmed, reconciled, scheduled`);
+    exitWithError(`Unknown ${label}: ${unknown.join(', ')}. Valid: ${valid}`);
   }
 
   return mask;
 }
 
-function parseTypeFilter(input: string): number {
-  const num = Number(input);
-  if (!Number.isNaN(num) && num >= 0 && num <= 15) return num;
-
-  const unknown: string[] = [];
-  const mask = input.split(',').reduce((acc, name) => {
-    const flag = TYPE_FLAGS[name.trim().toLowerCase()];
-    if (!flag) unknown.push(name.trim());
-    return acc | (flag ?? 0);
-  }, 0);
-
-  if (unknown.length > 0) {
-    exitWithError(`Unknown type: ${unknown.join(', ')}. Valid: expense, income, transfer-out, transfer-in`);
-  }
-
-  return mask;
-}
+const parseStatusFilter = (input: string) =>
+  parseFlagFilter(input, STATUS_FLAGS, 15, 'status', 'pending, confirmed, reconciled, scheduled');
+const parseTypeFilter = (input: string) =>
+  parseFlagFilter(input, TYPE_FLAGS, 15, 'type', 'expense, income, transfer-out, transfer-in');
+const parseRepetitionFilter = (input: string) =>
+  parseFlagFilter(input, REPETITION_FLAGS, 7, 'repetition', 'single, installment, fixed');
 
 export interface FilterOptions {
   account?: string;
@@ -83,6 +81,7 @@ export interface FilterOptions {
   keywords?: string;
   value?: string;
   excludeCategory?: string;
+  repetition?: string;
   /** Commander --no-invoices; default true (API faturas). */
   invoices?: boolean;
 }
@@ -139,6 +138,7 @@ export async function resolveEntryFilters(options: FilterOptions): Promise<Omit<
     value,
     status: options.status ? parseStatusFilter(options.status) : undefined,
     entryType: options.type ? parseTypeFilter(options.type) : undefined,
+    repetition: options.repetition ? parseRepetitionFilter(options.repetition) : undefined,
     includeFaturas: options.invoices,
   };
 }
@@ -170,6 +170,7 @@ export function addFilterOptions(command: Command): Command {
     .option('-t, --to <date>', 'End date (YYYY-MM-DD), defaults to last day of current month (API limit 2031-12-31)')
     .option('-s, --status <filter>', 'Filter by status: pending, confirmed, reconciled, scheduled (or bitmask 0-15)')
     .option('-T, --type <filter>', 'Filter by type: expense, income, transfer-out, transfer-in (or bitmask 0-15)')
+    .option('-R, --repetition <filter>', 'Filter by repetition: single, installment, fixed (or bitmask 0-7)')
     .option('-c, --category <ids>', 'Filter by category ID(s), alias(es), or exact name(s) (case-insensitive), comma-separated')
     .option('-g, --tag <ids>', 'Filter by tag ID(s), alias(es), or exact name(s) (case-insensitive), comma-separated')
     .option('-k, --keywords <text>', 'Search by keywords')

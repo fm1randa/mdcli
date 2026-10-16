@@ -5,6 +5,7 @@ import {
   CATEGORIES_RESPONSE,
   CREDIT_CARD_ACCOUNT,
   SAVINGS_ACCOUNT,
+  TAGS_RESPONSE,
   cardInvoice,
 } from '../test/fixtures.js';
 import { SEEDED_ENTRIES, checkCreatePayload, createdEntry } from './mock-entries.js';
@@ -15,6 +16,7 @@ const LATEST_RELEASE_PATH = '/github/repos/fm1randa/mdcli/releases/latest';
 
 const ACCOUNTS_PATH = '/api/v1/cadastros/contas';
 const CATEGORIES_PATH = '/api/v1/cadastros/categorias';
+const TAGS_PATH = '/api/v1/cadastros/tags';
 const ENTRIES_PATH = '/api/v1/lancamentos';
 const NEW_ACCOUNT_ID = 2001;
 const NEW_ENTRY_ID = 9001;
@@ -162,14 +164,21 @@ function cardsRoute(req: Request, path: string): Response {
   return notFound();
 }
 
-/** GET /v2/lancamentos: the seeded entries of the requested accounts and dates. */
+// tipoRepeticao bits, as the web app's Repetição filter sends them.
+function repetitionBit(entry: Record<string, unknown>): number {
+  if (!entry.parcela) return 1;
+  return entry.parcela === 'fixa' ? 4 : 2;
+}
+
+/** GET /v2/lancamentos: the seeded entries of the requested accounts, dates and repetition. */
 function entriesListRoute(url: URL): Response {
   const ids = (JSON.parse(url.searchParams.get('contas') ?? '{}') as { ids?: number[] }).ids ?? [];
   const from = url.searchParams.get('inicio') ?? '';
   const to = url.searchParams.get('fim') ?? '';
+  const repetition = Number(url.searchParams.get('tipoRepeticao') ?? 7);
   const list = Object.values(SEEDED_ENTRIES).filter((e) => {
     const date = String(e.dataPrevista);
-    return ids.includes(Number(e.conta)) && date >= from && date <= to;
+    return ids.includes(Number(e.conta)) && date >= from && date <= to && (repetitionBit(e) & repetition) !== 0;
   });
   return Response.json({ list, meta: { total: list.length, page: 1, pageSize: 200 } });
 }
@@ -268,6 +277,9 @@ const server = Bun.serve({
     }
     if (url.pathname === CATEGORIES_PATH && req.method === 'GET') {
       return Response.json(CATEGORIES_RESPONSE);
+    }
+    if (url.pathname === TAGS_PATH && req.method === 'GET') {
+      return Response.json(TAGS_RESPONSE);
     }
     if (url.pathname.startsWith('/api/v1/cartoes/')) {
       return cardsRoute(req, url.pathname);

@@ -143,6 +143,16 @@ step "cli entries update --scope fora de série (mock)" expect_fail 'not part of
 step "cli entries list --json (mock)" expect_json 'Array.isArray(d) && d.some((e) => e.id === 70 && e.description === "Café")' entries list -a 1001 -f 2026-01-01 -t 2026-01-31 --json
 step "cli entries list --no-invoices (mock)" expect_ok 'Entries' entries list -a 1001 -f 2026-01-01 -t 2026-01-31 --no-invoices
 step "cli entries list total com sinal (mock)" expect_ok 'Total:' entries list -a 1001 -f 2026-01-01 -t 2026-01-31
+# Dogfooding 2026-10-16: --repetition -> tipoRepeticao (1 single, 2 installment,
+# 4 fixed), the extra list fields and entries show.
+step "cli entries list --repetition (mock)" expect_json 'd.length === 1 && d[0].id === 60 && d[0].repetition === "installment" && d[0].tagIds[0] === 501 && d[0].documentNumber === "NF-1"' entries list -a 1001 -f 2026-01-01 -t 2026-01-31 --repetition installment --json
+step "cli entries list --csv campos extras (mock)" expect_ok 'transfer_account,tags,notes,document_number' entries list -a 1001 -f 2026-01-01 -t 2026-01-31 --csv
+step "cli entries list --csv nomes de tag (mock)" expect_ok ',Trabalho,parcelado,NF-1' entries list -a 1001 -f 2026-01-01 -t 2026-01-31 --csv
+step "cli entries summary --repetition (mock)" expect_json 'd.total.count === 1 && d.skippedTransfers === 1' entries summary -a 1001 -f 2026-01-01 -t 2026-01-31 -R single --json
+step "cli entries show (mock)" expect_ok 'Repetition: Installment \(2/6\)' entries show 60
+step "cli entries show --json (mock)" expect_json 'd.id === 60 && d.notes === "parcelado" && d.seriesId === 99 && d.competenceDate === "2026-01-10"' entries show 60 --json
+step "cli entries show --raw (mock)" expect_json 'd.agendaId === 77 && d.parcela === "fixa"' entries show 80 --raw
+step "cli entries show inexistente (mock)" expect_fail 'GET /v1/lancamentos/9999\): 404' entries show 9999
 step "cli entries list --to > 2031 (mock)" expect_fail 'is past 2031-12-31' entries list -a 1001 -f 2026-11-01 -t 2035-12-31
 step "cli entries list --to > 2031 --json (mock)" expect_json_error 'is past 2031-12-31' entries list -a 1001 -f 2026-11-01 -t 2035-12-31 --json
 step "cli erro da API em --json (mock)" expect_json_error 'GET /v1/lancamentos/9999\): 404' entries delete 9999 --dangerously-skip-confirmation --json

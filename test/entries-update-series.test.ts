@@ -143,7 +143,7 @@ describe('entries update on a recurring series', () => {
       dataEfetiva: '2027-01-10',
       valorEfetivo: -45,
     });
-    expect(result.stdout).toContain('Status: Pending');
+    expect(result.stdout).toContain('Status: Confirmed');
     expect(result.stdout).not.toContain('Scheduled');
   });
 

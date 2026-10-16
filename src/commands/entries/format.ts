@@ -1,4 +1,5 @@
 import chalk from 'chalk';
+import type { EntryStatus } from '../../types/index.js';
 
 export function formatCurrency(value: number): string {
   const formatted = Math.abs(value).toLocaleString('pt-BR', {
@@ -13,9 +14,10 @@ export function formatSignedCurrency(value: number): string {
   return value >= 0 ? chalk.green(formatted) : chalk.red(formatted);
 }
 
-export function formatStatus(status: 'reconciled' | 'pending' | 'scheduled'): string {
+export function formatStatus(status: EntryStatus): string {
   const statusConfig = {
     reconciled: { label: 'Reconciled', color: chalk.green },
+    confirmed: { label: 'Confirmed', color: chalk.cyan },
     pending: { label: 'Pending', color: chalk.yellow },
     scheduled: { label: 'Scheduled', color: chalk.blue },
   };
