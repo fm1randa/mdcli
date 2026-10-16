@@ -77,3 +77,69 @@ export const SEEDED_ENTRIES: Record<number, Record<string, unknown>> = {
     tags: [],
   },
 };
+
+type Body = Record<string, unknown>;
+
+/**
+ * What the web app sends for the shapes the CLI creates (deduced from the
+ * public bundle md.js); anything else answers 400 so verify.sh catches a
+ * regression through the real CLI path.
+ */
+export function checkCreatePayload(body: Body): string | null {
+  const status = body.status as { confirmado?: boolean; conciliado?: boolean } | undefined;
+  if (body.transferencia === true) {
+    if (body.tipo !== 't') return 'a transfer has tipo t';
+    if (body.conta !== undefined) return 'a transfer names contaOrigem/contaDestino, not conta';
+    if (typeof body.contaOrigem !== 'number' || typeof body.contaDestino !== 'number') {
+      return 'contaOrigem and contaDestino are required for a transfer';
+    }
+    if (body.contaOrigem === body.contaDestino) return 'origin and destination must differ';
+    if (typeof body.valor !== 'number' || body.valor >= 0) return 'a transfer is sent from the origin side (negative valor)';
+  } else if (body.tipo === 't') {
+    return 'tipo t without transferencia: true';
+  }
+  if (status?.confirmado === false && (body.dataEfetiva != null || body.valorEfetivo != null)) {
+    return 'a scheduled entry has no dataEfetiva/valorEfetivo';
+  }
+  const agenda = body.agenda as { repeticao?: string; quantidade?: number } | undefined;
+  if (agenda?.repeticao === 'p') {
+    const parcelas = body.parcelas as { valor: number; data: string }[] | undefined;
+    if (!Array.isArray(parcelas) || parcelas.length !== agenda.quantidade) {
+      return 'an installment series needs one parcela per installment';
+    }
+    const sum = parcelas.reduce((acc, p) => acc + Math.round(p.valor * 100), 0);
+    if (sum !== Math.round(Number(body.valor) * 100)) return 'valor must be the sum of the parcelas';
+  }
+  return null;
+}
+
+/** The API's answer to POST /v1/lancamentos for a payload that passed checkCreatePayload. */
+export function createdEntry(body: Body, id: number): Body {
+  const status = body.status as { confirmado?: boolean } | undefined;
+  const reconciled = Boolean(body.conciliado);
+  const scheduled = status?.confirmado === false;
+  const parcelas = body.parcelas as { valor: number; data: string }[] | undefined;
+  const agenda = body.agenda as { inicial?: number; quantidade?: number } | undefined;
+  return {
+    id,
+    descricao: body.descricao,
+    conciliado: reconciled,
+    dataCompetencia: body.dataCompetencia ?? null,
+    // The real API answers confirmado for a confirmed, unreconciled entry (#70).
+    status: scheduled ? 'agendado' : reconciled ? 'conciliado' : 'confirmado',
+    tipo: body.tipo,
+    // The server stores one entry per installment; this is the first one.
+    valor: parcelas ? parcelas[0].valor : body.valor,
+    valorPrevisto: parcelas ? parcelas[0].valor : (body.valorPrevisto ?? body.valor),
+    valorEfetivo: body.valorEfetivo ?? null,
+    data: body.data ?? new Date().toISOString(),
+    dataPrevista: body.dataPrevista,
+    dataEfetiva: body.dataEfetiva ?? null,
+    dataCriacao: new Date().toISOString(),
+    exibirCp: true,
+    exibirCr: true,
+    conta: body.conta ?? body.contaOrigem,
+    ...(body.transferencia === true && { contaT: body.contaDestino, valorT: body.valorT }),
+    ...(parcelas && { parcela: `${agenda?.inicial ?? 1}/${agenda?.quantidade}` }),
+  };
+}

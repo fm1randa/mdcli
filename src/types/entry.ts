@@ -110,11 +110,18 @@ interface CreateEntryStatus {
 }
 
 export interface CreateEntryAgenda {
-  repeticao: 'f';
+  /** f = fixed (repeats with the same value), p = installments (parcelada). */
+  repeticao: 'f' | 'p';
   intervalo: 'd' | 'w' | 'M' | 'y';
   quantidade: number;
   frequencia: number;
   inicial: number;
+}
+
+/** One installment of a parcelada series, as the web app sends it. */
+export interface CreateEntryInstallment {
+  valor: number;
+  data: string;
 }
 
 export interface CreateEntryPayload {
@@ -127,8 +134,12 @@ export interface CreateEntryPayload {
   lembrete: number;
   anexos: unknown[];
   agenda?: CreateEntryAgenda;
+  parcelas?: CreateEntryInstallment[];
   '#': string | null;
-  conta: string;
+  /** Every entry but a transfer, which names contaOrigem/contaDestino instead. */
+  conta?: string;
+  contaOrigem?: number;
+  contaDestino?: number;
   inicio: string;
   fim: string;
   i: string;
@@ -146,6 +157,10 @@ export interface CreateEntryPayload {
   dataPrevista: string;
   valorEfetivo: number | null;
   valorPrevisto: number;
+  /** Transfers: the destination half's value (positive). */
+  valorT?: number;
+  valorPrevistoT?: number;
+  valorEfetivoT?: number | null;
 }
 
 export interface CreateEntryResponse {

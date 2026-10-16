@@ -222,8 +222,27 @@ mdcli entries create --account mp --description "Groceries" --value 150 --catego
 # Create an entry using the account name instead of an alias
 mdcli entries create --account "Mercado Pago" --description "Groceries" --value 150 --category food
 
+# Transfer between two accounts (--account is the origin); the category
+# defaults to the system transfer category, as in the web app. Transfers to or
+# from a credit card, or between currencies, are not supported yet.
+mdcli entries create --account mp --type transfer --to-account nubank --description "Reserva" --value 500
+
+# Installments (parcelada): 1200 split into 10 monthly installments; the first
+# one absorbs the rounding cent. --per-installment makes --value each one's,
+# --repeat/--frequency set the spacing, --first-installment the starting number.
+mdcli entries create --account mp --description "Notebook" --value 1200 --category tech --installments 10
+
+# Fixed series every 2 months, 6 times (--frequency and --times can be combined)
+mdcli entries create --account mp --description "Academia" --value 90 --category gym --repeat monthly --frequency 2 --times 6
+
+# Scheduled (agendado: not confirmed, no effective date yet)
+mdcli entries create --account mp --description "IPVA" --value 800 --category car --date 2027-01-20 --scheduled
+
 # Update an entry (only the fields you pass are changed)
 mdcli entries update 12345 --value 200 --category food
+
+# Turn a confirmed entry back into a scheduled one
+mdcli entries update 12345 --scheduled
 
 # Update a transfer from either half of the pair - both halves move together.
 # A transfer cannot be turned into an expense or an income.

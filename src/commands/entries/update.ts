@@ -8,6 +8,7 @@ import type { CreateEntryResponse, Entry, UpdateEntryPayload } from '../../types
 import { mapTypeToApi, parseTypeOption } from './create.js';
 import { formatCurrency, formatStatus } from './format.js';
 import { describeScope, resolveSeriesScope, type SeriesScope } from './series.js';
+import { buildTransferPayload, clearEffective, keepUnconfirmed } from './update-transfer.js';
 
 interface UpdateOptions {
   description?: string;
@@ -19,6 +20,7 @@ interface UpdateOptions {
   notes?: string;
   pending?: boolean;
   reconciled?: boolean;
+  scheduled?: boolean;
   scope?: SeriesScope;
   json?: boolean;
 }
@@ -57,17 +59,8 @@ function reportUpdate(response: CreateEntryResponse, json?: boolean, todos?: boo
 
 /** A scheduled entry stays scheduled unless a status flag says otherwise. */
 function staysScheduled(options: UpdateOptions, existing: Entry): boolean {
+  if (options.scheduled) return true;
   return existing.status === 'agendado' && !options.pending && !options.reconciled;
-}
-
-// A scheduled occurrence has no effective date or value yet, and filling them
-// in is what confirms it: the API then ignores confirmado: false. Send back
-// whatever the entry already had (usually nothing) for these fields.
-function keepUnconfirmed(payload: Record<string, unknown>, existing: Entry, fields: readonly (keyof Entry)[]): void {
-  for (const field of fields) {
-    if (existing[field] === undefined) delete payload[field];
-    else payload[field] = existing[field];
-  }
 }
 
 function resolveReconciled(options: UpdateOptions, existing: Entry): boolean {
@@ -76,111 +69,14 @@ function resolveReconciled(options: UpdateOptions, existing: Entry): boolean {
   return existing.conciliado ?? false;
 }
 
-interface TransferOverrides {
-  description?: string;
-  value?: number;
-  date?: string;
-  categoryId: number | null;
-  tagIds?: number[];
-  notes?: string;
-  reconciled: boolean;
-  scheduled: boolean;
-}
-
-// A transfer (tipo "t") is a pair of mirrored entries, and the API rejects the
-// PUT that works for every other entry - echoing the raw entry back is not
-// enough, it answers 400 "Erro inesperado". The web app never sends the raw
-// entry either: it normalizes the pair to the origin side (the negative half),
-// names the two accounts contaOrigem/contaDestino, and marks the payload with
-// transferencia: true instead of tipo: "t". The entry we were handed can be
-// either half of the pair, so flip it to the origin side first.
-function buildTransferPayload(
-  entryId: number,
-  existing: Entry,
-  overrides: TransferOverrides
-): Record<string, unknown> {
-  const outgoing = existing.valor < 0;
-  const originAccount = outgoing ? existing.conta : existing.contaT;
-  const destinationAccount = outgoing ? existing.contaT : existing.conta;
-
-  if (originAccount === undefined || destinationAccount === undefined) {
-    throw new Error(
-      `Entry ${entryId} is a transfer but only names one account. It cannot be updated by the CLI.`
-    );
-  }
-
-  // A value change makes both halves symmetric. Without one, keep whatever the
-  // two halves hold today - a transfer between currencies has two magnitudes.
-  const originValue = overrides.value !== undefined
-    ? -Math.abs(overrides.value)
-    : (outgoing ? existing.valor : existing.valorT ?? -existing.valor);
-  const destinationValue = overrides.value !== undefined
-    ? Math.abs(overrides.value)
-    : (outgoing ? existing.valorT ?? -existing.valor : existing.valor);
-
-  const date = overrides.date ?? existing.dataPrevista;
-  // The web app takes whichever half of the pair names a card and sends it as
-  // one plastico, without flipping it along with the accounts. Mirror that.
-  const plastico = existing.plastico ?? existing.plasticoT;
-
-  // The payload has to be listed field by field, so anything the entry carries
-  // that the list forgets is dropped on save - the failure #10 fixed for other
-  // entries by echoing the raw entry back. A transfer refuses that echo, so
-  // carry the fields an installment, a card, or a savings-goal transfer needs
-  // one by one, and only when the entry actually has them.
-  const carried: Record<string, unknown> = {};
-  for (const field of ['dataCompetencia', 'parcela', 'agendaId', 'regime', 'estorno', 'detalhes', 'metaEconomiaDestino'] as const) {
-    if (existing[field] !== undefined) carried[field] = existing[field];
-  }
-  // categoriaPai is the parent of categoria and the categories endpoint does
-  // not expose the parent, so a new category leaves us unable to recompute it.
-  // Drop the stale one and let the server derive it.
-  if (overrides.categoryId === null && existing.categoriaPai !== undefined) {
-    carried.categoriaPai = existing.categoriaPai;
-  }
-
-  const confirmed = !overrides.scheduled;
-  const payload: Record<string, unknown> = {
-    ...carried,
-    id: entryId,
-    descricao: overrides.description ?? existing.descricao,
-    transferencia: true,
-    status: { confirmado: confirmed, conciliado: confirmed && overrides.reconciled },
-    confirmado: confirmed,
-    conciliado: confirmed && overrides.reconciled,
-    conta: originAccount,
-    contaT: destinationAccount,
-    contaOrigem: originAccount,
-    contaDestino: destinationAccount,
-    valor: originValue,
-    valorPrevisto: originValue,
-    valorEfetivo: originValue,
-    valorT: destinationValue,
-    valorPrevistoT: destinationValue,
-    valorEfetivoT: destinationValue,
-    data: date,
-    dataPrevista: date,
-    dataEfetiva: overrides.date ?? existing.dataEfetiva ?? date,
-    categoria: overrides.categoryId ?? existing.categoria ?? null,
-    tags: overrides.tagIds ?? existing.tags ?? [],
-    observacoes: overrides.notes ?? existing.observacoes ?? '',
-    ndocumento: existing.ndocumento ?? '',
-    lembrete: existing.lembrete ?? 0,
-    automatico: existing.automatico ?? false,
-    exibirCp: existing.exibirCp ?? true,
-    exibirCr: existing.exibirCr ?? true,
-    ...(plastico !== undefined && { plastico }),
-  };
-  if (overrides.scheduled) {
-    keepUnconfirmed(payload, existing, ['dataEfetiva', 'valorEfetivo', 'valorEfetivoT']);
-  }
-  return payload;
-}
-
 export async function updateAction(id: string, options: UpdateOptions): Promise<void> {
   const entryId = Number(id);
   if (Number.isNaN(entryId)) {
     exitWithError('Invalid entry ID. Must be a number.');
+  }
+
+  if (options.scheduled && (options.pending || options.reconciled)) {
+    exitWithError('Use only one of --scheduled, --pending and --reconciled.');
   }
 
   // Validate options that need resolution before fetching entry
@@ -217,7 +113,8 @@ export async function updateAction(id: string, options: UpdateOptions): Promise<
     options.tags !== undefined ||
     options.notes !== undefined ||
     options.pending ||
-    options.reconciled;
+    options.reconciled ||
+    options.scheduled;
 
   if (!hasChanges) {
     exitWithError('No changes specified. Use options like --description, --value, --date, etc.');
@@ -250,6 +147,7 @@ export async function updateAction(id: string, options: UpdateOptions): Promise<
       notes: options.notes,
       reconciled: resolveReconciled(options, existing),
       scheduled,
+      unconfirm: Boolean(options.scheduled),
     });
     if (todos !== undefined) payload.todos = todos;
 
@@ -299,7 +197,10 @@ export async function updateAction(id: string, options: UpdateOptions): Promise<
     delete payload.categoriaPai;
   }
 
-  if (scheduled) {
+  if (options.scheduled) {
+    payload.conciliado = false;
+    clearEffective(payload, ['dataEfetiva', 'valorEfetivo']);
+  } else if (scheduled) {
     keepUnconfirmed(payload, existing, ['dataEfetiva', 'valorEfetivo']);
     // Moving a scheduled occurrence moves its schedule along with it (what
     // the tested reference patch for #65 sent).
