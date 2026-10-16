@@ -4,6 +4,7 @@ import { createAction } from './create.js';
 import { deleteAction } from './delete.js';
 import { addFilterOptions } from './filters.js';
 import { listAction, summaryAction } from './list.js';
+import { scopeOption } from './series.js';
 import { updateAction } from './update.js';
 
 export const entriesCommand = new Command('entries')
@@ -52,8 +53,9 @@ entriesCommand
   .option('-D, --date <date>', 'Entry date (YYYY-MM-DD)')
   .option('-g, --tags <ids>', 'Tag ID(s), alias(es), or exact name(s) (case-insensitive), comma-separated')
   .option('-n, --notes <text>', 'Additional notes/observations')
-  .option('-p, --pending', 'Set as pending (not reconciled)')
+  .option('-p, --pending', 'Set as pending: confirmed, not reconciled (confirms a scheduled entry)')
   .option('-r, --reconciled', 'Set as reconciled')
+  .addOption(scopeOption('change'))
   .option('--json', 'Output as JSON')
   .action(action(updateAction));
 

@@ -224,6 +224,13 @@ mdcli entries update 12345 --value 200 --category food
 # A transfer cannot be turned into an expense or an income.
 mdcli entries update 12345 --value 200
 
+# Recurring series (fixed or installments): by default only this occurrence
+# changes, and it leaves the series (a warning on stderr says so). A scheduled
+# occurrence stays scheduled unless you pass --pending or --reconciled.
+mdcli entries update 12345 --date 2027-01-25 --scope this
+# This occurrence and the following ones; earlier ones are left untouched
+mdcli entries update 12345 --date 2027-01-25 --scope following
+
 # Delete an entry
 mdcli entries delete 12345
 

@@ -5,6 +5,7 @@ import {
   CREDIT_CARD_ACCOUNT,
   cardInvoice,
 } from '../test/fixtures.js';
+import { SEEDED_ENTRIES } from './mock-entries.js';
 
 // GitHub "latest release" endpoint used by the self-updater (no auth).
 const MOCK_LATEST_TAG = 'v2099.1.1';
@@ -30,66 +31,16 @@ const MOCK_ACCOUNTS = {
   items: [...ACCOUNTS_RESPONSE.items, CARD_NO_DUE],
 };
 
-// Seeded entries for GET/PUT/DELETE /v1/lancamentos/:id (parity with unit fixtures).
-const SEEDED_ENTRIES: Record<number, Record<string, unknown>> = {
-  50: {
-    id: 50,
-    descricao: 'Poupança',
-    tipo: 't',
-    valor: -1000,
-    valorT: 1000,
-    data: '2026-01-15',
-    dataPrevista: '2026-01-15',
-    dataEfetiva: '2026-01-15',
-    status: 'conciliado',
-    conciliado: true,
-    conta: 1001,
-    contaT: 1003,
-    categoria: 30,
-    tags: [],
-    observacoes: '',
-  },
-  60: {
-    id: 60,
-    descricao: 'Notebook',
-    tipo: 'd',
-    valor: -250,
-    data: '2026-01-10',
-    dataPrevista: '2026-01-10',
-    dataEfetiva: '2026-01-10',
-    dataCompetencia: '2026-01-10',
-    status: 'conciliado',
-    conciliado: true,
-    conta: 1001,
-    categoria: 10,
-    categoriaPai: 0,
-    parcela: '2/6',
-    agendaId: 99,
-    plastico: 7,
-    tags: [501],
-    observacoes: 'parcelado',
-    ndocumento: 'NF-1',
-    lembrete: 0,
-    automatico: false,
-    exibirCp: true,
-    exibirCr: true,
-    estorno: false,
-    transferencia: false,
-  },
-  70: {
-    id: 70,
-    descricao: 'Café',
-    tipo: 'd',
-    valor: -12.5,
-    data: '2026-01-12',
-    dataPrevista: '2026-01-12',
-    status: 'conciliado',
-    conciliado: true,
-    conta: 1001,
-    categoria: 10,
-    tags: [],
-  },
-};
+/**
+ * The label the API answers with for the status object a PUT sends. Like the
+ * real API, an effective date confirms the entry even with confirmado: false.
+ */
+function statusLabel(sent: unknown, dataEfetiva: unknown, current: unknown): unknown {
+  if (sent === null || typeof sent !== 'object') return current;
+  const { confirmado, conciliado } = sent as { confirmado?: boolean; conciliado?: boolean };
+  if (conciliado) return 'conciliado';
+  return confirmado || dataEfetiva ? 'pendente' : 'agendado';
+}
 
 function notFound(): Response {
   return Response.json({ message: 'not found' }, { status: 404 });
@@ -266,13 +217,21 @@ async function entriesRoute(req: Request, path: string): Promise<Response> {
   if (req.method === 'PUT') {
     const body = await readJsonBody(req);
     if (body instanceof Response) return body;
+    const inSeries = Boolean(existing.agendaId) && Boolean(existing.parcela);
+    if (body.todos !== undefined && (typeof body.todos !== 'boolean' || !inSeries)) {
+      return badRequest('todos only applies to an occurrence of a series, as a boolean');
+    }
     const merged: Record<string, unknown> = { ...existing, ...body, id };
+    // Like the real API: without todos: true the occurrence leaves its series.
+    const keepsSeries = inSeries && body.todos === true;
     return Response.json({
       id,
       descricao: merged.descricao,
       conciliado: merged.conciliado ?? false,
       dataCompetencia: merged.dataCompetencia ?? null,
-      status: merged.status ?? 'conciliado',
+      status: statusLabel(body.status, merged.dataEfetiva, existing.status),
+      agendaId: keepsSeries ? existing.agendaId : null,
+      parcela: keepsSeries ? existing.parcela : null,
       tipo: merged.tipo,
       valor: merged.valor,
       valorPrevisto: merged.valor,
