@@ -3,7 +3,24 @@ import { exitWithError } from '../../utils/action.js';
 import { fetchCategories } from '../../lib/api.js';
 import { resolveIds } from '../../lib/aliases.js';
 import type { EntriesParams } from '../../types/index.js';
-import { getCurrentMonthRange } from '../../lib/dates.js';
+import { getCurrentMonthRange, isCalendarDate } from '../../lib/dates.js';
+
+// The API answers 400 "A data limite de carregamento dos lançamentos é
+// 31/12/2031" for any later end date.
+const LAST_LOADABLE_DATE = '2031-12-31';
+
+function checkDateRange(from: string | undefined, to: string | undefined): void {
+  for (const [flag, value] of [['--from', from], ['--to', to]] as const) {
+    if (value !== undefined && !isCalendarDate(value)) {
+      exitWithError(`Invalid ${flag} date: ${value}. Use YYYY-MM-DD.`);
+    }
+  }
+  if (to !== undefined && to > LAST_LOADABLE_DATE) {
+    exitWithError(
+      `--to ${to} is past ${LAST_LOADABLE_DATE}, the last date Meu Dinheiro loads entries for. Use --to ${LAST_LOADABLE_DATE} or earlier.`
+    );
+  }
+}
 
 const STATUS_FLAGS: Record<string, number> = {
   pending: 1,
@@ -72,6 +89,7 @@ export async function resolveEntryFilters(options: FilterOptions): Promise<Omit<
   if (!options.account) {
     exitWithError('At least one account ID or alias is required. Use --account <id> or --account <id1,id2,...>');
   }
+  checkDateRange(options.from, options.to);
 
   const accountResult = await resolveIds('accounts', options.account);
   if (accountResult.unresolved.length > 0) {

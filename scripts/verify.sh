@@ -63,6 +63,16 @@ expect_fail() { # expect_fail <regex> <args...>
   grep -Eq "$re" <<<"$out" || { echo "esperava /$re/ em: $out"; return 1; }
 }
 
+expect_json_error() { # expect_json_error <regex on .error> <args...> — fails, empty stdout, stderr = {"error": ...}
+  local re="$1"; shift
+  local out err
+  if out=$("${CLI[@]}" "$@" 2>"$SANDBOX/stderr" </dev/null); then echo "deveria falhar: $out"; return 1; fi
+  err=$(cat "$SANDBOX/stderr")
+  [ -z "$out" ] || { echo "stdout deveria estar vazio: $out"; return 1; }
+  ERR="$err" RE="$re" bun -e 'const d = JSON.parse(process.env.ERR); if (!new RegExp(process.env.RE).test(d.error)) process.exit(1);' \
+    || { echo "esperava erro JSON /$re/ no stderr: $err"; return 1; }
+}
+
 # --version must match package.json exactly (single source of truth).
 PKG_VERSION=$(bun -e 'console.log((await Bun.file("package.json").json()).version)')
 step "cli --version"        expect_ok "^${PKG_VERSION//./\\.}\$" --version
@@ -119,6 +129,12 @@ step "cli entries update --scope following (mock)" expect_json 'd.status === "ag
 step "cli entries update --scope following texto (mock)" expect_ok 'Status: Scheduled' entries update 80 -D 2027-01-25 --scope following
 step "cli entries update --pending confirma (mock)" expect_json 'd.status === "pendente"' entries update 80 --pending --scope this --json
 step "cli entries update --scope fora de série (mock)" expect_fail 'not part of a recurring series' entries update 70 -d X --scope following
+# entries list: the API refuses end dates past 2031-12-31 (#65), so the CLI
+# checks first; under --json any error is {"error": ...} on stderr, exit 1.
+step "cli entries list --json (mock)" expect_json 'Array.isArray(d) && d.some((e) => e.id === 70 && e.description === "Café")' entries list -a 1001 -f 2026-01-01 -t 2026-01-31 --json
+step "cli entries list --to > 2031 (mock)" expect_fail 'is past 2031-12-31' entries list -a 1001 -f 2026-11-01 -t 2035-12-31
+step "cli entries list --to > 2031 --json (mock)" expect_json_error 'is past 2031-12-31' entries list -a 1001 -f 2026-11-01 -t 2035-12-31 --json
+step "cli erro da API em --json (mock)" expect_json_error 'GET /v1/lancamentos/9999\): 404' entries delete 9999 --dangerously-skip-confirmation --json
 step "cli entries delete (mock)"             expect_ok 'Entry 70 deleted' entries delete 70 --dangerously-skip-confirmation
 step "cli entries delete --json (mock)"      expect_json 'd.deleted === true && d.id === 70' entries delete 70 --dangerously-skip-confirmation --json
 step "cli entries delete inexistente (mock)" expect_fail 'GET /v1/lancamentos/9999\): 404' entries delete 9999 --dangerously-skip-confirmation
