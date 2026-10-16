@@ -2,16 +2,19 @@
 // Uses the same fixtures as the unit tests; never touches the real API.
 import {
   ACCOUNTS_RESPONSE,
+  CATEGORIES_RESPONSE,
   CREDIT_CARD_ACCOUNT,
+  SAVINGS_ACCOUNT,
   cardInvoice,
 } from '../test/fixtures.js';
-import { SEEDED_ENTRIES } from './mock-entries.js';
+import { SEEDED_ENTRIES, checkCreatePayload, createdEntry } from './mock-entries.js';
 
 // GitHub "latest release" endpoint used by the self-updater (no auth).
 const MOCK_LATEST_TAG = 'v2099.1.1';
 const LATEST_RELEASE_PATH = '/github/repos/fm1randa/mdcli/releases/latest';
 
 const ACCOUNTS_PATH = '/api/v1/cadastros/contas';
+const CATEGORIES_PATH = '/api/v1/cadastros/categorias';
 const ENTRIES_PATH = '/api/v1/lancamentos';
 const NEW_ACCOUNT_ID = 2001;
 const NEW_ENTRY_ID = 9001;
@@ -28,7 +31,7 @@ const CARD_NO_DUE = {
 
 const MOCK_ACCOUNTS = {
   ...ACCOUNTS_RESPONSE,
-  items: [...ACCOUNTS_RESPONSE.items, CARD_NO_DUE],
+  items: [...ACCOUNTS_RESPONSE.items, CARD_NO_DUE, SAVINGS_ACCOUNT],
 };
 
 /**
@@ -194,29 +197,9 @@ async function entriesRoute(req: Request, path: string): Promise<Response> {
       }
     }
 
-    const reconciled = Boolean(body.conciliado);
-    return Response.json(
-      {
-        id: NEW_ENTRY_ID,
-        descricao: body.descricao,
-        conciliado: reconciled,
-        dataCompetencia: body.dataCompetencia ?? null,
-        // The real API answers confirmado for a confirmed, unreconciled entry (#70).
-        status: reconciled ? 'conciliado' : 'confirmado',
-        tipo: body.tipo,
-        valor: body.valor,
-        valorPrevisto: body.valorPrevisto ?? body.valor,
-        valorEfetivo: body.valorEfetivo ?? body.valor,
-        data: body.data ?? new Date().toISOString(),
-        dataPrevista: body.dataPrevista,
-        dataEfetiva: body.dataEfetiva ?? null,
-        dataCriacao: new Date().toISOString(),
-        exibirCp: true,
-        exibirCr: true,
-        conta: body.conta,
-      },
-      { status: 201 }
-    );
+    const invalid = checkCreatePayload(body);
+    if (invalid) return badRequest(invalid);
+    return Response.json(createdEntry(body, NEW_ENTRY_ID), { status: 201 });
   }
 
   const match = path.match(/^\/api\/v1\/lancamentos\/(\d+)$/);
@@ -282,6 +265,9 @@ const server = Bun.serve({
     }
     if (url.pathname === ACCOUNTS_PATH || url.pathname.startsWith(`${ACCOUNTS_PATH}/`)) {
       return accountsRoute(req, url.pathname);
+    }
+    if (url.pathname === CATEGORIES_PATH && req.method === 'GET') {
+      return Response.json(CATEGORIES_RESPONSE);
     }
     if (url.pathname.startsWith('/api/v1/cartoes/')) {
       return cardsRoute(req, url.pathname);

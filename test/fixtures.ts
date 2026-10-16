@@ -34,6 +34,15 @@ export const CREDIT_CARD_ACCOUNT = {
   proximoFechamento: '2026-01-08T00:00:00',
 };
 
+export const SAVINGS_ACCOUNT = {
+  ...CHECKING_ACCOUNT,
+  id: 1004,
+  nome: 'Poupança Nubank',
+  tipo: 'POUPANCA',
+  tipoNovo: 122,
+  saldoUltimoExtrato: 0,
+};
+
 export const ACCOUNTS_RESPONSE = {
   meta: {
     tipos: [
@@ -68,7 +77,7 @@ export const CATEGORIES_RESPONSE = {
     category(10, 'Alimentação', 'd'),
     category(11, 'Alimentação/Mercado', 'd', { pai: 10 }),
     category(20, 'Salário', 'r'),
-    category(30, 'Transferência', 't', { sistema: true, permissoes: locked }),
+    category(30, 'Transferência', 't', { sistema: true, permissoes: locked, tipoL: 15 }),
     category(40, 'Outros', 'd'),
   ],
 };

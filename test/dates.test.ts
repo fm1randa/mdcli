@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, setSystemTime, test } from 'bun:test';
 import {
+  addInterval,
   getCurrentMonthRange,
   isCalendarDate,
   shiftDueDate,
@@ -66,5 +67,17 @@ describe('getCurrentMonthRange', () => {
       startDate: '2026-12-01',
       endDate: '2026-12-31',
     });
+  });
+});
+
+describe('addInterval', () => {
+  test('clamps months and years to the end of the target month', () => {
+    expect(addInterval('2026-01-31', 1, 'M')).toBe('2026-02-28');
+    expect(addInterval('2024-02-29', 1, 'y')).toBe('2025-02-28');
+  });
+
+  test('adds days and weeks across month and year boundaries', () => {
+    expect(addInterval('2026-12-30', 3, 'd')).toBe('2027-01-02');
+    expect(addInterval('2026-02-20', 2, 'w')).toBe('2026-03-06');
   });
 });

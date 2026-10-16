@@ -34,3 +34,16 @@ export function isCalendarDate(value: string): boolean {
   const date = new Date(year, month - 1, day);
   return date.getMonth() === month - 1 && date.getDate() === day;
 }
+
+/**
+ * Moves a YYYY-MM-DD date by `count` days, weeks, months or years, the way
+ * the web app (moment's add) does: months and years clamp the day to the end
+ * of the target month, so Jan 31 + 1 month is Feb 28/29.
+ */
+export function addInterval(date: string, count: number, interval: 'd' | 'w' | 'M' | 'y'): string {
+  if (interval === 'M') return shiftDueDate(date, count);
+  if (interval === 'y') return shiftDueDate(date, count * 12);
+  const [year, month, day] = date.split('-').map(Number);
+  const days = interval === 'w' ? count * 7 : count;
+  return toLocalDateString(new Date(year, month - 1, day + days));
+}

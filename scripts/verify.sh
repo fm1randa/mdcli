@@ -116,6 +116,15 @@ step "cli cards future --json (mock)"        expect_json 'Array.isArray(d) && d[
 # Card create: dataCompetencia=purchase, dataPrevista=invoice due, not reconciled.
 step "cli entries create cartão (mock)"      expect_ok 'Entry created' entries create -a 1002 -d Voo -v 10 -c 10 -D 2026-01-05
 step "cli entries create cartão --json (mock)" expect_json 'd.id === 9001 && d.dataCompetencia === "2026-01-05" && d.dataPrevista === "2026-01-16" && d.conciliado === false && d.status === "confirmado"' entries create -a 1002 -d Voo -v 10 -c 10 -D 2026-01-05 --json
+# Create shapes deduced from the web bundle (dogfooding 2026-10-16): transfer
+# naming contaOrigem/contaDestino, parcelada series with parcelas, scheduled.
+step "cli entries create transferência --json (mock)" expect_json 'd.conta === 1001 && d.contaT === 1004 && d.valor === -500 && d.valorT === 500 && d.status === "conciliado"' entries create -a 1001 -T transfer --to-account 1004 -d Reserva -v 500 -D 2026-01-05 --json
+step "cli entries create transferência sem destino (mock)" expect_fail 'needs a destination account' entries create -a 1001 -T transfer -d Reserva -v 500
+step "cli entries create parcelada --json (mock)" expect_json 'd.parcela === "1/3" && d.valor === -33.34' entries create -a 1001 -d Geladeira -v 100 -c 10 -i 3 -D 2026-01-31 --json
+step "cli entries create parcelada texto (mock)" expect_ok 'Installments: 1x .*33,34 \+ 2x .*33,33 \(monthly, every 1\)' entries create -a 1001 -d Geladeira -v 100 -c 10 -i 3 -D 2026-01-31
+step "cli entries create fixa --frequency + --times (mock)" expect_ok 'Recurrence: monthly, every 2, 6 times' entries create -a 1001 -d Academia -v 90 -c 10 -r monthly --frequency 2 --times 6
+step "cli entries create agendado --json (mock)" expect_json 'd.status === "agendado" && d.dataEfetiva === null && d.valorEfetivo === null' entries create -a 1001 -d IPVA -v 800 -c 10 --scheduled -D 2026-11-05 --json
+step "cli entries update --scheduled (mock)" expect_json 'd.status === "agendado" && d.dataEfetiva === null' entries update 70 --scheduled --json
 step "cli entries update parcela (mock)"     expect_ok 'Entry updated' entries update 60 -d "Notebook (2/6)"
 step "cli entries update parcela --json (mock)" expect_json 'd.id === 60 && d.descricao === "Notebook (2/6)"' entries update 60 -d "Notebook (2/6)" --json
 step "cli entries update transferência (mock)" expect_ok 'Entry updated' entries update 50 -d "Poupança mensal" -v 1200
