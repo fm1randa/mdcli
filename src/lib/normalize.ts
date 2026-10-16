@@ -1,4 +1,4 @@
-import type { CategoriesResponse, AccountsResponse, TagsResponse, NormalizedCategory, NormalizedAccount, NormalizedTag, NormalizedEntry, Entry, CardInvoiceResponse, CardFutureResponse, NormalizedCardEntry, NormalizedCardInstallment } from '../types/index.js';
+import type { CategoriesResponse, AccountsResponse, TagsResponse, NormalizedCategory, NormalizedAccount, NormalizedTag, NormalizedEntry, Entry, EntryRepetition, EntryStatus, CardInvoiceResponse, CardFutureResponse, NormalizedCardEntry, NormalizedCardInstallment } from '../types/index.js';
 
 function mapCategoryType(tipo: 'd' | 'r' | 't'): 'expense' | 'income' | 'transfer' {
   const typeMap: Record<string, 'expense' | 'income' | 'transfer'> = {
@@ -42,17 +42,17 @@ export function normalizeTags(response: TagsResponse): NormalizedTag[] {
 
 /**
  * The API labels an entry conciliado, confirmado (confirmed, not reconciled -
- * what `-p` creates), pendente, or agendado. The CLI calls both confirmado and
- * pendente "pending", as the web app's "Não conciliado" does.
+ * what `-p` creates), pendente (not confirmed, date already past) or agendado
+ * (not confirmed, future). These are the four states `-s` filters on.
  */
-export const ENTRY_STATUS_LABELS: Record<string, 'reconciled' | 'pending' | 'scheduled'> = {
+export const ENTRY_STATUS_LABELS: Record<string, EntryStatus> = {
   conciliado: 'reconciled',
-  confirmado: 'pending',
+  confirmado: 'confirmed',
   pendente: 'pending',
   agendado: 'scheduled',
 };
 
-function mapEntryStatus(status: string): 'reconciled' | 'pending' | 'scheduled' {
+function mapEntryStatus(status: string): EntryStatus {
   return ENTRY_STATUS_LABELS[status] ?? 'pending';
 }
 
@@ -63,18 +63,38 @@ function mapEntryType(entry: Entry): NormalizedEntry['type'] {
   return mapCategoryType(entry.tipo ?? 'd');
 }
 
-export function normalizeEntries(entries: Entry[]): NormalizedEntry[] {
-  return entries.map((entry) => ({
+/** The web app's Repetição: no parcela = única, "fixa" = fixa, "2/6" = parcelada. */
+function mapRepetition(parcela: string | undefined): EntryRepetition {
+  if (!parcela) return 'single';
+  return parcela === 'fixa' ? 'fixed' : 'installment';
+}
+
+export function normalizeEntry(entry: Entry): NormalizedEntry {
+  return {
     id: entry.id != null && entry.id !== '' ? entry.id : `invoice:${entry.projecaoFatura}`,
     description: entry.descricao,
-    date: entry.data,
+    // The planned date is what the list's date range filters on (and what
+    // the web app shows); data can differ, e.g. on card purchases.
+    date: (entry.dataPrevista ?? entry.data).slice(0, 10),
     value: entry.valor,
     type: mapEntryType(entry),
     status: mapEntryStatus(entry.status),
     accountId: entry.conta,
     categoryId: entry.categoria ?? null,
     installment: entry.parcela ?? null,
-  }));
+    repetition: mapRepetition(entry.parcela),
+    seriesId: entry.agendaId ?? null,
+    effectiveDate: entry.dataEfetiva?.slice(0, 10) ?? null,
+    competenceDate: entry.dataCompetencia?.slice(0, 10) ?? null,
+    transferAccountId: entry.contaT ?? null,
+    tagIds: entry.tags ?? [],
+    notes: entry.observacoes ?? '',
+    documentNumber: entry.ndocumento || null,
+  };
+}
+
+export function normalizeEntries(entries: Entry[]): NormalizedEntry[] {
+  return entries.map(normalizeEntry);
 }
 
 export function normalizeCardEntries(response: CardInvoiceResponse): NormalizedCardEntry[] {

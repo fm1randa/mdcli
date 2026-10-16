@@ -34,7 +34,7 @@ function describeStatus(status: unknown): string {
   }
   if (status !== null && typeof status === 'object' && 'confirmado' in status) {
     const { confirmado, conciliado } = status as { confirmado?: boolean; conciliado?: boolean };
-    return formatStatus(conciliado ? 'reconciled' : confirmado ? 'pending' : 'scheduled');
+    return formatStatus(conciliado ? 'reconciled' : confirmado ? 'confirmed' : 'scheduled');
   }
   return chalk.gray(status === undefined ? '(not returned by the API)' : String(status));
 }

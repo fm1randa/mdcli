@@ -38,7 +38,7 @@ export interface Entry {
   valorEfetivo?: number;
   data: string;
   dataPrevista: string;
-  dataEfetiva?: string;
+  dataEfetiva?: string | null;
   dataCriacao?: string;
   exibirCp?: boolean;
   exibirCr?: boolean;
@@ -90,18 +90,34 @@ export interface EntriesParams {
   value?: number;
   status?: number;
   entryType?: number;
+  /** tipoRepeticao bitmask: 1 single, 2 installment, 4 fixed. */
+  repetition?: number;
 }
+
+export type EntryStatus = 'reconciled' | 'confirmed' | 'pending' | 'scheduled';
+export type EntryRepetition = 'single' | 'installment' | 'fixed';
 
 export interface NormalizedEntry {
   id: number | string;
   description: string;
+  /** Planned date (dataPrevista), YYYY-MM-DD. */
   date: string;
   value: number;
   type: 'expense' | 'income' | 'transfer' | 'invoice';
-  status: 'reconciled' | 'pending' | 'scheduled';
+  status: EntryStatus;
   accountId: number;
   categoryId: number | null;
   installment: string | null;
+  repetition: EntryRepetition;
+  /** agendaId: the series an occurrence belongs to. */
+  seriesId: number | null;
+  effectiveDate: string | null;
+  competenceDate: string | null;
+  /** The other account of a transfer (contaT). */
+  transferAccountId: number | null;
+  tagIds: number[];
+  notes: string;
+  documentNumber: string | null;
 }
 
 interface CreateEntryStatus {

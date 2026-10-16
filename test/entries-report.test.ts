@@ -64,10 +64,12 @@ describe('entries list --csv', () => {
 
     expect(result.exitCode).toBe(0);
     const lines = result.stdout.split('\r\n');
-    expect(lines[0]).toBe('id,date,description,value,type,status,account,category,installment');
-    expect(lines[1]).toBe('1,2026-01-05,Mercado,-100.5,expense,reconciled,Nubank,Alimentação/Mercado,');
-    expect(lines).toContain('6,2026-02-01,"Café, ""especial""",-10,expense,reconciled,Nubank,,');
-    expect(lines).toContain('4,2026-01-20,Restaurante,-200,expense,reconciled,Cartão Azul,Alimentação,');
+    expect(lines[0]).toBe(
+      'id,date,description,value,type,status,account,category,installment,repetition,effective_date,competence_date,transfer_account,tags,notes,document_number'
+    );
+    expect(lines[1]).toBe('1,2026-01-05,Mercado,-100.5,expense,reconciled,Nubank,Alimentação/Mercado,,single,,,,,,');
+    expect(lines).toContain('6,2026-02-01,"Café, ""especial""",-10,expense,reconciled,Nubank,,,single,,,,,,');
+    expect(lines).toContain('4,2026-01-20,Restaurante,-200,expense,reconciled,Cartão Azul,Alimentação,,single,,,,,,');
   });
 
   test('refuses --json together with --csv', async () => {

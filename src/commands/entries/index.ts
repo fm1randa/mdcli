@@ -5,6 +5,7 @@ import { deleteAction } from './delete.js';
 import { addFilterOptions } from './filters.js';
 import { listAction, summaryAction } from './list.js';
 import { scopeOption } from './series.js';
+import { showAction } from './show.js';
 import { updateAction } from './update.js';
 
 export const entriesCommand = new Command('entries')
@@ -23,6 +24,13 @@ addFilterOptions(
   .option('--json', 'Output as JSON')
   .option('--csv', 'Output as CSV')
   .action(action(summaryAction));
+
+entriesCommand
+  .command('show <id>')
+  .description('Show every field of one entry')
+  .option('--json', 'Output the normalized entry as JSON (the same fields as list --json)')
+  .option('--raw', 'Output the entry exactly as the API returns it')
+  .action(action(showAction));
 
 entriesCommand
   .command('create')

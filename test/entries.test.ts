@@ -176,7 +176,7 @@ describe('entries create', () => {
     expect(mutations(api)).toHaveLength(0);
   });
 
-  test('shows an unreconciled entry (-p) as Pending, the way list does', async () => {
+  test('shows an unreconciled entry (-p) as Confirmed, the way list does', async () => {
     // Real API answer for `entries create -p` on 2026-10-16: status "confirmado".
     api.on('POST /v1/lancamentos', { ...created, status: 'confirmado', conciliado: false, dataEfetiva: '2026-11-05' });
 
@@ -186,7 +186,7 @@ describe('entries create', () => {
     );
 
     expect(result.exitCode).toBe(0);
-    expect(result.output).toContain('Pending');
+    expect(result.output).toContain('Confirmed');
     expect(result.output).not.toContain('Scheduled');
     expect(mutations(api)[0].body).toMatchObject({ status: { confirmado: true, conciliado: false }, conciliado: false });
   });

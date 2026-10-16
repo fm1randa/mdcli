@@ -202,8 +202,18 @@ mdcli entries list --account "Nubank - Conta Corrente" --from 2024-01-01 --to 20
 # JSON too ({"error": "..."}), so stdout only ever holds the result.
 mdcli entries list --account mp --from 2026-11-01 --to 2031-12-31 --json
 
-# Export entries to CSV (all pages, with account and category names)
+# Export entries to CSV (all pages, with account, category, transfer-account and tag names,
+# effective/competence dates, repetition, notes and document number;
+# date is the planned date, the one --from/--to filter on)
 mdcli entries list --account mp --from 2026-01-01 --to 2026-03-31 --csv > entries.csv
+
+# Only installments and fixed series (the web app's Repetição filter);
+# also on summary. Values: single, installment, fixed
+mdcli entries list --account mp --repetition installment,fixed
+
+# Every field of one entry; --json is the list shape, --raw the API answer
+mdcli entries show 12345
+mdcli entries show 12345 --raw
 
 # Income vs. expenses by category for the current month (transfers left out)
 mdcli entries summary --account mp,nubank

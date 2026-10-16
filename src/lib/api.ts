@@ -267,6 +267,11 @@ async function fetchEntries(params: EntriesParams): Promise<EntriesResponse> {
     queryParams.set('tags', JSON.stringify({ ids: params.tagIds.map(String) }));
   }
 
+  // Like the web app, only sent when the filter is on (absent = every kind).
+  if (params.repetition !== undefined) {
+    queryParams.set('tipoRepeticao', params.repetition.toString());
+  }
+
   if (params.keywords) {
     queryParams.set('palavras', params.keywords);
   }

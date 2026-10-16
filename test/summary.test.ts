@@ -11,6 +11,14 @@ function entry(partial: Partial<NormalizedEntry> & Pick<NormalizedEntry, 'id' | 
     accountId: 1,
     categoryId: 10,
     installment: null,
+    repetition: 'single',
+    seriesId: null,
+    effectiveDate: null,
+    competenceDate: null,
+    transferAccountId: null,
+    tagIds: [],
+    notes: '',
+    documentNumber: null,
     ...partial,
   };
 }

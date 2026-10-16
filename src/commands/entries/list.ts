@@ -2,11 +2,12 @@ import Table from 'cli-table3';
 import chalk from 'chalk';
 import { logger } from '../../utils/logger.js';
 import { exitWithError } from '../../utils/action.js';
-import { fetchAllEntries, fetchAccounts, fetchCategories, normalizeEntries } from '../../lib/api.js';
+import { fetchAllEntries, normalizeEntries } from '../../lib/api.js';
 import { toCsv } from '../../lib/csv.js';
 import { summarize, totalRow } from '../../lib/summary.js';
 import { type FilterOptions, resolveEntryFilters, resolveExcludedCategories } from './filters.js';
 import { formatCurrency, formatSignedCurrency, formatStatus, formatType } from './format.js';
+import { loadNames, nameOf, tagNames } from './names.js';
 
 async function loadEntries(options: FilterOptions) {
   const params = await resolveEntryFilters(options);
@@ -14,14 +15,6 @@ async function loadEntries(options: FilterOptions) {
   const all = normalizeEntries(await fetchAllEntries(params));
   const entries = all.filter((e) => e.categoryId === null || !excludedCategories.has(e.categoryId));
   return { params, entries, excludedByCategory: all.length - entries.length };
-}
-
-async function loadNames(): Promise<{ accounts: Map<number, string>; categories: Map<number, string> }> {
-  const [accounts, categories] = await Promise.all([fetchAccounts(), fetchCategories()]);
-  return {
-    accounts: new Map(accounts.items.map((a) => [a.id, a.nome])),
-    categories: new Map(categories.items.map((c) => [c.id, c.nome])),
-  };
 }
 
 function checkOutputFormat(options: { json?: boolean; csv?: boolean }): void {
@@ -45,10 +38,13 @@ export async function listAction(options: ListOptions): Promise<void> {
   }
 
   if (options.csv) {
-    const names = await loadNames();
+    const names = await loadNames({ tags: entries.some((e) => e.tagIds.length > 0) });
     process.stdout.write(
       toCsv(
-        ['id', 'date', 'description', 'value', 'type', 'status', 'account', 'category', 'installment'],
+        [
+          'id', 'date', 'description', 'value', 'type', 'status', 'account', 'category', 'installment',
+          'repetition', 'effective_date', 'competence_date', 'transfer_account', 'tags', 'notes', 'document_number',
+        ],
         entries.map((e) => [
           e.id,
           e.date,
@@ -56,9 +52,16 @@ export async function listAction(options: ListOptions): Promise<void> {
           e.value,
           e.type,
           e.status,
-          names.accounts.get(e.accountId) ?? e.accountId,
-          e.categoryId === null ? '' : (names.categories.get(e.categoryId) ?? e.categoryId),
+          nameOf(names.accounts, e.accountId),
+          e.categoryId === null ? '' : nameOf(names.categories, e.categoryId),
           e.installment,
+          e.repetition,
+          e.effectiveDate,
+          e.competenceDate,
+          e.transferAccountId === null ? '' : nameOf(names.accounts, e.transferAccountId),
+          tagNames(names, e.tagIds).join('; '),
+          e.notes,
+          e.documentNumber,
         ])
       )
     );
@@ -68,7 +71,7 @@ export async function listAction(options: ListOptions): Promise<void> {
   const table = new Table({
     head: ['ID', 'Date', 'Description', 'Value', 'Type', 'Status', 'Installment'],
     style: { head: ['cyan'] },
-    colWidths: [12, 12, 36, 15, 12, 12, 12],
+    colWidths: [12, 12, 36, 15, 12, 12, 13],
   });
 
   for (const entry of entries) {
@@ -116,12 +119,12 @@ export async function summaryAction(options: SummaryOptions): Promise<void> {
       return { key: month, label: month };
     }
     if (by === 'account') {
-      return { key: String(e.accountId), label: names?.accounts.get(e.accountId) ?? String(e.accountId) };
+      return { key: String(e.accountId), label: String(nameOf(names?.accounts, e.accountId)) };
     }
     if (e.categoryId === null) {
       return { key: 'none', label: '(no category)' };
     }
-    return { key: String(e.categoryId), label: names?.categories.get(e.categoryId) ?? String(e.categoryId) };
+    return { key: String(e.categoryId), label: String(nameOf(names?.categories, e.categoryId)) };
   });
 
   // Months read chronologically; other groupings put the biggest spending first.
