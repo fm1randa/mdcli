@@ -195,6 +195,13 @@ step "cli entries show inexistente (mock)" expect_fail 'GET /v1/lancamentos/9999
 step "cli entries list --to > 2031 (mock)" expect_fail 'is past 2031-12-31' entries list -a 1001 -f 2026-11-01 -t 2035-12-31
 step "cli entries list --to > 2031 --json (mock)" expect_json_error 'is past 2031-12-31' entries list -a 1001 -f 2026-11-01 -t 2035-12-31 --json
 step "cli erro da API em --json (mock)" expect_json_error 'GET /v1/lancamentos/9999\): 404' entries delete 9999 --dangerously-skip-confirmation --json
+# Jardinagem 2026-10-19: Number("") is 0, so -v "" created an R$ 0 entry and
+# delete "" reached the API with id 0. Strict parsing refuses both.
+step "cli entries create -v vazio recusado (mock)" expect_fail 'Invalid value ""' entries create -a 1001 -d X -v "" -c 10
+step "cli entries create -v 1e3 recusado (mock)" expect_fail 'Invalid value "1e3"' entries create -a 1001 -d X -v 1e3 -c 10
+step "cli entries create -v 1,50 (mock)" expect_json 'd.valor === -1.5' entries create -a 1001 -d Pão -v 1,50 -c 10 -D 2026-01-05 --json
+step "cli entries delete id vazio recusado (mock)" expect_fail 'Invalid entry ID' entries delete "" --dangerously-skip-confirmation
+step "cli accounts delete 0x10 recusado (mock)" expect_fail 'Invalid account ID' accounts delete 0x10 --dangerously-skip-confirmation
 step "cli entries delete (mock)"             expect_ok 'Entry 70 deleted' entries delete 70 --dangerously-skip-confirmation
 step "cli entries delete --json (mock)"      expect_json 'd.deleted === true && d.id === 70' entries delete 70 --dangerously-skip-confirmation --json
 step "cli entries delete inexistente (mock)" expect_fail 'GET /v1/lancamentos/9999\): 404' entries delete 9999 --dangerously-skip-confirmation

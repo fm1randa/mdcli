@@ -1,4 +1,5 @@
 import { exitWithError } from '../../utils/action.js';
+import { parseId } from '../../utils/parse.js';
 
 /**
  * What POST /v1/lancamentos answered for a card purchase (Finanças,
@@ -13,7 +14,8 @@ export function isEntryId(id: unknown): boolean {
 
 /** The numeric entry ID from a CLI argument, or exit with a hint. */
 export function parseEntryId(id: string): number {
-  if (isEntryId(id)) return Number(id);
+  const entryId = parseId(id);
+  if (entryId !== undefined) return entryId;
   if (OCCURRENCE_ID.test(id)) {
     exitWithError(
       `"${id}" is a series occurrence ID, not an entry ID. ` +

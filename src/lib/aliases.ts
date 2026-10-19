@@ -4,6 +4,7 @@ import { getFullConfig, setAliases } from './config.js';
 import { logger } from '../utils/logger.js';
 import { exitWithError } from '../utils/action.js';
 import type { Alias, AliasMap, AliasType } from '../types/index.js';
+import { parseId } from '../utils/parse.js';
 
 function loadAliases(): AliasMap {
   const config = getFullConfig();
@@ -64,8 +65,8 @@ export function removeAlias(type: AliasType, identifier: string): { success: boo
   const aliases = loadAliases();
   const list = aliases[type];
 
-  const numId = Number(identifier);
-  let index = !Number.isNaN(numId) ? list.findIndex((a) => a.id === numId) : -1;
+  const numId = parseId(identifier);
+  let index = numId !== undefined ? list.findIndex((a) => a.id === numId) : -1;
 
   if (index === -1) {
     index = list.findIndex((a) => a.name === identifier);
@@ -81,8 +82,8 @@ export function removeAlias(type: AliasType, identifier: string): { success: boo
 }
 
 export async function resolveId(type: AliasType, input: string): Promise<number | null> {
-  const num = Number(input);
-  if (!Number.isNaN(num)) {
+  const num = parseId(input);
+  if (num !== undefined) {
     return num;
   }
 
@@ -105,8 +106,8 @@ export async function resolveIds(type: AliasType, input: string): Promise<{ ids:
   const remaining: string[] = [];
 
   for (const part of parts) {
-    const num = Number(part);
-    if (!Number.isNaN(num)) {
+    const num = parseId(part);
+    if (num !== undefined) {
       ids.push(num);
       continue;
     }
@@ -155,8 +156,8 @@ export function buildAliasCommand(parent: Command, type: AliasType): Command {
     .requiredOption('--id <id>', `${singular.charAt(0).toUpperCase()}${singular.slice(1)} ID`)
     .requiredOption('--name <name>', 'Alias name')
     .action((options: { id: string; name: string }) => {
-      const id = Number(options.id);
-      if (Number.isNaN(id)) {
+      const id = parseId(options.id);
+      if (id === undefined) {
         exitWithError('Invalid ID. Must be a number.');
       }
       const result = addAlias(type, id, options.name);
@@ -216,8 +217,8 @@ export function buildAliasCommand(parent: Command, type: AliasType): Command {
     .requiredOption('--id <id>', `${singular.charAt(0).toUpperCase()}${singular.slice(1)} ID`)
     .requiredOption('--name <name>', 'New alias name')
     .action((options: { id: string; name: string }) => {
-      const id = Number(options.id);
-      if (Number.isNaN(id)) {
+      const id = parseId(options.id);
+      if (id === undefined) {
         exitWithError('Invalid ID. Must be a number.');
       }
       const result = updateAlias(type, id, options.name);

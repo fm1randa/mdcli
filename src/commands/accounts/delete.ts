@@ -4,6 +4,7 @@ import { exitWithError } from '../../utils/action.js';
 import { promptConfirmation } from '../../utils/prompt.js';
 import { fetchAccounts, normalizeAccounts, deleteAccount } from '../../lib/api.js';
 import { invalidateNameCache } from '../../lib/config.js';
+import { parseId } from '../../utils/parse.js';
 
 
 interface DeleteAccountOptions {
@@ -12,8 +13,8 @@ interface DeleteAccountOptions {
 }
 
 export async function deleteAccountAction(id: string, options: DeleteAccountOptions): Promise<void> {
-  const accountId = Number(id);
-  if (Number.isNaN(accountId)) {
+  const accountId = parseId(id);
+  if (accountId === undefined) {
     exitWithError('Invalid account ID. Must be a number.');
   }
 

@@ -59,7 +59,7 @@ _Avoid_: "auto-upgrade", "sync with main"
 
 The order in which an **Identifier** is resolved is fixed and intentional:
 
-1. **Numeric** — if the string parses as a non-negative integer, treat it as the API ID directly. Fastest, fully offline, no ambiguity.
+1. **Numeric** — if the string is a positive integer in plain digits (`1167419`; not `''`, `0`, `1e3` or `0x10`), treat it as the API ID directly. Fastest, fully offline, no ambiguity. Anything else falls through to the next steps.
 2. **Alias** — look up the string in the local Alias map for the relevant entity type. Still offline.
 3. **Name** — if a non-numeric string matches no Alias, fetch the entity list from the API (or read the Name cache) and do a case-insensitive exact match against the `nome` field. This step is the only one that may hit the network.
 

@@ -12,6 +12,7 @@ import { resolveCardDueDate } from './card-invoice.js';
 import { withCardEntryId } from './card-entries.js';
 import { defaultTransferCategory, resolveTransferDestination } from './create-transfer.js';
 import { INTERVAL_LABELS, parseSchedule, type Schedule, type ScheduleOptions } from './schedule.js';
+import { parseAmount } from '../../utils/parse.js';
 
 interface CreateOptions extends ScheduleOptions {
   account: string;
@@ -76,9 +77,9 @@ async function resolveTags(tags: string | undefined): Promise<number[]> {
 }
 
 export async function createAction(options: CreateOptions): Promise<void> {
-  const value = Number(options.value);
-  if (Number.isNaN(value)) {
-    exitWithError('Invalid value. Must be a number.');
+  const value = parseAmount(options.value);
+  if (value === undefined) {
+    exitWithError(`Invalid value "${options.value}". Use a number like 10, 10.50 or 10,50.`);
   }
 
   const tipo = mapTypeToApi(options.type ?? 'expense');

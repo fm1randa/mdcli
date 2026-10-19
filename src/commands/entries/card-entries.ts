@@ -116,7 +116,7 @@ export async function withCardEntryId(
   const invoice = await fetchCardInvoice(card.id, card.dueDate);
   const ids = (invoice.lancamentos ?? [])
     .filter((e) => e.descricao === card.description && cents(e.valor) === cents(card.value) && isEntryId(e.id))
-    .map((e) => Number(e.id));
+    .map((e) => (typeof e.id === 'number' ? e.id : Number.parseInt(e.id, 10)));
   if (ids.length === 0) {
     // stderr: stdout stays machine-readable under --json.
     console.error(

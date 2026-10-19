@@ -12,6 +12,7 @@ import { toLocalDateString } from '../../lib/dates.js';
 import { describeScope, resolveSeriesScope, type SeriesScope } from './series.js';
 import { buildTransferPayload, clearEffective, keepUnconfirmed } from './update-transfer.js';
 import { parseEntryId } from './entry-id.js';
+import { parseAmount } from '../../utils/parse.js';
 
 interface UpdateOptions {
   description?: string;
@@ -106,9 +107,9 @@ export async function updateAction(id: string, options: UpdateOptions): Promise<
 
   let value: number | undefined;
   if (options.value !== undefined) {
-    value = Number(options.value);
-    if (Number.isNaN(value)) {
-      exitWithError('Invalid value. Must be a number.');
+    value = parseAmount(options.value);
+    if (value === undefined) {
+      exitWithError(`Invalid value "${options.value}". Use a number like 10, 10.50 or 10,50.`);
     }
   }
 

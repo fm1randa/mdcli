@@ -4,6 +4,7 @@ import { fetchCategories } from '../../lib/api.js';
 import { resolveIds } from '../../lib/aliases.js';
 import type { EntriesParams } from '../../types/index.js';
 import { getCurrentMonthRange, isCalendarDate } from '../../lib/dates.js';
+import { parseAmount, parseInteger } from '../../utils/parse.js';
 
 // The API answers 400 "A data limite de carregamento dos lançamentos é
 // 31/12/2031" for any later end date.
@@ -46,8 +47,8 @@ const REPETITION_FLAGS: Record<string, number> = {
 
 /** Turns comma-separated names (or a raw bitmask up to `max`) into the API bitmask. */
 function parseFlagFilter(input: string, flags: Record<string, number>, max: number, label: string, valid: string): number {
-  const num = Number(input);
-  if (!Number.isNaN(num) && num >= 0 && num <= max) return num;
+  const num = parseInteger(input);
+  if (num !== undefined && num <= max) return num;
 
   const unknown: string[] = [];
   const mask = input.split(',').reduce((acc, name) => {
@@ -120,9 +121,9 @@ export async function resolveEntryFilters(options: FilterOptions): Promise<Omit<
 
   let value: number | undefined;
   if (options.value !== undefined) {
-    value = Number(options.value);
-    if (Number.isNaN(value)) {
-      exitWithError('Invalid value. Must be a number.');
+    value = parseAmount(options.value);
+    if (value === undefined) {
+      exitWithError(`Invalid value "${options.value}". Use a number like 10, 10.50 or 10,50.`);
     }
   }
 
