@@ -42,12 +42,16 @@ export function normalizeTags(response: TagsResponse): NormalizedTag[] {
 
 /**
  * The API labels an entry conciliado, confirmado (confirmed, not reconciled -
- * what `-p` creates), pendente (not confirmed, date already past) or agendado
- * (not confirmed, future). These are the four states `-s` filters on.
+ * what `--confirmed` creates), pendente (not confirmed, planned date today or
+ * earlier - what `-p` creates) or agendado (not confirmed, future date; `-p`
+ * with a future date). These are the four states `-s` filters on. Card
+ * purchases only have conciliado / nconciliado (unreconciled), which the web
+ * app reports as Confirmado.
  */
 export const ENTRY_STATUS_LABELS: Record<string, EntryStatus> = {
   conciliado: 'reconciled',
   confirmado: 'confirmed',
+  nconciliado: 'confirmed',
   pendente: 'pending',
   agendado: 'scheduled',
 };

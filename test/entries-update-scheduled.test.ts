@@ -31,15 +31,15 @@ const confirmedExpense = {
   tags: [],
 };
 
-describe('entries update --scheduled', () => {
-  test('turns a confirmed entry back into a scheduled one', async () => {
+describe('entries update --pending (and its old name --scheduled)', () => {
+  test('turns a reconciled entry back into an unconfirmed one (pending: its date is past)', async () => {
     api.on('GET /v1/lancamentos/70', confirmedExpense);
-    api.on('PUT /v1/lancamentos/70', { ...confirmedExpense, status: 'agendado' });
+    api.on('PUT /v1/lancamentos/70', { ...confirmedExpense, status: 'pendente' });
 
-    const result = await runCli(['entries', 'update', '70', '--scheduled'], { home, api });
+    const result = await runCli(['entries', 'update', '70', '--pending'], { home, api });
 
     expect(result.exitCode).toBe(0);
-    expect(result.output).toContain('Status: Scheduled');
+    expect(result.output).toContain('Status: Pending');
     expect(mutations(api)[0].body).toMatchObject({
       status: { confirmado: false, conciliado: false },
       conciliado: false,
@@ -76,11 +76,11 @@ describe('entries update --scheduled', () => {
     });
   });
 
-  test('refuses --scheduled together with --pending before calling the API', async () => {
-    const result = await runCli(['entries', 'update', '70', '-S', '-p'], { home, api });
+  test('refuses --scheduled together with --confirmed before calling the API', async () => {
+    const result = await runCli(['entries', 'update', '70', '-S', '--confirmed'], { home, api });
 
     expect(result.exitCode).toBe(1);
-    expect(result.output).toContain('only one of --scheduled, --pending and --reconciled');
+    expect(result.output).toContain('only one of --pending, --confirmed and --reconciled');
     expect(api.requests).toHaveLength(0);
   });
 });

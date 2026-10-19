@@ -24,7 +24,9 @@ interface CreateOptions extends ScheduleOptions {
   tags?: string;
   notes?: string;
   pending?: boolean;
+  /** Deprecated alias of --pending (#74 shipped it before the status fix). */
   scheduled?: boolean;
+  confirmed?: boolean;
   invoice?: string;
   json?: boolean;
 }
@@ -59,8 +61,8 @@ function checkOptions(options: CreateOptions, tipo: 'd' | 'r' | 't'): void {
       'A category is required to create an entry. Use -c, --category <id|alias>. See available categories with: mdcli categories list'
     );
   }
-  if (options.scheduled && options.pending) {
-    exitWithError('Use either --scheduled or --pending, not both.');
+  if ((options.pending || options.scheduled) && options.confirmed) {
+    exitWithError('Use either --pending or --confirmed, not both.');
   }
 }
 
@@ -110,8 +112,15 @@ export async function createAction(options: CreateOptions): Promise<void> {
   if (options.invoice && !isCardAccount) {
     exitWithError('--invoice only applies to credit card accounts.');
   }
-  if (options.scheduled && isCardAccount) {
-    exitWithError('--scheduled does not apply to credit card purchases: they always go to an invoice.');
+  const unconfirmed = Boolean(options.pending || options.scheduled);
+  if (options.scheduled) warnScheduledAlias();
+  if (isCardAccount && (unconfirmed || options.confirmed)) {
+    // The web app has no Confirmado toggle for card purchases, only Conciliado:
+    // a purchase sits unreconciled on its invoice until the invoice is paid.
+    console.error(
+      chalk.yellow('⚠'),
+      `Card purchases have no pending or confirmed state: the purchase goes to the invoice unreconciled. ${unconfirmed ? '--pending' : '--confirmed'} was ignored.`
+    );
   }
 
   const destinationId = tipo === 't'
@@ -129,10 +138,13 @@ export async function createAction(options: CreateOptions): Promise<void> {
     ? await resolveCardDueDate(account, dateStr, options.invoice)
     : null;
 
-  // Confirmado and conciliado both off is the web app's "agendado": no
-  // effective date or value yet (filling them in is what confirms an entry).
-  const confirmed = !options.scheduled;
-  const reconciled = confirmed && !cardDueDate && !options.pending;
+  // The web app's two toggles give three states (md.js, the entry form's
+  // save): Confirmado off sends no effective date or value, and the API then
+  // labels the entry pendente up to today and agendado after it; Confirmado
+  // on adds dataEfetiva/valorEfetivo; Conciliado on top reconciles it. A card
+  // purchase keeps confirmado on and is never reconciled here.
+  const confirmed = !unconfirmed || Boolean(cardDueDate);
+  const reconciled = !unconfirmed && !options.confirmed && !cardDueDate;
   const hasEffective = confirmed && !cardDueDate;
   const total = schedule?.total ?? finalValue;
   // For installments the effective value is the first installment's.
@@ -192,6 +204,13 @@ export async function createAction(options: CreateOptions): Promise<void> {
     return;
   }
   reportCreate(response, schedule, destinationId);
+}
+
+export function warnScheduledAlias(): void {
+  console.error(
+    chalk.yellow('⚠'),
+    '--scheduled is now --pending: both leave Confirmado off; the API shows the entry as scheduled when its date is in the future and as pending otherwise.'
+  );
 }
 
 function describeSchedule(schedule: Schedule): string {

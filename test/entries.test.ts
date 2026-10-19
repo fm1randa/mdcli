@@ -176,12 +176,12 @@ describe('entries create', () => {
     expect(mutations(api)).toHaveLength(0);
   });
 
-  test('shows an unreconciled entry (-p) as Confirmed, the way list does', async () => {
-    // Real API answer for `entries create -p` on 2026-10-16: status "confirmado".
+  test('shows a confirmed, unreconciled entry (--confirmed) as Confirmed, the way list does', async () => {
+    // Real API answer for a confirmed, unreconciled entry on 2026-10-16: status "confirmado".
     api.on('POST /v1/lancamentos', { ...created, status: 'confirmado', conciliado: false, dataEfetiva: '2026-11-05' });
 
     const result = await runCli(
-      ['entries', 'create', '-a', '1001', '-d', 'Mercado', '-v', '1', '-c', '10', '-D', '2026-11-05', '-p'],
+      ['entries', 'create', '-a', '1001', '-d', 'Mercado', '-v', '1', '-c', '10', '-D', '2026-11-05', '--confirmed'],
       { home, api }
     );
 

@@ -198,14 +198,11 @@ describe('entries create --scheduled', () => {
     });
   });
 
-  test('refuses --scheduled with --pending, and on a credit card', async () => {
-    const both = await runCli(['entries', 'create', '-a', '1001', '-d', 'X', '-v', '9', '-c', '10', '-S', '-p'], { home, api });
-    const card = await runCli(['entries', 'create', '-a', '1002', '-d', 'X', '-v', '9', '-c', '10', '-S'], { home, api });
+  test('refuses --scheduled with --confirmed before calling the API', async () => {
+    const both = await runCli(['entries', 'create', '-a', '1001', '-d', 'X', '-v', '9', '-c', '10', '-S', '--confirmed'], { home, api });
 
     expect(both.exitCode).toBe(1);
-    expect(both.output).toContain('either --scheduled or --pending');
-    expect(card.exitCode).toBe(1);
-    expect(card.output).toContain('--scheduled does not apply to credit card purchases');
+    expect(both.output).toContain('either --pending or --confirmed');
     expect(mutations(api)).toHaveLength(0);
   });
 });
