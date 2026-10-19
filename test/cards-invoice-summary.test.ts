@@ -101,7 +101,7 @@ describe('cards invoice summary (text)', () => {
     }
   });
 
-  test('--json stays an array of items (summary format not decided yet)', async () => {
+  test('--json without --summary stays an array of items (option B)', async () => {
     withCard({ limite: 5000 });
     api.on('GET /v1/cartoes/1002/fatura/2026-11-16', {
       lancamentos: ITEMS.slice(0, 1),
@@ -127,5 +127,101 @@ describe('cards invoice summary (text)', () => {
         installment: '12/18',
       },
     ]);
+  });
+
+  test('--summary without --json prints the summary and leaves the items table out', async () => {
+    withCard({ limite: 5000 });
+    api.on('GET /v1/cartoes/1002/fatura/2026-11-16', {
+      lancamentos: ITEMS,
+      vencimento: '2026-11-16',
+      fechamento: '2026-11-05',
+      valor: -301.29,
+      resumo: { totalFatura: -301.29, nconciliado: -301.29, disponivel: 4698.71 },
+    });
+
+    const result = await runCli(['cards', 'invoice', '-a', '1002', '--month', '2026-11', '--summary'], { home, api });
+
+    expect(result.exitCode).toBe(0);
+    const out = plain(result.stdout);
+    expect(out).toContain('Invoice for Cartão Azul - 2026-11-16 (2 entries) | Total: -R$ 301,29');
+    expect(out).toMatch(/Unreconciled\s+-R\$ 301,29\n/);
+    expect(out).toMatch(/Available\s+R\$ 4\.698,71\n/);
+    expect(out).not.toContain('Purchase');
+    expect(out).not.toContain('Mac mini M4');
+  });
+});
+
+describe('cards invoice --json --summary', () => {
+  test('prints { invoice, entries } with the resumo in R$ under English names', async () => {
+    withCard({ limite: 5000 });
+    api.on('GET /v1/cartoes/1002/fatura/2026-11-16', {
+      id: 777,
+      lancamentos: ITEMS,
+      vencimento: '2026-11-16T00:00:00',
+      fechamento: '2026-11-05T00:00:00',
+      valor: -980.75,
+      resumo: {
+        vencimento: '2026-11-16T00:00:00',
+        fechamento: '2026-11-05T00:00:00',
+        valorFaturaAnterior: -1520.4,
+        pagamentosConf: 1520.4,
+        pagamentosAgen: 200,
+        totalFatura: -980.75,
+        totalPagar: -780.75,
+        conciliado: -120,
+        nconciliado: -860.75,
+        receitas: 35.1,
+        despesas: -1015.85,
+        disponivel: 4019.25,
+      },
+    });
+
+    const result = await runCli(['cards', 'invoice', '-a', '1002', '--month', '2026-11', '--json', '--summary'], { home, api });
+
+    expect(result.exitCode).toBe(0);
+    const out = JSON.parse(result.stdout);
+    expect(Object.keys(out).sort()).toEqual(['entries', 'invoice']);
+    expect(out.invoice).toEqual({
+      id: 777,
+      closed: true,
+      dueDate: '2026-11-16',
+      closingDate: '2026-11-05',
+      previousInvoice: -1520.4,
+      paid: 1520.4,
+      scheduledPayments: 200,
+      expenses: -1015.85,
+      income: 35.1,
+      total: -980.75,
+      toPay: -780.75,
+      reconciled: -120,
+      unreconciled: -860.75,
+      limit: 5000,
+      available: 4019.25,
+    });
+    // Same items as --json alone, payment included.
+    expect(out.entries.map((e: { id: number }) => e.id)).toEqual([315471241, 9]);
+    expect(out.entries[0].purchaseDate).toBe('2025-11-19');
+  });
+
+  test('an open invoice without resumo gives nulls, not zeros, and total from valor', async () => {
+    withCard({});
+    api.on('GET /v1/cartoes/1002/fatura/2026-11-16', {
+      lancamentos: ITEMS.slice(0, 1),
+      vencimento: '2026-11-16',
+      fechamento: '2026-11-05',
+      valor: -301.29,
+    });
+
+    const result = await runCli(['cards', 'invoice', '-a', '1002', '--month', '2026-11', '--json', '--summary'], { home, api });
+
+    expect(result.exitCode).toBe(0);
+    const { invoice } = JSON.parse(result.stdout);
+    expect(invoice.id).toBeNull();
+    expect(invoice.closed).toBe(false);
+    expect(invoice.dueDate).toBe('2026-11-16');
+    expect(invoice.total).toBe(-301.29);
+    for (const key of ['previousInvoice', 'paid', 'scheduledPayments', 'toPay', 'reconciled', 'unreconciled', 'limit', 'available']) {
+      expect(invoice[key]).toBeNull();
+    }
   });
 });

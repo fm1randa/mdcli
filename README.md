@@ -310,6 +310,17 @@ mdcli cards invoice --account "Itaú Personalité" --month 2026-02
 # dueDate repeats date and competenceDate comes along
 mdcli cards invoice --account <cardId> --month 2026-02 --json
 
+# Only the summary, without the items table
+mdcli cards invoice --account <cardId> --month 2026-02 --summary
+
+# Summary and items in one JSON object: { "invoice": {...}, "entries": [...] }.
+# invoice has id (closed invoices only), closed, dueDate, closingDate,
+# previousInvoice, paid, scheduledPayments, expenses, income, total, toPay,
+# reconciled, unreconciled, limit and available. Amounts are R$ with the API's
+# signs (reconciled/unreconciled are R$, not counts); a field the API does not
+# send is null. entries is the same array --json prints alone.
+mdcli cards invoice --account <cardId> --month 2026-02 --json --summary
+
 # Show upcoming installments on a card
 mdcli cards future --account <cardId>
 
@@ -453,6 +464,6 @@ The tests in `test/` run the real CLI as a subprocess against a local mock of th
 | JSON output | Done |
 | Invoice (by month) | Done |
 | Invoice items with due, purchase and competence dates (`--json`, `date` = due date) | Done |
-| Invoice summary (closing, previous invoice, paid, to pay, reconciled, limit, available) | Done (text; `--json` format pending) |
+| Invoice summary (closing, previous invoice, paid, to pay, reconciled, limit, available) | Done (text; `--summary`; `--json --summary`) |
 | Card settings in `cards list --json` (limit, due/closing dates, payment account) | Done |
 | Future installments | Done |

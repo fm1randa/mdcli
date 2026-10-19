@@ -121,3 +121,28 @@ export interface NormalizedCardInstallment {
   remaining: number;
   categoryId: number | null;
 }
+
+/**
+ * The invoice summary in `cards invoice --json --summary` (Filipe, option B,
+ * 2026-10-19). Amounts are R$ with the API's signs (reconciled/unreconciled
+ * are the R$ parts of the bill, not counts). A field the API leaves out is
+ * null, never a guessed zero; limit comes from the card, as in the web.
+ */
+export interface NormalizedInvoiceSummary {
+  /** Set only on closed invoices (the API sends id only then). */
+  id: number | null;
+  closed: boolean;
+  dueDate: string | null;
+  closingDate: string | null;
+  previousInvoice: number | null;
+  paid: number | null;
+  scheduledPayments: number | null;
+  expenses: number | null;
+  income: number | null;
+  total: number | null;
+  toPay: number | null;
+  reconciled: number | null;
+  unreconciled: number | null;
+  limit: number | null;
+  available: number | null;
+}
