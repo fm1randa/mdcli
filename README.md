@@ -207,6 +207,11 @@ mdcli entries list --account mp --from 2026-11-01 --to 2031-12-31 --json
 # date is the planned date, the one --from/--to filter on)
 mdcli entries list --account mp --from 2026-01-01 --to 2026-03-31 --csv > entries.csv
 
+# A credit card's purchases, read from its invoices due in the range (the
+# statement list leaves card purchases out); dated by the invoice due date,
+# with the purchase date as competenceDate
+mdcli entries list --account <cardId> --from 2026-10-01 --to 2026-12-31 --json
+
 # Only installments and fixed series (the web app's Repetição filter);
 # also on summary. Values: single, installment, fixed
 mdcli entries list --account mp --repetition installment,fixed
@@ -228,6 +233,10 @@ mdcli entries summary --account mp,nubank --exclude-category "Pagamento de cart�
 
 # Create an entry
 mdcli entries create --account mp --description "Groceries" --value 150 --category food
+
+# A card purchase goes to the open invoice (or --invoice YYYY-MM); the ID
+# printed is the entry ID from the invoice, usable with update/show/delete
+mdcli entries create --account <cardId> --description "Voo" --value 900 --category travel
 
 # Create an entry using the account name instead of an alias
 mdcli entries create --account "Mercado Pago" --description "Groceries" --value 150 --category food

@@ -114,8 +114,15 @@ step "cli cards invoice primeiraFatura (mock)" expect_ok 'Mercado' cards invoice
 step "cli cards future (mock)"               expect_ok 'Notebook' cards future -a 1002
 step "cli cards future --json (mock)"        expect_json 'Array.isArray(d) && d[0]?.installment === "3/6"' cards future -a 1002 --json
 # Card create: dataCompetencia=purchase, dataPrevista=invoice due, not reconciled.
-step "cli entries create cartão (mock)"      expect_ok 'Entry created' entries create -a 1002 -d Voo -v 10 -c 10 -D 2026-01-05
-step "cli entries create cartão --json (mock)" expect_json 'd.id === 9001 && d.dataCompetencia === "2026-01-05" && d.dataPrevista === "2026-01-16" && d.conciliado === false && d.status === "confirmado"' entries create -a 1002 -d Voo -v 10 -c 10 -D 2026-01-05 --json
+step "cli entries create cartão (mock)"      expect_ok 'ID: 91[0-9]{2}' entries create -a 1002 -d Voo -v 10 -c 10 -D 2026-01-05
+step "cli entries create cartão --json (mock)" expect_json 'd.id === 9102 && d.occurrenceId === "46349170A2026-01-05" && d.dataCompetencia === "2026-01-05" && d.dataPrevista === "2026-01-16" && d.conciliado === false && d.status === "confirmado"' entries create -a 1002 -d Voo -v 10 -c 10 -D 2026-01-05 --json
+# Finanças 2026-10-16: the POST answers an occurrence ID for card purchases
+# (the CLI swaps in the entry ID from the invoice) and the statement list
+# leaves card purchases out (the CLI reads them from the invoices).
+step "cli entries list cartão (mock)" expect_json 'd.length === 3 && d.every((e) => e.accountId === 1002 && e.date === "2026-01-16") && d.filter((e) => e.description === "Voo" && e.competenceDate === "2026-01-05").length === 2' entries list -a 1002 -f 2026-01-01 -t 2026-01-31 --json
+step "cli entries list cartão -k (mock)" expect_json 'd.length === 1 && d[0].id === 1' entries list -a 1002 -f 2026-01-01 -t 2026-01-31 -k merc --json
+step "cli entries update lançamento de cartão (mock)" expect_json 'd.id === 9102 && d.descricao === "Voo editado"' entries update 9102 -d "Voo editado" --json
+step "cli entries update id de ocorrência (mock)" expect_fail 'series occurrence ID, not an entry ID' entries update 46349170A2026-01-05 -d X
 # Create shapes deduced from the web bundle (dogfooding 2026-10-16): transfer
 # naming contaOrigem/contaDestino, parcelada series with parcelas, scheduled.
 step "cli entries create transferência --json (mock)" expect_json 'd.conta === 1001 && d.contaT === 1004 && d.valor === -500 && d.valorT === 500 && d.status === "conciliado"' entries create -a 1001 -T transfer --to-account 1004 -d Reserva -v 500 -D 2026-01-05 --json

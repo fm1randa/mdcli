@@ -9,6 +9,7 @@ import type { CreateEntryPayload, CreateEntryResponse } from '../../types/index.
 import { formatCurrency, formatStatus } from './format.js';
 import { getCurrentMonthRange, isCalendarDate, toLocalDateString } from '../../lib/dates.js';
 import { resolveCardDueDate } from './card-invoice.js';
+import { withCardEntryId } from './card-entries.js';
 import { defaultTransferCategory, resolveTransferDestination } from './create-transfer.js';
 import { INTERVAL_LABELS, parseSchedule, type Schedule, type ScheduleOptions } from './schedule.js';
 
@@ -182,7 +183,10 @@ export async function createAction(options: CreateOptions): Promise<void> {
     }),
   };
 
-  const response = await createEntry(payload);
+  const created = await createEntry(payload);
+  const response = cardDueDate
+    ? await withCardEntryId(created, { id: accountId, dueDate: cardDueDate, description: options.description, value: effectiveValue })
+    : created;
   if (options.json) {
     console.log(JSON.stringify(response, null, 2));
     return;

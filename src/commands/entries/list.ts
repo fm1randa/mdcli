@@ -2,7 +2,8 @@ import Table from 'cli-table3';
 import chalk from 'chalk';
 import { logger } from '../../utils/logger.js';
 import { exitWithError } from '../../utils/action.js';
-import { fetchAllEntries, normalizeEntries } from '../../lib/api.js';
+import { normalizeEntries } from '../../lib/api.js';
+import { fetchListEntries } from './card-entries.js';
 import { toCsv } from '../../lib/csv.js';
 import { summarize, totalRow } from '../../lib/summary.js';
 import { type FilterOptions, resolveEntryFilters, resolveExcludedCategories } from './filters.js';
@@ -12,7 +13,7 @@ import { loadNames, nameOf, tagNames } from './names.js';
 async function loadEntries(options: FilterOptions) {
   const params = await resolveEntryFilters(options);
   const excludedCategories = await resolveExcludedCategories(options.excludeCategory);
-  const all = normalizeEntries(await fetchAllEntries(params));
+  const all = normalizeEntries(await fetchListEntries(params));
   const entries = all.filter((e) => e.categoryId === null || !excludedCategories.has(e.categoryId));
   return { params, entries, excludedByCategory: all.length - entries.length };
 }

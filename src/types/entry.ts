@@ -180,7 +180,8 @@ export interface CreateEntryPayload {
 }
 
 export interface CreateEntryResponse {
-  id: number;
+  /** Numeric, except for card purchases: see entries/entry-id.ts. */
+  id: number | string;
   descricao: string;
   conciliado: boolean;
   dataCompetencia: string;
