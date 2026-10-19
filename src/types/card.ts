@@ -11,41 +11,64 @@ export interface CardInvoiceEntry {
   categoria?: number;
   parcela?: string;
   status?: string;
-  tipo?: 'd' | 'r' | 't';
+  /** d expense, r income, t transfer, p invoice payment (dogfood 2026-10-19). */
+  tipo?: 'd' | 'r' | 't' | 'p';
   conta?: number;
+  /** The other side of a payment (checking account). */
+  contaT?: number;
+  transferencia?: number;
   dataPrevista?: string;
   dataCompetencia?: string;
   agendaId?: number;
   tags?: number[];
   observacoes?: string;
   ndocumento?: string;
+  plastico?: number;
+  /** Present on closed invoices. */
+  fatura?: number;
 }
 
 export interface CardInvoiceResponse {
   lancamentos: CardInvoiceEntry[];
   vencimento: string;
   fechamento: string;
+  /** Bill total (same as resumo.totalFatura); not the sum of lancamentos when
+   * a payment (tipo p) is listed among them. */
   valor: number;
   resumo?: {
     totalFatura?: number;
     totalPagar?: number;
+    pagamentos?: number;
+    valorFaturaAnterior?: number;
   };
+  /** Present when the invoice is closed. */
+  id?: number;
 }
 
+/** One future installment. The real API returns these as a bare array from
+ * GET /v1/cartoes/:id/parcelasFuturas (same shape as invoice items); it does
+ * not wrap them in { parcelas } and has no parcelasRestantes. */
 interface CardFutureInstallment {
   id: number | string;
   descricao: string;
   valor: number;
   data: string;
   parcela: string;
+  /** Invented by older mocks; the real API does not send this. */
   parcelasRestantes?: number;
   categoria?: number;
+  agendaId?: number;
+  status?: string;
+  tipo?: 'd' | 'r' | 't' | 'p';
 }
 
-export interface CardFutureResponse {
-  parcelas: CardFutureInstallment[];
-  total?: number;
-}
+/**
+ * Real API: bare array. Older mocks / docs: { parcelas, total }.
+ * normalizeCardInstallments accepts both.
+ */
+export type CardFutureResponse =
+  | CardFutureInstallment[]
+  | { parcelas: CardFutureInstallment[]; total?: number };
 
 export interface NormalizedCardEntry {
   id: number | string;

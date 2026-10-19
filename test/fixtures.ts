@@ -101,9 +101,17 @@ export function entriesPage(list: unknown[], total = list.length) {
   return { list, meta: { total, page: 1, pageSize: 200 } };
 }
 
-/** Card invoice as GET /v1/cartoes/:id/fatura/:dueDate returns it. */
-export function cardInvoice(vencimento: string, fechamento: string) {
-  return { lancamentos: [], vencimento, fechamento, valor: 0 };
+/** Card invoice as GET /v1/cartoes/:id/fatura/:dueDate returns it.
+ * `valor` / `resumo.totalFatura` are the bill total (purchases only); a
+ * payment (tipo p) may still appear in lancamentos without changing them. */
+export function cardInvoice(vencimento: string, fechamento: string, totalFatura = 0) {
+  return {
+    lancamentos: [] as unknown[],
+    vencimento,
+    fechamento,
+    valor: totalFatura,
+    resumo: { totalFatura, totalPagar: totalFatura },
+  };
 }
 
 export const TAG_WORK = { id: 501, nome: 'Trabalho', status: true, cor: 'FF0000' };

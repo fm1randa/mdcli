@@ -189,12 +189,33 @@ export function createCardPurchase(body: Body): Body {
 
 /** The invoice items of a card's invoice due on dueDate. */
 export function invoiceItems(cardId: number, dueDate: string): Body[] {
-  // A purchase seeded in the January 2026 invoice (cards invoice steps).
+  // January 2026 invoice: one purchase and the previous invoice's payment
+  // (tipo p). Bill total is -87.5; summing the items would yield +12.5.
   const seeded = dueDate.startsWith('2026-01-')
-    ? [{ id: 1, descricao: 'Mercado', valor: -87.5, data: '2026-01-05', categoria: 11 }]
+    ? [
+        {
+          id: 1,
+          descricao: 'Mercado',
+          valor: -87.5,
+          data: '2026-01-05',
+          categoria: 11,
+          tipo: 'd',
+          status: 'nconciliado',
+        },
+        {
+          id: 2,
+          descricao: 'Pagamento cartão',
+          valor: 100,
+          data: '2025-12-16',
+          categoria: 30,
+          tipo: 'p',
+          status: 'conciliado',
+          contaT: 1001,
+        },
+      ]
     : [];
   const created = cardPurchases
     .filter((p) => p.conta === cardId && p.dataPrevista === dueDate)
-    .map(({ conta: _conta, dataPrevista: _due, ...item }) => item);
+    .map(({ conta: _conta, dataPrevista: _due, ...item }) => ({ ...item, tipo: 'd', status: 'nconciliado' }));
   return [...seeded, ...created];
 }
