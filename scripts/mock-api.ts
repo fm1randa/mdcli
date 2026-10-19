@@ -31,6 +31,17 @@ const CARD_NO_DUE = {
   proximoFechamento: undefined,
 };
 
+// Finanças report (2026-10-16): an inactive category (hidden in the web app)
+// listed after an active one with the same name.
+const MOCK_CATEGORIES = {
+  ...CATEGORIES_RESPONSE,
+  items: [
+    ...CATEGORIES_RESPONSE.items,
+    { ...CATEGORIES_RESPONSE.items[4], id: 42, nome: 'Moradia', nomeRel: 'Moradia', _ordenacao: 'MORADIA' },
+    { ...CATEGORIES_RESPONSE.items[4], id: 41, nome: 'Moradia', nomeRel: 'Moradia', _ordenacao: 'MORADIA', status: false },
+  ],
+};
+
 const MOCK_ACCOUNTS = {
   ...ACCOUNTS_RESPONSE,
   items: [...ACCOUNTS_RESPONSE.items, CARD_NO_DUE, SAVINGS_ACCOUNT],
@@ -276,7 +287,7 @@ const server = Bun.serve({
       return accountsRoute(req, url.pathname);
     }
     if (url.pathname === CATEGORIES_PATH && req.method === 'GET') {
-      return Response.json(CATEGORIES_RESPONSE);
+      return Response.json(MOCK_CATEGORIES);
     }
     if (url.pathname === TAGS_PATH && req.method === 'GET') {
       return Response.json(TAGS_RESPONSE);

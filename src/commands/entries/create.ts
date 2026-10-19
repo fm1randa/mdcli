@@ -4,6 +4,7 @@ import { logger } from '../../utils/logger.js';
 import { exitWithError } from '../../utils/action.js';
 import { createEntry, fetchAccountById, isCreditCard } from '../../lib/api.js';
 import { resolveId, resolveIds } from '../../lib/aliases.js';
+import { resolveEntryCategory } from './category.js';
 import type { CreateEntryPayload, CreateEntryResponse } from '../../types/index.js';
 import { formatCurrency, formatStatus } from './format.js';
 import { getCurrentMonthRange, isCalendarDate, toLocalDateString } from '../../lib/dates.js';
@@ -95,13 +96,7 @@ export async function createAction(options: CreateOptions): Promise<void> {
     exitWithError(`Unknown account: ${options.account}`);
   }
 
-  let categoryId: number | null = null;
-  if (options.category) {
-    categoryId = await resolveId('categories', options.category);
-    if (categoryId === null) {
-      exitWithError(`Unknown category: ${options.category}`);
-    }
-  }
+  let categoryId: number | null = options.category ? await resolveEntryCategory(options.category) : null;
   const tagIds = await resolveTags(options.tags);
 
   // Credit card accounts reject the payload unless dataCompetencia is present.

@@ -3,7 +3,8 @@ import chalk from 'chalk';
 import { logger } from '../../utils/logger.js';
 import { exitWithError } from '../../utils/action.js';
 import { updateEntry, fetchEntry } from '../../lib/api.js';
-import { resolveId, resolveIds } from '../../lib/aliases.js';
+import { resolveIds } from '../../lib/aliases.js';
+import { resolveEntryCategory } from './category.js';
 import type { CreateEntryResponse, Entry, UpdateEntryPayload } from '../../types/index.js';
 import { mapTypeToApi, parseTypeOption } from './create.js';
 import { formatCurrency, formatStatus } from './format.js';
@@ -80,13 +81,7 @@ export async function updateAction(id: string, options: UpdateOptions): Promise<
   }
 
   // Validate options that need resolution before fetching entry
-  let categoryId: number | null = null;
-  if (options.category !== undefined) {
-    categoryId = await resolveId('categories', options.category);
-    if (categoryId === null) {
-      exitWithError(`Unknown category: ${options.category}`);
-    }
-  }
+  const categoryId = options.category !== undefined ? await resolveEntryCategory(options.category) : null;
 
   let tagIds: number[] | undefined;
   if (options.tags !== undefined) {

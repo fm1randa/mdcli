@@ -9,7 +9,7 @@ A financial account held at Meu Dinheiro (checking, savings, credit card, invest
 _Avoid_: "conta" (Portuguese only — keep the surface in English)
 
 **Category**:
-A classification for an entry — expense, income, or transfer.
+A classification for an entry — expense, income, or transfer. A Category can be inactive (`status: false`): the web app hides it from the entry form, so `entries create`/`update` refuse it too. When a name matches both an active and an inactive Category, the active one wins; an explicit ID or Alias pointing at an inactive one is refused. Filters (`entries list -c`) still accept inactive Categories, since old Entries keep them.
 _Avoid_: "cat" (only in short CLI flags, never in prose)
 
 **Tag**:
