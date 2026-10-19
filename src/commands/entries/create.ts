@@ -14,6 +14,7 @@ import { withCardEntryId } from './card-entries.js';
 import { defaultTransferCategory, resolveTransferDestination } from './create-transfer.js';
 import { INTERVAL_LABELS, parseSchedule, type Schedule, type ScheduleOptions } from './schedule.js';
 import { parseAmount } from '../../utils/parse.js';
+import { buildEntryStatus } from './status.js';
 
 interface CreateOptions extends ScheduleOptions {
   account: string;
@@ -131,14 +132,12 @@ export async function createAction(options: CreateOptions): Promise<void> {
     ? await resolveCardDueDate(account, dateStr, options.invoice)
     : null;
 
-  // The web app's two toggles give three states (md.js, the entry form's
-  // save): Confirmado off sends no effective date or value, and the API then
-  // labels the entry pendente up to today and agendado after it; Confirmado
-  // on adds dataEfetiva/valorEfetivo; Conciliado on top reconciles it. A card
-  // purchase keeps confirmado on and is never reconciled here.
-  const confirmed = !unconfirmed || Boolean(cardDueDate);
-  const reconciled = !unconfirmed && !options.confirmed && !cardDueDate;
-  const hasEffective = confirmed && !cardDueDate;
+  // Status rules (and why) live in status.ts, shared with update.
+  const { confirmado, conciliado, effective } = buildEntryStatus(
+    { pending: unconfirmed, confirmed: options.confirmed },
+    { isCard: Boolean(cardDueDate) }
+  );
+  const hasEffective = effective === 'set';
   const total = schedule?.total ?? finalValue;
   // For installments the effective value is the first installment's.
   const effectiveValue = schedule?.parcelas?.[0].valor ?? finalValue;
@@ -147,10 +146,7 @@ export async function createAction(options: CreateOptions): Promise<void> {
   const payload: CreateEntryPayload = {
     descricao: options.description,
     tipo,
-    status: {
-      confirmado: confirmed,
-      conciliado: reconciled,
-    },
+    status: { confirmado, conciliado },
     exibirCp: true,
     exibirCr: true,
     automatico: false,
@@ -174,7 +170,7 @@ export async function createAction(options: CreateOptions): Promise<void> {
     observacoes: options.notes ?? '',
     tags: tagIds,
     transferencia: destinationId !== null,
-    conciliado: reconciled,
+    conciliado,
     dataEfetiva: hasEffective ? dateStr : null,
     ...(isCardAccount && { dataCompetencia: dateStr }),
     dataPrevista: cardDueDate ?? dateStr,

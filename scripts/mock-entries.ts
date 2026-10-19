@@ -81,14 +81,21 @@ export const SEEDED_ENTRIES: Record<number, Record<string, unknown>> = {
 type Body = Record<string, unknown>;
 
 /**
- * The label the API gives an entry, the way the web app words it after a save
- * (md.js): conciliado, else confirmado when it has an effective date, else
- * agendado for a planned date after today and pendente otherwise.
+ * The label the API answers with after a POST or PUT, from the status object
+ * the payload sends, the way the web app words it after a save (md.js):
+ * conciliado; else confirmado when the entry has an effective date (which
+ * confirms it even with confirmado: false) or confirmado: true; else agendado
+ * for a planned date after today and pendente otherwise. `stored` is the
+ * entry as saved (the PUT merges the payload over the existing entry).
+ * Undefined when the payload has no status object.
  */
-export function entryStatusLabel(entry: Body): string {
-  if (entry.conciliado === true) return 'conciliado';
-  if (entry.dataEfetiva != null) return 'confirmado';
-  const planned = String(entry.dataPrevista ?? entry.data ?? '').slice(0, 10);
+export function statusLabel(payload: Body, stored: Body = payload): string | undefined {
+  const status = payload.status;
+  if (status === null || typeof status !== 'object') return undefined;
+  const { confirmado, conciliado } = status as { confirmado?: boolean; conciliado?: boolean };
+  if (conciliado === true) return 'conciliado';
+  if (stored.dataEfetiva != null || confirmado === true) return 'confirmado';
+  const planned = String(stored.dataPrevista ?? stored.data ?? '').slice(0, 10);
   const today = new Date().toLocaleDateString('en-CA');
   return planned > today ? 'agendado' : 'pendente';
 }
@@ -141,7 +148,7 @@ export function createdEntry(body: Body, id: number | string): Body {
     dataCompetencia: body.dataCompetencia ?? null,
     // The real API answers confirmado for a confirmed, unreconciled entry (#70)
     // and pendente for an unconfirmed one dated today (Finanças 2026-10-19).
-    status: entryStatusLabel(body),
+    status: statusLabel(body),
     tipo: body.tipo,
     // The server stores one entry per installment; this is the first one.
     valor: parcelas ? parcelas[0].valor : body.valor,
