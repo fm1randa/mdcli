@@ -120,10 +120,22 @@ step "cli cards invoice --month vencimento local (mock)" in_sao_paulo expect_ok 
 step "cli cards invoice --month 2026-13 recusado (mock)" expect_fail 'Invalid invoice month "2026-13"' cards invoice -a 1005 --month 2026-13
 step "cli cards invoice --month 2026-00 recusado (mock)" expect_fail 'Invalid invoice month "2026-00"' cards invoice -a 1005 --month 2026-00
 step "cli entries create --invoice 2026-13 recusado (mock)" expect_fail 'Invalid invoice month "2026-13"' entries create -a 1005 -d X -v 1 -c 10 --invoice 2026-13
-# Same item, same due date in both commands; date stays the purchase date.
-step "cli cards invoice --json dueDate (mock)" in_sao_paulo expect_json 'd.length === 1 && d[0].id === 315471241 && d[0].date === "2025-11-19" && d[0].dueDate === "2026-11-16" && d[0].competenceDate === "2025-11-19"' cards invoice -a 1005 --month 2026-11 --json
+# Same item, same date in both commands (Filipe, 2026-10-19): date is the due
+# date, as in entries list; the purchase date is purchaseDate; dueDate stays.
+step "cli cards invoice --json date = vencimento (mock)" in_sao_paulo expect_json 'd.length === 1 && d[0].id === 315471241 && d[0].date === "2026-11-16" && d[0].dueDate === "2026-11-16" && d[0].purchaseDate === "2025-11-19" && d[0].competenceDate === "2025-11-19"' cards invoice -a 1005 --month 2026-11 --json
+# Invoice summary (resumo) in text mode; --json stays a bare array.
+step "cli cards invoice resumo pago (mock)" expect_ok 'Paid +R\$.*100,00' cards invoice -a 1002 --month 2026-01
+step "cli cards invoice resumo anterior (mock)"  expect_ok 'Previous invoice +-R\$.*100,00' cards invoice -a 1002 --month 2026-01
+step "cli cards invoice resumo não conciliado (mock)" expect_ok 'Unreconciled +-R\$.*87,50' cards invoice -a 1002 --month 2026-01
+step "cli cards invoice resumo fechamento (mock)" expect_ok 'Closing date +2026-01-08' cards invoice -a 1002 --month 2026-01
+step "cli cards invoice resumo limite (mock)"     in_sao_paulo expect_ok 'Limit +R\$.*21\.804,00' cards invoice -a 1005 --month 2026-11
+step "cli cards invoice resumo disponível (mock)" in_sao_paulo expect_ok 'Available +R\$.*21\.502,71' cards invoice -a 1005 --month 2026-11
+step "cli cards invoice coluna da compra (mock)" in_sao_paulo expect_ok '2025-11-19 +│ Mac mini M4' cards invoice -a 1005 --month 2026-11
+step "cli cards invoice --json segue array (mock)" expect_json 'Array.isArray(d) && d.length === 2 && d.every((e) => !("resumo" in e) && !("Paid" in e))' cards invoice -a 1002 --month 2026-01 --json
+step "cli cards invoice conta que não é cartão (mock)" expect_fail 'Account 1004 is not a credit card' cards invoice -a 1004
+step "cli cards invoice --month inválido com --json (mock)" expect_json_error 'Invalid invoice month "2026-13"' cards invoice -a 1005 --month 2026-13 --json
 step "cli entries list cartão mesma data do invoice (mock)" in_sao_paulo expect_json 'd.length === 1 && d[0].id === 315471241 && d[0].date === "2026-11-16" && d[0].competenceDate === "2025-11-19"' entries list -a 1005 -f 2026-11-01 -t 2026-11-30 --json
-step "cli cards list --json campos do cartão (mock)" expect_json 'd.some((c) => c.id === 1005 && c.limit === 21804 && c.dueDay === 16 && c.nextDueDate === "2026-11-16" && c.nextClosingDate === "2026-11-05" && c.closingDaysBeforeDue === 11 && c.paymentAccountId === 1001 && typeof c.balance === "number")' cards list --json
+step "cli cards list --json campos do cartão (mock)" expect_json 'd.some((c) => c.id === 1005 && c.limit === 21804 && c.dueDay === 16 && c.nextDueDate === "2026-11-16" && c.nextClosingDate === "2026-11-05" && c.closingDaysBeforeDue === 11 && c.paymentAccountId === 1001) && d.every((c) => !("balance" in c))' cards list --json
 step "cli cards future (mock)"               expect_ok 'Notebook' cards future -a 1002
 # Bare-array API: remaining derived from "3/6" → 4 (old code always returned []).
 step "cli cards future --json (mock)"        expect_json 'Array.isArray(d) && d.length === 1 && d[0]?.installment === "3/6" && d[0]?.remaining === 4' cards future -a 1002 --json

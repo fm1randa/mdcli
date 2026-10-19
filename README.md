@@ -291,18 +291,23 @@ mdcli entries delete 12345
 # (the web app's "Neste e em todos na sequência"); the default is --scope this
 mdcli entries delete 12345 --scope following
 
-# List credit cards (--json adds limit, dueDay, nextDueDate, nextClosingDate,
-# closingDaysBeforeDue and paymentAccountId)
+# List credit cards (--json has limit, dueDay, nextDueDate, nextClosingDate,
+# closingDaysBeforeDue and paymentAccountId; no balance, which means nothing
+# for a card)
 mdcli cards list --active
 
-# Show a credit card invoice (defaults to the current/next one)
+# Show a credit card invoice (defaults to the current/next one): the summary the
+# web shows (due and closing dates, previous invoice, paid, scheduled payments,
+# expenses, income, total, to pay, reconciled/unreconciled, limit, available),
+# then the items by purchase date. Lines the API does not send are left out.
 mdcli cards invoice --account <cardId> --month 2026-02
 
 # Show a credit card invoice using the card's exact name
 mdcli cards invoice --account "Itaú Personalité" --month 2026-02
 
-# In --json, date is the purchase date; dueDate (the date entries list shows
-# for the same item) and competenceDate come along with it
+# In --json (an array of items), date is the invoice due date, the same date
+# entries list --json shows for the item; purchaseDate is when it was bought,
+# dueDate repeats date and competenceDate comes along
 mdcli cards invoice --account <cardId> --month 2026-02 --json
 
 # Show upcoming installments on a card
@@ -447,6 +452,7 @@ The tests in `test/` run the real CLI as a subprocess against a local mock of th
 | Filter by active | Done |
 | JSON output | Done |
 | Invoice (by month) | Done |
-| Invoice items with due and competence dates (`--json`) | Done |
+| Invoice items with due, purchase and competence dates (`--json`, `date` = due date) | Done |
+| Invoice summary (closing, previous invoice, paid, to pay, reconciled, limit, available) | Done (text; `--json` format pending) |
 | Card settings in `cards list --json` (limit, due/closing dates, payment account) | Done |
 | Future installments | Done |

@@ -88,7 +88,9 @@ export interface NormalizedAccount {
   closed: boolean;
 }
 
-export interface NormalizedCard extends NormalizedAccount {
+/** No balance: saldoUltimoExtrato is an Open Finance statement figure that
+ * means nothing as a card balance (Filipe, dogfood 2026-10-19). */
+export interface NormalizedCard extends Omit<NormalizedAccount, 'balance'> {
   limit: number | null;
   /** Day of the month the invoice is due. */
   dueDay: number | null;
