@@ -64,6 +64,9 @@ function mapEntryType(entry: Entry): NormalizedEntry['type'] {
   // Invoice projections (faturas: true) have no tipo; treating them as expense
   // double-counts when the card is also in the filter. Flag them explicitly.
   if (entry.projecaoFatura != null) return 'invoice';
+  // Card invoice payment (moves money from the checking account to the card).
+  // Not income/expense: it has contaT/transferencia like a transfer.
+  if (entry.tipo === 'p') return 'payment';
   return mapCategoryType(entry.tipo ?? 'd');
 }
 
