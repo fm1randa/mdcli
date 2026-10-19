@@ -2,7 +2,8 @@ import Table from 'cli-table3';
 import chalk from 'chalk';
 import { logger } from '../../utils/logger.js';
 import { fetchAccounts, normalizeAccounts } from '../../lib/api.js';
-import { formatCurrency, formatStatus } from './format.js';
+import { formatStatus } from './format.js';
+import { formatCurrency } from '../../utils/currency.js';
 
 export async function listAction(options: { json?: boolean; active?: boolean }): Promise<void> {
   const response = await fetchAccounts();

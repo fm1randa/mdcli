@@ -1,12 +1,13 @@
-import { ENTRY_STATUS_LABELS } from '../../lib/normalize.js';
 import chalk from 'chalk';
 import { logger } from '../../utils/logger.js';
 import { exitWithError } from '../../utils/action.js';
 import { createEntry, fetchAccountById, isCreditCard } from '../../lib/api.js';
-import { resolveId, resolveIds } from '../../lib/aliases.js';
+import { resolveId } from '../../lib/aliases.js';
+import { resolveTags } from './tags.js';
 import { resolveEntryCategory } from './category.js';
 import type { CreateEntryPayload, CreateEntryResponse } from '../../types/index.js';
-import { formatCurrency, formatStatus } from './format.js';
+import { describeStatus } from './format.js';
+import { formatCurrency } from '../../utils/currency.js';
 import { getCurrentMonthRange, isCalendarDate, toLocalDateString } from '../../lib/dates.js';
 import { resolveCardDueDate } from './card-invoice.js';
 import { withCardEntryId } from './card-entries.js';
@@ -67,15 +68,6 @@ function checkOptions(options: CreateOptions, tipo: 'd' | 'r' | 't'): void {
   }
 }
 
-async function resolveTags(tags: string | undefined): Promise<number[]> {
-  if (!tags) return [];
-  const tagResult = await resolveIds('tags', tags);
-  if (tagResult.unresolved.length > 0) {
-    exitWithError(`Unknown tag(s): ${tagResult.unresolved.join(', ')}`);
-  }
-  return tagResult.ids;
-}
-
 export async function createAction(options: CreateOptions): Promise<void> {
   const value = parseAmount(options.value);
   if (value === undefined) {
@@ -101,7 +93,7 @@ export async function createAction(options: CreateOptions): Promise<void> {
   }
 
   let categoryId: number | null = options.category ? await resolveEntryCategory(options.category) : null;
-  const tagIds = await resolveTags(options.tags);
+  const tagIds = options.tags ? await resolveTags(options.tags) : [];
 
   // Credit card accounts reject the payload unless dataCompetencia is present.
   // Regular accounts already work without it, so only cards get the extra field.
@@ -239,8 +231,7 @@ function reportCreate(response: CreateEntryResponse, schedule: Schedule | undefi
   if (destinationId !== null) {
     console.log(`  ${chalk.gray('To account:')} ${destinationId}`);
   }
-  const statusDisplay = ENTRY_STATUS_LABELS[String(response.status)];
-  console.log(`  ${chalk.gray('Status:')} ${statusDisplay ? formatStatus(statusDisplay) : chalk.gray(String(response.status))}`);
+  console.log(`  ${chalk.gray('Status:')} ${describeStatus(response.status, response.dataPrevista ?? response.data)}`);
   if (schedule) {
     const label = schedule.parcelas ? 'Installments:' : 'Recurrence:';
     console.log(`  ${chalk.gray(label)} ${describeSchedule(schedule)}`);

@@ -1,14 +1,13 @@
-import { ENTRY_STATUS_LABELS } from '../../lib/normalize.js';
 import chalk from 'chalk';
 import { logger } from '../../utils/logger.js';
 import { exitWithError } from '../../utils/action.js';
 import { updateEntry, fetchEntry } from '../../lib/api.js';
-import { resolveIds } from '../../lib/aliases.js';
+import { resolveTags } from './tags.js';
 import { resolveEntryCategory } from './category.js';
 import type { CreateEntryResponse, Entry, UpdateEntryPayload } from '../../types/index.js';
 import { mapTypeToApi, parseTypeOption, warnScheduledAlias } from './create.js';
-import { formatCurrency, formatStatus } from './format.js';
-import { toLocalDateString } from '../../lib/dates.js';
+import { describeStatus } from './format.js';
+import { formatCurrency } from '../../utils/currency.js';
 import { describeScope, resolveSeriesScope, type SeriesScope } from './series.js';
 import { buildTransferPayload, clearEffective, keepUnconfirmed } from './update-transfer.js';
 import { parseEntryId } from './entry-id.js';
@@ -29,24 +28,6 @@ interface UpdateOptions {
   scheduled?: boolean;
   scope?: SeriesScope;
   json?: boolean;
-}
-
-const STATUS_LABELS = ENTRY_STATUS_LABELS;
-
-/** The status the API answered with - never assumed from what we sent. */
-function describeStatus(status: unknown, plannedDate?: unknown): string {
-  if (typeof status === 'string' && STATUS_LABELS[status]) {
-    return formatStatus(STATUS_LABELS[status]);
-  }
-  if (status !== null && typeof status === 'object' && 'confirmado' in status) {
-    const { confirmado, conciliado } = status as { confirmado?: boolean; conciliado?: boolean };
-    if (conciliado) return formatStatus('reconciled');
-    if (confirmado) return formatStatus('confirmed');
-    // Unconfirmed is pendente up to today and agendado after it.
-    const date = typeof plannedDate === 'string' ? plannedDate.slice(0, 10) : undefined;
-    return formatStatus(date !== undefined && date > toLocalDateString(new Date()) ? 'scheduled' : 'pending');
-  }
-  return chalk.gray(status === undefined ? '(not returned by the API)' : String(status));
 }
 
 function reportUpdate(response: CreateEntryResponse, json?: boolean, todos?: boolean): void {
@@ -96,14 +77,7 @@ export async function updateAction(id: string, options: UpdateOptions): Promise<
   // Validate options that need resolution before fetching entry
   const categoryId = options.category !== undefined ? await resolveEntryCategory(options.category) : null;
 
-  let tagIds: number[] | undefined;
-  if (options.tags !== undefined) {
-    const tagResult = await resolveIds('tags', options.tags);
-    if (tagResult.unresolved.length > 0) {
-      exitWithError(`Unknown tag(s): ${tagResult.unresolved.join(', ')}`);
-    }
-    tagIds = tagResult.ids;
-  }
+  const tagIds = options.tags !== undefined ? await resolveTags(options.tags) : undefined;
 
   let value: number | undefined;
   if (options.value !== undefined) {

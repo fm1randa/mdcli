@@ -202,6 +202,10 @@ step "cli entries create -v 1e3 recusado (mock)" expect_fail 'Invalid value "1e3
 step "cli entries create -v 1,50 (mock)" expect_json 'd.valor === -1.5' entries create -a 1001 -d Pão -v 1,50 -c 10 -D 2026-01-05 --json
 step "cli entries delete id vazio recusado (mock)" expect_fail 'Invalid entry ID' entries delete "" --dangerously-skip-confirmation
 step "cli accounts delete 0x10 recusado (mock)" expect_fail 'Invalid account ID' accounts delete 0x10 --dangerously-skip-confirmation
+# Jardinagem 2026-10-19: money is signed everywhere (create/update/delete
+# showed expenses without the minus) and tag resolution is shared.
+step "cli entries create valor com sinal (mock)" expect_ok 'Value: -R\$.*30,00' entries create -a 1001 -d Feira -v 30 -c 10 -D 2026-01-05
+step "cli entries create tag inexistente (mock)" expect_fail 'Unknown tag\(s\): nope' entries create -a 1001 -d Feira -v 30 -c 10 -g nope
 step "cli entries delete (mock)"             expect_ok 'Entry 70 deleted' entries delete 70 --dangerously-skip-confirmation
 step "cli entries delete --json (mock)"      expect_json 'd.deleted === true && d.id === 70' entries delete 70 --dangerously-skip-confirmation --json
 step "cli entries delete inexistente (mock)" expect_fail 'GET /v1/lancamentos/9999\): 404' entries delete 9999 --dangerously-skip-confirmation

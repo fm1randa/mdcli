@@ -146,7 +146,7 @@ describe('entries create --installments', () => {
     );
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout.replace(/\u00a0/g, ' ')).toContain('Installments: 1x R$ 33,34 + 2x R$ 33,33 (monthly, every 1)');
+    expect(result.stdout.replace(/\u00a0/g, ' ')).toContain('Installments: 1x -R$ 33,34 + 2x -R$ 33,33 (monthly, every 1)');
   });
 
   test('refuses --times with --installments and a single installment', async () => {
