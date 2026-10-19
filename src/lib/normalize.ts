@@ -77,8 +77,13 @@ export const ENTRY_STATUS_LABELS: Record<string, EntryStatus> = {
   agendado: 'scheduled',
 };
 
-function mapEntryStatus(status: string): EntryStatus {
-  return ENTRY_STATUS_LABELS[status] ?? 'pending';
+/**
+ * A label outside the table is 'unknown', not a guess: the old 'pending'
+ * fallback hid 'confirmado' until #71 (Jardinagem 2026-10-19). The raw label
+ * is in entries show --raw.
+ */
+function mapEntryStatus(status: string | undefined): EntryStatus {
+  return status !== undefined && Object.hasOwn(ENTRY_STATUS_LABELS, status) ? ENTRY_STATUS_LABELS[status] : 'unknown';
 }
 
 function mapEntryType(entry: Entry): NormalizedEntry['type'] {

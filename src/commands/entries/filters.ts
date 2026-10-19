@@ -2,6 +2,7 @@ import { Command } from 'commander';
 import { exitWithError } from '../../utils/action.js';
 import { fetchCategories } from '../../lib/api.js';
 import { resolveIds } from '../../lib/aliases.js';
+import { resolveTags } from './tags.js';
 import type { EntriesParams } from '../../types/index.js';
 import { getCurrentMonthRange, isCalendarDate } from '../../lib/dates.js';
 import { parseAmount, parseInteger } from '../../utils/parse.js';
@@ -110,14 +111,7 @@ export async function resolveEntryFilters(options: FilterOptions): Promise<Omit<
     categoryIds = categoryResult.ids;
   }
 
-  let tagIds: number[] | undefined;
-  if (options.tag) {
-    const tagResult = await resolveIds('tags', options.tag);
-    if (tagResult.unresolved.length > 0) {
-      exitWithError(`Unknown tag(s): ${tagResult.unresolved.join(', ')}`);
-    }
-    tagIds = tagResult.ids;
-  }
+  const tagIds = options.tag ? await resolveTags(options.tag) : undefined;
 
   let value: number | undefined;
   if (options.value !== undefined) {

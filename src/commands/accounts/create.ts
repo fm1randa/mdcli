@@ -4,7 +4,7 @@ import { exitWithError } from '../../utils/action.js';
 import { fetchAccounts, createAccount } from '../../lib/api.js';
 import { invalidateNameCache } from '../../lib/config.js';
 import type { AccountMeta, CreateAccountPayload } from '../../types/index.js';
-import { formatCurrency } from './format.js';
+import { formatCurrency } from '../../utils/currency.js';
 import { parseAmount, parseId } from '../../utils/parse.js';
 
 function normalizeTypeName(input: string): string {

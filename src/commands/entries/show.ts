@@ -2,7 +2,8 @@ import chalk from 'chalk';
 import { exitWithError } from '../../utils/action.js';
 import { fetchEntry } from '../../lib/api.js';
 import { normalizeEntry } from '../../lib/normalize.js';
-import { formatSignedCurrency, formatStatus, formatType } from './format.js';
+import { formatStatus, formatType } from './format.js';
+import { formatCurrency } from '../../utils/currency.js';
 import { loadNames, nameOf, tagNames } from './names.js';
 import { parseEntryId } from './entry-id.js';
 
@@ -35,7 +36,7 @@ export async function showAction(id: string, options: ShowOptions): Promise<void
   const rows: [string, string | number][] = [
     ['ID', entry.id],
     ['Description', entry.description],
-    ['Value', formatSignedCurrency(entry.value)],
+    ['Value', formatCurrency(entry.value)],
     ['Type', formatType(entry.type)],
     ['Status', formatStatus(entry.status)],
     ['Planned date', entry.date],

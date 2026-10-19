@@ -2,7 +2,7 @@ import chalk from 'chalk';
 import { logger } from '../../utils/logger.js';
 import { promptConfirmation } from '../../utils/prompt.js';
 import { fetchEntry, deleteEntry } from '../../lib/api.js';
-import { formatCurrency } from './format.js';
+import { formatCurrency } from '../../utils/currency.js';
 import { describeScope, resolveSeriesScope, type SeriesScope } from './series.js';
 import { parseEntryId } from './entry-id.js';
 

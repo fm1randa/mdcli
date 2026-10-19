@@ -7,7 +7,8 @@ import { fetchListEntries } from './card-entries.js';
 import { toCsv } from '../../lib/csv.js';
 import { summarize, totalRow } from '../../lib/summary.js';
 import { type FilterOptions, resolveEntryFilters, resolveExcludedCategories } from './filters.js';
-import { formatCurrency, formatSignedCurrency, formatStatus, formatType } from './format.js';
+import { formatStatus, formatType } from './format.js';
+import { formatCurrency, formatMagnitude } from '../../utils/currency.js';
 import { loadNames, nameOf, tagNames } from './names.js';
 
 async function loadEntries(options: FilterOptions) {
@@ -80,7 +81,7 @@ export async function listAction(options: ListOptions): Promise<void> {
       entry.id,
       entry.date,
       entry.description.length > 33 ? `${entry.description.slice(0, 33)}...` : entry.description,
-      formatSignedCurrency(entry.value),
+      formatCurrency(entry.value),
       formatType(entry.type),
       formatStatus(entry.status),
       entry.installment ?? chalk.gray('-'),
@@ -88,7 +89,7 @@ export async function listAction(options: ListOptions): Promise<void> {
   }
 
   const total = entries.reduce((sum, e) => sum + e.value, 0);
-  logger.header(`Entries (${entries.length}) | Total: ${formatSignedCurrency(total)}`);
+  logger.header(`Entries (${entries.length}) | Total: ${formatCurrency(total)}`);
   console.log(table.toString());
 }
 
@@ -169,14 +170,14 @@ export async function summaryAction(options: SummaryOptions): Promise<void> {
     style: { head: ['cyan'] },
   });
   for (const row of rows) {
-    table.push([row.label, row.count, formatCurrency(row.income), formatCurrency(row.expenses), formatSignedCurrency(row.net)]);
+    table.push([row.label, row.count, formatMagnitude(row.income), formatMagnitude(row.expenses), formatCurrency(row.net)]);
   }
   table.push([
     chalk.bold(total.label),
     chalk.bold(String(total.count)),
-    formatCurrency(total.income),
-    formatCurrency(total.expenses),
-    formatSignedCurrency(total.net),
+    formatMagnitude(total.income),
+    formatMagnitude(total.expenses),
+    formatCurrency(total.net),
   ]);
 
   logger.header(`Summary by ${by} | ${params.startDate} to ${params.endDate}`);

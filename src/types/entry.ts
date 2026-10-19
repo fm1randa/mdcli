@@ -96,7 +96,8 @@ export interface EntriesParams {
   repetition?: number;
 }
 
-export type EntryStatus = 'reconciled' | 'confirmed' | 'pending' | 'scheduled';
+/** unknown: a label the CLI does not know (see entries show --raw). */
+export type EntryStatus = 'reconciled' | 'confirmed' | 'pending' | 'scheduled' | 'unknown';
 export type EntryRepetition = 'single' | 'installment' | 'fixed';
 
 export interface NormalizedEntry {

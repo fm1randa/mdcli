@@ -5,15 +5,8 @@ import { logger } from '../utils/logger.js';
 import { action, exitWithError } from '../utils/action.js';
 import { fetchAccounts, fetchAccountById, normalizeCards, isCreditCard, fetchCardInvoice, normalizeCardEntries, fetchFirstInvoiceDate, fetchCardFuture, normalizeCardInstallments } from '../lib/api.js';
 import { resolveId } from '../lib/aliases.js';
+import { formatCurrency } from '../utils/currency.js';
 import { dueDateInMonth, parseInvoiceMonth } from '../lib/dates.js';
-
-function formatCurrency(value: number): string {
-  const formatted = value.toLocaleString('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-  });
-  return value >= 0 ? chalk.green(formatted) : chalk.red(formatted);
-}
 
 function formatStatus(active: boolean, closed: boolean): string {
   if (closed) return chalk.red('Closed');

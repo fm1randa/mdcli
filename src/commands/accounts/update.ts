@@ -5,7 +5,7 @@ import { fetchAccounts, updateAccount } from '../../lib/api.js';
 import { invalidateNameCache } from '../../lib/config.js';
 import type { UpdateAccountPayload } from '../../types/index.js';
 import { resolveAccountType } from './create.js';
-import { formatCurrency } from './format.js';
+import { formatCurrency } from '../../utils/currency.js';
 import { parseAmount, parseId } from '../../utils/parse.js';
 
 interface UpdateAccountOptions {
