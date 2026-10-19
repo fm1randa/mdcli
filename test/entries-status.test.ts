@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type RecordedRequest, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, cardInvoice } from './fixtures.js';
-import { entryStatusLabel } from '../scripts/mock-entries.js';
+import { statusLabel } from '../scripts/mock-entries.js';
 
 // Finanças 2026-10-19: `entries create -p` on checking account 1167419 (date
 // today) came back as id 363895476, "Status: Confirmed". In the web app
@@ -18,7 +18,7 @@ const today = new Date().toLocaleDateString('en-CA');
 /** Answers the POST/PUT the way the real API labels the payload it got. */
 function answer(req: RecordedRequest): Record<string, unknown> {
   const body = req.body as Record<string, unknown>;
-  return { id: 363895476, descricao: body.descricao, valor: body.valor, data: body.dataPrevista, dataPrevista: body.dataPrevista, status: entryStatusLabel(body) };
+  return { id: 363895476, descricao: body.descricao, valor: body.valor, data: body.dataPrevista, dataPrevista: body.dataPrevista, status: statusLabel(body) };
 }
 
 beforeEach(() => {

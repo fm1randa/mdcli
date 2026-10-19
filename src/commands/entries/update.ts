@@ -4,13 +4,14 @@ import { exitWithError } from '../../utils/action.js';
 import { updateEntry, fetchEntry } from '../../lib/api.js';
 import { resolveTags } from './tags.js';
 import { resolveEntryCategory } from './category.js';
-import type { CreateEntryResponse, Entry, UpdateEntryPayload } from '../../types/index.js';
+import type { CreateEntryResponse, UpdateEntryPayload } from '../../types/index.js';
 import { mapTypeToApi, parseTypeOption, warnScheduledAlias } from './create.js';
 import { describeStatus } from './format.js';
 import { formatCurrency } from '../../utils/currency.js';
 import { describeScope, resolveSeriesScope, type SeriesScope } from './series.js';
 import { buildTransferPayload, clearEffective, keepUnconfirmed } from './update-transfer.js';
 import { parseEntryId } from './entry-id.js';
+import { buildEntryStatus } from './status.js';
 import { parseAmount } from '../../utils/parse.js';
 
 interface UpdateOptions {
@@ -46,23 +47,6 @@ function reportUpdate(response: CreateEntryResponse, json?: boolean, todos?: boo
   if (todos !== undefined) {
     console.log(`  ${chalk.gray('Scope:')} ${describeScope(todos)}`);
   }
-}
-
-/**
- * An unconfirmed entry (pendente up to today, agendado after it) stays
- * unconfirmed unless --confirmed or --reconciled says otherwise; --pending
- * makes any entry unconfirmed again.
- */
-function staysUnconfirmed(options: UpdateOptions, existing: Entry): boolean {
-  if (options.pending || options.scheduled) return true;
-  if (options.confirmed || options.reconciled) return false;
-  return existing.status === 'agendado' || existing.status === 'pendente';
-}
-
-function resolveReconciled(options: UpdateOptions, existing: Entry): boolean {
-  if (options.pending || options.scheduled || options.confirmed) return false;
-  if (options.reconciled) return true;
-  return existing.conciliado ?? false;
 }
 
 export async function updateAction(id: string, options: UpdateOptions): Promise<void> {
@@ -108,7 +92,10 @@ export async function updateAction(id: string, options: UpdateOptions): Promise<
   const todos = resolveSeriesScope(entryId, existing, options.scope, {
     thisOnlyWarning: `Entry ${entryId} is an occurrence of a recurring series (${existing.parcela}): only this occurrence will be changed, and it will leave the series. Use --scope following to change this and the following occurrences, or --scope this to silence this warning.`,
   });
-  const scheduled = staysUnconfirmed(options, existing);
+  const choice = buildEntryStatus(
+    { pending: unconfirm, confirmed: options.confirmed, reconciled: options.reconciled },
+    { existing }
+  );
 
   if (existing.tipo === 't') {
     if (options.type !== undefined) {
@@ -128,9 +115,7 @@ export async function updateAction(id: string, options: UpdateOptions): Promise<
       categoryId,
       tagIds,
       notes: options.notes,
-      reconciled: resolveReconciled(options, existing),
-      scheduled,
-      unconfirm,
+      status: choice,
     });
     if (todos !== undefined) payload.todos = todos;
 
@@ -150,10 +135,7 @@ export async function updateAction(id: string, options: UpdateOptions): Promise<
     ...existing,
     id: entryId,
     descricao: options.description ?? existing.descricao,
-    status: {
-      confirmado: !scheduled,
-      conciliado: !scheduled && (existing.conciliado ?? false),
-    },
+    status: { confirmado: choice.confirmado, conciliado: choice.conciliado },
     tipo: options.type ? mapTypeToApi(options.type) : existing.tipo,
     valor: value ?? existing.valor,
     valorPrevisto: value ?? existing.valorPrevisto ?? existing.valor,
@@ -180,10 +162,11 @@ export async function updateAction(id: string, options: UpdateOptions): Promise<
     delete payload.categoriaPai;
   }
 
-  if (unconfirm) {
-    payload.conciliado = false;
+  // The top-level conciliado is echoed from the entry unless a flag sets it.
+  if (choice.explicit) payload.conciliado = choice.conciliado;
+  if (choice.effective === 'clear') {
     clearEffective(payload, ['dataEfetiva', 'valorEfetivo']);
-  } else if (scheduled) {
+  } else if (choice.effective === 'keep') {
     keepUnconfirmed(payload, existing, ['dataEfetiva', 'valorEfetivo']);
     // Moving a scheduled occurrence moves its schedule along with it (what
     // the tested reference patch for #65 sent).
@@ -195,15 +178,6 @@ export async function updateAction(id: string, options: UpdateOptions): Promise<
   // applies the change to this and the following occurrences and splits the
   // series, leaving earlier ones untouched. false is "Apenas neste".
   if (todos !== undefined) payload.todos = todos;
-
-  // Handle status changes
-  if (options.confirmed) {
-    payload.status = { confirmado: true, conciliado: false };
-    payload.conciliado = false;
-  } else if (options.reconciled) {
-    payload.status = { confirmado: true, conciliado: true };
-    payload.conciliado = true;
-  }
 
   const response = await updateEntry(entryId, payload as unknown as UpdateEntryPayload);
   reportUpdate(response, options.json, todos);

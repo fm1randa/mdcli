@@ -1,4 +1,5 @@
 import type { Entry } from '../../types/index.js';
+import type { EntryStatusChoice } from './status.js';
 
 // A scheduled occurrence has no effective date or value yet, and filling them
 // in is what confirms it: the API then ignores confirmado: false. Send back
@@ -23,10 +24,8 @@ export interface TransferOverrides {
   categoryId: number | null;
   tagIds?: number[];
   notes?: string;
-  reconciled: boolean;
-  scheduled: boolean;
-  /** --scheduled: clear the effective date and values instead of keeping them. */
-  unconfirm: boolean;
+  /** From buildEntryStatus; effective covers dataEfetiva, valorEfetivo and valorEfetivoT. */
+  status: EntryStatusChoice;
 }
 
 // A transfer (tipo "t") is a pair of mirrored entries, and the API rejects the
@@ -81,15 +80,16 @@ export function buildTransferPayload(
     carried.categoriaPai = existing.categoriaPai;
   }
 
-  const confirmed = !overrides.scheduled;
+  const { confirmado, conciliado, effective } = overrides.status;
   const payload: Record<string, unknown> = {
     ...carried,
     id: entryId,
     descricao: overrides.description ?? existing.descricao,
     transferencia: true,
-    status: { confirmado: confirmed, conciliado: confirmed && overrides.reconciled },
-    confirmado: confirmed,
-    conciliado: confirmed && overrides.reconciled,
+    // Unlike other entries, a transfer also carries confirmado at the top.
+    status: { confirmado, conciliado },
+    confirmado,
+    conciliado,
     conta: originAccount,
     contaT: destinationAccount,
     contaOrigem: originAccount,
@@ -113,9 +113,9 @@ export function buildTransferPayload(
     exibirCr: existing.exibirCr ?? true,
     ...(plastico !== undefined && { plastico }),
   };
-  if (overrides.unconfirm) {
+  if (effective === 'clear') {
     clearEffective(payload, ['dataEfetiva', 'valorEfetivo', 'valorEfetivoT']);
-  } else if (overrides.scheduled) {
+  } else if (effective === 'keep') {
     keepUnconfirmed(payload, existing, ['dataEfetiva', 'valorEfetivo', 'valorEfetivoT']);
   }
   return payload;
