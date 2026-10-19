@@ -50,6 +50,12 @@ expect_ok() {   # expect_ok <regex> <args...>
   local out; out=$("${CLI[@]}" "$@" </dev/null 2>&1) || { echo "saída: $out"; return 1; }
   grep -Eq "$re" <<<"$out" || { echo "esperava /$re/ em: $out"; return 1; }
 }
+expect_ok_without() { # expect_ok_without <regex> <absent regex> <args...>
+  local re="$1" absent="$2"; shift 2
+  local out; out=$("${CLI[@]}" "$@" </dev/null 2>&1) || { echo "saída: $out"; return 1; }
+  grep -Eq "$re" <<<"$out" || { echo "esperava /$re/ em: $out"; return 1; }
+  if grep -Eq "$absent" <<<"$out"; then echo "não esperava /$absent/ em: $out"; return 1; fi
+}
 expect_json() { # expect_json <js condition on d> <args...> — d = JSON parsed from stdout
   local cond="$1"; shift
   local out; out=$("${CLI[@]}" "$@" </dev/null) || { echo "saída: $out"; return 1; }
@@ -132,6 +138,8 @@ step "cli cards invoice resumo limite (mock)"     in_sao_paulo expect_ok 'Limit 
 step "cli cards invoice resumo disponível (mock)" in_sao_paulo expect_ok 'Available +R\$.*21\.502,71' cards invoice -a 1005 --month 2026-11
 step "cli cards invoice coluna da compra (mock)" in_sao_paulo expect_ok '2025-11-19 +│ Mac mini M4' cards invoice -a 1005 --month 2026-11
 step "cli cards invoice --json segue array (mock)" expect_json 'Array.isArray(d) && d.length === 2 && d.every((e) => !("resumo" in e) && !("Paid" in e))' cards invoice -a 1002 --month 2026-01 --json
+step "cli cards invoice --json --summary (mock)" expect_json 'd.invoice.total === -87.5 && d.invoice.unreconciled === -87.5 && d.invoice.paid === 100 && d.invoice.closingDate === "2026-01-08" && Array.isArray(d.entries) && d.entries.length === 2' cards invoice -a 1002 --month 2026-01 --json --summary
+step "cli cards invoice --summary sem itens (mock)" expect_ok_without 'Unreconciled +-R\$.*87,50' 'Mercado' cards invoice -a 1002 --month 2026-01 --summary
 step "cli cards invoice conta que não é cartão (mock)" expect_fail 'Account 1004 is not a credit card' cards invoice -a 1004
 step "cli cards invoice --month inválido com --json (mock)" expect_json_error 'Invalid invoice month "2026-13"' cards invoice -a 1005 --month 2026-13 --json
 step "cli entries list cartão mesma data do invoice (mock)" in_sao_paulo expect_json 'd.length === 1 && d[0].id === 315471241 && d[0].date === "2026-11-16" && d[0].competenceDate === "2025-11-19"' entries list -a 1005 -f 2026-11-01 -t 2026-11-30 --json
