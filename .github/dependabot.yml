@@ -1,0 +1,38 @@
+# Weekly dependency updates (Jardinagem 2026-10-19: no Dependabot/Renovate).
+# Minors and patches come together in one PR per ecosystem (the CI verify
+# check validates them); each major gets its own PR, to be reviewed apart.
+version: 2
+updates:
+  # "bun" updates package.json and bun.lock together (lockfile v2 is
+  # supported since dependabot-core#16485); "npm" would leave bun.lock stale
+  # and break `bun install --frozen-lockfile` in verify.sh.
+  - package-ecosystem: bun
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "08:00"
+      timezone: America/Sao_Paulo
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: chore(deps)
+    groups:
+      minor-and-patch:
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "08:00"
+      timezone: America/Sao_Paulo
+    commit-message:
+      prefix: chore(ci)
+    groups:
+      minor-and-patch:
+        update-types:
+          - minor
+          - patch
