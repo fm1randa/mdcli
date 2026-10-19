@@ -212,6 +212,10 @@ mdcli entries list --account mp --from 2026-01-01 --to 2026-03-31 --csv > entrie
 # with the purchase date as competenceDate
 mdcli entries list --account <cardId> --from 2026-10-01 --to 2026-12-31 --json
 
+# Checking account without the card bill projection (type invoice, no ID) the
+# API adds for each card it pays; also on summary
+mdcli entries list --account mp --from 2026-11-01 --to 2026-11-30 --no-invoices
+
 # Only installments and fixed series (the web app's Repetição filter);
 # also on summary. Values: single, installment, fixed
 mdcli entries list --account mp --repetition installment,fixed
@@ -422,9 +426,18 @@ The tests in `test/` run the real CLI as a subprocess against a local mock of th
 | Summary by category/month/account | Done |
 | Exclude categories (`--exclude-category`) | Done |
 | Alias support (account/category/tag) | Done |
+| Filter by repetition (`--repetition single,installment,fixed`) | Done |
+| Leave out card invoice projections (`--no-invoices`) | Done |
+| Card purchases in list/summary (read from the invoices) | Done |
+| Show one entry (`entries show`, `--json`/`--raw`) | Done |
 | Create (single) | Done |
-| Create (recurring) | Done |
+| Create (recurring, `--repeat`/`--frequency`/`--times`) | Done |
+| Create installments (`--installments`, `--per-installment`, `--first-installment`) | Done |
+| Create transfer (`-T transfer --to-account`) | Done |
+| Status on create/update (`-p/--pending`, `--confirmed`, `-r/--reconciled` on update) | Done |
+| Credit card purchase on a chosen invoice (`--invoice`) | Done |
 | Update | Done |
+| Update/delete a series occurrence (`--scope this\|following`) | Done |
 | Delete | Done |
 
 ### Cards
@@ -434,4 +447,6 @@ The tests in `test/` run the real CLI as a subprocess against a local mock of th
 | Filter by active | Done |
 | JSON output | Done |
 | Invoice (by month) | Done |
+| Invoice items with due and competence dates (`--json`) | Done |
+| Card settings in `cards list --json` (limit, due/closing dates, payment account) | Done |
 | Future installments | Done |
