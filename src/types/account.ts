@@ -88,6 +88,18 @@ export interface NormalizedAccount {
   closed: boolean;
 }
 
+export interface NormalizedCard extends NormalizedAccount {
+  limit: number | null;
+  /** Day of the month the invoice is due. */
+  dueDay: number | null;
+  nextDueDate: string | null;
+  nextClosingDate: string | null;
+  /** Closing happens this many days before the due date. */
+  closingDaysBeforeDue: number | null;
+  /** Account that pays the invoice. */
+  paymentAccountId: number | null;
+}
+
 export interface CreateAccountPayload {
   nome: string;
   tipoNovo: number;

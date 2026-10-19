@@ -1,4 +1,4 @@
-import type { CategoriesResponse, AccountsResponse, TagsResponse, NormalizedCategory, NormalizedAccount, NormalizedTag, NormalizedEntry, Entry, EntryRepetition, EntryStatus, CardInvoiceResponse, CardFutureResponse, NormalizedCardEntry, NormalizedCardInstallment } from '../types/index.js';
+import type { CategoriesResponse, AccountsResponse, TagsResponse, NormalizedCategory, NormalizedAccount, NormalizedCard, NormalizedTag, NormalizedEntry, Entry, EntryRepetition, EntryStatus, CardInvoiceResponse, CardFutureResponse, NormalizedCardEntry, NormalizedCardInstallment } from '../types/index.js';
 
 function mapCategoryType(tipo: 'd' | 'r' | 't'): 'expense' | 'income' | 'transfer' {
   const typeMap: Record<string, 'expense' | 'income' | 'transfer'> = {
@@ -29,6 +29,27 @@ export function normalizeAccounts(response: AccountsResponse): NormalizedAccount
     active: acc.status,
     closed: acc.encerrada,
   }));
+}
+
+/**
+ * Accounts plus the card settings the web app's card form edits (md.js):
+ * limite, fechamento (closing, in days before the due date), contada (the
+ * account that pays the invoice). balance is kept for compatibility.
+ */
+export function normalizeCards(response: AccountsResponse): NormalizedCard[] {
+  return normalizeAccounts(response).map((normalized, i) => {
+    const card = response.items[i];
+    const nextDueDate = card.proximoVencimento?.slice(0, 10) ?? null;
+    return {
+      ...normalized,
+      limit: card.limite ?? null,
+      dueDay: nextDueDate ? Number.parseInt(nextDueDate.slice(8, 10), 10) : null,
+      nextDueDate,
+      nextClosingDate: card.proximoFechamento?.slice(0, 10) ?? null,
+      closingDaysBeforeDue: card.fechamento ?? null,
+      paymentAccountId: card.contada ?? null,
+    };
+  });
 }
 
 export function normalizeTags(response: TagsResponse): NormalizedTag[] {
@@ -104,11 +125,18 @@ export function normalizeEntries(entries: Entry[]): NormalizedEntry[] {
   return entries.map(normalizeEntry);
 }
 
+/**
+ * date is the item's data (purchase date, e.g. 2025-11-19 for an installment
+ * 12/18). dueDate and competenceDate use the same rules as entries list, whose
+ * date is the invoice due date, so both commands can be matched by id.
+ */
 export function normalizeCardEntries(response: CardInvoiceResponse): NormalizedCardEntry[] {
   return response.lancamentos.map((entry) => ({
     id: entry.id,
     description: entry.descricao,
     date: entry.data,
+    dueDate: (entry.dataPrevista ?? response.vencimento).slice(0, 10),
+    competenceDate: (entry.dataCompetencia ?? entry.data).slice(0, 10),
     value: entry.valor,
     categoryId: entry.categoria ?? null,
     installment: entry.parcela ?? null,

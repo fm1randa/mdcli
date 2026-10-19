@@ -3,8 +3,9 @@ import Table from 'cli-table3';
 import chalk from 'chalk';
 import { logger } from '../utils/logger.js';
 import { action, exitWithError } from '../utils/action.js';
-import { fetchAccounts, fetchAccountById, normalizeAccounts, isCreditCard, fetchCardInvoice, normalizeCardEntries, fetchFirstInvoiceDate, fetchCardFuture, normalizeCardInstallments } from '../lib/api.js';
+import { fetchAccounts, fetchAccountById, normalizeCards, isCreditCard, fetchCardInvoice, normalizeCardEntries, fetchFirstInvoiceDate, fetchCardFuture, normalizeCardInstallments } from '../lib/api.js';
 import { resolveId } from '../lib/aliases.js';
+import { dueDateInMonth, parseInvoiceMonth } from '../lib/dates.js';
 
 function formatCurrency(value: number): string {
   const formatted = value.toLocaleString('pt-BR', {
@@ -30,7 +31,7 @@ async function listAction(options: { json?: boolean; active?: boolean }): Promis
   }
 
   if (options.json) {
-    const normalized = normalizeAccounts({ items: creditCards, meta: response.meta });
+    const normalized = normalizeCards({ items: creditCards, meta: response.meta });
     console.log(JSON.stringify(normalized, null, 2));
     return;
   }
@@ -66,6 +67,10 @@ cardsCommand
   .action(action(listAction));
 
 async function invoiceAction(options: { account: string; month?: string; json?: boolean }): Promise<void> {
+  // Before any API call: 2026-13 used to reach the API (400) and 2026-00 to
+  // show December's invoice (dogfood 2026-10-19).
+  if (options.month) parseInvoiceMonth(options.month);
+
   const accountId = await resolveId('accounts', options.account);
   if (!accountId) {
     exitWithError(`Unknown account: ${options.account}`);
@@ -81,18 +86,10 @@ async function invoiceAction(options: { account: string; month?: string; json?: 
     exitWithError(`Account ${accountId} is not a credit card`);
   }
 
-  let dueDate: string;
-  if (options.month) {
-    const match = options.month.match(/^(\d{4})-(\d{2})$/);
-    if (!match) {
-      exitWithError('Invalid month format. Use YYYY-MM (e.g., 2026-02)');
-    }
-    const [, year, month] = match;
-    const dayOfMonth = account.proximoVencimento ? new Date(account.proximoVencimento).getDate() : 10;
-    dueDate = `${year}-${month}-${dayOfMonth.toString().padStart(2, '0')}`;
-  } else {
-    dueDate = account.proximoVencimento ?? await fetchFirstInvoiceDate(accountId);
-  }
+  // The card's due day comes from proximoVencimento; 10 when it has none.
+  const dueDate = options.month
+    ? dueDateInMonth(options.month, account.proximoVencimento ?? '0000-00-10')
+    : (account.proximoVencimento ?? (await fetchFirstInvoiceDate(accountId)));
 
   const invoiceResponse = await fetchCardInvoice(accountId, dueDate);
   const entries = normalizeCardEntries(invoiceResponse);
@@ -128,7 +125,7 @@ cardsCommand
   .command('invoice')
   .description('Show credit card invoice entries')
   .requiredOption('-a, --account <id>', 'Card ID, alias, or exact name (case-insensitive)')
-  .option('--month <YYYY-MM>', 'Invoice month (default: current/next invoice)')
+  .option('--month <YYYY-MM>', 'Invoice month, due on the card\'s due day (default: current/next invoice)')
   .option('--json', 'Output as JSON')
   .action(action(invoiceAction));
 

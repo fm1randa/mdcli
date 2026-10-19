@@ -80,6 +80,8 @@ describe('cards invoice', () => {
         id: 1,
         description: 'Mercado',
         date: '2026-01-05',
+        dueDate: '2026-01-16',
+        competenceDate: '2026-01-05',
         value: -87.5,
         categoryId: 11,
         installment: null,

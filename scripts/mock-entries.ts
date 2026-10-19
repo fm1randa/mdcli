@@ -213,7 +213,22 @@ export function invoiceItems(cardId: number, dueDate: string): Body[] {
           contaT: 1001,
         },
       ]
-    : [];
+    : dueDate === '2026-11-16'
+      ? [
+          // Installment 12/18 of a purchase made a year earlier: data is the
+          // purchase date, the due date only comes from the invoice.
+          {
+            id: 315471241,
+            descricao: 'Mac mini M4',
+            valor: -301.29,
+            data: '2025-11-19',
+            categoria: 11,
+            parcela: '12/18',
+            tipo: 'd',
+            status: 'nconciliado',
+          },
+        ]
+      : [];
   const created = cardPurchases
     .filter((p) => p.conta === cardId && p.dataPrevista === dueDate)
     .map(({ conta: _conta, dataPrevista: _due, ...item }) => ({ ...item, tipo: 'd', status: 'nconciliado' }));

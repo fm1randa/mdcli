@@ -31,6 +31,20 @@ const CARD_NO_DUE = {
   proximoFechamento: undefined,
 };
 
+// Card shaped like the real Ourocard (dogfood 2026-10-19): date-only
+// proximoVencimento, which new Date() reads as UTC midnight (the 15th in
+// Brazil), plus the card settings cards list --json reports.
+const CARD_DATE_ONLY = {
+  ...CREDIT_CARD_ACCOUNT,
+  id: 1005,
+  nome: 'Cartão Ouro',
+  limite: 21804,
+  fechamento: 11,
+  contada: 1001,
+  proximoVencimento: '2026-11-16',
+  proximoFechamento: '2026-11-05',
+};
+
 // Finanças report (2026-10-16): an inactive category (hidden in the web app)
 // listed after an active one with the same name.
 const MOCK_CATEGORIES = {
@@ -44,7 +58,7 @@ const MOCK_CATEGORIES = {
 
 const MOCK_ACCOUNTS = {
   ...ACCOUNTS_RESPONSE,
-  items: [...ACCOUNTS_RESPONSE.items, CARD_NO_DUE, SAVINGS_ACCOUNT],
+  items: [...ACCOUNTS_RESPONSE.items, CARD_NO_DUE, SAVINGS_ACCOUNT, CARD_DATE_ONLY],
 };
 
 /**

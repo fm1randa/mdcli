@@ -287,7 +287,8 @@ mdcli entries delete 12345
 # (the web app's "Neste e em todos na sequência"); the default is --scope this
 mdcli entries delete 12345 --scope following
 
-# List credit cards
+# List credit cards (--json adds limit, dueDay, nextDueDate, nextClosingDate,
+# closingDaysBeforeDue and paymentAccountId)
 mdcli cards list --active
 
 # Show a credit card invoice (defaults to the current/next one)
@@ -295,6 +296,10 @@ mdcli cards invoice --account <cardId> --month 2026-02
 
 # Show a credit card invoice using the card's exact name
 mdcli cards invoice --account "Itaú Personalité" --month 2026-02
+
+# In --json, date is the purchase date; dueDate (the date entries list shows
+# for the same item) and competenceDate come along with it
+mdcli cards invoice --account <cardId> --month 2026-02 --json
 
 # Show upcoming installments on a card
 mdcli cards future --account <cardId>

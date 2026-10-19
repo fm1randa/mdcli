@@ -103,7 +103,10 @@ export interface CliResult {
   output: string;
 }
 
-export async function runCli(args: string[], env: { home: TestHome; api: MockApi; stdin?: string }): Promise<CliResult> {
+export async function runCli(
+  args: string[],
+  env: { home: TestHome; api: MockApi; stdin?: string; extraEnv?: Record<string, string> }
+): Promise<CliResult> {
   const proc = Bun.spawn(['bun', 'run', join(REPO_ROOT, 'bin', 'cli.ts'), ...args], {
     cwd: REPO_ROOT,
     env: {
@@ -119,6 +122,7 @@ export async function runCli(args: string[], env: { home: TestHome; api: MockApi
       MDCLI_CONFIG_DIR: join(env.home.dir, '.config', 'mdcli'),
       MDCLI_API_URL: env.api.url,
       FORCE_COLOR: '0',
+      ...env.extraEnv,
     },
     stdin: env.stdin === undefined ? 'ignore' : new Blob([env.stdin]),
     stdout: 'pipe',

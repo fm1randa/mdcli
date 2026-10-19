@@ -26,6 +26,25 @@ export function shiftDueDate(dueDate: string, months: number): string {
   return toLocalDateString(target);
 }
 
+const INVOICE_MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
+/** Validates a YYYY-MM invoice month (month 01-12); throws a message for the user otherwise. */
+export function parseInvoiceMonth(value: string): string {
+  if (!INVOICE_MONTH.test(value)) {
+    throw new Error(`Invalid invoice month "${value}". Use YYYY-MM with a month from 01 to 12 (e.g., 2026-10)`);
+  }
+  return value;
+}
+
+/**
+ * Due date of a card's invoice in a YYYY-MM month, from any of its due dates
+ * (proximoVencimento). Reads the day from the string: new Date('2026-11-16')
+ * is UTC midnight, which is the 15th in Brazil (dogfood 2026-10-19). The day
+ * is clamped (31 -> Feb 28).
+ */
+export function dueDateInMonth(month: string, anyDueDate: string): string {
+  return shiftDueDate(`${parseInvoiceMonth(month)}-${anyDueDate.slice(8, 10)}`, 0);
+}
+
 const ISO_DATE = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
 /** True for a real YYYY-MM-DD calendar day (rejects 2026-02-31). */
 export function isCalendarDate(value: string): boolean {
