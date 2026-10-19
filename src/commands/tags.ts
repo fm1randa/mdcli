@@ -6,6 +6,7 @@ import { action, exitWithError } from '../utils/action.js';
 import { promptConfirmation } from '../utils/prompt.js';
 import { fetchTags, normalizeTags, createTag, updateTag, deleteTag } from '../lib/api.js';
 import { buildAliasCommand } from '../lib/aliases.js';
+import { parseId } from '../utils/parse.js';
 
 function formatColor(hex: string): string {
   return chalk.hex(hex)('██') + ' ' + hex;
@@ -98,8 +99,8 @@ interface UpdateTagOptions {
 }
 
 async function updateTagAction(id: string, options: UpdateTagOptions): Promise<void> {
-  const tagId = Number(id);
-  if (Number.isNaN(tagId)) {
+  const tagId = parseId(id);
+  if (tagId === undefined) {
     exitWithError('Invalid tag ID. Must be a number.');
   }
 
@@ -166,8 +167,8 @@ interface DeleteTagOptions {
 }
 
 async function deleteTagAction(id: string, options: DeleteTagOptions): Promise<void> {
-  const tagId = Number(id);
-  if (Number.isNaN(tagId)) {
+  const tagId = parseId(id);
+  if (tagId === undefined) {
     exitWithError('Invalid tag ID. Must be a number.');
   }
 

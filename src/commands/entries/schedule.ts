@@ -1,6 +1,7 @@
 import { exitWithError } from '../../utils/action.js';
 import { addInterval } from '../../lib/dates.js';
 import type { CreateEntryAgenda, CreateEntryInstallment } from '../../types/index.js';
+import { parseInteger } from '../../utils/parse.js';
 
 export interface ScheduleOptions {
   repeat?: string;
@@ -44,8 +45,8 @@ function parseInterval(repeat: string): Interval {
 
 function parseCount(flag: string, value: string | undefined, min = 1): number | undefined {
   if (value === undefined) return undefined;
-  const count = Number(value);
-  if (!Number.isInteger(count) || count < min) {
+  const count = parseInteger(value, min);
+  if (count === undefined) {
     exitWithError(`Invalid ${flag}: ${value}. Use a whole number of at least ${min}.`);
   }
   return count;

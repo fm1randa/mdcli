@@ -1,10 +1,11 @@
 import { exitWithError } from '../../utils/action.js';
 import { fetchCategories } from '../../lib/api.js';
 import { getAliases, resolveId } from '../../lib/aliases.js';
+import { parseId } from '../../utils/parse.js';
 
 /** A bare number or an Alias points at one exact category; only a name can match several. */
 function isExplicitReference(input: string): boolean {
-  return !Number.isNaN(Number(input)) || getAliases('categories').some((a) => a.name === input);
+  return parseId(input) !== undefined || getAliases('categories').some((a) => a.name === input);
 }
 
 /**

@@ -6,6 +6,7 @@ import { invalidateNameCache } from '../../lib/config.js';
 import type { UpdateAccountPayload } from '../../types/index.js';
 import { resolveAccountType } from './create.js';
 import { formatCurrency } from './format.js';
+import { parseAmount, parseId } from '../../utils/parse.js';
 
 interface UpdateAccountOptions {
   name?: string;
@@ -19,8 +20,8 @@ interface UpdateAccountOptions {
 }
 
 export async function updateAccountAction(id: string, options: UpdateAccountOptions): Promise<void> {
-  const accountId = Number(id);
-  if (Number.isNaN(accountId)) {
+  const accountId = parseId(id);
+  if (accountId === undefined) {
     exitWithError('Invalid account ID. Must be a number.');
   }
 
@@ -61,8 +62,8 @@ export async function updateAccountAction(id: string, options: UpdateAccountOpti
 
   let saldoInicial = existing.saldoInicial;
   if (options.balance !== undefined) {
-    const balance = Number(options.balance);
-    if (Number.isNaN(balance)) {
+    const balance = parseAmount(options.balance);
+    if (balance === undefined) {
       exitWithError('Invalid balance. Must be a number.');
     }
     saldoInicial = balance;
@@ -70,8 +71,8 @@ export async function updateAccountAction(id: string, options: UpdateAccountOpti
 
   let moeda = existing.moeda;
   if (options.currency !== undefined) {
-    const currency = Number(options.currency);
-    if (Number.isNaN(currency)) {
+    const currency = parseId(options.currency);
+    if (currency === undefined) {
       exitWithError('Invalid currency. Must be a number.');
     }
     moeda = currency;

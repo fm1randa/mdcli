@@ -14,6 +14,7 @@ import {
 import { buildAliasCommand, resolveId } from '../lib/aliases.js';
 import { invalidateNameCache } from '../lib/config.js';
 import type { Category } from '../types/index.js';
+import { parseId } from '../utils/parse.js';
 
 const TYPE_CODES = { expense: 'd', income: 'r', transfer: 't' } as const;
 type CategoryTypeName = keyof typeof TYPE_CODES;
@@ -170,8 +171,8 @@ interface UpdateCategoryOptions {
 }
 
 async function updateCategoryAction(id: string, options: UpdateCategoryOptions): Promise<void> {
-  const categoryId = Number(id);
-  if (Number.isNaN(categoryId)) {
+  const categoryId = parseId(id);
+  if (categoryId === undefined) {
     exitWithError('Invalid category ID. Must be a number.');
   }
   if (options.name === undefined && !options.active && !options.inactive) {
@@ -229,8 +230,8 @@ interface DeleteCategoryOptions {
 }
 
 async function deleteCategoryAction(id: string, options: DeleteCategoryOptions): Promise<void> {
-  const categoryId = Number(id);
-  if (Number.isNaN(categoryId)) {
+  const categoryId = parseId(id);
+  if (categoryId === undefined) {
     exitWithError('Invalid category ID. Must be a number.');
   }
 

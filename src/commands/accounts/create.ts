@@ -5,6 +5,7 @@ import { fetchAccounts, createAccount } from '../../lib/api.js';
 import { invalidateNameCache } from '../../lib/config.js';
 import type { AccountMeta, CreateAccountPayload } from '../../types/index.js';
 import { formatCurrency } from './format.js';
+import { parseAmount, parseId } from '../../utils/parse.js';
 
 function normalizeTypeName(input: string): string {
   return input
@@ -17,8 +18,8 @@ export function resolveAccountType(
   types: AccountMeta['tipos'],
   input: string
 ): AccountMeta['tipos'][number] | undefined {
-  const numId = Number(input);
-  if (!Number.isNaN(numId)) {
+  const numId = parseId(input);
+  if (numId !== undefined) {
     return types.find((t) => t.id === numId);
   }
   const normalized = normalizeTypeName(input);
@@ -42,13 +43,13 @@ export async function createAccountAction(options: CreateAccountOptions): Promis
     exitWithError(`Unknown account type "${options.type}". Run "mdcli accounts types" to see valid options.`);
   }
 
-  const balance = options.balance !== undefined ? Number(options.balance) : 0;
-  if (Number.isNaN(balance)) {
+  const balance = options.balance !== undefined ? parseAmount(options.balance) : 0;
+  if (balance === undefined) {
     exitWithError('Invalid balance. Must be a number.');
   }
 
-  const currency = options.currency !== undefined ? Number(options.currency) : 1;
-  if (Number.isNaN(currency)) {
+  const currency = options.currency !== undefined ? parseId(options.currency) : 1;
+  if (currency === undefined) {
     exitWithError('Invalid currency. Must be a number.');
   }
 
