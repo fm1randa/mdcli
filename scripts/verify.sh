@@ -109,17 +109,21 @@ step "cli accounts delete inexistente (mock)" expect_fail 'DELETE /v1/cadastros/
 # (installment/transfer update). Mock only; never the real API.
 step "cli cards list (mock)"                 expect_ok 'Cartão Azul' cards list
 step "cli cards invoice (mock)"              expect_ok 'Mercado' cards invoice -a 1002 --month 2026-01
+# Bill total (-87.50) must ignore the payment (+100) listed among the items.
+step "cli cards invoice total (mock)"        expect_ok 'Total: -R\$.*87,50' cards invoice -a 1002 --month 2026-01
 step "cli cards invoice --json (mock)"       expect_json 'Array.isArray(d) && d[0]?.description === "Mercado"' cards invoice -a 1002 --month 2026-01 --json
 step "cli cards invoice primeiraFatura (mock)" expect_ok 'Mercado' cards invoice -a 1003
 step "cli cards future (mock)"               expect_ok 'Notebook' cards future -a 1002
-step "cli cards future --json (mock)"        expect_json 'Array.isArray(d) && d[0]?.installment === "3/6"' cards future -a 1002 --json
+# Bare-array API: remaining derived from "3/6" → 4 (old code always returned []).
+step "cli cards future --json (mock)"        expect_json 'Array.isArray(d) && d.length === 1 && d[0]?.installment === "3/6" && d[0]?.remaining === 4' cards future -a 1002 --json
 # Card create: dataCompetencia=purchase, dataPrevista=invoice due, not reconciled.
 step "cli entries create cartão (mock)"      expect_ok 'ID: 91[0-9]{2}' entries create -a 1002 -d Voo -v 10 -c 10 -D 2026-01-05
 step "cli entries create cartão --json (mock)" expect_json 'd.id === 9102 && d.occurrenceId === "46349170A2026-01-05" && d.dataCompetencia === "2026-01-05" && d.dataPrevista === "2026-01-16" && d.conciliado === false && d.status === "confirmado"' entries create -a 1002 -d Voo -v 10 -c 10 -D 2026-01-05 --json
 # Finanças 2026-10-16: the POST answers an occurrence ID for card purchases
 # (the CLI swaps in the entry ID from the invoice) and the statement list
 # leaves card purchases out (the CLI reads them from the invoices).
-step "cli entries list cartão (mock)" expect_json 'd.length === 3 && d.every((e) => e.accountId === 1002 && e.date === "2026-01-16") && d.filter((e) => e.description === "Voo" && e.competenceDate === "2026-01-05").length === 2' entries list -a 1002 -f 2026-01-01 -t 2026-01-31 --json
+# Seeded invoice has Mercado + Pagamento (tipo p); create adds two Voo purchases.
+step "cli entries list cartão (mock)" expect_json 'd.length === 4 && d.every((e) => e.accountId === 1002 && e.date === "2026-01-16") && d.filter((e) => e.description === "Voo" && e.competenceDate === "2026-01-05").length === 2 && d.some((e) => e.description === "Pagamento cartão")' entries list -a 1002 -f 2026-01-01 -t 2026-01-31 --json
 step "cli entries list cartão -k (mock)" expect_json 'd.length === 1 && d[0].id === 1' entries list -a 1002 -f 2026-01-01 -t 2026-01-31 -k merc --json
 step "cli entries update lançamento de cartão (mock)" expect_json 'd.id === 9102 && d.descricao === "Voo editado"' entries update 9102 -d "Voo editado" --json
 step "cli entries update id de ocorrência (mock)" expect_fail 'series occurrence ID, not an entry ID' entries update 46349170A2026-01-05 -d X

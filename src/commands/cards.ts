@@ -117,7 +117,9 @@ async function invoiceAction(options: { account: string; month?: string; json?: 
     ]);
   }
 
-  const total = entries.reduce((sum, e) => sum + e.value, 0);
+  // Summing the items double-counts when a payment (tipo p) is listed: use the
+  // API's bill total instead (dogfood 2026-10-19).
+  const total = invoiceResponse.resumo?.totalFatura ?? invoiceResponse.valor;
   logger.header(`Invoice for ${account.nome} - ${dueDate} (${entries.length} entries) | Total: ${formatCurrency(total)}`);
   console.log(table.toString());
 }

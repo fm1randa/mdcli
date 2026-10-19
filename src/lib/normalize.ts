@@ -112,17 +112,28 @@ export function normalizeCardEntries(response: CardInvoiceResponse): NormalizedC
   }));
 }
 
+/** Remaining installments including the current one: "13/18" → 6. */
+function remainingFromInstallment(parcela: string | undefined): number {
+  const match = parcela?.match(/^(\d+)\/(\d+)$/);
+  if (!match) return 0;
+  return Number(match[2]) - Number(match[1]) + 1;
+}
+
+/**
+ * The real API returns a bare array from parcelasFuturas; older mocks wrapped
+ * it in { parcelas }. Accept both. Derive remaining from "N/M" when the API
+ * omits parcelasRestantes (it always does on the real endpoint).
+ */
 export function normalizeCardInstallments(response: CardFutureResponse): NormalizedCardInstallment[] {
-  if (!response.parcelas || !Array.isArray(response.parcelas)) {
-    return [];
-  }
-  return response.parcelas.map((item) => ({
+  const items = Array.isArray(response) ? response : (response.parcelas ?? []);
+  if (!Array.isArray(items)) return [];
+  return items.map((item) => ({
     id: item.id,
     description: item.descricao,
     date: item.data,
     value: item.valor,
     installment: item.parcela,
-    remaining: item.parcelasRestantes ?? 0,
+    remaining: item.parcelasRestantes ?? remainingFromInstallment(item.parcela),
     categoryId: item.categoria ?? null,
   }));
 }

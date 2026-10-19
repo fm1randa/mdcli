@@ -148,28 +148,35 @@ function cardsRoute(req: Request, path: string): Response {
     const due = invoice[2];
     if (!MOCK_ACCOUNTS.items.some((a) => a.id === id && a.tipo === 'CARTAOCREDITO')) return notFound();
     const lancamentos = invoiceItems(id, due);
-    const valor = lancamentos.reduce((sum, e) => sum + Number(e.valor), 0);
-    return Response.json({ ...cardInvoice(due, closingFor(due)), lancamentos, valor });
+    // Bill total excludes payments (tipo p), matching resumo.totalFatura on the
+    // real API (dogfood 2026-10-19).
+    const totalFatura = lancamentos
+      .filter((e) => e.tipo !== 'p')
+      .reduce((sum, e) => sum + Number(e.valor), 0);
+    return Response.json({
+      ...cardInvoice(due, closingFor(due), totalFatura),
+      lancamentos,
+      valor: totalFatura,
+    });
   }
 
   const future = path.match(/^\/api\/v1\/cartoes\/(\d+)\/parcelasFuturas$/);
   if (future) {
     const id = Number(future[1]);
     if (!MOCK_ACCOUNTS.items.some((a) => a.id === id && a.tipo === 'CARTAOCREDITO')) return notFound();
-    return Response.json({
-      parcelas: [
-        {
-          id: 801,
-          descricao: 'Notebook',
-          valor: -250,
-          data: '2026-02-16',
-          parcela: '3/6',
-          parcelasRestantes: 4,
-          categoria: 10,
-        },
-      ],
-      total: -250,
-    });
+    // Real API: bare array (no { parcelas } wrapper, no parcelasRestantes).
+    return Response.json([
+      {
+        id: 801,
+        descricao: 'Notebook',
+        valor: -250,
+        data: '2026-02-16',
+        parcela: '3/6',
+        categoria: 10,
+        tipo: 'd',
+        status: 'nconciliado',
+      },
+    ]);
   }
 
   return notFound();
