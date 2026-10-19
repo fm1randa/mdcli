@@ -124,6 +124,11 @@ step "cli entries create parcelada --json (mock)" expect_json 'd.parcela === "1/
 step "cli entries create parcelada texto (mock)" expect_ok 'Installments: 1x .*33,34 \+ 2x .*33,33 \(monthly, every 1\)' entries create -a 1001 -d Geladeira -v 100 -c 10 -i 3 -D 2026-01-31
 step "cli entries create fixa --frequency + --times (mock)" expect_ok 'Recurrence: monthly, every 2, 6 times' entries create -a 1001 -d Academia -v 90 -c 10 -r monthly --frequency 2 --times 6
 step "cli entries create agendado --json (mock)" expect_json 'd.status === "agendado" && d.dataEfetiva === null && d.valorEfetivo === null' entries create -a 1001 -d IPVA -v 800 -c 10 --scheduled -D 2026-11-05 --json
+# Inactive categories (Finanças 2026-10-16): a shared name picks the active
+# one; an explicit ID (or a name with no active match) is refused.
+step "cli entries create categoria ativa por nome (mock)" expect_json 'd.categoria === 42' entries create -a 1001 -d Aluguel -v 10 -c moradia -D 2026-01-05 --json
+step "cli entries create categoria inativa (mock)" expect_fail 'Category "Moradia" \(41\) is inactive' entries create -a 1001 -d Aluguel -v 10 -c 41 -D 2026-01-05
+step "cli entries update categoria inativa (mock)" expect_fail 'is inactive' entries update 70 -c 41
 step "cli entries update --scheduled (mock)" expect_json 'd.status === "agendado" && d.dataEfetiva === null' entries update 70 --scheduled --json
 step "cli entries update parcela (mock)"     expect_ok 'Entry updated' entries update 60 -d "Notebook (2/6)"
 step "cli entries update parcela --json (mock)" expect_json 'd.id === 60 && d.descricao === "Notebook (2/6)"' entries update 60 -d "Notebook (2/6)" --json

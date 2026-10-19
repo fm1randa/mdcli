@@ -139,6 +139,7 @@ export function createdEntry(body: Body, id: number): Body {
     exibirCp: true,
     exibirCr: true,
     conta: body.conta ?? body.contaOrigem,
+    categoria: body.categoria ?? null,
     ...(body.transferencia === true && { contaT: body.contaDestino, valorT: body.valorT }),
     ...(parcelas && { parcela: `${agenda?.inicial ?? 1}/${agenda?.quantidade}` }),
   };
