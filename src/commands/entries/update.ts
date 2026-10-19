@@ -10,6 +10,7 @@ import { mapTypeToApi, parseTypeOption } from './create.js';
 import { formatCurrency, formatStatus } from './format.js';
 import { describeScope, resolveSeriesScope, type SeriesScope } from './series.js';
 import { buildTransferPayload, clearEffective, keepUnconfirmed } from './update-transfer.js';
+import { parseEntryId } from './entry-id.js';
 
 interface UpdateOptions {
   description?: string;
@@ -71,10 +72,7 @@ function resolveReconciled(options: UpdateOptions, existing: Entry): boolean {
 }
 
 export async function updateAction(id: string, options: UpdateOptions): Promise<void> {
-  const entryId = Number(id);
-  if (Number.isNaN(entryId)) {
-    exitWithError('Invalid entry ID. Must be a number.');
-  }
+  const entryId = parseEntryId(id);
 
   if (options.scheduled && (options.pending || options.reconciled)) {
     exitWithError('Use only one of --scheduled, --pending and --reconciled.');

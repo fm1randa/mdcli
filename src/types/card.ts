@@ -1,13 +1,24 @@
 // Credit Card Types
-interface CardInvoiceEntry {
+/** An entry of an invoice. Only the first fields are known for sure; the
+ * others are read when present (the web app's card reconciliation sorts
+ * them by dataCompetencia). */
+export interface CardInvoiceEntry {
   id: number | string;
   descricao: string;
   valor: number;
+  /** Purchase date. */
   data: string;
   categoria?: number;
   parcela?: string;
   status?: string;
-  tipo?: string;
+  tipo?: 'd' | 'r' | 't';
+  conta?: number;
+  dataPrevista?: string;
+  dataCompetencia?: string;
+  agendaId?: number;
+  tags?: number[];
+  observacoes?: string;
+  ndocumento?: string;
 }
 
 export interface CardInvoiceResponse {

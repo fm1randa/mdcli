@@ -114,7 +114,7 @@ export function checkCreatePayload(body: Body): string | null {
 }
 
 /** The API's answer to POST /v1/lancamentos for a payload that passed checkCreatePayload. */
-export function createdEntry(body: Body, id: number): Body {
+export function createdEntry(body: Body, id: number | string): Body {
   const status = body.status as { confirmado?: boolean } | undefined;
   const reconciled = Boolean(body.conciliado);
   const scheduled = status?.confirmado === false;
@@ -143,4 +143,41 @@ export function createdEntry(body: Body, id: number): Body {
     ...(body.transferencia === true && { contaT: body.contaDestino, valorT: body.valorT }),
     ...(parcelas && { parcela: `${agenda?.inicial ?? 1}/${agenda?.quantidade}` }),
   };
+}
+
+// Card purchases created through POST, as the real API keeps them: the POST
+// answers an occurrence ID ("<series>A<purchase date>", Finanças 2026-10-16)
+// and the entry ID only shows up in the invoice, which lists the purchase
+// with just its basic fields. GET/PUT /v1/lancamentos/:id take the entry ID.
+let nextCardEntryId = 9101;
+const cardPurchases: Body[] = [];
+
+/** Stores a card purchase and returns the POST answer for it. */
+export function createCardPurchase(body: Body): Body {
+  const id = nextCardEntryId++;
+  const parcelas = body.parcelas as { valor: number }[] | undefined;
+  const valor = parcelas ? parcelas[0].valor : body.valor;
+  SEEDED_ENTRIES[id] = { ...createdEntry(body, id), valor, tags: body.tags ?? [], observacoes: body.observacoes ?? '' };
+  cardPurchases.push({
+    id,
+    conta: Number(body.conta),
+    descricao: body.descricao,
+    valor,
+    data: body.dataCompetencia,
+    dataPrevista: body.dataPrevista,
+    categoria: body.categoria,
+  });
+  return createdEntry(body, `46349170A${String(body.dataCompetencia)}`);
+}
+
+/** The invoice items of a card's invoice due on dueDate. */
+export function invoiceItems(cardId: number, dueDate: string): Body[] {
+  // A purchase seeded in the January 2026 invoice (cards invoice steps).
+  const seeded = dueDate.startsWith('2026-01-')
+    ? [{ id: 1, descricao: 'Mercado', valor: -87.5, data: '2026-01-05', categoria: 11 }]
+    : [];
+  const created = cardPurchases
+    .filter((p) => p.conta === cardId && p.dataPrevista === dueDate)
+    .map(({ conta: _conta, dataPrevista: _due, ...item }) => item);
+  return [...seeded, ...created];
 }

@@ -1,10 +1,10 @@
 import chalk from 'chalk';
 import { logger } from '../../utils/logger.js';
-import { exitWithError } from '../../utils/action.js';
 import { promptConfirmation } from '../../utils/prompt.js';
 import { fetchEntry, deleteEntry } from '../../lib/api.js';
 import { formatCurrency } from './format.js';
 import { describeScope, resolveSeriesScope, type SeriesScope } from './series.js';
+import { parseEntryId } from './entry-id.js';
 
 interface DeleteOptions {
   dangerouslySkipConfirmation?: boolean;
@@ -14,10 +14,7 @@ interface DeleteOptions {
 
 
 export async function deleteAction(id: string, options: DeleteOptions): Promise<void> {
-  const entryId = Number(id);
-  if (Number.isNaN(entryId)) {
-    exitWithError('Invalid entry ID. Must be a number.');
-  }
+  const entryId = parseEntryId(id);
 
   const entry = await fetchEntry(entryId);
   const todos = resolveSeriesScope(entryId, entry, options.scope, {

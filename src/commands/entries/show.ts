@@ -4,6 +4,7 @@ import { fetchEntry } from '../../lib/api.js';
 import { normalizeEntry } from '../../lib/normalize.js';
 import { formatSignedCurrency, formatStatus, formatType } from './format.js';
 import { loadNames, nameOf, tagNames } from './names.js';
+import { parseEntryId } from './entry-id.js';
 
 interface ShowOptions {
   json?: boolean;
@@ -13,10 +14,7 @@ interface ShowOptions {
 const REPETITION_LABELS = { single: 'Single', installment: 'Installment', fixed: 'Fixed' } as const;
 
 export async function showAction(id: string, options: ShowOptions): Promise<void> {
-  const entryId = Number(id);
-  if (Number.isNaN(entryId)) {
-    exitWithError('Invalid entry ID. Must be a number.');
-  }
+  const entryId = parseEntryId(id);
   if (options.json && options.raw) {
     exitWithError('Use either --json or --raw, not both.');
   }

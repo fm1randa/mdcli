@@ -8,7 +8,7 @@ import {
   TAGS_RESPONSE,
   cardInvoice,
 } from '../test/fixtures.js';
-import { SEEDED_ENTRIES, checkCreatePayload, createdEntry } from './mock-entries.js';
+import { SEEDED_ENTRIES, checkCreatePayload, createCardPurchase, createdEntry, invoiceItems } from './mock-entries.js';
 
 // GitHub "latest release" endpoint used by the self-updater (no auth).
 const MOCK_LATEST_TAG = 'v2099.1.1';
@@ -143,13 +143,9 @@ function cardsRoute(req: Request, path: string): Response {
     const id = Number(invoice[1]);
     const due = invoice[2];
     if (!MOCK_ACCOUNTS.items.some((a) => a.id === id && a.tipo === 'CARTAOCREDITO')) return notFound();
-    return Response.json({
-      ...cardInvoice(due, closingFor(due)),
-      lancamentos: [
-        { id: 1, descricao: 'Mercado', valor: -87.5, data: '2026-01-05', categoria: 11 },
-      ],
-      valor: -87.5,
-    });
+    const lancamentos = invoiceItems(id, due);
+    const valor = lancamentos.reduce((sum, e) => sum + Number(e.valor), 0);
+    return Response.json({ ...cardInvoice(due, closingFor(due)), lancamentos, valor });
   }
 
   const future = path.match(/^\/api\/v1\/cartoes\/(\d+)\/parcelasFuturas$/);
@@ -189,7 +185,9 @@ function entriesListRoute(url: URL): Response {
   const repetition = Number(url.searchParams.get('tipoRepeticao') ?? 7);
   const list = Object.values(SEEDED_ENTRIES).filter((e) => {
     const date = String(e.dataPrevista);
-    return ids.includes(Number(e.conta)) && date >= from && date <= to && (repetitionBit(e) & repetition) !== 0;
+    // Like the real statement list (finalidade 1), card purchases are left out:
+    // they only show up in the card's invoices.
+    return ids.includes(Number(e.conta)) && !isCreditCardId(e.conta) && date >= from && date <= to && (repetitionBit(e) & repetition) !== 0;
   });
   return Response.json({ list, meta: { total: list.length, page: 1, pageSize: 200 } });
 }
@@ -219,6 +217,7 @@ async function entriesRoute(req: Request, path: string): Promise<Response> {
 
     const invalid = checkCreatePayload(body);
     if (invalid) return badRequest(invalid);
+    if (isCreditCardId(body.conta)) return Response.json(createCardPurchase(body), { status: 201 });
     return Response.json(createdEntry(body, NEW_ENTRY_ID), { status: 201 });
   }
 

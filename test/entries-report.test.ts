@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createHome, MANUAL_AUTH, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
-import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, SAMPLE_ENTRIES, entriesPage } from './fixtures.js';
+import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, SAMPLE_ENTRIES, cardInvoice, entriesPage } from './fixtures.js';
 
 let api: MockApi;
 let home: TestHome;
@@ -12,6 +12,9 @@ beforeEach(() => {
   api.on('GET /v1/cadastros/contas', ACCOUNTS_RESPONSE);
   api.on('GET /v1/cadastros/categorias', CATEGORIES_RESPONSE);
   api.on('GET /v2/lancamentos', entriesPage(SAMPLE_ENTRIES));
+  // 1002 is a card: list also reads its invoices due in the period (empty here).
+  api.on('GET /v1/cartoes/1002/fatura/2026-01-16', cardInvoice('2026-01-16', '2026-01-08'));
+  api.on('GET /v1/cartoes/1002/fatura/2026-02-16', cardInvoice('2026-02-16', '2026-02-08'));
   home = createHome(MANUAL_AUTH);
 });
 
