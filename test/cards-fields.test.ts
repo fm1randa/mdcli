@@ -20,7 +20,9 @@ afterEach(() => {
 
 describe('cards list --json', () => {
   // Dogfood 2026-10-19: the JSON lacked what the table and the web show.
-  test('--json adds limit, due and closing dates and the payment account', async () => {
+  // Filipe (dogfood 2026-10-19): balance (saldoUltimoExtrato, Open Finance)
+  // means nothing for a card, so it is gone; the card fields stay.
+  test('--json has limit, due and closing dates and the payment account, and no balance', async () => {
     api.on('GET /v1/cadastros/contas', {
       ...ACCOUNTS_RESPONSE,
       items: [
@@ -40,13 +42,13 @@ describe('cards list --json', () => {
     const result = await runCli(['cards', 'list', '--json'], { home, api });
 
     expect(result.exitCode).toBe(0);
+    expect(result.stdout).not.toContain('balance');
     expect(JSON.parse(result.stdout)).toEqual([
       {
         id: 1002,
         name: 'Cartão Azul',
         type: 'CARTAOCREDITO',
         bank: null,
-        balance: 16207,
         active: true,
         closed: false,
         limit: 21804,
@@ -61,7 +63,6 @@ describe('cards list --json', () => {
         name: 'Cartão Novo',
         type: 'CARTAOCREDITO',
         bank: null,
-        balance: 250.5,
         active: true,
         closed: false,
         limit: null,
@@ -125,9 +126,9 @@ describe('cards invoice --month', () => {
   }
 
   // Dogfood 2026-10-19: item 315471241 showed date 2025-11-19 here and
-  // 2026-11-16 in entries list. date stays the purchase date; dueDate is
-  // what entries list calls date.
-  test('--json adds the due date and competence date of each item', async () => {
+  // 2026-11-16 in entries list. Filipe decided date is the due date, as in
+  // entries list; the purchase date moves to purchaseDate and dueDate stays.
+  test('--json date is the due date; the purchase date is purchaseDate', async () => {
     api.on('GET /v1/cartoes/1002/fatura/2026-11-16', {
       ...cardInvoice('2026-11-16T00:00:00', '2026-11-05T00:00:00', -401.29),
       lancamentos: [
@@ -150,8 +151,9 @@ describe('cards invoice --month', () => {
       {
         id: 315471241,
         description: 'Mac mini M4',
-        date: '2025-11-19',
+        date: '2026-11-16',
         dueDate: '2026-11-16',
+        purchaseDate: '2025-11-19',
         competenceDate: '2025-11-19',
         value: -301.29,
         categoryId: 11,
@@ -160,8 +162,9 @@ describe('cards invoice --month', () => {
       {
         id: 7,
         description: 'Livro',
-        date: '2026-10-30',
+        date: '2026-11-16',
         dueDate: '2026-11-16',
+        purchaseDate: '2026-10-30',
         competenceDate: '2026-10-29',
         value: -100,
         categoryId: null,

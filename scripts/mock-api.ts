@@ -100,6 +100,43 @@ function closingFor(dueDate: string): string {
   return `${yy}-${mm}-${dd}`;
 }
 
+const sum = (items: Array<Record<string, unknown>>): number =>
+  Math.round(items.reduce((total, e) => total + Number(e.valor), 0) * 100) / 100;
+
+/**
+ * valor and resumo of a mock invoice, with the resumo field names the web app
+ * reads (md.js, resumo.setParams). Bill total excludes payments (tipo p),
+ * matching resumo.totalFatura on the real API (dogfood 2026-10-19); the
+ * payments listed in an invoice paid the previous one.
+ */
+function invoiceTotals(
+  lancamentos: Array<Record<string, unknown>>,
+  vencimento: string,
+  fechamento: string,
+  limite: number | undefined
+) {
+  const purchases = lancamentos.filter((e) => e.tipo !== 'p');
+  const payments = lancamentos.filter((e) => e.tipo === 'p');
+  const totalFatura = sum(purchases);
+  return {
+    valor: totalFatura,
+    resumo: {
+      vencimento,
+      fechamento,
+      valorFaturaAnterior: -sum(payments),
+      pagamentosConf: sum(payments.filter((e) => e.status === 'conciliado')),
+      pagamentosAgen: sum(payments.filter((e) => e.status !== 'conciliado')),
+      totalFatura,
+      totalPagar: totalFatura,
+      conciliado: sum(purchases.filter((e) => e.status === 'conciliado')),
+      nconciliado: sum(purchases.filter((e) => e.status !== 'conciliado')),
+      receitas: sum(purchases.filter((e) => Number(e.valor) > 0)),
+      despesas: sum(purchases.filter((e) => Number(e.valor) < 0)),
+      ...(limite === undefined ? {} : { disponivel: Math.round((limite + totalFatura) * 100) / 100 }),
+    },
+  };
+}
+
 async function accountsRoute(req: Request, path: string): Promise<Response> {
   if (path === ACCOUNTS_PATH) {
     if (req.method === 'GET') return Response.json(MOCK_ACCOUNTS);
@@ -147,15 +184,11 @@ function cardsRoute(req: Request, path: string): Response {
     const due = invoice[2];
     if (!MOCK_ACCOUNTS.items.some((a) => a.id === id && a.tipo === 'CARTAOCREDITO')) return notFound();
     const lancamentos = invoiceItems(id, due);
-    // Bill total excludes payments (tipo p), matching resumo.totalFatura on the
-    // real API (dogfood 2026-10-19).
-    const totalFatura = lancamentos
-      .filter((e) => e.tipo !== 'p')
-      .reduce((sum, e) => sum + Number(e.valor), 0);
+    const card = MOCK_ACCOUNTS.items.find((a) => a.id === id) as { limite?: number } | undefined;
     return Response.json({
-      ...cardInvoice(due, closingFor(due), totalFatura),
+      ...cardInvoice(due, closingFor(due)),
+      ...invoiceTotals(lancamentos, due, closingFor(due), card?.limite),
       lancamentos,
-      valor: totalFatura,
     });
   }
 

@@ -7,6 +7,7 @@ import { fetchAccounts, fetchAccountById, normalizeCards, isCreditCard, fetchCar
 import { resolveId } from '../lib/aliases.js';
 import { formatCurrency } from '../utils/currency.js';
 import { dueDateInMonth, parseInvoiceMonth } from '../lib/dates.js';
+import type { Account, CardInvoiceResponse } from '../types/index.js';
 
 function formatStatus(active: boolean, closed: boolean): string {
   if (closed) return chalk.red('Closed');
@@ -59,6 +60,48 @@ cardsCommand
   .option('--active', 'Show only active credit cards')
   .action(action(listAction));
 
+interface SummaryRow {
+  label: string;
+  value: string;
+}
+
+/**
+ * The summary the web app shows beside the invoice items, from what the API
+ * sends in resumo (field names from md.js). The limit comes from the card, as
+ * in the web. A field the API leaves out is not shown, never guessed.
+ */
+function invoiceSummaryRows(invoice: CardInvoiceResponse, account: Account): SummaryRow[] {
+  const resumo = invoice.resumo ?? {};
+  const date = (value: string | undefined): string | undefined => value?.slice(0, 10);
+  const rows: Array<[string, string | number | undefined]> = [
+    ['Due date', date(resumo.vencimento ?? invoice.vencimento)],
+    ['Closing date', date(resumo.fechamento ?? invoice.fechamento)],
+    ['Previous invoice', resumo.valorFaturaAnterior],
+    ['Paid', resumo.pagamentosConf],
+    ['Scheduled payments', resumo.pagamentosAgen],
+    ['Expenses', resumo.despesas],
+    ['Income', resumo.receitas],
+    ['Invoice total', resumo.totalFatura ?? invoice.valor],
+    ['To pay', resumo.totalPagar],
+    ['Reconciled', resumo.conciliado],
+    ['Unreconciled', resumo.nconciliado],
+    ['Limit', account.limite],
+    ['Available', resumo.disponivel],
+  ];
+  return rows.flatMap(([label, value]) => {
+    if (typeof value === 'string') return [{ label, value }];
+    if (typeof value === 'number' && Number.isFinite(value)) return [{ label, value: formatCurrency(value) }];
+    return [];
+  });
+}
+
+function printInvoiceSummary(rows: SummaryRow[]): void {
+  const width = Math.max(...rows.map((row) => row.label.length));
+  for (const row of rows) {
+    console.log(`  ${chalk.cyan(row.label.padEnd(width))}  ${row.value}`);
+  }
+}
+
 async function invoiceAction(options: { account: string; month?: string; json?: boolean }): Promise<void> {
   // Before any API call: 2026-13 used to reach the API (400) and 2026-00 to
   // show December's invoice (dogfood 2026-10-19).
@@ -93,14 +136,15 @@ async function invoiceAction(options: { account: string; month?: string; json?: 
   }
 
   const table = new Table({
-    head: ['Date', 'Description', 'Value', 'Category'],
+    head: ['Purchase', 'Description', 'Value', 'Category'],
     style: { head: ['cyan'] },
     colWidths: [12, 40, 15, 12],
   });
 
   for (const entry of entries) {
     table.push([
-      entry.date,
+      // The web's invoice lists items by purchase date; date in --json is the due date.
+      entry.purchaseDate,
       entry.description.length > 37 ? `${entry.description.slice(0, 37)}...` : entry.description,
       formatCurrency(entry.value),
       entry.categoryId?.toString() ?? chalk.gray('-'),
@@ -111,6 +155,7 @@ async function invoiceAction(options: { account: string; month?: string; json?: 
   // API's bill total instead (dogfood 2026-10-19).
   const total = invoiceResponse.resumo?.totalFatura ?? invoiceResponse.valor;
   logger.header(`Invoice for ${account.nome} - ${dueDate} (${entries.length} entries) | Total: ${formatCurrency(total)}`);
+  printInvoiceSummary(invoiceSummaryRows(invoiceResponse, account));
   console.log(table.toString());
 }
 

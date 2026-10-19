@@ -28,6 +28,38 @@ export interface CardInvoiceEntry {
   fatura?: number;
 }
 
+/**
+ * The invoice summary the web app shows next to the items. Field names are the
+ * ones the card screen copies from `fatura.resumo` (md.js, `resumo.setParams`);
+ * the web takes the limit from the card (`cartao.limite`), not from here.
+ * Amounts follow the API's signs (an expense bill is negative). Any field may be
+ * missing, so the CLI shows only what comes back.
+ */
+interface CardInvoiceSummary {
+  vencimento?: string;
+  fechamento?: string;
+  /** Previous invoice's bill. */
+  valorFaturaAnterior?: number;
+  /** Confirmed payments of the invoice. */
+  pagamentosConf?: number;
+  /** Scheduled (not yet confirmed) payments. */
+  pagamentosAgen?: number;
+  totalFatura?: number;
+  totalPagar?: number;
+  totalFaturaAtual?: number;
+  totalFixo?: number;
+  /** Reconciled and unreconciled parts of the bill. */
+  conciliado?: number;
+  nconciliado?: number;
+  receitas?: number;
+  despesas?: number;
+  transferencias?: number;
+  /** Available credit limit. */
+  disponivel?: number;
+  /** Seen in a dogfood probe (2026-10-19); not read by the web app. */
+  pagamentos?: number;
+}
+
 export interface CardInvoiceResponse {
   lancamentos: CardInvoiceEntry[];
   vencimento: string;
@@ -35,12 +67,7 @@ export interface CardInvoiceResponse {
   /** Bill total (same as resumo.totalFatura); not the sum of lancamentos when
    * a payment (tipo p) is listed among them. */
   valor: number;
-  resumo?: {
-    totalFatura?: number;
-    totalPagar?: number;
-    pagamentos?: number;
-    valorFaturaAnterior?: number;
-  };
+  resumo?: CardInvoiceSummary;
   /** Present when the invoice is closed. */
   id?: number;
 }
@@ -73,10 +100,12 @@ export type CardFutureResponse =
 export interface NormalizedCardEntry {
   id: number | string;
   description: string;
-  /** Purchase date (the item's data), not the due date. */
+  /** Invoice due date, the same date entries list --json shows for this item. */
   date: string;
-  /** Invoice due date: the date entries list shows for this item. */
+  /** Same as date; kept so scripts written against #83 keep working. */
   dueDate: string;
+  /** The item's data: when the purchase was made (e.g. a year earlier for 12/18). */
+  purchaseDate: string;
   competenceDate: string;
   value: number;
   categoryId: number | null;
