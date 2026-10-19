@@ -19,6 +19,10 @@ A free-form label that can be attached to an entry.
 A single financial transaction (lancamento). Has an account, a category, optional tags, a value, and a date.
 _Avoid_: "transaction", "record"
 
+**Status**:
+Where an Entry stands. The web app's entry form has two toggles, Confirmado and Conciliado, so an Entry can be set to three states: **Pending** (Confirmado off: no effective date or value), **Confirmed** (Confirmado on, Conciliado off) and **Reconciled** (both on). The API reports Pending as `pendente` while the planned date is today or earlier and as `agendado` (**Scheduled**) once it is in the future - same payload, the date decides (md.js, the toast after saving: Conciliado / Confirmado / Agendado / Pendente). On `entries create`/`update`: `-p, --pending` = Pending (Scheduled when the date is in the future), `--confirmed` = Confirmed, `-r, --reconciled` (update) = Reconciled; `create` without a flag reconciles. `--scheduled` is a hidden alias of `--pending`. Credit card purchases only have Conciliado (`nconciliado` until the invoice is paid, which the web app shows as Confirmado): the CLI never reconciles them and ignores `-p`/`--confirmed` with a warning on stderr.
+_Avoid_: "pending" for a confirmed, unreconciled Entry (that is Confirmed - the mistake behind the 2026-10-19 bug)
+
 **Series**:
 A recurring Entry rule (agenda). Occurrences carry `agendaId` and `parcela` (e.g. `fixa`, `2/6`). On update/delete, `--scope this` (default) touches only the current occurrence; `--scope following` touches this one and the ones after it. Both map to the API flag `todos` (`false` / `true`). The web labels are "Apenas neste" / "Neste e em todos na sequência". There is no `--scope all` — the web only exposes that boolean.
 _Avoid_: "recurrence" alone (prefer Series when talking about `--scope`)

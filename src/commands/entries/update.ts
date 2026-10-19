@@ -6,8 +6,9 @@ import { updateEntry, fetchEntry } from '../../lib/api.js';
 import { resolveIds } from '../../lib/aliases.js';
 import { resolveEntryCategory } from './category.js';
 import type { CreateEntryResponse, Entry, UpdateEntryPayload } from '../../types/index.js';
-import { mapTypeToApi, parseTypeOption } from './create.js';
+import { mapTypeToApi, parseTypeOption, warnScheduledAlias } from './create.js';
 import { formatCurrency, formatStatus } from './format.js';
+import { toLocalDateString } from '../../lib/dates.js';
 import { describeScope, resolveSeriesScope, type SeriesScope } from './series.js';
 import { buildTransferPayload, clearEffective, keepUnconfirmed } from './update-transfer.js';
 import { parseEntryId } from './entry-id.js';
@@ -21,7 +22,9 @@ interface UpdateOptions {
   tags?: string;
   notes?: string;
   pending?: boolean;
+  confirmed?: boolean;
   reconciled?: boolean;
+  /** Deprecated alias of --pending. */
   scheduled?: boolean;
   scope?: SeriesScope;
   json?: boolean;
@@ -30,13 +33,17 @@ interface UpdateOptions {
 const STATUS_LABELS = ENTRY_STATUS_LABELS;
 
 /** The status the API answered with - never assumed from what we sent. */
-function describeStatus(status: unknown): string {
+function describeStatus(status: unknown, plannedDate?: unknown): string {
   if (typeof status === 'string' && STATUS_LABELS[status]) {
     return formatStatus(STATUS_LABELS[status]);
   }
   if (status !== null && typeof status === 'object' && 'confirmado' in status) {
     const { confirmado, conciliado } = status as { confirmado?: boolean; conciliado?: boolean };
-    return formatStatus(conciliado ? 'reconciled' : confirmado ? 'confirmed' : 'scheduled');
+    if (conciliado) return formatStatus('reconciled');
+    if (confirmado) return formatStatus('confirmed');
+    // Unconfirmed is pendente up to today and agendado after it.
+    const date = typeof plannedDate === 'string' ? plannedDate.slice(0, 10) : undefined;
+    return formatStatus(date !== undefined && date > toLocalDateString(new Date()) ? 'scheduled' : 'pending');
   }
   return chalk.gray(status === undefined ? '(not returned by the API)' : String(status));
 }
@@ -53,20 +60,25 @@ function reportUpdate(response: CreateEntryResponse, json?: boolean, todos?: boo
   console.log(`  ${chalk.gray('Description:')} ${response.descricao}`);
   console.log(`  ${chalk.gray('Value:')} ${formatCurrency(response.valor)}`);
   console.log(`  ${chalk.gray('Date:')} ${response.data}`);
-  console.log(`  ${chalk.gray('Status:')} ${describeStatus(response.status)}`);
+  console.log(`  ${chalk.gray('Status:')} ${describeStatus(response.status, response.dataPrevista ?? response.data)}`);
   if (todos !== undefined) {
     console.log(`  ${chalk.gray('Scope:')} ${describeScope(todos)}`);
   }
 }
 
-/** A scheduled entry stays scheduled unless a status flag says otherwise. */
-function staysScheduled(options: UpdateOptions, existing: Entry): boolean {
-  if (options.scheduled) return true;
-  return existing.status === 'agendado' && !options.pending && !options.reconciled;
+/**
+ * An unconfirmed entry (pendente up to today, agendado after it) stays
+ * unconfirmed unless --confirmed or --reconciled says otherwise; --pending
+ * makes any entry unconfirmed again.
+ */
+function staysUnconfirmed(options: UpdateOptions, existing: Entry): boolean {
+  if (options.pending || options.scheduled) return true;
+  if (options.confirmed || options.reconciled) return false;
+  return existing.status === 'agendado' || existing.status === 'pendente';
 }
 
 function resolveReconciled(options: UpdateOptions, existing: Entry): boolean {
-  if (options.pending) return false;
+  if (options.pending || options.scheduled || options.confirmed) return false;
   if (options.reconciled) return true;
   return existing.conciliado ?? false;
 }
@@ -74,9 +86,11 @@ function resolveReconciled(options: UpdateOptions, existing: Entry): boolean {
 export async function updateAction(id: string, options: UpdateOptions): Promise<void> {
   const entryId = parseEntryId(id);
 
-  if (options.scheduled && (options.pending || options.reconciled)) {
-    exitWithError('Use only one of --scheduled, --pending and --reconciled.');
+  const unconfirm = Boolean(options.pending || options.scheduled);
+  if ([unconfirm, options.confirmed, options.reconciled].filter(Boolean).length > 1) {
+    exitWithError('Use only one of --pending, --confirmed and --reconciled.');
   }
+  if (options.scheduled) warnScheduledAlias();
 
   // Validate options that need resolution before fetching entry
   const categoryId = options.category !== undefined ? await resolveEntryCategory(options.category) : null;
@@ -106,6 +120,7 @@ export async function updateAction(id: string, options: UpdateOptions): Promise<
     options.tags !== undefined ||
     options.notes !== undefined ||
     options.pending ||
+    options.confirmed ||
     options.reconciled ||
     options.scheduled;
 
@@ -118,7 +133,7 @@ export async function updateAction(id: string, options: UpdateOptions): Promise<
   const todos = resolveSeriesScope(entryId, existing, options.scope, {
     thisOnlyWarning: `Entry ${entryId} is an occurrence of a recurring series (${existing.parcela}): only this occurrence will be changed, and it will leave the series. Use --scope following to change this and the following occurrences, or --scope this to silence this warning.`,
   });
-  const scheduled = staysScheduled(options, existing);
+  const scheduled = staysUnconfirmed(options, existing);
 
   if (existing.tipo === 't') {
     if (options.type !== undefined) {
@@ -140,7 +155,7 @@ export async function updateAction(id: string, options: UpdateOptions): Promise<
       notes: options.notes,
       reconciled: resolveReconciled(options, existing),
       scheduled,
-      unconfirm: Boolean(options.scheduled),
+      unconfirm,
     });
     if (todos !== undefined) payload.todos = todos;
 
@@ -190,7 +205,7 @@ export async function updateAction(id: string, options: UpdateOptions): Promise<
     delete payload.categoriaPai;
   }
 
-  if (options.scheduled) {
+  if (unconfirm) {
     payload.conciliado = false;
     clearEffective(payload, ['dataEfetiva', 'valorEfetivo']);
   } else if (scheduled) {
@@ -207,7 +222,7 @@ export async function updateAction(id: string, options: UpdateOptions): Promise<
   if (todos !== undefined) payload.todos = todos;
 
   // Handle status changes
-  if (options.pending) {
+  if (options.confirmed) {
     payload.status = { confirmado: true, conciliado: false };
     payload.conciliado = false;
   } else if (options.reconciled) {

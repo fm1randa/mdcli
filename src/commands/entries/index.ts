@@ -1,4 +1,4 @@
-import { Command } from 'commander';
+import { Command, Option } from 'commander';
 import { action } from '../../utils/action.js';
 import { createAction } from './create.js';
 import { deleteAction } from './delete.js';
@@ -44,8 +44,9 @@ entriesCommand
   .option('-D, --date <date>', 'Entry date (YYYY-MM-DD), defaults to today; with --installments, the first installment')
   .option('-g, --tags <ids>', 'Tag ID(s), alias(es), or exact name(s) (case-insensitive), comma-separated')
   .option('-n, --notes <text>', 'Additional notes/observations')
-  .option('-p, --pending', 'Create as pending (confirmed, not reconciled)')
-  .option('-S, --scheduled', 'Create as scheduled (not confirmed, no effective date), like turning Confirmado off in the web app')
+  .option('-p, --pending', 'Create as not confirmed (Confirmado off in the web app, no effective date): pending up to today, scheduled for a future date')
+  .option('--confirmed', 'Create as confirmed, not reconciled (default: reconciled)')
+  .addOption(new Option('-S, --scheduled', 'Deprecated alias of --pending').hideHelp())
   .option('-r, --repeat <interval>', 'Recurrence: daily, weekly, monthly, yearly (or d, w, m, y); with --installments, the spacing (default: monthly)')
   .option('--frequency <n>', 'Repeat every N intervals, e.g. --frequency 2 = every 2 months (default: 1)')
   .option('--times <n>', 'Fixed series: total occurrences, e.g. --times 6 = 6 times then stop (default: infinite)')
@@ -66,9 +67,10 @@ entriesCommand
   .option('-D, --date <date>', 'Entry date (YYYY-MM-DD)')
   .option('-g, --tags <ids>', 'Tag ID(s), alias(es), or exact name(s) (case-insensitive), comma-separated')
   .option('-n, --notes <text>', 'Additional notes/observations')
-  .option('-p, --pending', 'Set as pending: confirmed, not reconciled (confirms a scheduled entry)')
+  .option('-p, --pending', 'Set as not confirmed: clears the effective date and value (pending up to today, scheduled for a future date)')
+  .option('--confirmed', 'Set as confirmed, not reconciled (confirms a pending or scheduled entry)')
   .option('-r, --reconciled', 'Set as reconciled')
-  .option('-S, --scheduled', 'Set as scheduled: not confirmed, clears the effective date and value')
+  .addOption(new Option('-S, --scheduled', 'Deprecated alias of --pending').hideHelp())
   .addOption(scopeOption('change'))
   .option('--json', 'Output as JSON')
   .action(action(updateAction));

@@ -254,22 +254,28 @@ mdcli entries create --account mp --description "Notebook" --value 1200 --catego
 # Fixed series every 2 months, 6 times (--frequency and --times can be combined)
 mdcli entries create --account mp --description "Academia" --value 90 --category gym --repeat monthly --frequency 2 --times 6
 
-# Scheduled (agendado: not confirmed, no effective date yet)
-mdcli entries create --account mp --description "IPVA" --value 800 --category car --date 2027-01-20 --scheduled
+# Pending (Confirmado off, no effective date yet). The API shows it as pending
+# up to today and as scheduled (agendado) for a future date.
+mdcli entries create --account mp --description "IPVA" --value 800 --category car --date 2027-01-20 --pending
+
+# Confirmed but not reconciled (without a status flag, create reconciles).
+# Credit card purchases are always left unreconciled on the invoice.
+mdcli entries create --account mp --description "Feira" --value 30 --category food --confirmed
 
 # Update an entry (only the fields you pass are changed)
 mdcli entries update 12345 --value 200 --category food
 
-# Turn a confirmed entry back into a scheduled one
-mdcli entries update 12345 --scheduled
+# Turn a confirmed entry back into a pending one (clears the effective date
+# and value); --confirmed confirms it again, --reconciled reconciles it
+mdcli entries update 12345 --pending
 
 # Update a transfer from either half of the pair - both halves move together.
 # A transfer cannot be turned into an expense or an income.
 mdcli entries update 12345 --value 200
 
 # Recurring series (fixed or installments): by default only this occurrence
-# changes, and it leaves the series (a warning on stderr says so). A scheduled
-# occurrence stays scheduled unless you pass --pending or --reconciled.
+# changes, and it leaves the series (a warning on stderr says so). A pending or
+# scheduled occurrence stays unconfirmed unless you pass --confirmed or --reconciled.
 mdcli entries update 12345 --date 2027-01-25 --scope this
 # This occurrence and the following ones; earlier ones are left untouched
 mdcli entries update 12345 --date 2027-01-25 --scope following

@@ -8,7 +8,7 @@ import {
   TAGS_RESPONSE,
   cardInvoice,
 } from '../test/fixtures.js';
-import { SEEDED_ENTRIES, checkCreatePayload, createCardPurchase, createdEntry, invoiceItems } from './mock-entries.js';
+import { SEEDED_ENTRIES, checkCreatePayload, createCardPurchase, createdEntry, entryStatusLabel, invoiceItems } from './mock-entries.js';
 
 // GitHub "latest release" endpoint used by the self-updater (no auth).
 const MOCK_LATEST_TAG = 'v2099.1.1';
@@ -49,13 +49,17 @@ const MOCK_ACCOUNTS = {
 
 /**
  * The label the API answers with for the status object a PUT sends. Like the
- * real API, an effective date confirms the entry even with confirmado: false.
+ * real API, an effective date confirms the entry even with confirmado: false;
+ * an unconfirmed one is pendente up to today and agendado after it.
  */
-function statusLabel(sent: unknown, dataEfetiva: unknown, current: unknown): unknown {
+function statusLabel(sent: unknown, merged: Record<string, unknown>, current: unknown): unknown {
   if (sent === null || typeof sent !== 'object') return current;
   const { confirmado, conciliado } = sent as { confirmado?: boolean; conciliado?: boolean };
-  if (conciliado) return 'conciliado';
-  return confirmado || dataEfetiva ? 'pendente' : 'agendado';
+  return entryStatusLabel({
+    conciliado: Boolean(conciliado),
+    dataEfetiva: confirmado ? (merged.dataEfetiva ?? merged.dataPrevista) : merged.dataEfetiva,
+    dataPrevista: merged.dataPrevista,
+  });
 }
 
 function notFound(): Response {
@@ -244,7 +248,7 @@ async function entriesRoute(req: Request, path: string): Promise<Response> {
       descricao: merged.descricao,
       conciliado: merged.conciliado ?? false,
       dataCompetencia: merged.dataCompetencia ?? null,
-      status: statusLabel(body.status, merged.dataEfetiva, existing.status),
+      status: statusLabel(body.status, merged, existing.status),
       agendaId: keepsSeries ? existing.agendaId : null,
       parcela: keepsSeries ? existing.parcela : null,
       tipo: merged.tipo,

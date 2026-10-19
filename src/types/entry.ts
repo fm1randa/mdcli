@@ -31,7 +31,8 @@ export interface Entry {
   conciliado?: boolean;
   dataCompetencia?: string;
   parcela?: string;
-  status: 'conciliado' | 'pendente' | 'agendado';
+  /** pendente/agendado: not confirmed (planned date up to today / future). */
+  status: 'conciliado' | 'confirmado' | 'nconciliado' | 'pendente' | 'agendado';
   tipo?: 'd' | 'r' | 't';
   valor: number;
   valorPrevisto?: number;

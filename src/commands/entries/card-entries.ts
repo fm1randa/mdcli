@@ -7,7 +7,7 @@ type ListParams = Omit<EntriesParams, 'page' | 'pageSize'>;
 
 // Same bits the API filters on (docs/api-filters.md), applied here to the
 // entries read from invoices, which the API did not filter.
-const STATUS_BITS: Record<string, number> = { pendente: 1, confirmado: 2, conciliado: 4, agendado: 8 };
+const STATUS_BITS: Record<string, number> = { pendente: 1, confirmado: 2, nconciliado: 2, conciliado: 4, agendado: 8 };
 
 const cents = (value: number): number => Math.round(Math.abs(value) * 100);
 

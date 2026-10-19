@@ -81,6 +81,19 @@ export const SEEDED_ENTRIES: Record<number, Record<string, unknown>> = {
 type Body = Record<string, unknown>;
 
 /**
+ * The label the API gives an entry, the way the web app words it after a save
+ * (md.js): conciliado, else confirmado when it has an effective date, else
+ * agendado for a planned date after today and pendente otherwise.
+ */
+export function entryStatusLabel(entry: Body): string {
+  if (entry.conciliado === true) return 'conciliado';
+  if (entry.dataEfetiva != null) return 'confirmado';
+  const planned = String(entry.dataPrevista ?? entry.data ?? '').slice(0, 10);
+  const today = new Date().toLocaleDateString('en-CA');
+  return planned > today ? 'agendado' : 'pendente';
+}
+
+/**
  * What the web app sends for the shapes the CLI creates (deduced from the
  * public bundle md.js); anything else answers 400 so verify.sh catches a
  * regression through the real CLI path.
@@ -99,7 +112,10 @@ export function checkCreatePayload(body: Body): string | null {
     return 'tipo t without transferencia: true';
   }
   if (status?.confirmado === false && (body.dataEfetiva != null || body.valorEfetivo != null)) {
-    return 'a scheduled entry has no dataEfetiva/valorEfetivo';
+    return 'an unconfirmed entry has no dataEfetiva/valorEfetivo';
+  }
+  if (status?.confirmado === false && (status.conciliado === true || body.conciliado === true)) {
+    return 'an unconfirmed entry cannot be reconciled';
   }
   const agenda = body.agenda as { repeticao?: string; quantidade?: number } | undefined;
   if (agenda?.repeticao === 'p') {
@@ -115,9 +131,7 @@ export function checkCreatePayload(body: Body): string | null {
 
 /** The API's answer to POST /v1/lancamentos for a payload that passed checkCreatePayload. */
 export function createdEntry(body: Body, id: number | string): Body {
-  const status = body.status as { confirmado?: boolean } | undefined;
   const reconciled = Boolean(body.conciliado);
-  const scheduled = status?.confirmado === false;
   const parcelas = body.parcelas as { valor: number; data: string }[] | undefined;
   const agenda = body.agenda as { inicial?: number; quantidade?: number } | undefined;
   return {
@@ -125,8 +139,9 @@ export function createdEntry(body: Body, id: number | string): Body {
     descricao: body.descricao,
     conciliado: reconciled,
     dataCompetencia: body.dataCompetencia ?? null,
-    // The real API answers confirmado for a confirmed, unreconciled entry (#70).
-    status: scheduled ? 'agendado' : reconciled ? 'conciliado' : 'confirmado',
+    // The real API answers confirmado for a confirmed, unreconciled entry (#70)
+    // and pendente for an unconfirmed one dated today (Finanças 2026-10-19).
+    status: entryStatusLabel(body),
     tipo: body.tipo,
     // The server stores one entry per installment; this is the first one.
     valor: parcelas ? parcelas[0].valor : body.valor,
@@ -157,7 +172,9 @@ export function createCardPurchase(body: Body): Body {
   const id = nextCardEntryId++;
   const parcelas = body.parcelas as { valor: number }[] | undefined;
   const valor = parcelas ? parcelas[0].valor : body.valor;
-  SEEDED_ENTRIES[id] = { ...createdEntry(body, id), valor, tags: body.tags ?? [], observacoes: body.observacoes ?? '' };
+  // A purchase has no effective date but is not pending: it sits on the invoice.
+  const purchase = { ...createdEntry(body, id), status: 'confirmado' };
+  SEEDED_ENTRIES[id] = { ...purchase, valor, tags: body.tags ?? [], observacoes: body.observacoes ?? '' };
   cardPurchases.push({
     id,
     conta: Number(body.conta),
@@ -167,7 +184,7 @@ export function createCardPurchase(body: Body): Body {
     dataPrevista: body.dataPrevista,
     categoria: body.categoria,
   });
-  return createdEntry(body, `46349170A${String(body.dataCompetencia)}`);
+  return { ...createdEntry(body, `46349170A${String(body.dataCompetencia)}`), status: 'confirmado' };
 }
 
 /** The invoice items of a card's invoice due on dueDate. */

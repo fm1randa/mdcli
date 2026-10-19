@@ -24,7 +24,8 @@ const SCHEDULED_OCCURRENCE = {
   tags: [],
 };
 
-const PENDING_ENTRY = {
+// Confirmed, not reconciled: it has an effective date.
+const CONFIRMED_ENTRY = {
   id: 70,
   descricao: 'Café',
   tipo: 'd',
@@ -32,7 +33,7 @@ const PENDING_ENTRY = {
   data: '2026-01-12',
   dataPrevista: '2026-01-12',
   dataEfetiva: '2026-01-12',
-  status: 'pendente',
+  status: 'confirmado',
   conciliado: false,
   conta: 1001,
   categoria: 10,
@@ -42,7 +43,7 @@ const PENDING_ENTRY = {
 beforeEach(() => {
   api = startMockApi();
   api.on('GET /v1/lancamentos/80', SCHEDULED_OCCURRENCE);
-  api.on('GET /v1/lancamentos/70', PENDING_ENTRY);
+  api.on('GET /v1/lancamentos/70', CONFIRMED_ENTRY);
   home = createHome(MANUAL_AUTH);
 });
 
@@ -107,7 +108,7 @@ describe('entries update on a recurring series', () => {
   });
 
   test('an entry outside a series --json has no scope field', async () => {
-    api.on('PUT /v1/lancamentos/70', { ...PENDING_ENTRY, descricao: 'Café X' });
+    api.on('PUT /v1/lancamentos/70', { ...CONFIRMED_ENTRY, descricao: 'Café X' });
 
     const result = await runCli(['entries', 'update', '70', '-d', 'Café X', '--json'], { home, api });
 
@@ -126,7 +127,7 @@ describe('entries update on a recurring series', () => {
     expect(result.stderr).toBe('');
   });
 
-  test('--pending confirms a scheduled occurrence with its effective date and value', async () => {
+  test('--confirmed confirms a scheduled occurrence with its effective date and value', async () => {
     api.on('PUT /v1/lancamentos/80', {
       id: 80,
       descricao: 'NuCel',
@@ -135,7 +136,7 @@ describe('entries update on a recurring series', () => {
       status: { confirmado: true, conciliado: false },
     });
 
-    const result = await runCli(['entries', 'update', '80', '--pending', '--scope', 'this'], { home, api });
+    const result = await runCli(['entries', 'update', '80', '--confirmed', '--scope', 'this'], { home, api });
 
     expect(result.exitCode).toBe(0);
     expect(putBody()).toMatchObject({
@@ -185,7 +186,7 @@ describe('entries update on a recurring series', () => {
   });
 
   test('an entry outside a series gets no todos flag and refuses --scope following', async () => {
-    api.on('PUT /v1/lancamentos/70', { ...PENDING_ENTRY, descricao: 'Café da tarde' });
+    api.on('PUT /v1/lancamentos/70', { ...CONFIRMED_ENTRY, descricao: 'Café da tarde' });
 
     const plain = await runCli(['entries', 'update', '70', '-d', 'Café da tarde'], { home, api });
     expect(plain.exitCode).toBe(0);
