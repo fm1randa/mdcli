@@ -33,7 +33,8 @@ export interface Entry {
   parcela?: string;
   /** pendente/agendado: not confirmed (planned date up to today / future). */
   status: 'conciliado' | 'confirmado' | 'nconciliado' | 'pendente' | 'agendado';
-  tipo?: 'd' | 'r' | 't';
+  /** d expense, r income, t transfer, p invoice payment (dogfood 2026-10-19). */
+  tipo?: 'd' | 'r' | 't' | 'p';
   valor: number;
   valorPrevisto?: number;
   valorEfetivo?: number;
@@ -104,7 +105,7 @@ export interface NormalizedEntry {
   /** Planned date (dataPrevista), YYYY-MM-DD. */
   date: string;
   value: number;
-  type: 'expense' | 'income' | 'transfer' | 'invoice';
+  type: 'expense' | 'income' | 'transfer' | 'invoice' | 'payment';
   status: EntryStatus;
   accountId: number;
   categoryId: number | null;

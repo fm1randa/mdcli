@@ -25,12 +25,13 @@ export function formatStatus(status: EntryStatus): string {
   return config.color(config.label);
 }
 
-export function formatType(type: 'expense' | 'income' | 'transfer' | 'invoice'): string {
+export function formatType(type: 'expense' | 'income' | 'transfer' | 'invoice' | 'payment'): string {
   const typeConfig = {
     expense: { label: 'Expense', color: chalk.red },
     income: { label: 'Income', color: chalk.green },
     transfer: { label: 'Transfer', color: chalk.cyan },
     invoice: { label: 'Invoice', color: chalk.magenta },
+    payment: { label: 'Payment', color: chalk.blue },
   };
   const config = typeConfig[type];
   return config.color(config.label);

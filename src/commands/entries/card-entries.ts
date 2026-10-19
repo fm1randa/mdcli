@@ -44,9 +44,15 @@ function inMask(mask: number | undefined, bit: number): boolean {
 function matchesFilters(entry: Entry, params: ListParams): boolean {
   const statusBit = STATUS_BITS[entry.status];
   if (statusBit && !inMask(params.status, statusBit)) return false;
-  const typeBit = entry.tipo === 'r' ? 2 : entry.tipo === 't' ? (entry.valor < 0 ? 4 : 8) : 1;
+  // tipo p (invoice payment) has no bit in the web's tipoLancamento mask; it
+  // must not match expense (1) the way an unknown tipo used to.
+  const typeBit =
+    entry.tipo === 'r' ? 2
+    : entry.tipo === 't' ? (entry.valor < 0 ? 4 : 8)
+    : entry.tipo === 'p' ? 0
+    : 1;
   // tipoLancamento 0 lists every type on the API (docs/api-filters.md).
-  if (params.entryType !== 0 && !inMask(params.entryType, typeBit)) return false;
+  if (params.entryType !== undefined && params.entryType !== 0 && !inMask(params.entryType, typeBit)) return false;
   const repetitionBit = !entry.parcela ? 1 : entry.parcela === 'fixa' ? 4 : 2;
   if (!inMask(params.repetition, repetitionBit)) return false;
   if (params.categoryIds?.length && !params.categoryIds.includes(entry.categoria ?? -1)) return false;
@@ -71,7 +77,14 @@ export async function fetchListEntries(params: ListParams): Promise<Entry[]> {
   const listed = await fetchAllEntries(params);
   const { items } = await fetchAccounts();
   const cards = items.filter((a) => params.accountIds.includes(a.id) && isCreditCard(a));
-  const seen = new Set(listed.map((e) => String(e.id)));
+  // When the card is also in -a, its purchases come from the invoices below.
+  // Drop the statement's projecaoFatura for that card so the bill is not
+  // counted twice (dogfood 2026-10-19 / regression of #78 over #72).
+  const cardIds = new Set(cards.map((c) => c.id));
+  const withoutDupedInvoices = listed.filter(
+    (e) => e.projecaoFatura == null || !cardIds.has(e.projecaoFatura)
+  );
+  const seen = new Set(withoutDupedInvoices.map((e) => String(e.id)));
   const fromInvoices: Entry[] = [];
   for (const card of cards) {
     for (const due of await dueDatesInRange(card, params.startDate, params.endDate)) {
@@ -84,9 +97,9 @@ export async function fetchListEntries(params: ListParams): Promise<Entry[]> {
       }
     }
   }
-  if (fromInvoices.length === 0) return listed;
+  if (fromInvoices.length === 0) return withoutDupedInvoices;
   const date = (e: Entry): string => (e.dataPrevista ?? e.data).slice(0, 10);
-  return [...listed, ...fromInvoices].sort((a, b) => date(a).localeCompare(date(b)));
+  return [...withoutDupedInvoices, ...fromInvoices].sort((a, b) => date(a).localeCompare(date(b)));
 }
 
 /**

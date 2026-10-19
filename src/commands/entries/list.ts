@@ -110,8 +110,19 @@ export async function summaryAction(options: SummaryOptions): Promise<void> {
   }
 
   const { params, entries: filtered, excludedByCategory } = await loadEntries(options);
-  const entries = options.includeTransfers ? filtered : filtered.filter((e) => e.type !== 'transfer');
-  const skippedTransfers = filtered.length - entries.length;
+  // Transfers stay optional via --include-transfers. Payments (tipo p) and
+  // invoice projections are never income/expense: always leave them out of
+  // the summary (dogfood 2026-10-19).
+  const skippedTransfers = options.includeTransfers
+    ? 0
+    : filtered.filter((e) => e.type === 'transfer').length;
+  const skippedPayments = filtered.filter((e) => e.type === 'payment').length;
+  const skippedInvoices = filtered.filter((e) => e.type === 'invoice').length;
+  const entries = filtered.filter((e) => {
+    if (e.type === 'payment' || e.type === 'invoice') return false;
+    if (e.type === 'transfer') return Boolean(options.includeTransfers);
+    return true;
+  });
 
   const names = by === 'month' ? null : await loadNames();
   const rows = summarize(entries, (e) => {
@@ -135,7 +146,7 @@ export async function summaryAction(options: SummaryOptions): Promise<void> {
   if (options.json) {
     console.log(
       JSON.stringify(
-        { groupBy: by, from: params.startDate, to: params.endDate, skippedTransfers, excludedByCategory, rows, total },
+        { groupBy: by, from: params.startDate, to: params.endDate, skippedTransfers, skippedPayments, skippedInvoices, excludedByCategory, rows, total },
         null,
         2
       )
@@ -175,5 +186,11 @@ export async function summaryAction(options: SummaryOptions): Promise<void> {
   }
   if (skippedTransfers > 0) {
     console.log(chalk.gray(`\n${skippedTransfers} transfer(s) left out. Use --include-transfers to count them.`));
+  }
+  if (skippedPayments > 0) {
+    console.log(chalk.gray(`\n${skippedPayments} card payment(s) left out of the summary.`));
+  }
+  if (skippedInvoices > 0) {
+    console.log(chalk.gray(`\n${skippedInvoices} invoice projection(s) left out of the summary.`));
   }
 }

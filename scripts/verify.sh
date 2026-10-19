@@ -125,6 +125,8 @@ step "cli entries create cartão --json (mock)" expect_json 'd.id === 9102 && d.
 # Seeded invoice has Mercado + Pagamento (tipo p); create adds two Voo purchases.
 step "cli entries list cartão (mock)" expect_json 'd.length === 4 && d.every((e) => e.accountId === 1002 && e.date === "2026-01-16") && d.filter((e) => e.description === "Voo" && e.competenceDate === "2026-01-05").length === 2 && d.some((e) => e.description === "Pagamento cartão")' entries list -a 1002 -f 2026-01-01 -t 2026-01-31 --json
 step "cli entries list cartão -k (mock)" expect_json 'd.length === 1 && d[0].id === 1' entries list -a 1002 -f 2026-01-01 -t 2026-01-31 -k merc --json
+# Pagamento (tipo p, +100) must not become Income; bill purchases stay as expenses.
+step "cli entries summary cartão sem pagamento (mock)" expect_json 'd.skippedPayments === 1 && d.total.income === 0 && d.total.expenses < 0' entries summary -a 1002 -f 2026-01-01 -t 2026-01-31 --json
 step "cli entries update lançamento de cartão (mock)" expect_json 'd.id === 9102 && d.descricao === "Voo editado"' entries update 9102 -d "Voo editado" --json
 step "cli entries update id de ocorrência (mock)" expect_fail 'series occurrence ID, not an entry ID' entries update 46349170A2026-01-05 -d X
 # Create shapes deduced from the web bundle (dogfooding 2026-10-16): transfer
