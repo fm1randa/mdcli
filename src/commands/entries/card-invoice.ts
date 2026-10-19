@@ -1,9 +1,8 @@
 import { fetchCardInvoice } from '../../lib/api.js';
-import { shiftDueDate } from '../../lib/dates.js';
+import { dueDateInMonth, parseInvoiceMonth, shiftDueDate } from '../../lib/dates.js';
 import type { Account } from '../../types/index.js';
 
 const MAX_INVOICE_STEPS = 24;
-const INVOICE_MONTH = /^(\d{4})-(0[1-9]|1[0-2])$/;
 
 /**
  * Due date of the invoice a card purchase belongs to. With --invoice the user
@@ -15,17 +14,14 @@ const INVOICE_MONTH = /^(\d{4})-(0[1-9]|1[0-2])$/;
 export async function resolveCardDueDate(account: Account, purchaseDate: string, invoice?: string): Promise<string> {
   const anchor = account.proximoVencimento?.slice(0, 10);
 
-  const match = invoice ? invoice.match(INVOICE_MONTH) : null;
-  if (invoice && !match) {
-    throw new Error('Invalid invoice month. Use YYYY-MM with a month from 01 to 12 (e.g., 2026-10)');
-  }
+  if (invoice) parseInvoiceMonth(invoice);
 
   if (!anchor) {
     throw new Error(`Card ${account.id} has no next due date, so its invoice due day is unknown.`);
   }
 
-  if (match) {
-    return shiftDueDate(`${match[1]}-${match[2]}-${anchor.slice(8, 10)}`, 0);
+  if (invoice) {
+    return dueDateInMonth(invoice, anchor);
   }
 
   const closingOf = async (offset: number): Promise<string> =>

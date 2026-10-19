@@ -8,6 +8,7 @@ import { extractSessionFromBrowser } from './browser-session/index.js';
 export {
   normalizeCategories,
   normalizeAccounts,
+  normalizeCards,
   normalizeTags,
   normalizeEntries,
   normalizeCardEntries,

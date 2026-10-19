@@ -113,6 +113,17 @@ step "cli cards invoice (mock)"              expect_ok 'Mercado' cards invoice -
 step "cli cards invoice total (mock)"        expect_ok 'Total: -R\$.*87,50' cards invoice -a 1002 --month 2026-01
 step "cli cards invoice --json (mock)"       expect_json 'Array.isArray(d) && d[0]?.description === "Mercado"' cards invoice -a 1002 --month 2026-01 --json
 step "cli cards invoice primeiraFatura (mock)" expect_ok 'Mercado' cards invoice -a 1003
+# Dogfood 2026-10-19: --month on a card with a date-only proximoVencimento
+# (2026-11-16) asked for the 15th in UTC-3; months 00/13 reached the API.
+in_sao_paulo() { TZ=America/Sao_Paulo "$@"; }
+step "cli cards invoice --month vencimento local (mock)" in_sao_paulo expect_ok 'Cartão Ouro - 2026-11-16 \(1 entries\)' cards invoice -a 1005 --month 2026-11
+step "cli cards invoice --month 2026-13 recusado (mock)" expect_fail 'Invalid invoice month "2026-13"' cards invoice -a 1005 --month 2026-13
+step "cli cards invoice --month 2026-00 recusado (mock)" expect_fail 'Invalid invoice month "2026-00"' cards invoice -a 1005 --month 2026-00
+step "cli entries create --invoice 2026-13 recusado (mock)" expect_fail 'Invalid invoice month "2026-13"' entries create -a 1005 -d X -v 1 -c 10 --invoice 2026-13
+# Same item, same due date in both commands; date stays the purchase date.
+step "cli cards invoice --json dueDate (mock)" in_sao_paulo expect_json 'd.length === 1 && d[0].id === 315471241 && d[0].date === "2025-11-19" && d[0].dueDate === "2026-11-16" && d[0].competenceDate === "2025-11-19"' cards invoice -a 1005 --month 2026-11 --json
+step "cli entries list cartão mesma data do invoice (mock)" in_sao_paulo expect_json 'd.length === 1 && d[0].id === 315471241 && d[0].date === "2026-11-16" && d[0].competenceDate === "2025-11-19"' entries list -a 1005 -f 2026-11-01 -t 2026-11-30 --json
+step "cli cards list --json campos do cartão (mock)" expect_json 'd.some((c) => c.id === 1005 && c.limit === 21804 && c.dueDay === 16 && c.nextDueDate === "2026-11-16" && c.nextClosingDate === "2026-11-05" && c.closingDaysBeforeDue === 11 && c.paymentAccountId === 1001 && typeof c.balance === "number")' cards list --json
 step "cli cards future (mock)"               expect_ok 'Notebook' cards future -a 1002
 # Bare-array API: remaining derived from "3/6" → 4 (old code always returned []).
 step "cli cards future --json (mock)"        expect_json 'Array.isArray(d) && d.length === 1 && d[0]?.installment === "3/6" && d[0]?.remaining === 4' cards future -a 1002 --json

@@ -73,7 +73,11 @@ export type CardFutureResponse =
 export interface NormalizedCardEntry {
   id: number | string;
   description: string;
+  /** Purchase date (the item's data), not the due date. */
   date: string;
+  /** Invoice due date: the date entries list shows for this item. */
+  dueDate: string;
+  competenceDate: string;
   value: number;
   categoryId: number | null;
   installment: string | null;
