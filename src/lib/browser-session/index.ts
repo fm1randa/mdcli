@@ -57,7 +57,8 @@ export async function extractSessionFromBrowser(
         throw new Error(
           `Browser took too long to start with the copied profile (this can happen on managed/corporate ` +
             `machines where the browser tries to reach blocked network services on launch).\n` +
-            `Try: mdcli auth login --browser or --item`
+            `Try: mdcli auth login --browser or --item`,
+          { cause: error }
         );
       }
       throw error;

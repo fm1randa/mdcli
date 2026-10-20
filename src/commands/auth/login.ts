@@ -56,7 +56,8 @@ export async function loginAction(options: {
         if (!isInteractiveTerminal()) {
           throw new Error(
             'No interactive terminal available to choose a fallback method.\n' +
-              'Use one of: --session chrome, --session firefox, --item <name>, --browser, --manual'
+              'Use one of: --session chrome, --session firefox, --item <name>, --browser, --manual',
+            { cause: primaryError }
           );
         }
 
