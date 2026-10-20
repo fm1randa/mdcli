@@ -28,10 +28,11 @@ updates:
       - dependency-name: typescript
         update-types:
           - version-update:semver-major
-      # @types/node must describe the Node.js APIs of the runtime we target
-      # (the Node version Bun implements, see `bun -e 'console.log(process.version)'`
-      # for the packageManager Bun), not the newest Node release (#91). Bump
-      # the major by hand when the packageManager Bun moves.
+      # @types/node follows the Node.js version bundled with Bun, not the
+      # newest Node release (#91). Bun 1.4.2 ships Node v26, so package.json
+      # pins ^26 and only majors above 26 are ignored here; minors/patches of
+      # v26 still arrive in the grouped PR. Bump the major by hand when the
+      # Bun version moves (`bun -e 'console.log(process.version)'`).
       - dependency-name: "@types/node"
         update-types:
           - version-update:semver-major
