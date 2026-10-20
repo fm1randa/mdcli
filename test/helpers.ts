@@ -137,6 +137,85 @@ export async function runCli(
   return { exitCode, stdout, stderr, output: stdout + stderr };
 }
 
+/** One scripted interaction: wait until the screen shows `waitFor`, then type `send`. */
+export interface TerminalStep {
+  waitFor: string | RegExp;
+  send: string;
+}
+
+export const KEY = { enter: '\r', down: '\u001b[B', ctrlC: '\u0003' } as const;
+
+/**
+ * Run the CLI attached to a pseudo-terminal (stdin and stdout are TTYs), as a
+ * person at a terminal would, so interactive prompts render and read keys.
+ * Each step waits for text printed after the previous match; output is
+ * returned with ANSI sequences stripped.
+ */
+export async function runCliInTerminal(
+  args: string[],
+  env: { home: TestHome; api: MockApi },
+  steps: TerminalStep[],
+  stepTimeoutMs = 10_000
+): Promise<{ exitCode: number; output: string }> {
+  let raw = '';
+  const decoder = new TextDecoder();
+  const proc = Bun.spawn(['bun', 'run', join(REPO_ROOT, 'bin', 'cli.ts'), ...args], {
+    cwd: REPO_ROOT,
+    env: {
+      ...process.env,
+      HOME: env.home.dir,
+      USERPROFILE: env.home.dir,
+      APPDATA: env.home.dir,
+      LOCALAPPDATA: env.home.dir,
+      MDCLI_CONFIG_DIR: join(env.home.dir, '.config', 'mdcli'),
+      MDCLI_API_URL: env.api.url,
+      MDCLI_NO_AUTO_UPDATE: '1',
+      FORCE_COLOR: '0',
+    },
+    terminal: {
+      cols: 120,
+      rows: 40,
+      data(_terminal, data) {
+        raw += decoder.decode(data, { stream: true });
+      },
+    },
+  });
+  const terminal = proc.terminal!;
+  const screen = () => Bun.stripANSI(raw);
+
+  try {
+    let consumed = 0;
+    for (const step of steps) {
+      const deadline = Date.now() + stepTimeoutMs;
+      for (;;) {
+        const rest = screen().slice(consumed);
+        const match = typeof step.waitFor === 'string'
+          ? (() => { const i = rest.indexOf(step.waitFor); return i < 0 ? undefined : i + step.waitFor.length; })()
+          : (() => { const m = step.waitFor.exec(rest); return m ? m.index + m[0].length : undefined; })();
+        if (match !== undefined) {
+          consumed += match;
+          break;
+        }
+        if (Date.now() > deadline || proc.exitCode !== null) {
+          throw new Error(`terminal never showed ${String(step.waitFor)}; screen:\n${screen()}`);
+        }
+        await Bun.sleep(20);
+      }
+      terminal.write(step.send);
+    }
+    const exitCode = await Promise.race([
+      proc.exited,
+      Bun.sleep(stepTimeoutMs).then(() => {
+        throw new Error(`CLI did not exit; screen:\n${screen()}`);
+      }),
+    ]);
+    return { exitCode, output: screen() };
+  } finally {
+    proc.kill();
+    terminal.close();
+  }
+}
+
 export function mutations(api: MockApi): RecordedRequest[] {
   return api.requests.filter((r) => r.method !== 'GET');
 }

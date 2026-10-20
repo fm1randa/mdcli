@@ -43,7 +43,8 @@ export async function copyProfileToTemp(profilePath: string, browserType: string
           `  1. Open System Settings -> Privacy & Security -> Full Disk Access\n` +
           `  2. Enable it for the terminal app you're running mdcli from (Terminal, iTerm, VS Code, etc.)\n` +
           `  3. Restart the terminal and try again\n` +
-          `Alternatively, try: mdcli auth login ${sessionAlternatives(browserType)}`
+          `Alternatively, try: mdcli auth login ${sessionAlternatives(browserType)}`,
+        { cause: error }
       );
     }
     throw error;

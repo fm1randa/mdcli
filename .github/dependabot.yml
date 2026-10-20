@@ -21,6 +21,20 @@ updates:
         update-types:
           - minor
           - patch
+    ignore:
+      # typescript-eslint (lint step of verify.sh) does not support TS 7 yet
+      # ("typescript-eslint does not support TS 7.0", #89). Drop this entry
+      # once a typescript-eslint release lists TS 7 in its peer range.
+      - dependency-name: typescript
+        update-types:
+          - version-update:semver-major
+      # @types/node must describe the Node.js APIs of the runtime we target
+      # (the Node version Bun implements, see `bun -e 'console.log(process.version)'`
+      # for the packageManager Bun), not the newest Node release (#91). Bump
+      # the major by hand when the packageManager Bun moves.
+      - dependency-name: "@types/node"
+        update-types:
+          - version-update:semver-major
 
   - package-ecosystem: github-actions
     directory: /
