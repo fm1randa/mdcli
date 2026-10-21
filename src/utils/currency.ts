@@ -22,3 +22,11 @@ export function formatCurrency(value: number): string {
 export function formatMagnitude(value: number): string {
   return colored(value, brl(Math.abs(value)));
 }
+
+/**
+ * Whole cents of the value's magnitude, the unit to compare or split money
+ * in: 0.1 + 0.2 is 30 cents, not 0.30000000000000004 (Jardinagem 2026-10-21).
+ */
+export function toCents(value: number): number {
+  return Math.round(Math.abs(value) * 100);
+}

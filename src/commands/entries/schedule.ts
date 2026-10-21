@@ -2,6 +2,7 @@ import { exitWithError } from '../../utils/action.js';
 import { addInterval } from '../../lib/dates.js';
 import type { CreateEntryAgenda, CreateEntryInstallment } from '../../types/index.js';
 import { parseInteger } from '../../utils/parse.js';
+import { toCents } from '../../utils/currency.js';
 
 export interface ScheduleOptions {
   repeat?: string;
@@ -60,7 +61,7 @@ function parseCount(flag: string, value: string | undefined, min = 1): number | 
  */
 function installmentValues(value: number, count: number, perInstallment: boolean): number[] {
   const sign = value < 0 ? -1 : 1;
-  const cents = Math.round(Math.abs(value) * 100);
+  const cents = toCents(value);
   if (perInstallment) return Array.from({ length: count }, () => (sign * cents) / 100);
   const each = Math.round(cents / count);
   const first = cents - each * (count - 1);

@@ -3,12 +3,14 @@ import Table from 'cli-table3';
 import chalk from 'chalk';
 import { logger } from '../utils/logger.js';
 import { action, exitWithError } from '../utils/action.js';
-import { fetchAccounts, fetchAccountById, normalizeCards, isCreditCard, fetchCardInvoice, normalizeCardEntries, fetchFirstInvoiceDate, fetchCardFuture, normalizeCardInstallments } from '../lib/api.js';
+import { fetchAccounts, fetchAccountById, normalizeCards, isCreditCard, fetchCardInvoice, normalizeCardEntries, fetchCardFuture, normalizeCardInstallments } from '../lib/api.js';
 import { resolveId } from '../lib/aliases.js';
 import { formatCurrency } from '../utils/currency.js';
+import { truncate } from '../utils/text.js';
+import { cardDueAnchor } from './entries/card-invoice.js';
 import { dueDateInMonth, parseInvoiceMonth } from '../lib/dates.js';
 import { normalizeInvoiceSummary } from '../lib/invoice-summary.js';
-import type { NormalizedInvoiceSummary } from '../types/index.js';
+import type { Account, NormalizedInvoiceSummary } from '../types/index.js';
 
 function formatStatus(active: boolean, closed: boolean): string {
   if (closed) return chalk.red('Closed');
@@ -42,6 +44,8 @@ async function listAction(options: { json?: boolean; active?: boolean }): Promis
       card.nome,
       card.banco?.nome ?? chalk.gray('-'),
       card.limite ? formatCurrency(card.limite) : chalk.gray('-'),
+      // Display only, not an invoice anchor (see cardDueAnchor).
+      // eslint-disable-next-line no-restricted-syntax
       card.proximoVencimento ?? chalk.gray('-'),
       formatStatus(card.status, card.encerrada),
     ]);
@@ -97,18 +101,14 @@ function printInvoiceSummary(rows: SummaryRow[]): void {
   }
 }
 
-async function invoiceAction(options: { account: string; month?: string; json?: boolean; summary?: boolean }): Promise<void> {
-  // Before any API call: 2026-13 used to reach the API (400) and 2026-00 to
-  // show December's invoice (dogfood 2026-10-19).
-  if (options.month) parseInvoiceMonth(options.month);
-
-  const accountId = await resolveId('accounts', options.account);
+/** The credit card an -a value names, or exit with why it is not one. */
+async function resolveCardOrExit(input: string): Promise<Account> {
+  const accountId = await resolveId('accounts', input);
   if (!accountId) {
-    exitWithError(`Unknown account: ${options.account}`);
+    exitWithError(`Unknown account: ${input}`);
   }
 
   const account = await fetchAccountById(accountId);
-
   if (!account) {
     exitWithError(`Account not found: ${accountId}`);
   }
@@ -116,13 +116,25 @@ async function invoiceAction(options: { account: string; month?: string; json?: 
   if (!isCreditCard(account)) {
     exitWithError(`Account ${accountId} is not a credit card`);
   }
+  return account;
+}
 
-  // The card's due day comes from proximoVencimento; 10 when it has none.
-  const dueDate = options.month
-    ? dueDateInMonth(options.month, account.proximoVencimento ?? '0000-00-10')
-    : (account.proximoVencimento ?? (await fetchFirstInvoiceDate(accountId)));
+const INVOICE_COL_WIDTHS = [12, 40, 15, 12];
+const FUTURE_COL_WIDTHS = [12, 32, 15, 15, 12];
 
-  const invoiceResponse = await fetchCardInvoice(accountId, dueDate);
+async function invoiceAction(options: { account: string; month?: string; json?: boolean; summary?: boolean }): Promise<void> {
+  // Before any API call: 2026-13 used to reach the API (400) and 2026-00 to
+  // show December's invoice (dogfood 2026-10-19).
+  if (options.month) parseInvoiceMonth(options.month);
+
+  const account = await resolveCardOrExit(options.account);
+
+  // The due day is the card's anchor (cardDueAnchor), same as entries list
+  // and entries create use.
+  const anchor = await cardDueAnchor(account);
+  const dueDate = options.month ? dueDateInMonth(options.month, anchor) : anchor;
+
+  const invoiceResponse = await fetchCardInvoice(account.id, dueDate);
   const entries = normalizeCardEntries(invoiceResponse);
   const summary = normalizeInvoiceSummary(invoiceResponse, account);
 
@@ -136,14 +148,14 @@ async function invoiceAction(options: { account: string; month?: string; json?: 
   const table = new Table({
     head: ['Purchase', 'Description', 'Value', 'Category'],
     style: { head: ['cyan'] },
-    colWidths: [12, 40, 15, 12],
+    colWidths: INVOICE_COL_WIDTHS,
   });
 
   for (const entry of entries) {
     table.push([
       // The web's invoice lists items by purchase date; date in --json is the due date.
       entry.purchaseDate,
-      entry.description.length > 37 ? `${entry.description.slice(0, 37)}...` : entry.description,
+      truncate(entry.description, INVOICE_COL_WIDTHS[1]),
       formatCurrency(entry.value),
       entry.categoryId?.toString() ?? chalk.gray('-'),
     ]);
@@ -169,22 +181,9 @@ cardsCommand
   .action(action(invoiceAction));
 
 async function futureAction(options: { account: string; json?: boolean }): Promise<void> {
-  const accountId = await resolveId('accounts', options.account);
-  if (!accountId) {
-    exitWithError(`Unknown account: ${options.account}`);
-  }
+  const account = await resolveCardOrExit(options.account);
 
-  const account = await fetchAccountById(accountId);
-
-  if (!account) {
-    exitWithError(`Account not found: ${accountId}`);
-  }
-
-  if (!isCreditCard(account)) {
-    exitWithError(`Account ${accountId} is not a credit card`);
-  }
-
-  const futureResponse = await fetchCardFuture(accountId);
+  const futureResponse = await fetchCardFuture(account.id);
   const installments = normalizeCardInstallments(futureResponse);
 
   if (options.json) {
@@ -195,13 +194,13 @@ async function futureAction(options: { account: string; json?: boolean }): Promi
   const table = new Table({
     head: ['Date', 'Description', 'Value', 'Installment', 'Remaining'],
     style: { head: ['cyan'] },
-    colWidths: [12, 32, 15, 15, 12],
+    colWidths: FUTURE_COL_WIDTHS,
   });
 
   for (const item of installments) {
     table.push([
       item.date,
-      item.description.length > 29 ? `${item.description.slice(0, 29)}...` : item.description,
+      truncate(item.description, FUTURE_COL_WIDTHS[1]),
       formatCurrency(item.value),
       item.installment,
       item.remaining.toString(),

@@ -1,19 +1,17 @@
-import { fetchAccounts, fetchAllEntries, fetchCardInvoice, fetchFirstInvoiceDate, isCreditCard } from '../../lib/api.js';
+import { fetchAccounts, fetchAllEntries, fetchCardInvoice, isCreditCard } from '../../lib/api.js';
 import { shiftDueDate } from '../../lib/dates.js';
 import type { Account, CardInvoiceEntry, CreateEntryResponse, EntriesParams, Entry } from '../../types/index.js';
 import { isEntryId } from './entry-id.js';
+import { cardDueAnchor } from './card-invoice.js';
+import { statusBit, typeBit } from './filters.js';
+import { toCents } from '../../utils/currency.js';
 
 type ListParams = Omit<EntriesParams, 'page' | 'pageSize'>;
 
-// Same bits the API filters on (docs/api-filters.md), applied here to the
-// entries read from invoices, which the API did not filter.
-const STATUS_BITS: Record<string, number> = { pendente: 1, confirmado: 2, nconciliado: 2, conciliado: 4, agendado: 8 };
-
-const cents = (value: number): number => Math.round(Math.abs(value) * 100);
 
 /** Due dates of the card's invoices that fall within [from, to]. */
 async function dueDatesInRange(card: Account, from: string, to: string): Promise<string[]> {
-  const anchor = (card.proximoVencimento ?? (await fetchFirstInvoiceDate(card.id))).slice(0, 10);
+  const anchor = await cardDueAnchor(card);
   // shiftDueDate clamps the anchor's day in every month (31 -> Feb 28).
   const base = `${from.slice(0, 7)}-${anchor.slice(8, 10)}`;
   const dates: string[] = [];
@@ -42,22 +40,17 @@ function inMask(mask: number | undefined, bit: number): boolean {
 }
 
 function matchesFilters(entry: Entry, params: ListParams): boolean {
-  const statusBit = STATUS_BITS[entry.status];
-  if (statusBit && !inMask(params.status, statusBit)) return false;
-  // tipo p (invoice payment) has no bit in the web's tipoLancamento mask; it
-  // must not match expense (1) the way an unknown tipo used to.
-  const typeBit =
-    entry.tipo === 'r' ? 2
-    : entry.tipo === 't' ? (entry.valor < 0 ? 4 : 8)
-    : entry.tipo === 'p' ? 0
-    : 1;
+  // The same bits the API filters the statement on (filters.ts), since it
+  // did not filter the invoices.
+  const status = statusBit(entry.status);
+  if (status && !inMask(params.status, status)) return false;
   // tipoLancamento 0 lists every type on the API (docs/api-filters.md).
-  if (params.entryType !== undefined && params.entryType !== 0 && !inMask(params.entryType, typeBit)) return false;
+  if (params.entryType !== undefined && params.entryType !== 0 && !inMask(params.entryType, typeBit(entry))) return false;
   const repetitionBit = !entry.parcela ? 1 : entry.parcela === 'fixa' ? 4 : 2;
   if (!inMask(params.repetition, repetitionBit)) return false;
   if (params.categoryIds?.length && !params.categoryIds.includes(entry.categoria ?? -1)) return false;
   if (params.tagIds?.length && !(entry.tags ?? []).some((t) => params.tagIds?.includes(t))) return false;
-  if (params.value !== undefined && cents(entry.valor) !== cents(params.value)) return false;
+  if (params.value !== undefined && toCents(entry.valor) !== toCents(params.value)) return false;
   if (params.keywords) {
     const text = `${entry.descricao} ${entry.observacoes ?? ''}`.toLowerCase();
     if (!text.includes(params.keywords.toLowerCase())) return false;
@@ -115,7 +108,7 @@ export async function withCardEntryId(
   if (isEntryId(response.id)) return response;
   const invoice = await fetchCardInvoice(card.id, card.dueDate);
   const ids = (invoice.lancamentos ?? [])
-    .filter((e) => e.descricao === card.description && cents(e.valor) === cents(card.value) && isEntryId(e.id))
+    .filter((e) => e.descricao === card.description && toCents(e.valor) === toCents(card.value) && isEntryId(e.id))
     .map((e) => (typeof e.id === 'number' ? e.id : Number.parseInt(e.id, 10)));
   if (ids.length === 0) {
     // stderr: stdout stays machine-readable under --json.

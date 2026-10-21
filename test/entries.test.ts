@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
-import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, CREDIT_CARD_ACCOUNT, EMPTY_ENTRIES_RESPONSE, SAMPLE_ENTRIES, cardInvoice, entriesPage } from './fixtures.js';
+import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, EMPTY_ENTRIES_RESPONSE, SAMPLE_ENTRIES, cardInvoice, entriesPage } from './fixtures.js';
 
 let api: MockApi;
 let home: TestHome;
@@ -158,22 +158,6 @@ describe('entries create', () => {
       dataEfetiva: null,
       conciliado: false,
     });
-  });
-
-  test('refuses a card purchase when the card has no next due date', async () => {
-    api.on('GET /v1/cadastros/contas', {
-      ...ACCOUNTS_RESPONSE,
-      items: [{ ...CREDIT_CARD_ACCOUNT, proximoVencimento: undefined }],
-    });
-
-    const result = await runCli(
-      ['entries', 'create', '-a', '1002', '-d', 'Voo', '-v', '10', '-c', '10', '-D', '2026-01-05'],
-      { home, api }
-    );
-
-    expect(result.exitCode).toBe(1);
-    expect(result.output).toContain('Card 1002 has no next due date');
-    expect(mutations(api)).toHaveLength(0);
   });
 
   test('shows a confirmed, unreconciled entry (--confirmed) as Confirmed, the way list does', async () => {

@@ -10,6 +10,9 @@ import { type FilterOptions, resolveEntryFilters, resolveExcludedCategories } fr
 import { formatStatus, formatType } from './format.js';
 import { formatCurrency, formatMagnitude } from '../../utils/currency.js';
 import { loadNames, nameOf, tagNames } from './names.js';
+import { truncate } from '../../utils/text.js';
+
+const LIST_COL_WIDTHS = [12, 12, 36, 15, 12, 12, 13];
 
 async function loadEntries(options: FilterOptions) {
   const params = await resolveEntryFilters(options);
@@ -73,14 +76,14 @@ export async function listAction(options: ListOptions): Promise<void> {
   const table = new Table({
     head: ['ID', 'Date', 'Description', 'Value', 'Type', 'Status', 'Installment'],
     style: { head: ['cyan'] },
-    colWidths: [12, 12, 36, 15, 12, 12, 13],
+    colWidths: LIST_COL_WIDTHS,
   });
 
   for (const entry of entries) {
     table.push([
       entry.id,
       entry.date,
-      entry.description.length > 33 ? `${entry.description.slice(0, 33)}...` : entry.description,
+      truncate(entry.description, LIST_COL_WIDTHS[2]),
       formatCurrency(entry.value),
       formatType(entry.type),
       formatStatus(entry.status),
