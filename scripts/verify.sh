@@ -119,6 +119,9 @@ step "cli cards invoice (mock)"              expect_ok 'Mercado' cards invoice -
 step "cli cards invoice total (mock)"        expect_ok 'Total: -R\$.*87,50' cards invoice -a 1002 --month 2026-01
 step "cli cards invoice --json (mock)"       expect_json 'Array.isArray(d) && d[0]?.description === "Mercado"' cards invoice -a 1002 --month 2026-01 --json
 step "cli cards invoice primeiraFatura (mock)" expect_ok 'Mercado' cards invoice -a 1003
+# Jardinagem 2026-10-21: --month on a card without proximoVencimento assumed
+# day 10; it now takes primeiraFatura's day (16 in the mock).
+step "cli cards invoice --month sem vencimento (mock)" expect_ok 'Cartão Sem Vencimento - 2026-02-16' cards invoice -a 1003 --month 2026-02
 # Dogfood 2026-10-19: --month on a card with a date-only proximoVencimento
 # (2026-11-16) asked for the 15th in UTC-3; months 00/13 reached the API.
 in_sao_paulo() { TZ=America/Sao_Paulo "$@"; }

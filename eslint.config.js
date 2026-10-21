@@ -13,6 +13,13 @@ const NUMBER_CALL = {
   message: "Number() accepts '', '1e3', '0x10' and 'Infinity'. Use parseId, parseInteger or parseAmount from src/utils/parse.ts.",
 };
 
+// A card's invoice anchor comes from cardDueAnchor alone (Jardinagem
+// 2026-10-21: three paths had three fallbacks for a card without one).
+const DUE_ANCHOR = {
+  selector: "LogicalExpression[operator='??'][left.property.name='proximoVencimento']",
+  message: "Use cardDueAnchor (src/commands/entries/card-invoice.ts) for a card's due date: one rule for a card without proximoVencimento.",
+};
+
 export default tseslint.config(
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
@@ -39,7 +46,11 @@ export default tseslint.config(
   },
   {
     files: ["src/**/*.ts"],
-    ignores: ["src/utils/currency.ts"],
+    ignores: ["src/utils/currency.ts", "src/commands/entries/card-invoice.ts"],
+    rules: { "no-restricted-syntax": ["error", CURRENCY_FORMAT, DUE_ANCHOR] },
+  },
+  {
+    files: ["src/commands/entries/card-invoice.ts"],
     rules: { "no-restricted-syntax": ["error", CURRENCY_FORMAT] },
   },
   {
@@ -47,6 +58,11 @@ export default tseslint.config(
     // through the strict helpers instead (Jardinagem 2026-10-19). Repeats
     // CURRENCY_FORMAT: a later block replaces the rule's options, not merges.
     files: ["src/commands/**/*.ts", "src/lib/aliases.ts"],
+    ignores: ["src/commands/entries/card-invoice.ts"],
+    rules: { "no-restricted-syntax": ["error", CURRENCY_FORMAT, NUMBER_CALL, DUE_ANCHOR] },
+  },
+  {
+    files: ["src/commands/entries/card-invoice.ts"],
     rules: { "no-restricted-syntax": ["error", CURRENCY_FORMAT, NUMBER_CALL] },
   },
   {

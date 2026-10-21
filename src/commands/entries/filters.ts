@@ -24,6 +24,9 @@ function checkDateRange(from: string | undefined, to: string | undefined): void 
   }
 }
 
+// The one copy of the API's status and tipoLancamento bits
+// (docs/api-filters.md): the CLI names map to them, and the invoice items the
+// API does not filter are matched against them (card-entries.ts).
 const STATUS_FLAGS: Record<string, number> = {
   pending: 1,
   confirmed: 2,
@@ -37,6 +40,33 @@ const TYPE_FLAGS: Record<string, number> = {
   'transfer-out': 4,
   'transfer-in': 8,
 };
+
+// An entry's status as the API labels it -> its CLI name. nconciliado is
+// confirmed but not reconciled.
+const API_STATUS_NAMES: Record<string, string> = {
+  pendente: 'pending',
+  confirmado: 'confirmed',
+  nconciliado: 'confirmed',
+  conciliado: 'reconciled',
+  agendado: 'scheduled',
+};
+
+/** The status bit of an entry's API status label; undefined for a label the API does not filter on. */
+export function statusBit(apiStatus: string): number | undefined {
+  const name = API_STATUS_NAMES[apiStatus];
+  return name === undefined ? undefined : STATUS_FLAGS[name];
+}
+
+/**
+ * The tipoLancamento bit of an entry. tipo p (invoice payment) has no bit in
+ * the web's mask, so it is 0 and matches no type filter.
+ */
+export function typeBit(entry: { tipo?: string; valor: number }): number {
+  if (entry.tipo === 'p') return 0;
+  if (entry.tipo === 'r') return TYPE_FLAGS.income;
+  if (entry.tipo === 't') return entry.valor < 0 ? TYPE_FLAGS['transfer-out'] : TYPE_FLAGS['transfer-in'];
+  return TYPE_FLAGS.expense;
+}
 
 // The web app's Repetição filter (tipoRepeticao): única, parcelada, fixa.
 const REPETITION_FLAGS: Record<string, number> = {

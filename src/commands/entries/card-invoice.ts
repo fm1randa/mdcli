@@ -1,8 +1,20 @@
-import { fetchCardInvoice } from '../../lib/api.js';
+import { fetchCardInvoice, fetchFirstInvoiceDate } from '../../lib/api.js';
 import { dueDateInMonth, parseInvoiceMonth, shiftDueDate } from '../../lib/dates.js';
 import type { Account } from '../../types/index.js';
 
 const MAX_INVOICE_STEPS = 24;
+
+/**
+ * The due date (YYYY-MM-DD) the card's invoices are counted from, and the
+ * only place that reads proximoVencimento for that (an ESLint rule bans
+ * `proximoVencimento ??` elsewhere). A card without one, like a new card,
+ * takes the API's first invoice date (GET primeiraFatura) instead. Before
+ * this, cards invoice --month assumed day 10, cards invoice and entries list
+ * asked primeiraFatura, and entries create refused (Jardinagem 2026-10-21).
+ */
+export async function cardDueAnchor(account: Account): Promise<string> {
+  return (account.proximoVencimento ?? (await fetchFirstInvoiceDate(account.id))).slice(0, 10);
+}
 
 /**
  * Due date of the invoice a card purchase belongs to. With --invoice the user
@@ -12,13 +24,9 @@ const MAX_INVOICE_STEPS = 24;
  * never carries into later months.
  */
 export async function resolveCardDueDate(account: Account, purchaseDate: string, invoice?: string): Promise<string> {
-  const anchor = account.proximoVencimento?.slice(0, 10);
-
   if (invoice) parseInvoiceMonth(invoice);
 
-  if (!anchor) {
-    throw new Error(`Card ${account.id} has no next due date, so its invoice due day is unknown.`);
-  }
+  const anchor = await cardDueAnchor(account);
 
   if (invoice) {
     return dueDateInMonth(invoice, anchor);
