@@ -119,7 +119,7 @@ export async function updateAction(id: string, options: UpdateOptions): Promise<
     });
     if (todos !== undefined) payload.todos = todos;
 
-    const transferResponse = await updateEntry(entryId, payload as unknown as UpdateEntryPayload);
+    const transferResponse = await updateEntry(entryId, payload);
     reportUpdate(transferResponse, options.json, todos);
     return;
   }
@@ -131,7 +131,7 @@ export async function updateAction(id: string, options: UpdateOptions): Promise<
   // by field made every installment impossible to edit. Keys below either
   // apply an option, supply a default, or reshape a value: id can arrive as a
   // string, and status arrives as a label but has to go back as an object.
-  const payload: Record<string, unknown> = {
+  const payload: UpdateEntryPayload = {
     ...existing,
     id: entryId,
     descricao: options.description ?? existing.descricao,
@@ -179,6 +179,6 @@ export async function updateAction(id: string, options: UpdateOptions): Promise<
   // series, leaving earlier ones untouched. false is "Apenas neste".
   if (todos !== undefined) payload.todos = todos;
 
-  const response = await updateEntry(entryId, payload as unknown as UpdateEntryPayload);
+  const response = await updateEntry(entryId, payload);
   reportUpdate(response, options.json, todos);
 }

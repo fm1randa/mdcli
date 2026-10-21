@@ -1,19 +1,28 @@
-import type { Entry } from '../../types/index.js';
+import type { Entry, UpdateTransferPayload } from '../../types/index.js';
 import type { EntryStatusChoice } from './status.js';
+
+/** The effective (confirmed) date and values of a PUT payload. */
+type EffectiveField = 'dataEfetiva' | 'valorEfetivo' | 'valorEfetivoT';
+type EffectiveFields = { dataEfetiva?: string | null; valorEfetivo?: number | null; valorEfetivoT?: number | null };
 
 // A scheduled occurrence has no effective date or value yet, and filling them
 // in is what confirms it: the API then ignores confirmado: false. Send back
 // whatever the entry already had (usually nothing) for these fields.
-export function keepUnconfirmed(payload: Record<string, unknown>, existing: Entry, fields: readonly (keyof Entry)[]): void {
+export function keepUnconfirmed(payload: EffectiveFields, existing: Entry, fields: readonly EffectiveField[]): void {
+  const had: EffectiveFields = {
+    dataEfetiva: existing.dataEfetiva,
+    valorEfetivo: existing.valorEfetivo,
+    valorEfetivoT: existing.valorEfetivoT,
+  };
   for (const field of fields) {
-    if (existing[field] === undefined) delete payload[field];
-    else payload[field] = existing[field];
+    if (had[field] === undefined) delete payload[field];
+    else Object.assign(payload, { [field]: had[field] });
   }
 }
 
 // Turning Confirmado off in the web app sends the effective date and values
 // as null: an entry without them is scheduled again.
-export function clearEffective(payload: Record<string, unknown>, fields: readonly string[]): void {
+export function clearEffective(payload: EffectiveFields, fields: readonly EffectiveField[]): void {
   for (const field of fields) payload[field] = null;
 }
 
@@ -39,7 +48,7 @@ export function buildTransferPayload(
   entryId: number,
   existing: Entry,
   overrides: TransferOverrides
-): Record<string, unknown> {
+): UpdateTransferPayload {
   const outgoing = existing.valor < 0;
   const originAccount = outgoing ? existing.conta : existing.contaT;
   const destinationAccount = outgoing ? existing.contaT : existing.conta;
@@ -69,9 +78,9 @@ export function buildTransferPayload(
   // entries by echoing the raw entry back. A transfer refuses that echo, so
   // carry the fields an installment, a card, or a savings-goal transfer needs
   // one by one, and only when the entry actually has them.
-  const carried: Record<string, unknown> = {};
+  const carried: Partial<UpdateTransferPayload> = {};
   for (const field of ['dataCompetencia', 'parcela', 'agendaId', 'regime', 'estorno', 'detalhes', 'metaEconomiaDestino'] as const) {
-    if (existing[field] !== undefined) carried[field] = existing[field];
+    if (existing[field] !== undefined) Object.assign(carried, { [field]: existing[field] });
   }
   // categoriaPai is the parent of categoria and the categories endpoint does
   // not expose the parent, so a new category leaves us unable to recompute it.
@@ -81,7 +90,7 @@ export function buildTransferPayload(
   }
 
   const { confirmado, conciliado, effective } = overrides.status;
-  const payload: Record<string, unknown> = {
+  const payload: UpdateTransferPayload = {
     ...carried,
     id: entryId,
     descricao: overrides.description ?? existing.descricao,
