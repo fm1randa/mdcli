@@ -20,6 +20,13 @@ const DUE_ANCHOR = {
   message: "Use cardDueAnchor (src/commands/entries/card-invoice.ts) for a card's due date: one rule for a card without proximoVencimento.",
 };
 
+// `as unknown as` hid that the update payload did not match its type, right
+// where the -p status bug lived (Jardinagem 2026-10-21): fix the type instead.
+const DOUBLE_CAST = {
+  selector: "TSAsExpression > TSAsExpression.expression[typeAnnotation.type='TSUnknownKeyword']",
+  message: "`as unknown as` hides a type mismatch. Make the value match the type (or fix the type in src/types).",
+};
+
 export default tseslint.config(
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
@@ -59,11 +66,11 @@ export default tseslint.config(
     // CURRENCY_FORMAT: a later block replaces the rule's options, not merges.
     files: ["src/commands/**/*.ts", "src/lib/aliases.ts"],
     ignores: ["src/commands/entries/card-invoice.ts"],
-    rules: { "no-restricted-syntax": ["error", CURRENCY_FORMAT, NUMBER_CALL, DUE_ANCHOR] },
+    rules: { "no-restricted-syntax": ["error", CURRENCY_FORMAT, NUMBER_CALL, DUE_ANCHOR, DOUBLE_CAST] },
   },
   {
     files: ["src/commands/entries/card-invoice.ts"],
-    rules: { "no-restricted-syntax": ["error", CURRENCY_FORMAT, NUMBER_CALL] },
+    rules: { "no-restricted-syntax": ["error", CURRENCY_FORMAT, NUMBER_CALL, DOUBLE_CAST] },
   },
   {
     ignores: ["node_modules", "dist"],

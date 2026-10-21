@@ -209,23 +209,61 @@ export interface CreateEntryResponse {
   automatico: boolean;
 }
 
-export interface UpdateEntryPayload {
+/** Fields every PUT /v1/lancamentos/:id sets, transfer or not. */
+interface UpdateEntryFields {
   id: number;
-  descricao?: string;
-  valor?: number;
-  valorPrevisto?: number;
-  valorEfetivo?: number;
-  data?: string;
-  dataPrevista?: string;
-  dataEfetiva?: string;
-  conta?: number;
-  categoria?: number | null;
-  tags?: number[];
-  observacoes?: string;
-  status?: {
-    confirmado: boolean;
-    conciliado: boolean;
-  };
+  descricao: string;
+  /** Sent as an object; the entry arrives with a label instead. */
+  status: { confirmado: boolean; conciliado: boolean };
+  valor: number;
+  valorPrevisto: number;
+  /** null: Confirmado turned off (the entry is scheduled again). */
+  valorEfetivo?: number | null;
+  dataPrevista: string;
+  dataEfetiva?: string | null;
+  categoria: number | null;
+  tags: number[];
+  observacoes: string;
+  ndocumento: string;
+  lembrete: number;
+  automatico: boolean;
+  exibirCp: boolean;
+  exibirCr: boolean;
   conciliado?: boolean;
-  tipo?: 'd' | 'r' | 't';
+  /** Series scope: true "Neste e em todos na sequência", false "Apenas neste". */
+  todos?: boolean;
+}
+
+/**
+ * PUT of any entry but a transfer. The API rejects the PUT when a field it
+ * sent is missing (#10), so the whole entry goes back with the changes on
+ * top: every Entry field, reshaped where the PUT differs from the GET.
+ */
+export interface UpdateEntryPayload extends Omit<Entry, keyof UpdateEntryFields | 'transferencia'>, UpdateEntryFields {
+  /** The GET sends a number; the web app's PUT, false for a non-transfer. */
+  transferencia: number | boolean;
+  estorno: boolean;
+  metaEconomia: null;
+  agenda?: EntryAgenda;
+}
+
+/**
+ * PUT of a transfer: the API refuses the echoed entry, so it is listed field
+ * by field, on the origin side, marked transferencia: true and without tipo
+ * (see buildTransferPayload).
+ */
+export interface UpdateTransferPayload
+  extends UpdateEntryFields,
+    Partial<Pick<Entry, 'dataCompetencia' | 'parcela' | 'agendaId' | 'regime' | 'estorno' | 'detalhes' | 'metaEconomiaDestino' | 'categoriaPai' | 'plastico'>> {
+  transferencia: true;
+  /** A transfer also carries confirmado at the top. */
+  confirmado: boolean;
+  conta: number;
+  contaT: number;
+  contaOrigem: number;
+  contaDestino: number;
+  valorT: number;
+  valorPrevistoT: number;
+  valorEfetivoT?: number | null;
+  data: string;
 }
