@@ -46,7 +46,8 @@ export function startMockApi(): MockApi {
       if (!route) {
         return Response.json({ error: `no mock for ${req.method} ${path}` }, { status: 404 });
       }
-      const payload = typeof route.handler === 'function' ? route.handler(recorded) : route.handler;
+      // A handler may be async (e.g. to delay an answer).
+      const payload = typeof route.handler === 'function' ? await route.handler(recorded) : route.handler;
       // A handler may return a full Response to control the status per call
       // (e.g. 401 then success for refresh-retry tests).
       if (payload instanceof Response) {

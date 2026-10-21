@@ -5,6 +5,11 @@ import { isEntryId } from './entry-id.js';
 import { cardDueAnchor } from './card-invoice.js';
 import { statusBit, typeBit } from './filters.js';
 import { toCents } from '../../utils/currency.js';
+import { mapConcurrent } from '../../utils/concurrency.js';
+
+// Invoice requests in flight at once for entries list/summary: enough to cut
+// the wait, few enough not to hammer the API.
+const INVOICE_CONCURRENCY = 4;
 
 type ListParams = Omit<EntriesParams, 'page' | 'pageSize'>;
 
@@ -77,19 +82,24 @@ export async function fetchListEntries(params: ListParams): Promise<Entry[]> {
   const withoutDupedInvoices = listed.filter(
     (e) => e.projecaoFatura == null || !cardIds.has(e.projecaoFatura)
   );
+  // A year on two cards is 24 invoices: fetch them a few at a time instead of
+  // one after the other (Jardinagem 2026-10-21). Results come back in card
+  // and due-date order, so the dedupe below keeps the same entry as before.
+  const dueDates = await mapConcurrent(cards, INVOICE_CONCURRENCY, (card) =>
+    dueDatesInRange(card, params.startDate, params.endDate)
+  );
+  const wanted = cards.flatMap((card, i) => dueDates[i].map((due) => ({ card, due })));
+  const invoices = await mapConcurrent(wanted, INVOICE_CONCURRENCY, ({ card, due }) => fetchCardInvoice(card.id, due));
   const seen = new Set(withoutDupedInvoices.map((e) => String(e.id)));
   const fromInvoices: Entry[] = [];
-  for (const card of cards) {
-    for (const due of await dueDatesInRange(card, params.startDate, params.endDate)) {
-      const invoice = await fetchCardInvoice(card.id, due);
-      for (const item of invoice.lancamentos ?? []) {
-        const entry = toEntry(item, card, due);
-        if (seen.has(String(entry.id)) || !matchesFilters(entry, params)) continue;
-        seen.add(String(entry.id));
-        fromInvoices.push(entry);
-      }
+  wanted.forEach(({ card, due }, i) => {
+    for (const item of invoices[i].lancamentos ?? []) {
+      const entry = toEntry(item, card, due);
+      if (seen.has(String(entry.id)) || !matchesFilters(entry, params)) continue;
+      seen.add(String(entry.id));
+      fromInvoices.push(entry);
     }
-  }
+  });
   if (fromInvoices.length === 0) return withoutDupedInvoices;
   const date = (e: Entry): string => (e.dataPrevista ?? e.data).slice(0, 10);
   return [...withoutDupedInvoices, ...fromInvoices].sort((a, b) => date(a).localeCompare(date(b)));

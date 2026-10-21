@@ -97,7 +97,8 @@ describe('entries list on a card', () => {
     const result = await runCli(['entries', 'list', '-a', '1002', '-f', '2026-10-01', '-t', '2026-12-31', '--json'], { home, api });
 
     expect(result.exitCode).toBe(0);
-    expect(invoicePaths()).toEqual(['2026-10-16', '2026-11-16', '2026-12-16']);
+    // Fetched in parallel (Jardinagem 2026-10-21): which invoices, not the order they arrive in.
+    expect(invoicePaths().sort()).toEqual(['2026-10-16', '2026-11-16', '2026-12-16']);
     expect(JSON.parse(result.stdout)).toEqual([
       expect.objectContaining({
         id: 363713401,
