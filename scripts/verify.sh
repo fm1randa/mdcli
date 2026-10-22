@@ -205,6 +205,36 @@ JSON
   fi
 }
 step "cli entries import run --plan --dry-run (mock)" import_run_plan_dry
+# Rehearses an Import chosen in $EDITOR. A fake editor checks the line the file
+# opened with and rewrites the category and description. Only GETs are allowed,
+# and the temporary file must be gone afterwards.
+import_run_edit_dry() {
+  local log="$MDCLI_MOCK_LOG"
+  local before=0
+  [ -f "$log" ] && before=$(wc -l <"$log")
+  local editor="$SANDBOX/fake-editor.sh"
+  cat >"$editor" <<SH
+#!/bin/sh
+echo "\$1" > "$SANDBOX/edit-path"
+grep -qx 'import aaaaaaaa 2026-10-07 -12.34  | Padaria Ficticia' "\$1" || exit 9
+echo 'import aaaaaaaa 2026-10-07 -12,34 10 | Padaria editada' > "\$1"
+SH
+  local out
+  out=$(EDITOR="sh $editor" "${CLI[@]}" entries import run -a 1001 --edit --dry-run --json </dev/null 2>&1) \
+    || { echo "saída: $out"; return 1; }
+  bun -e 'const d = JSON.parse(process.argv[1]); const i = d.imported[0]; if (d.dryRun !== true || d.imported.length !== 1 || i.description !== "Padaria editada" || i.categoryId !== 10) process.exit(1)' "$out" \
+    || { echo "esperava o ensaio editado em: $out"; return 1; }
+  local path
+  path=$(cat "$SANDBOX/edit-path")
+  [ ! -e "$path" ] || { echo "o arquivo do --edit ficou no disco: $path"; return 1; }
+  local fresh
+  fresh=$(tail -n +"$((before + 1))" "$log")
+  if grep -Ev '"method":"GET"' <<<"$fresh" | grep -q .; then
+    echo "entries import run --edit --dry-run não pode gravar: $fresh"
+    return 1
+  fi
+}
+step "cli entries import run --edit --dry-run (mock)" import_run_edit_dry
 # Writes an Import, mock only: markImported, conciliacao, importar, in this
 # order, and no Sync PUT.
 import_run_yes() {

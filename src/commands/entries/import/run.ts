@@ -5,8 +5,9 @@ import { exitWithError } from '../../../utils/action.js';
 import { logger } from '../../../utils/logger.js';
 import { promptConfirmation } from '../../../utils/prompt.js';
 import { commitRun } from './commit.js';
-import { loadImport, statementRows, type ImportLoadOptions, type LoadedImport } from './list.js';
-import { pickTransactions, planRun, type RunDocument } from './plan.js';
+import { editRun } from './edit.js';
+import { fillSuggestions, loadImport, statementRows, type ImportLoadOptions, type LoadedImport } from './list.js';
+import { failOnProblems, pickTransactions, planRun, type RunDocument } from './plan.js';
 import { readPlanFile } from './plan-file.js';
 import { printRun } from './run-output.js';
 import { importCategory, planSelection, selectionCategories } from './selection.js';
@@ -16,6 +17,7 @@ interface ImportRunOptions extends ImportLoadOptions {
   category?: string;
   reject?: string;
   plan?: string;
+  edit?: boolean;
   includeDuplicates?: boolean;
   dryRun?: boolean;
   yes?: boolean;
@@ -28,7 +30,11 @@ export async function runAction(options: ImportRunOptions): Promise<void> {
   }
   const today = toLocalDateString(new Date());
   const dryRun = options.dryRun === true;
-  const planned = options.plan === undefined ? await fromFlags(options, today) : await fromPlan(options, options.plan, today);
+  const planned = await plannedRun(options, today);
+  if (planned === null) {
+    if (!options.json) logger.info('Nothing to do: the file has no command lines. Nothing was written.');
+    return;
+  }
   const { run, loaded, categories } = planned;
   const { document, account, payload, candidateRows } = loaded;
 
@@ -64,6 +70,20 @@ interface PlannedRun {
   categories: Category[];
 }
 
+/** The run from one of the three ways to select: flags, --plan, or --edit. Null when --edit is cancelled. */
+async function plannedRun(options: ImportRunOptions, today: string): Promise<PlannedRun | null> {
+  if (options.plan !== undefined && options.edit) exitWithError('--plan does not combine with --edit.');
+  const source = options.plan !== undefined ? '--plan' : options.edit ? '--edit' : null;
+  if (source === null) return fromFlags(options, today);
+  const conflicting = (['ids', 'category', 'reject', 'includeDuplicates'] as const).find(
+    (key) => options[key] !== undefined,
+  );
+  if (conflicting !== undefined) {
+    exitWithError(`${FLAG_NAMES[conflicting]} does not combine with ${source}. Every choice goes in the ${source} file.`);
+  }
+  return options.plan === undefined ? fromEdit(options, today) : fromPlan(options, options.plan, today);
+}
+
 /** --ids with --category, and --reject. */
 async function fromFlags(options: ImportRunOptions, today: string): Promise<PlannedRun> {
   if (options.category !== undefined && options.ids === undefined) {
@@ -73,7 +93,7 @@ async function fromFlags(options: ImportRunOptions, today: string): Promise<Plan
     exitWithError('--ids needs -c, --category: every Entry the import creates has a category.');
   }
   if (options.ids === undefined && options.reject === undefined) {
-    exitWithError('Nothing selected. Use --ids with --category, --reject, or --plan. There is no "import everything".');
+    exitWithError('Nothing selected. Use --ids with --category, --reject, --plan, or --edit. There is no "import everything".');
   }
   const ids = prefixList(options.ids, '--ids');
   const rejects = prefixList(options.reject, '--reject');
@@ -104,22 +124,26 @@ async function fromFlags(options: ImportRunOptions, today: string): Promise<Plan
 
 /** --plan <file>: each item says its own action. The file is checked before any request. */
 async function fromPlan(options: ImportRunOptions, path: string, today: string): Promise<PlannedRun> {
-  const conflicting = (['ids', 'category', 'reject', 'includeDuplicates'] as const).find(
-    (key) => options[key] !== undefined,
-  );
-  if (conflicting !== undefined) {
-    exitWithError(`${FLAG_NAMES[conflicting]} does not combine with --plan. Put every choice in the plan file.`);
-  }
   const items = readPlanFile(path);
-  const categories = await selectionCategories(items);
+  const { categories, problems } = await selectionCategories(items);
+  failOnProblems(problems);
   const loaded = await loadImport(options);
   const run = planSelection(loaded.document, items, {
     categories,
     today,
     dryRun: options.dryRun === true,
     source: '--plan',
+    entryHint: () => 'Say which one with "entry".',
   });
   return { run, loaded, categories: [...categories.values()] };
+}
+
+/** --edit: the same selection as --plan, written in $EDITOR over the statement with its suggestions. */
+async function fromEdit(options: ImportRunOptions, today: string): Promise<PlannedRun | null> {
+  const loaded = await loadImport(options);
+  await fillSuggestions(loaded);
+  const edited = await editRun(loaded.document, { today, dryRun: options.dryRun === true });
+  return edited === null ? null : { ...edited, loaded };
 }
 
 const FLAG_NAMES = {

@@ -113,11 +113,23 @@ export function emptyRun(document: ImportDocument, dryRun: boolean): RunDocument
   };
 }
 
+/** The batch is invalid. `problems` has one line per item, each starting with its prefix. */
+export class PlanError extends Error {
+  constructor(readonly problems: readonly string[]) {
+    super(`Nothing was imported. Fix the selection:\n${problems.join('\n')}`);
+  }
+}
+
 /** One message for the whole batch, so every problem is fixed in one pass. */
 export function failOnProblems(problems: readonly string[]): void {
-  if (problems.length > 0) {
-    throw new Error(`Nothing was imported. Fix the selection:\n${problems.join('\n')}`);
-  }
+  if (problems.length > 0) throw new PlanError(problems);
+}
+
+/** A written value may only flip the sign of the bank value. */
+export function checkWrittenValue(row: ImportTransaction, value: number | undefined): string | null {
+  if (value === undefined || row.value === null) return null;
+  if (Math.round(Math.abs(value) * 100) === Math.round(Math.abs(row.value) * 100)) return null;
+  return `value ${value} is not the bank value ${row.value}. Only the sign can change.`;
 }
 
 export function planReject(row: ImportTransaction, run: RunDocument): string | null {
@@ -164,7 +176,7 @@ export interface ImportChoice {
   category: Category | null;
   /** Local calendar day. On or before it is Reconciled; after it, Scheduled. */
   today: string;
-  /** Replaces the bank value. Only the sign may differ. */
+  /** Replaces the bank value. Only the sign may differ (`checkWrittenValue`). */
   value?: number;
   /** Replaces the suggested description. */
   description?: string;
@@ -179,9 +191,6 @@ export function planImport(row: ImportTransaction, choice: ImportChoice, run: Ru
   if (row.value === null) return 'the bank did not send a value.';
   if (row.value === 0) return 'the value is zero.';
   const value = choice.value ?? row.value;
-  if (Math.round(Math.abs(value) * 100) !== Math.round(Math.abs(row.value) * 100)) {
-    return `value ${value} is not the bank value ${row.value}. Only the sign can change.`;
-  }
   if (category.tipo === 'd' && value > 0) {
     return `category "${category.nome}" is an expense, so the value must be negative.`;
   }

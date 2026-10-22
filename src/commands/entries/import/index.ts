@@ -24,6 +24,7 @@ importCommand
   .option('-c, --category <identifier>', 'Category ID, alias, or exact name for every --ids item')
   .option('--reject <prefixes>', 'Comma-separated integrationId prefixes to mark as not imported')
   .option('--plan <file>', 'JSON file with one action per bank transaction (import, conciliate, reject, skip)')
+  .option('--edit', 'Choose the action, category, and description of each bank transaction in $EDITOR')
   .option('--include-duplicates', 'Import --ids items flagged as duplicates instead of skipping them')
   .option('--since <date>', 'First date to load (YYYY-MM-DD). Default: the later of the last statement date and 90 days ago')
   .option('--search-from <date>', 'Earliest candidate date (YYYY-MM-DD). Default: two days before the statement starts')

@@ -1,0 +1,304 @@
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
+import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE } from './fixtures.js';
+
+// Fictional ids. 1001 is Nubank (connection account 9001).
+// Categories: 10 Alimentação (d), 20 Salário (r), 60 Antiga (d, inactive).
+const CONNECTIONS = [
+  { id: 501, status: 'UPDATED', accounts: [{ id: 9001, type: 'CONTA CORRENTE', conta: 1001 }] },
+];
+const INACTIVE = { ...CATEGORIES_RESPONSE.items[4], id: 60, nome: 'Antiga', nomeRel: 'Antiga', status: false };
+const COMMIT = [
+  'POST /v1/integracao/transactions/markImported',
+  'POST /v1/lancamentos/conciliacao',
+  'POST /v1/lancamentos/importar',
+];
+
+const TX1 = 'aaaa1111-1111-4000-8000-000000000001';
+const TX2 = 'bbbb2222-2222-4000-8000-000000000002';
+const TX3 = 'cccc3333-3333-4000-8000-000000000003';
+const TX4 = 'dddd4444-4444-4000-8000-000000000004';
+const RULE_10 = { c: { d: { categoria: { v: 10 }, descricao: { v: 'Padaria' } } } };
+
+let api: MockApi;
+let home: TestHome;
+let editorDir: string;
+
+beforeEach(() => {
+  api = startMockApi();
+  api.on('GET /v1/integracao/connections', CONNECTIONS);
+  api.on('GET /v1/cadastros/contas', ACCOUNTS_RESPONSE);
+  api.on('GET /v1/cadastros/categorias', { ...CATEGORIES_RESPONSE, items: [...CATEGORIES_RESPONSE.items, INACTIVE] });
+  api.on('GET /v1/lancamentos/duplicidade', {});
+  entries([]);
+  api.on('POST /v1/integracao/transactions/markImported', {});
+  api.on('POST /v1/lancamentos/conciliacao', {});
+  api.on('POST /v1/lancamentos/importar', {});
+  home = createHome(MANUAL_AUTH);
+  editorDir = mkdtempSync(join(tmpdir(), 'mdcli-fake-editor-'));
+});
+
+afterEach(() => {
+  api.stop();
+  home.cleanup();
+  rmSync(editorDir, { recursive: true, force: true });
+});
+
+function bank(integrationId: string, extra: Record<string, unknown> = {}) {
+  return { integrationId, descricao: 'Padaria Ficticia', valor: -12.34, data: '2026-10-07', moeda: 1, ...extra };
+}
+
+function statement(rows: unknown[]) {
+  api.on('GET /v1/integracao/account/9001/transactions', {
+    inicio: '2026-10-01',
+    fim: '2026-10-10',
+    saldo: 250.5,
+    lancamentos: rows,
+  });
+}
+
+function entries(list: unknown[]) {
+  api.on('GET /v2/lancamentos', { list, meta: { total: list.length, page: 1, pageSize: 500 } });
+}
+
+/**
+ * A fake $EDITOR: on its n-th call it saves what it was given and, when a
+ * replacement was scripted for that call, overwrites the file with it.
+ */
+function fakeEditor(replacements: (string | null)[], exitCode = 0): string {
+  replacements.forEach((text, index) => {
+    if (text !== null) writeFileSync(join(editorDir, `write-${index + 1}.txt`), text);
+  });
+  const script = join(editorDir, 'editor.sh');
+  writeFileSync(
+    script,
+    [
+      `dir='${editorDir}'`,
+      'n=$(cat "$dir/count" 2>/dev/null || echo 0); n=$((n+1)); echo "$n" > "$dir/count"',
+      'echo "$1" > "$dir/path"',
+      'cp "$1" "$dir/seen-$n.txt"',
+      'if [ -f "$dir/write-$n.txt" ]; then cp "$dir/write-$n.txt" "$1"; fi',
+      `exit ${exitCode}`,
+      '',
+    ].join('\n'),
+  );
+  return `sh ${script}`;
+}
+
+function seen(call: number): string {
+  return readFileSync(join(editorDir, `seen-${call}.txt`), 'utf-8');
+}
+
+function calls(): number {
+  const file = join(editorDir, 'count');
+  return existsSync(file) ? Number.parseInt(readFileSync(file, 'utf-8'), 10) : 0;
+}
+
+function editedPath(): string {
+  return readFileSync(join(editorDir, 'path'), 'utf-8').trim();
+}
+
+function run(args: string[], editor: string, stdin?: string) {
+  return runCli(['entries', 'import', 'run', '-a', '1001', '--since', '2026-10-01', '--edit', ...args], {
+    home,
+    api,
+    stdin,
+    extraEnv: { EDITOR: editor },
+  });
+}
+
+function routes(): string[] {
+  return mutations(api).map((request) => `${request.method} ${request.path}`);
+}
+
+function lancamentos(index: number): unknown {
+  return (mutations(api)[index].body as { lancamentos: unknown }).lancamentos;
+}
+
+describe('entries import run --edit', () => {
+  test('opens the suggestion, writes the edited line through the commit, and removes the file', async () => {
+    statement([bank(TX1, { _ca: RULE_10 })]);
+    const editor = fakeEditor(['import aaaa1111 2026-10-07 -12,34 Alimentação | Padaria da esquina\n']);
+
+    const result = await run(['--yes'], editor);
+
+    expect(result.stderr).toBe('');
+    expect(result.exitCode).toBe(0);
+    expect(seen(1)).toContain('import aaaa1111 2026-10-07 -12.34 Alimentação | Padaria\n');
+    expect(routes()).toEqual(COMMIT);
+    expect(lancamentos(2)).toEqual([
+      expect.objectContaining({
+        integrationId: TX1,
+        descricao: 'Padaria da esquina',
+        categoria: 10,
+        valorPrevisto: -12.34,
+        dataPrevista: '2026-10-07',
+      }),
+    ]);
+    expect(existsSync(editedPath())).toBe(false);
+  });
+
+  test('y at the prompt writes; --dry-run shows the plan and writes nothing', async () => {
+    statement([bank(TX1, { _ca: RULE_10 })]);
+
+    const confirmed = await run([], fakeEditor([null]), 'y\n');
+    expect(confirmed.exitCode).toBe(0);
+    expect(confirmed.stdout).toContain('(y/N)');
+    expect(routes()).toEqual(COMMIT);
+
+    api.requests.length = 0;
+    rmSync(join(editorDir, 'count'));
+    const dry = await run(['--dry-run', '--json'], fakeEditor([null]));
+    expect(dry.exitCode).toBe(0);
+    expect(JSON.parse(dry.stdout).imported).toEqual([
+      expect.objectContaining({ integrationId: TX1, categoryId: 10, description: 'Padaria', value: -12.34 }),
+    ]);
+    expect(mutations(api)).toHaveLength(0);
+  });
+
+  test('opens each default action: rule, AI, needs-category, duplicate, and several candidates', async () => {
+    statement([
+      bank(TX1, { _ca: RULE_10 }),
+      bank(TX2, { valor: 3000, data: '2026-10-05', descricao: 'Empresa', _ca: { ait: { r: 'tok-r' } } }),
+      bank(TX3, { valor: -7, data: '2026-10-06', descricao: 'Mercado' }),
+      bank(TX4, { valor: -40, data: '2026-10-08', descricao: 'Posto' }),
+    ]);
+    api.on('POST /v1/smartmatch/ai', [20]);
+    api.on('GET /v1/lancamentos/duplicidade', { '2026-10-06': [{ id: 77, valor: -7 }] });
+    entries([
+      { id: 501, dataPrevista: '2026-10-08', valor: -40, descricao: 'Posto A' },
+      { id: 502, dataEfetiva: '2026-10-09', valor: -40, descricao: 'Posto B' },
+    ]);
+
+    const result = await run(['--dry-run'], fakeEditor(['# nothing\n']));
+
+    expect(result.exitCode).toBe(0);
+    const file = seen(1);
+    expect(file).toContain('import aaaa1111 2026-10-07 -12.34 Alimentação | Padaria\n');
+    expect(file).toContain('import bbbb2222 2026-10-05 3000.00 Salário | Empresa\n');
+    expect(file).toContain('skip cccc3333 2026-10-06 -7.00  | Mercado\n');
+    expect(file).toContain('# candidates dddd4444\n# 501 2026-10-08 -40.00 Posto A\n# 502 2026-10-09 -40.00 Posto B\n');
+    expect(file).toContain('conciliate dddd4444 2026-10-08 -40.00  | Posto\n');
+    expect(routes()).toEqual(['POST /v1/smartmatch/ai']);
+  });
+
+  test('an invalid line reopens the editor with the error on top, and the fixed file goes on', async () => {
+    statement([bank(TX1, { _ca: RULE_10 })]);
+    const editor = fakeEditor([
+      'import aaaa1111 2026-10-08 -12.34 Alimentação | Padaria\n',
+      'import aaaa1111 2026-10-07 -12.34 Alimentação | Padaria\n',
+    ]);
+
+    const result = await run(['--yes'], editor);
+
+    expect(result.exitCode).toBe(0);
+    expect(calls()).toBe(2);
+    expect(seen(2)).toStartWith('# error: aaaa1111: the date must be the bank date 2026-10-07.\n');
+    expect(seen(2)).toContain('import aaaa1111 2026-10-08 -12.34 Alimentação | Padaria\n');
+    expect(routes()).toEqual(COMMIT);
+  });
+
+  test('a file returned unchanged and still invalid aborts with the error, without a third call or a POST', async () => {
+    statement([bank(TX1)]);
+    const editor = fakeEditor(['import aaaa1111 2026-10-07 -12.34 Antiga | Padaria\n', null]);
+
+    const result = await run(['--yes'], editor);
+
+    expect(result.exitCode).toBe(1);
+    expect(calls()).toBe(2);
+    expect(seen(2)).toContain('# error: aaaa1111: Category "Antiga" (60) is inactive');
+    expect(result.stderr).toContain('Category "Antiga" (60) is inactive');
+    expect(mutations(api)).toHaveLength(0);
+    expect(existsSync(editedPath())).toBe(false);
+  });
+
+  test('a file with only comments cancels with exit 0 and no POST', async () => {
+    statement([bank(TX1, { _ca: RULE_10 })]);
+
+    const result = await run(['--yes'], fakeEditor(['# import aaaa1111 2026-10-07 -12.34 Alimentação | Padaria\n\n']));
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain('Nothing to do');
+    expect(mutations(api)).toHaveLength(0);
+  });
+
+  test('an editor exiting non-zero, or no $EDITOR, aborts without a POST and leaves no file', async () => {
+    statement([bank(TX1, { _ca: RULE_10 })]);
+
+    const failed = await run(['--yes'], fakeEditor([null], 3));
+    expect(failed.exitCode).toBe(1);
+    expect(failed.stderr).toContain('exited with code 3');
+    expect(mutations(api)).toHaveLength(0);
+    expect(existsSync(editedPath())).toBe(false);
+
+    const missing = await run(['--yes'], '');
+    expect(missing.exitCode).toBe(1);
+    expect(missing.stderr).toContain('$EDITOR');
+    expect(mutations(api)).toHaveLength(0);
+  });
+
+  test('a far candidate from --search-to shows in the comments and links with conciliate <prefix> <entryId>', async () => {
+    statement([bank(TX1)]);
+    entries([{ id: 4242, dataPrevista: '2026-10-20', valor: -12.34, descricao: 'Padaria prevista', categoria: 10 }]);
+    const editor = fakeEditor(['conciliate aaaa1111 4242 2026-10-07 -12.34  | Padaria Ficticia\n']);
+
+    const result = await run(['--search-to', '2026-10-25', '--yes'], editor);
+
+    expect(result.exitCode).toBe(0);
+    expect(seen(1)).toContain('# candidates aaaa1111\n# 4242 2026-10-20 -12.34 Padaria prevista\n');
+    expect(seen(1)).toContain('import aaaa1111 2026-10-07 -12.34  | Padaria Ficticia\n');
+    expect(routes()).toEqual(COMMIT.slice(1));
+    expect(lancamentos(0)).toEqual([expect.objectContaining({ ids: [4242], data: '2026-10-07' })]);
+  });
+
+  test('flipping the sign needs a category of the new type; explicit import lifts the duplicate skip', async () => {
+    statement([bank(TX1), bank(TX2, { valor: -5, data: '2026-10-08' })]);
+    api.on('GET /v1/lancamentos/duplicidade', { '2026-10-08': [{ id: 77, valor: -5 }] });
+    const editor = fakeEditor([
+      'import aaaa1111 2026-10-07 12.34 Alimentação | Estorno\nskip bbbb2222 2026-10-08 -5 | x\n',
+      'import aaaa1111 2026-10-07 12.34 Salário | Estorno\nimport bbbb2222 2026-10-08 -5 Alimentação | Cafe\n',
+    ]);
+
+    const result = await run(['--yes'], editor);
+
+    expect(result.exitCode).toBe(0);
+    expect(seen(2)).toContain('# error: aaaa1111: category "Alimentação" is an expense, so the value must be negative.');
+    expect(result.stdout).toContain('Salário');
+    expect(lancamentos(2)).toEqual([
+      expect.objectContaining({ integrationId: TX1, categoria: 20, valorPrevisto: 12.34, descricao: 'Estorno' }),
+      expect.objectContaining({ integrationId: TX2, categoria: 10, valorPrevisto: -5, descricao: 'Cafe' }),
+    ]);
+  });
+
+  test('a different absolute value, a missing entry id, and an unknown command are refused', async () => {
+    statement([bank(TX1), bank(TX2, { valor: -40, data: '2026-10-08' })]);
+    entries([
+      { id: 501, dataPrevista: '2026-10-08', valor: -40 },
+      { id: 502, dataPrevista: '2026-10-09', valor: -40 },
+    ]);
+    const bad = 'import aaaa1111 2026-10-07 -12.35 Alimentação | P\nconciliate bbbb2222 2026-10-08 -40  | Posto\n';
+    const editor = fakeEditor([bad, null]);
+
+    const result = await run(['--yes'], editor);
+
+    expect(result.exitCode).toBe(1);
+    expect(seen(2)).toContain('# error: aaaa1111: value -12.35 is not the bank value -12.34. Only the sign can change.');
+    expect(seen(2)).toContain('# error: bbbb2222: 2 entries may match it (501, 502). Write the one to link: conciliate bbbb2222 <entryId> ...');
+    expect(mutations(api)).toHaveLength(0);
+  });
+
+  test('--reject and --category do not combine with --edit', async () => {
+    statement([bank(TX1)]);
+
+    for (const extra of [['--reject', 'aaaa1111'], ['-c', '10']]) {
+      const result = await run(extra, fakeEditor([null]));
+      expect(result.exitCode).toBe(1);
+      expect(result.stderr).toContain('--edit');
+    }
+    expect(calls()).toBe(0);
+    expect(mutations(api)).toHaveLength(0);
+  });
+});

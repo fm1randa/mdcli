@@ -27,10 +27,9 @@ interface ImportListOptions extends ImportLoadOptions {
 }
 
 export async function listAction(options: ImportListOptions): Promise<void> {
-  const { document, payload, automaticCounts } = await loadImport(options);
-  const catalog = categoryCatalog();
-  await fillAiCategories(document, statementRows(payload).map(aiRequest), automaticCounts, catalog);
-  await fillCategoryNames(document, catalog);
+  const loaded = await loadImport(options);
+  const { document } = loaded;
+  await fillSuggestions(loaded);
   if (options.json) {
     console.log(JSON.stringify(document, null, 2));
     return;
@@ -51,7 +50,7 @@ export interface LoadedImport {
 
 /**
  * The statement with rule suggestions, duplicates, and candidates. Reads only (GET).
- * The AI suggestion is left to `import list`: `import run` takes its category from --category.
+ * The AI suggestion is a separate step (`fillSuggestions`): `import run --ids` takes its category from --category.
  */
 export async function loadImport(options: ImportLoadOptions): Promise<LoadedImport> {
   const searchFrom = calendarFlag(options.searchFrom);
@@ -88,6 +87,14 @@ export async function loadImport(options: ImportLoadOptions): Promise<LoadedImpo
   await fillDuplicates(document, accountId);
   const { counts: automaticCounts, rows: candidateRows } = await fillCandidates(document, account, payload);
   return { document, account, payload, automaticCounts, candidateRows };
+}
+
+/** The AI category for the rows the rules left without one, and every suggested category's name. */
+export async function fillSuggestions(loaded: LoadedImport): Promise<void> {
+  const catalog = categoryCatalog();
+  const { document, payload, automaticCounts } = loaded;
+  await fillAiCategories(document, statementRows(payload).map(aiRequest), automaticCounts, catalog);
+  await fillCategoryNames(document, catalog);
 }
 
 /** The Category catalog, fetched at most once per listing and only when asked for. */

@@ -16,23 +16,31 @@ function isExplicitReference(input: string): boolean {
  * a message that says so. Unknown IDs still go to the API, as before.
  */
 export async function resolveEntryCategory(input: string): Promise<number> {
+  const checked = await checkEntryCategory(input);
+  if ('error' in checked) exitWithError(checked.error);
+  return checked.id;
+}
+
+/** `resolveEntryCategory` without exiting: the id, or the message it would exit with. */
+export async function checkEntryCategory(input: string): Promise<{ id: number } | { error: string }> {
   const id = await resolveId('categories', input);
   if (id === null) {
-    exitWithError(`Unknown category: ${input}. See available categories with: mdcli categories list --active`);
+    return { error: `Unknown category: ${input}. See available categories with: mdcli categories list --active` };
   }
 
   const { items } = await fetchCategories();
   const category = items.find((c) => c.id === id);
-  if (!category || category.status) return id;
+  if (!category || category.status) return { id };
 
   if (!isExplicitReference(input)) {
     const name = input.toLowerCase();
     const active = items.find((c) => c.status && c.nome.toLowerCase() === name);
-    if (active) return active.id;
+    if (active) return { id: active.id };
   }
 
-  exitWithError(
-    `Category "${category.nome}" (${category.id}) is inactive, so the web app hides it from new entries. ` +
-      'Use an active category (see: mdcli categories list --active) or reactivate it in Meu Dinheiro.'
-  );
+  return {
+    error:
+      `Category "${category.nome}" (${category.id}) is inactive, so the web app hides it from new entries. ` +
+      'Use an active category (see: mdcli categories list --active) or reactivate it in Meu Dinheiro.',
+  };
 }
