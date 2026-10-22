@@ -100,7 +100,11 @@ export function planRun(document: ImportDocument, selection: RunSelection): RunD
     const problem = planSelected(row, selection, run);
     if (problem !== null) problems.push(`${label(row)}: ${problem}`);
   }
-  for (const row of selection.rejects) run.rejected.push(reference(row));
+  for (const row of selection.rejects) {
+    // The commit dates each page by its latest bank date, rejects included.
+    if (row.date === null || !isCalendarDate(row.date)) problems.push(`${label(row)}: the bank did not send a date.`);
+    else run.rejected.push(reference(row));
+  }
   if (problems.length > 0) {
     throw new Error(`Nothing was imported. Fix the selection:\n${problems.join('\n')}`);
   }

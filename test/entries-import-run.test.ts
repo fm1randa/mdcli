@@ -192,14 +192,4 @@ describe('entries import run selection', () => {
     expect(result.output).toContain('nothing was written');
     expect(mutations(api)).toHaveLength(0);
   });
-
-  test('without --dry-run it does not write yet', async () => {
-    statement([bank(TX1)]);
-
-    const result = await run(['--ids', 'aaaa1111', '-c', '10', '--yes']);
-
-    expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain('--dry-run');
-    expect(mutations(api)).toHaveLength(0);
-  });
 });

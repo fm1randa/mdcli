@@ -215,6 +215,21 @@ export async function suggestCategoriesWithAi(tokens: unknown[]): Promise<unknow
   return request<unknown>('POST', '/v1/smartmatch/ai', { t: tokens });
 }
 
+/** Import commit, step 1: the Bank Transactions the server should stop offering. */
+export async function markBankTransactionsImported(body: object): Promise<void> {
+  await request<unknown>('POST', '/v1/integracao/transactions/markImported', body);
+}
+
+/** Import commit, step 2: links Bank Transactions to existing Entries and records the statement balance. */
+export async function conciliateBankTransactions(body: object): Promise<void> {
+  await request<unknown>('POST', '/v1/lancamentos/conciliacao', body);
+}
+
+/** Import commit, step 3: creates the new Entries. The answer is not read (its format is unknown). */
+export async function importBankTransactions(body: object): Promise<void> {
+  await request<unknown>('POST', '/v1/lancamentos/importar', body);
+}
+
 /** One manual Sync. The body is the web app's sync button; there is no local daily counter. */
 export async function requestSync(connectionId: number): Promise<void> {
   await request<unknown>('PUT', `/v1/integracao/connection/update/${connectionId}`, { force: true });

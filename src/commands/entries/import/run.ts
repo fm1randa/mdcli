@@ -1,9 +1,12 @@
-import { fetchCategories } from '../../../lib/api.js';
+import { fetchCategories, isCreditCard } from '../../../lib/api.js';
 import { toLocalDateString } from '../../../lib/dates.js';
 import type { Category } from '../../../types/index.js';
 import { exitWithError } from '../../../utils/action.js';
+import { logger } from '../../../utils/logger.js';
+import { promptConfirmation } from '../../../utils/prompt.js';
 import { resolveEntryCategory } from '../category.js';
-import { loadImport, type ImportLoadOptions } from './list.js';
+import { commitRun } from './commit.js';
+import { loadImport, statementRows, type ImportLoadOptions } from './list.js';
 import { pickTransactions, planRun } from './plan.js';
 import { printRun } from './run-output.js';
 
@@ -38,7 +41,7 @@ export async function runAction(options: ImportRunOptions): Promise<void> {
   }
 
   const category = options.category === undefined ? null : await importCategory(options.category);
-  const { document } = await loadImport(options);
+  const { document, account, payload, candidateRows } = await loadImport(options);
   const picked = pickTransactions(document.transactions, ids, '--ids');
   const rejected = pickTransactions(document.transactions, rejects, '--reject');
   const both = picked.find((row) => rejected.includes(row));
@@ -54,15 +57,29 @@ export async function runAction(options: ImportRunOptions): Promise<void> {
     today: toLocalDateString(new Date()),
     dryRun: options.dryRun === true,
   });
-  if (!options.dryRun) {
-    exitWithError('Writing an import is not available yet. Run again with --dry-run to see what it would do.');
+  const context = { accountName: document.account.name, category };
+  const writes = run.imported.length + run.conciliated.length + run.rejected.length;
+  if (!options.json) printRun(run, context);
+  if (!options.dryRun && writes === 0) {
+    if (!options.json) logger.info('Nothing to write: every selected bank transaction is skipped.');
+  } else if (!options.dryRun) {
+    if (!options.yes && !options.json) {
+      const confirmed = await promptConfirmation(`Write this import to Meu Dinheiro? (y/N) `);
+      if (!confirmed) {
+        logger.info('Import cancelled. Nothing was written.');
+        process.exit(0);
+      }
+    }
+    await commitRun({
+      run,
+      document,
+      statementRows: statementRows(payload),
+      candidateRows,
+      creditCard: account !== undefined && isCreditCard(account),
+    });
+    if (!options.json) logger.success(`Import written for ${context.accountName ?? run.accountId}.`);
   }
-
-  if (options.json) {
-    console.log(JSON.stringify(run, null, 2));
-    return;
-  }
-  printRun(run, { accountName: document.account.name, category });
+  if (options.json) console.log(JSON.stringify(run, null, 2));
 }
 
 /** Comma-separated prefixes. An empty list is a typo, not an empty selection. */

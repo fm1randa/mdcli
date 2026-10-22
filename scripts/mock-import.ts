@@ -3,6 +3,12 @@
 
 const TRANSACTIONS = /^\/api\/v1\/integracao\/account\/(\d+)\/transactions$/;
 const DUPLICATES = '/api/v1/lancamentos/duplicidade';
+// The Import commit, in the web order. The bodies are asserted by the test suite, not here.
+const COMMIT = new Set([
+  '/api/v1/integracao/transactions/markImported',
+  '/api/v1/lancamentos/conciliacao',
+  '/api/v1/lancamentos/importar',
+]);
 
 const STATEMENT = {
   inicio: '2026-10-01',
@@ -19,9 +25,10 @@ const STATEMENT = {
   ],
 };
 
-/** The fictional statement for connection account 9001, or null when this request is not that GET. */
+/** The fictional statement for connection account 9001 and the commit POSTs, or null for any other request. */
 export function importRoute(method: string, url: URL): Response | null {
   if (method === 'GET' && url.pathname === DUPLICATES) return Response.json({});
+  if (method === 'POST' && COMMIT.has(url.pathname)) return Response.json({});
   const match = TRANSACTIONS.exec(url.pathname);
   if (!match || method !== 'GET') return null;
   if (match[1] !== '9001') return Response.json({ message: 'not found' }, { status: 404 });

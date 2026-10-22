@@ -45,6 +45,8 @@ interface LoadedImport {
   payload: unknown;
   /** How many automatic matches each row has. */
   automaticCounts: number[];
+  /** The raw Entries (or invoice items) the candidates were read from. */
+  candidateRows: unknown[];
 }
 
 /**
@@ -84,8 +86,8 @@ export async function loadImport(options: ImportLoadOptions): Promise<LoadedImpo
     exitWithError(`Search start ${from} is after search end ${to}.`);
   }
   await fillDuplicates(document, accountId);
-  const automaticCounts = await fillCandidates(document, account, payload);
-  return { document, account, payload, automaticCounts };
+  const { counts: automaticCounts, rows: candidateRows } = await fillCandidates(document, account, payload);
+  return { document, account, payload, automaticCounts, candidateRows };
 }
 
 /** The Category catalog, fetched at most once per listing and only when asked for. */
@@ -126,14 +128,18 @@ async function fillDuplicates(document: ImportDocument, accountId: number): Prom
 
 /**
  * Same value inside the search window. One or more automatic matches conciliate, and that wins over a duplicate.
- * Returns how many automatic matches each row has.
+ * Returns how many automatic matches each row has, and the rows the candidates came from.
  */
-async function fillCandidates(document: ImportDocument, account: Account | undefined, payload: unknown): Promise<number[]> {
+async function fillCandidates(
+  document: ImportDocument,
+  account: Account | undefined,
+  payload: unknown,
+): Promise<{ counts: number[]; rows: unknown[] }> {
   const counts = document.transactions.map(() => 0);
-  if (document.transactions.length === 0) return counts;
+  if (document.transactions.length === 0) return { counts, rows: [] };
   const from = document.search.from;
   const to = document.search.to;
-  if (from === null || to === null) return counts;
+  if (from === null || to === null) return { counts, rows: [] };
 
   const card = account !== undefined && isCreditCard(account);
   const rows = card
@@ -152,7 +158,7 @@ async function fillCandidates(document: ImportDocument, account: Account | undef
     counts[index] = matched.automatic;
     if (matched.automatic > 0) transaction.defaultAction = 'conciliate';
   }
-  return counts;
+  return { counts, rows };
 }
 
 async function invoiceRows(account: Account): Promise<unknown[]> {
@@ -170,7 +176,7 @@ function invoiceDueDate(account: Account): string {
   exitWithError(`Account ${account.id} has no proximoVencimento date to load an invoice from.`);
 }
 
-function statementRows(payload: unknown): unknown[] {
+export function statementRows(payload: unknown): unknown[] {
   const rows = asRecord(payload)?.lancamentos;
   return Array.isArray(rows) ? rows : [];
 }

@@ -18,7 +18,7 @@ importCommand
 
 importCommand
   .command('run')
-  .description('Import selected bank transactions for one account (only --dry-run for now)')
+  .description('Import selected bank transactions for one account (asks y/N before writing)')
   .requiredOption('-a, --account <identifier>', 'Account ID, alias, or exact name (case-insensitive)')
   .option('--ids <prefixes>', 'Comma-separated integrationId prefixes to import with --category')
   .option('-c, --category <identifier>', 'Category ID, alias, or exact name for every --ids item')

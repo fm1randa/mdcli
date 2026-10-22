@@ -181,6 +181,23 @@ import_run_dry() {
   fi
 }
 step "cli entries import run --dry-run (mock)" import_run_dry
+# Writes an Import, mock only: markImported, conciliacao, importar, in this
+# order, and no Sync PUT.
+import_run_yes() {
+  local log="$MDCLI_MOCK_LOG"
+  local before=0
+  [ -f "$log" ] && before=$(wc -l <"$log")
+  local out
+  out=$("${CLI[@]}" entries import run -a 1001 --ids aaaaaaaa -c 10 --yes --json </dev/null 2>&1) \
+    || { echo "saída: $out"; return 1; }
+  bun -e 'const d = JSON.parse(process.argv[1]); if (d.dryRun !== false || d.imported.length !== 1) process.exit(1)' "$out" \
+    || { echo "esperava o documento gravado em: $out"; return 1; }
+  local writes
+  writes=$(tail -n +"$((before + 1))" "$log" | grep -Ev '"method":"GET"' | grep -Eo '/api/v1/[^"]*' | tr '\n' ' ')
+  local expected="/api/v1/integracao/transactions/markImported /api/v1/lancamentos/conciliacao /api/v1/lancamentos/importar "
+  [ "$writes" = "$expected" ] || { echo "esperava só os três POSTs do commit, nessa ordem; veio: $writes"; return 1; }
+}
+step "cli entries import run --yes (mock)" import_run_yes
 step "cli accounts list --json (mock)" bash -c '"$@" accounts list --json </dev/null | bun -e "const d=JSON.parse(await Bun.stdin.text()); if(!JSON.stringify(d).includes(\"Nubank\")) process.exit(1)"' _ "${CLI[@]}"
 # Writes (POST/PUT/DELETE) go through the same request() path as reads; the
 # mock checks the JSON payload, echoes it back and answers DELETE with 204.
