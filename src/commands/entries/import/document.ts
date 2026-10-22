@@ -19,7 +19,7 @@ export interface SuggestedCategory {
   source: 'rule' | 'ai';
 }
 
-interface ImportTransaction {
+export interface ImportTransaction {
   integrationId: string | null;
   prefix: string | null;
   date: string | null;

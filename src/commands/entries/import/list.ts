@@ -15,15 +15,43 @@ import { linkedConnection } from './link.js';
 import { asRecord } from './read.js';
 import { defaultSince, explicitSince } from './since.js';
 
-interface ImportListOptions {
+export interface ImportLoadOptions {
   account: string;
   since?: string;
   searchFrom?: string;
   searchTo?: string;
+}
+
+interface ImportListOptions extends ImportLoadOptions {
   json?: boolean;
 }
 
 export async function listAction(options: ImportListOptions): Promise<void> {
+  const { document, payload, automaticCounts } = await loadImport(options);
+  const catalog = categoryCatalog();
+  await fillAiCategories(document, statementRows(payload).map(aiRequest), automaticCounts, catalog);
+  await fillCategoryNames(document, catalog);
+  if (options.json) {
+    console.log(JSON.stringify(document, null, 2));
+    return;
+  }
+  printStatement(document);
+}
+
+interface LoadedImport {
+  document: ImportDocument;
+  account: Account | undefined;
+  /** The raw statement payload, row for row with `document.transactions`. */
+  payload: unknown;
+  /** How many automatic matches each row has. */
+  automaticCounts: number[];
+}
+
+/**
+ * The statement with rule suggestions, duplicates, and candidates. Reads only (GET).
+ * The AI suggestion is left to `import list`: `import run` takes its category from --category.
+ */
+export async function loadImport(options: ImportLoadOptions): Promise<LoadedImport> {
   const searchFrom = calendarFlag(options.searchFrom);
   const searchTo = calendarFlag(options.searchTo);
   if (searchFrom !== undefined && searchTo !== undefined && searchFrom > searchTo) {
@@ -57,15 +85,7 @@ export async function listAction(options: ImportListOptions): Promise<void> {
   }
   await fillDuplicates(document, accountId);
   const automaticCounts = await fillCandidates(document, account, payload);
-  const catalog = categoryCatalog();
-  await fillAiCategories(document, statementRows(payload).map(aiRequest), automaticCounts, catalog);
-  await fillCategoryNames(document, catalog);
-
-  if (options.json) {
-    console.log(JSON.stringify(document, null, 2));
-    return;
-  }
-  printStatement(document);
+  return { document, account, payload, automaticCounts };
 }
 
 /** The Category catalog, fetched at most once per listing and only when asked for. */

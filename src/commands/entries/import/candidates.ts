@@ -74,6 +74,7 @@ function documentsDiffer(bank: string | null, entry: unknown): boolean {
   return bank !== entry;
 }
 
-function withinTwoDays(bankDate: string, entryDate: string): boolean {
+/** A candidate the web links on its own: the Entry date is at most 2 calendar days from the bank date. */
+export function withinTwoDays(bankDate: string, entryDate: string): boolean {
   return entryDate >= addInterval(bankDate, -2, 'd') && entryDate <= addInterval(bankDate, 2, 'd');
 }

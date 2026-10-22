@@ -90,6 +90,7 @@ step "cli sync list --help" expect_ok 'Usage' sync list --help
 step "cli sync run --help"  expect_ok 'Usage' sync run --help
 step "cli entries import --help" expect_ok 'Usage' entries import --help
 step "cli entries import list --help" expect_ok 'Usage' entries import list --help
+step "cli entries import run --help" expect_ok 'Usage' entries import run --help
 step "cli comando inválido" expect_fail 'unknown command' nope
 step "cli auth status"      expect_ok 'Authenticated: No' auth status
 step "cli sem login"        expect_fail 'Not authenticated' accounts list
@@ -155,6 +156,31 @@ import_list() {
 }
 step "cli entries import list (mock)"  import_list
 step "cli entries import list --search-* (mock)" expect_ok 'Candidates' entries import list -a 1001 --search-from 2026-01-01 --search-to 2026-12-31
+# Rehearses an Import. No --yes. A commit POST (markImported, conciliacao,
+# importar), a Sync PUT, or any other write fails the step.
+import_run_dry() {
+  local log="$MDCLI_MOCK_LOG"
+  local before=0
+  [ -f "$log" ] && before=$(wc -l <"$log")
+  local out
+  out=$("${CLI[@]}" entries import run -a 1001 --ids aaaaaaaa -c 10 --dry-run </dev/null 2>&1) \
+    || { echo "saída: $out"; return 1; }
+  grep -Eq 'aaaaaaaa' <<<"$out" || { echo "esperava o prefixo em: $out"; return 1; }
+  grep -Eq 'Dry run' <<<"$out" || { echo "esperava o aviso de ensaio em: $out"; return 1; }
+  local fresh
+  fresh=$(tail -n +"$((before + 1))" "$log")
+  grep -Eq '/api/v1/integracao/account/9001/transactions' <<<"$fresh" \
+    || { echo "faltou GET de transactions: $fresh"; return 1; }
+  if grep -Eq 'markImported|connection/update|/lancamentos/importar|/lancamentos/conciliacao' <<<"$fresh"; then
+    echo "entries import run --dry-run chamou gravação ou sync: $fresh"
+    return 1
+  fi
+  if grep -Ev '"method":"GET"' <<<"$fresh" | grep -q .; then
+    echo "entries import run --dry-run não pode gravar: $fresh"
+    return 1
+  fi
+}
+step "cli entries import run --dry-run (mock)" import_run_dry
 step "cli accounts list --json (mock)" bash -c '"$@" accounts list --json </dev/null | bun -e "const d=JSON.parse(await Bun.stdin.text()); if(!JSON.stringify(d).includes(\"Nubank\")) process.exit(1)"' _ "${CLI[@]}"
 # Writes (POST/PUT/DELETE) go through the same request() path as reads; the
 # mock checks the JSON payload, echoes it back and answers DELETE with 204.
