@@ -1,4 +1,5 @@
 import { addInterval, isCalendarDate } from '../../../lib/dates.js';
+import type { ImportCandidate } from './candidates.js';
 import { asRecord, numberOrNull, textOrNull } from './read.js';
 import { learnedFields } from './suggest.js';
 
@@ -28,8 +29,8 @@ interface ImportTransaction {
   suggestedTagIds: number[];
   suggestedCategory: SuggestedCategory | null;
   duplicateOf: number | null;
-  candidates: [];
-  defaultAction: 'import' | 'needs-category' | 'skip';
+  candidates: ImportCandidate[];
+  defaultAction: 'import' | 'needs-category' | 'skip' | 'conciliate';
 }
 
 export interface ImportDocument {

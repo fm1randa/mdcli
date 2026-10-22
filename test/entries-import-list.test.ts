@@ -104,6 +104,7 @@ beforeEach(() => {
   api.on('GET /v1/integracao/account/9001/transactions', STATEMENT);
   api.on('GET /v1/cadastros/categorias', CATEGORIES_RESPONSE);
   api.on('GET /v1/lancamentos/duplicidade', {});
+  api.on('GET /v2/lancamentos', { list: [], meta: { total: 0, page: 1, pageSize: 500 } });
   home = createHome({
     ...MANUAL_AUTH,
     aliases: { accounts: [{ id: 1001, name: 'nu' }], categories: [], tags: [] },
@@ -125,10 +126,11 @@ const READS = [
   'GET /v1/integracao/account/9001/transactions',
   'GET /v1/integracao/connections',
   'GET /v1/lancamentos/duplicidade',
+  'GET /v2/lancamentos',
 ];
 
 describe('entries import list', () => {
-  test('prints the statement as JSON and only reads connections, accounts, transactions, categories, and duplicates', async () => {
+  test('prints the statement as JSON and only reads connections, accounts, transactions, categories, duplicates, and candidates', async () => {
     const result = await cli(['entries', 'import', 'list', '-a', '1001', '--since', '2026-10-01', '--json']);
 
     expect(result.exitCode).toBe(0);
@@ -145,6 +147,13 @@ describe('entries import list', () => {
     expect(duplicates?.query.get('inicio')).toBe('2026-10-07');
     expect(duplicates?.query.get('fim')).toBe('2026-10-14');
     expect(duplicates?.query.get('conta')).toBe('1001');
+    const candidates = api.requests.find((r) => r.path === '/v2/lancamentos');
+    expect(candidates?.method).toBe('GET');
+    expect(candidates?.query.get('finalidade')).toBe('3');
+    expect(candidates?.query.get('inicio')).toBe('2026-09-30');
+    expect(candidates?.query.get('fim')).toBe('2026-10-20');
+    expect(JSON.parse(candidates?.query.get('contas') ?? 'null')).toEqual({ ids: [1001] });
+    expect(JSON.parse(candidates?.query.get('list') ?? 'null')).toEqual({ page: 1, pageSize: 500 });
     expect(mutations(api)).toHaveLength(0);
   });
 
@@ -169,6 +178,7 @@ describe('entries import list', () => {
     expect(stdout).toContain('Suggested description');
     expect(stdout).toContain('Tags');
     expect(stdout).toContain('Duplicate');
+    expect(stdout).toContain('Candidates');
     expect(stdout).toContain('Alimentação');
     expect(stdout).toContain('Descricao Sugerida');
     expect(stdout).toContain('since 2026-10-01');
@@ -205,6 +215,12 @@ describe('entries import list', () => {
       { id: 501, accounts: [{ id: 1001, type: 'CONTA CORRENTE', conta: 1002 }] },
     ]);
     api.on('GET /v1/integracao/account/1001/transactions', STATEMENT);
+    api.on('GET /v1/cartoes/1002/fatura/2026-01-16', {
+      lancamentos: [],
+      vencimento: '2026-01-16',
+      fechamento: '2026-01-08',
+      valor: 0,
+    });
 
     const linked = await cli(['entries', 'import', 'list', '-a', '1002', '--since', '2026-10-01', '--json']);
     expect(linked.exitCode).toBe(0);
@@ -215,6 +231,9 @@ describe('entries import list', () => {
     ]);
     const duplicates = api.requests.find((r) => r.path === '/v1/lancamentos/duplicidade');
     expect(duplicates?.query.get('conta')).toBe('1002');
+    expect(api.requests.some((r) => r.path === '/v1/cartoes/1002/fatura/2026-01-16')).toBe(true);
+    expect(api.requests.some((r) => r.path === '/v2/lancamentos')).toBe(false);
+    expect(api.requests.some((r) => r.path.includes('primeiraFatura'))).toBe(false);
 
     api.requests.length = 0;
     const notTheConnectionAccount = await cli([
@@ -256,27 +275,48 @@ describe('entries import list', () => {
     expect(list.stdout).toContain('--since');
     expect(list.stdout).toContain('--json');
     expect(list.stdout).toContain('Output as JSON');
-    expect(list.stdout).not.toContain('--search-from');
-    expect(list.stdout).not.toContain('--search-to');
+    expect(list.stdout).toContain('--search-from');
+    expect(list.stdout).toContain('--search-to');
+    expect(list.stdout).toContain('YYYY-MM-DD');
     expect(list.stdout).not.toContain('--yes');
     expect(list.stdout).not.toMatch(/conex[ãa]o|lan[cç]amento|extrato|Listar|Importar/i);
     expect(api.requests).toHaveLength(0);
   });
 
-  test('rejects --search-from and --search-to without calling the API', async () => {
-    const from = await cli([
-      'entries', 'import', 'list', '-a', '1001', '--search-from', '2026-09-01',
+  test('accepts --search-from and --search-to, and rejects an invalid search date before calling the API', async () => {
+    const widened = await cli([
+      'entries', 'import', 'list', '-a', '1001', '--since', '2026-10-01', '--json',
+      '--search-from', '2026-09-01', '--search-to', '2026-10-25',
     ]);
-    expect(from.exitCode).toBe(1);
-    expect(from.stderr).toContain("unknown option '--search-from'");
-    expect(from.stdout).toBe('');
+    expect(widened.exitCode).toBe(0);
+    expect(JSON.parse(widened.stdout).search).toEqual({ from: '2026-09-01', to: '2026-10-25' });
+    const found = api.requests.filter((r) => r.path === '/v2/lancamentos');
+    expect(found).toHaveLength(1);
+    expect(found[0].query.get('inicio')).toBe('2026-09-01');
+    expect(found[0].query.get('fim')).toBe('2026-10-25');
 
-    const to = await cli([
-      'entries', 'import', 'list', '-a', '1001', '--search-to', '2026-10-20',
+    api.requests.length = 0;
+    for (const flag of ['--search-from', '--search-to']) {
+      const bad = await cli(['entries', 'import', 'list', '-a', '1001', flag, '2026-02-31', '--json']);
+      expect(bad.exitCode).toBe(1);
+      expect(bad.stdout).toBe('');
+      expect(JSON.parse(bad.stderr)).toEqual({
+        error: 'Invalid date "2026-02-31". Use YYYY-MM-DD (e.g., 2026-10-03).',
+      });
+      expect(api.requests).toHaveLength(0);
+    }
+
+    const backwards = await cli([
+      'entries', 'import', 'list', '-a', '1001', '--json',
+      '--search-from', '2026-10-20', '--search-to', '2026-10-01',
     ]);
-    expect(to.exitCode).toBe(1);
-    expect(to.stderr).toContain("unknown option '--search-to'");
+    expect(backwards.exitCode).toBe(1);
+    expect(backwards.stdout).toBe('');
+    expect(JSON.parse(backwards.stderr)).toEqual({
+      error: 'Search start 2026-10-20 is after search end 2026-10-01.',
+    });
     expect(api.requests).toHaveLength(0);
+    expect(mutations(api)).toHaveLength(0);
   });
 
   test('requires --account and does not call the API', async () => {

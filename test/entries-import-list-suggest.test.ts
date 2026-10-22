@@ -33,6 +33,7 @@ beforeEach(() => {
   api.on('GET /v1/cadastros/contas', ACCOUNTS_RESPONSE);
   api.on('GET /v1/cadastros/categorias', CATEGORIES_RESPONSE);
   api.on('GET /v1/lancamentos/duplicidade', {});
+  api.on('GET /v2/lancamentos', { list: [], meta: { total: 0, page: 1, pageSize: 500 } });
   home = createHome(MANUAL_AUTH);
 });
 

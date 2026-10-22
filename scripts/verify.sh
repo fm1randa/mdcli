@@ -146,12 +146,15 @@ import_list() {
   fi
   grep -Eq '/api/v1/integracao/account/9001/transactions' <<<"$fresh" \
     || { echo "faltou GET de transactions: $fresh"; return 1; }
+  grep -Eq '/v2/lancamentos' <<<"$fresh" \
+    || { echo "faltou GET de candidatos: $fresh"; return 1; }
   if grep -Eq 'markImported|connection/update|/lancamentos/importar|/lancamentos/conciliacao' <<<"$fresh"; then
     echo "entries import list chamou gravação ou sync: $fresh"
     return 1
   fi
 }
 step "cli entries import list (mock)"  import_list
+step "cli entries import list --search-* (mock)" expect_ok 'Candidates' entries import list -a 1001 --search-from 2026-01-01 --search-to 2026-12-31
 step "cli accounts list --json (mock)" bash -c '"$@" accounts list --json </dev/null | bun -e "const d=JSON.parse(await Bun.stdin.text()); if(!JSON.stringify(d).includes(\"Nubank\")) process.exit(1)"' _ "${CLI[@]}"
 # Writes (POST/PUT/DELETE) go through the same request() path as reads; the
 # mock checks the JSON payload, echoes it back and answers DELETE with 204.

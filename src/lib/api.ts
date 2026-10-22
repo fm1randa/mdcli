@@ -181,6 +181,35 @@ export async function fetchImportDuplicates(accountId: number, start: string, en
   return request<unknown>('GET', `/v1/lancamentos/duplicidade?${query.toString()}`);
 }
 
+const CANDIDATE_PAGE_SIZE = 500;
+const MAX_CANDIDATE_PAGES = 20;
+
+interface ImportCandidatePage {
+  list?: unknown;
+  meta?: { total?: unknown };
+}
+
+/** One account, finalidade 3, pages of 500. Not fetchEntries: that query is finalidade 1. */
+export async function fetchImportCandidates(accountId: number, start: string, end: string): Promise<unknown[]> {
+  const collected: unknown[] = [];
+  for (let page = 1; page <= MAX_CANDIDATE_PAGES; page++) {
+    const query = new URLSearchParams({
+      finalidade: '3',
+      inicio: start,
+      fim: end,
+      contas: JSON.stringify({ ids: [accountId] }),
+      list: JSON.stringify({ page, pageSize: CANDIDATE_PAGE_SIZE }),
+    });
+    const response = await request<ImportCandidatePage>('GET', `/v2/lancamentos?${query.toString()}`);
+    const items = Array.isArray(response?.list) ? response.list : [];
+    collected.push(...items);
+    if (items.length === 0) return collected;
+    const total = response?.meta?.total;
+    if (typeof total === 'number' && collected.length >= total) return collected;
+  }
+  return collected;
+}
+
 /** One manual Sync. The body is the web app's sync button; there is no local daily counter. */
 export async function requestSync(connectionId: number): Promise<void> {
   await request<unknown>('PUT', `/v1/integracao/connection/update/${connectionId}`, { force: true });
