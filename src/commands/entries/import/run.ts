@@ -7,6 +7,7 @@ import { promptConfirmation } from '../../../utils/prompt.js';
 import { commitRun } from './commit.js';
 import { editRun } from './edit.js';
 import { fillSuggestions, loadImport, statementRows, type ImportLoadOptions, type LoadedImport } from './list.js';
+import type { ImportDocument } from './document.js';
 import { failOnProblems, pickTransactions, planRun, type RunDocument } from './plan.js';
 import { readPlanFile } from './plan-file.js';
 import { printRun } from './run-output.js';
@@ -75,7 +76,8 @@ async function plannedRun(options: ImportRunOptions, today: string): Promise<Pla
   if (options.plan !== undefined && options.edit) exitWithError('--plan does not combine with --edit.');
   const source = options.plan !== undefined ? '--plan' : options.edit ? '--edit' : null;
   if (source === null) return fromFlags(options, today);
-  const conflicting = (['ids', 'category', 'reject', 'includeDuplicates'] as const).find(
+  // --include-duplicates is a common flag: with --edit it opens duplicates as import; in a --plan file each action rules.
+  const conflicting = (['ids', 'category', 'reject'] as const).find(
     (key) => options[key] !== undefined,
   );
   if (conflicting !== undefined) {
@@ -142,15 +144,23 @@ async function fromPlan(options: ImportRunOptions, path: string, today: string):
 async function fromEdit(options: ImportRunOptions, today: string): Promise<PlannedRun | null> {
   const loaded = await loadImport(options);
   await fillSuggestions(loaded);
+  if (options.includeDuplicates) includeDuplicates(loaded.document);
   const edited = await editRun(loaded.document, { today, dryRun: options.dryRun === true });
   return edited === null ? null : { ...edited, loaded };
+}
+
+/** A duplicate the listing would skip opens as import (or without a category) instead. A linked one stays linked. */
+function includeDuplicates(document: ImportDocument): void {
+  for (const row of document.transactions) {
+    if (row.duplicateOf === null || row.defaultAction !== 'skip') continue;
+    row.defaultAction = row.suggestedCategory === null ? 'needs-category' : 'import';
+  }
 }
 
 const FLAG_NAMES = {
   ids: '--ids',
   category: '--category',
   reject: '--reject',
-  includeDuplicates: '--include-duplicates',
 } as const;
 
 /** Comma-separated prefixes. An empty list is a typo, not an empty selection. */

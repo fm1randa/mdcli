@@ -290,6 +290,50 @@ describe('entries import run --edit', () => {
     expect(mutations(api)).toHaveLength(0);
   });
 
+  test('--include-duplicates opens a duplicate as import instead of skip', async () => {
+    statement([bank(TX1, { _ca: RULE_10 })]);
+    api.on('GET /v1/lancamentos/duplicidade', { '2026-10-07': [{ id: 77, valor: -12.34 }] });
+    const editor = fakeEditor([null]);
+
+    const result = await run(['--include-duplicates', '--dry-run', '--json'], editor);
+
+    expect(result.stderr).toBe('');
+    expect(result.exitCode).toBe(0);
+    expect(seen(1)).toContain('import aaaa1111 2026-10-07 -12.34 Alimentação | Padaria\n');
+    expect(JSON.parse(result.stdout).imported).toEqual([expect.objectContaining({ integrationId: TX1, categoryId: 10 })]);
+    expect(mutations(api)).toHaveLength(0);
+  });
+
+  test('an untouched line with an empty bank description parses and imports', async () => {
+    statement([bank(TX1, { descricao: '', _ca: { c: { d: { categoria: { v: 10 } } } } })]);
+    const editor = fakeEditor([null]);
+
+    const result = await run(['--dry-run', '--json'], editor);
+
+    expect(result.stderr).toBe('');
+    expect(result.exitCode).toBe(0);
+    expect(seen(1)).toContain('import aaaa1111 2026-10-07 -12.34 Alimentação | \n');
+    expect(JSON.parse(result.stdout).imported).toEqual([expect.objectContaining({ integrationId: TX1, categoryId: 10 })]);
+    expect(calls()).toBe(1);
+  });
+
+  test('an import line with an empty description falls back to the suggestion, then to the bank text', async () => {
+    statement([bank(TX1, { _ca: RULE_10 }), bank(TX2, { valor: -7, descricao: 'Feira do banco' })]);
+    const editor = fakeEditor([
+      'import aaaa1111 2026-10-07 -12.34 Alimentação |\nimport bbbb2222 2026-10-07 -7 Alimentação | \n',
+    ]);
+
+    const result = await run(['--dry-run', '--json'], editor);
+
+    expect(result.stderr).toBe('');
+    expect(result.exitCode).toBe(0);
+    expect(JSON.parse(result.stdout).imported).toEqual([
+      expect.objectContaining({ integrationId: TX1, description: 'Padaria' }),
+      expect.objectContaining({ integrationId: TX2, description: 'Feira do banco' }),
+    ]);
+    expect(calls()).toBe(1);
+  });
+
   test('--reject and --category do not combine with --edit', async () => {
     statement([bank(TX1)]);
 

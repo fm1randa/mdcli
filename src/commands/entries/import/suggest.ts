@@ -1,5 +1,5 @@
 import { isCalendarDate } from '../../../lib/dates.js';
-import { asRecord, idOrNull, numberOrNull } from './read.js';
+import { asRecord, idOrNull, numberOrNull } from '../../../lib/payload.js';
 
 type SuggestionKind = 'd' | 'r' | 't';
 

@@ -1,6 +1,6 @@
 import { addInterval, isCalendarDate } from '../../../lib/dates.js';
 import type { ImportCandidate } from './candidates.js';
-import { asRecord, numberOrNull, textOrNull } from './read.js';
+import { asRecord, numberOrNull, textOrNull } from '../../../lib/payload.js';
 import { learnedFields } from './suggest.js';
 
 interface BankTransaction {

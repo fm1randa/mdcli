@@ -5,7 +5,7 @@ import {
 } from '../../../lib/api.js';
 import type { ImportDocument } from './document.js';
 import type { RunDocument } from './plan.js';
-import { asRecord, idOrNull } from './read.js';
+import { asRecord, idOrNull } from '../../../lib/payload.js';
 
 /** The web app's source label for an automatic bank import. */
 const SOURCE = 'Importado via Integração bancária automática';

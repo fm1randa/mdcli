@@ -1,13 +1,20 @@
 import { addInterval, isCalendarDate, toLocalDateString } from '../../../lib/dates.js';
 import { exitWithError } from '../../../utils/action.js';
 
-/** A YYYY-MM-DD the user typed, or undefined when --since was omitted. Rejects dates outside the web app's window. */
-export function explicitSince(input: string | undefined, now = new Date()): string | undefined {
+/** A calendar date flag (YYYY-MM-DD) as typed, undefined when omitted, or exit when it is not a real day. */
+export function calendarDateFlag(input: string | undefined): string | undefined {
   if (input === undefined) return undefined;
-  const today = toLocalDateString(now);
   if (!isCalendarDate(input)) {
     exitWithError(`Invalid date "${input}". Use YYYY-MM-DD (e.g., 2026-10-03).`);
   }
+  return input;
+}
+
+/** A YYYY-MM-DD the user typed, or undefined when --since was omitted. Rejects dates outside the web app's window. */
+export function explicitSince(typed: string | undefined, now = new Date()): string | undefined {
+  const input = calendarDateFlag(typed);
+  if (input === undefined) return undefined;
+  const today = toLocalDateString(now);
   const floor = addInterval(today, -90, 'd');
   if (input < floor) {
     exitWithError(`The earliest start date is ${floor}. Bank transactions can only be loaded for the last 90 days.`);

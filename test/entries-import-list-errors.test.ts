@@ -34,7 +34,7 @@ afterEach(() => {
 });
 
 function cli(args: string[]) {
-  return runCli(args, { home, api, extraEnv: { MDCLI_NO_AUTO_UPDATE: '1' } });
+  return runCli(args, { home, api });
 }
 
 function calledTransactions(): boolean {
@@ -50,13 +50,13 @@ describe('entries import list errors', () => {
     const text = await cli(['entries', 'import', 'list', '-a', '1001', '--since', '2026-10-01']);
     expect(text.exitCode).toBe(1);
     expect(text.stdout).toBe('');
-    expect(text.stderr).toContain('Account 1001 is not linked to a connection.');
+    expect(text.stderr).toContain('Account 1001 is not linked to any connection.');
     expect(calledTransactions()).toBe(false);
 
     const json = await cli(['entries', 'import', 'list', '-a', '1001', '--since', '2026-10-01', '--json']);
     expect(json.exitCode).toBe(1);
     expect(json.stdout).toBe('');
-    expect(JSON.parse(json.stderr)).toEqual({ error: 'Account 1001 is not linked to a connection.' });
+    expect(JSON.parse(json.stderr)).toEqual({ error: 'Account 1001 is not linked to any connection.' });
     expect(calledTransactions()).toBe(false);
     expect(mutations(api)).toHaveLength(0);
   });
@@ -71,7 +71,7 @@ describe('entries import list errors', () => {
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toBe('');
     expect(JSON.parse(result.stderr)).toEqual({
-      error: 'Account 1001 is linked to more than one connection.',
+      error: 'Account 1001 is linked to more than one connection (501, 502).',
     });
     expect(calledTransactions()).toBe(false);
     expect(mutations(api)).toHaveLength(0);
@@ -93,7 +93,6 @@ describe('entries import list errors', () => {
       const text = await runCli(['entries', 'import', 'list', '-a', '1001', '--since', '2026-10-01'], {
         home: loggedOut,
         api,
-        extraEnv: { MDCLI_NO_AUTO_UPDATE: '1' },
       });
       expect(text.exitCode).toBe(1);
       expect(text.stdout).toBe('');
@@ -102,7 +101,6 @@ describe('entries import list errors', () => {
       const json = await runCli(['entries', 'import', 'list', '-a', '1001', '--json'], {
         home: loggedOut,
         api,
-        extraEnv: { MDCLI_NO_AUTO_UPDATE: '1' },
       });
       expect(json.exitCode).toBe(1);
       expect(json.stdout).toBe('');

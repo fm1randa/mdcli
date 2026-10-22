@@ -129,7 +129,18 @@ sync_list() {
 }
 step "cli accounts list (mock)"        expect_ok 'Nubank' accounts list
 step "cli sync list (mock)"            sync_list
-# Reads the statement. No --yes. A POST or PUT fails the step.
+# The import steps only read. The one POST allowed is the AI category
+# suggestion (smartmatch/ai); a commit POST, a Sync PUT, or any other write
+# fails the step. The commit bodies are asserted by the test suite.
+reads_and_ai_only() {
+  local writes
+  writes=$(grep -Ev '"method":"GET"' <<<"$1" | grep -Fxv '{"method":"POST","path":"/api/v1/smartmatch/ai"}')
+  if [ -n "$writes" ]; then
+    echo "$2 não pode gravar: $writes"
+    return 1
+  fi
+}
+# Reads the statement and asks the AI for the category. No --yes.
 import_list() {
   local log="$MDCLI_MOCK_LOG"
   local before=0
@@ -138,26 +149,21 @@ import_list() {
   out=$("${CLI[@]}" entries import list -a 1001 </dev/null 2>&1) || { echo "saída: $out"; return 1; }
   grep -Eq 'Padaria Ficticia' <<<"$out" || { echo "esperava o extrato em: $out"; return 1; }
   grep -Eq 'aaaaaaaa' <<<"$out" || { echo "esperava o prefixo em: $out"; return 1; }
+  grep -Eq 'Alimentação \(AI\)' <<<"$out" || { echo "esperava a categoria da IA em: $out"; return 1; }
   local fresh
   fresh=$(tail -n +"$((before + 1))" "$log")
   [ -n "$fresh" ] || { echo "mock não registrou o import list"; return 1; }
-  if grep -Ev '"method":"GET"' <<<"$fresh" | grep -q .; then
-    echo "entries import list não pode gravar: $fresh"
-    return 1
-  fi
   grep -Eq '/api/v1/integracao/account/9001/transactions' <<<"$fresh" \
     || { echo "faltou GET de transactions: $fresh"; return 1; }
   grep -Eq '/v2/lancamentos' <<<"$fresh" \
     || { echo "faltou GET de candidatos: $fresh"; return 1; }
-  if grep -Eq 'markImported|connection/update|/lancamentos/importar|/lancamentos/conciliacao' <<<"$fresh"; then
-    echo "entries import list chamou gravação ou sync: $fresh"
-    return 1
-  fi
+  grep -Eq '/api/v1/smartmatch/ai' <<<"$fresh" \
+    || { echo "faltou o POST da IA: $fresh"; return 1; }
+  reads_and_ai_only "$fresh" "entries import list"
 }
 step "cli entries import list (mock)"  import_list
 step "cli entries import list --search-* (mock)" expect_ok 'Candidates' entries import list -a 1001 --search-from 2026-01-01 --search-to 2026-12-31
-# Rehearses an Import. No --yes. A commit POST (markImported, conciliacao,
-# importar), a Sync PUT, or any other write fails the step.
+# Rehearses an Import with --ids. No --yes.
 import_run_dry() {
   local log="$MDCLI_MOCK_LOG"
   local before=0
@@ -171,17 +177,10 @@ import_run_dry() {
   fresh=$(tail -n +"$((before + 1))" "$log")
   grep -Eq '/api/v1/integracao/account/9001/transactions' <<<"$fresh" \
     || { echo "faltou GET de transactions: $fresh"; return 1; }
-  if grep -Eq 'markImported|connection/update|/lancamentos/importar|/lancamentos/conciliacao' <<<"$fresh"; then
-    echo "entries import run --dry-run chamou gravação ou sync: $fresh"
-    return 1
-  fi
-  if grep -Ev '"method":"GET"' <<<"$fresh" | grep -q .; then
-    echo "entries import run --dry-run não pode gravar: $fresh"
-    return 1
-  fi
+  reads_and_ai_only "$fresh" "entries import run --dry-run"
 }
 step "cli entries import run --dry-run (mock)" import_run_dry
-# Rehearses an Import from a --plan file. No --yes. Any write fails the step.
+# Rehearses an Import from a --plan file. No --yes.
 import_run_plan_dry() {
   local log="$MDCLI_MOCK_LOG"
   local before=0
@@ -199,15 +198,12 @@ JSON
   fresh=$(tail -n +"$((before + 1))" "$log")
   grep -Eq '/api/v1/integracao/account/9001/transactions' <<<"$fresh" \
     || { echo "faltou GET de transactions: $fresh"; return 1; }
-  if grep -Ev '"method":"GET"' <<<"$fresh" | grep -q .; then
-    echo "entries import run --plan --dry-run não pode gravar: $fresh"
-    return 1
-  fi
+  reads_and_ai_only "$fresh" "entries import run --plan --dry-run"
 }
 step "cli entries import run --plan --dry-run (mock)" import_run_plan_dry
 # Rehearses an Import chosen in $EDITOR. A fake editor checks the line the file
-# opened with and rewrites the category and description. Only GETs are allowed,
-# and the temporary file must be gone afterwards.
+# opened with (the AI category included) and rewrites the description. The
+# temporary file must be gone afterwards.
 import_run_edit_dry() {
   local log="$MDCLI_MOCK_LOG"
   local before=0
@@ -216,7 +212,7 @@ import_run_edit_dry() {
   cat >"$editor" <<SH
 #!/bin/sh
 echo "\$1" > "$SANDBOX/edit-path"
-grep -qx 'import aaaaaaaa 2026-10-07 -12.34  | Padaria Ficticia' "\$1" || exit 9
+grep -qx 'import aaaaaaaa 2026-10-07 -12.34 Alimentação | Padaria Ficticia' "\$1" || exit 9
 echo 'import aaaaaaaa 2026-10-07 -12,34 10 | Padaria editada' > "\$1"
 SH
   local out
@@ -229,29 +225,9 @@ SH
   [ ! -e "$path" ] || { echo "o arquivo do --edit ficou no disco: $path"; return 1; }
   local fresh
   fresh=$(tail -n +"$((before + 1))" "$log")
-  if grep -Ev '"method":"GET"' <<<"$fresh" | grep -q .; then
-    echo "entries import run --edit --dry-run não pode gravar: $fresh"
-    return 1
-  fi
+  reads_and_ai_only "$fresh" "entries import run --edit --dry-run"
 }
 step "cli entries import run --edit --dry-run (mock)" import_run_edit_dry
-# Writes an Import, mock only: markImported, conciliacao, importar, in this
-# order, and no Sync PUT.
-import_run_yes() {
-  local log="$MDCLI_MOCK_LOG"
-  local before=0
-  [ -f "$log" ] && before=$(wc -l <"$log")
-  local out
-  out=$("${CLI[@]}" entries import run -a 1001 --ids aaaaaaaa -c 10 --yes --json </dev/null 2>&1) \
-    || { echo "saída: $out"; return 1; }
-  bun -e 'const d = JSON.parse(process.argv[1]); if (d.dryRun !== false || d.imported.length !== 1) process.exit(1)' "$out" \
-    || { echo "esperava o documento gravado em: $out"; return 1; }
-  local writes
-  writes=$(tail -n +"$((before + 1))" "$log" | grep -Ev '"method":"GET"' | grep -Eo '/api/v1/[^"]*' | tr '\n' ' ')
-  local expected="/api/v1/integracao/transactions/markImported /api/v1/lancamentos/conciliacao /api/v1/lancamentos/importar "
-  [ "$writes" = "$expected" ] || { echo "esperava só os três POSTs do commit, nessa ordem; veio: $writes"; return 1; }
-}
-step "cli entries import run --yes (mock)" import_run_yes
 step "cli accounts list --json (mock)" bash -c '"$@" accounts list --json </dev/null | bun -e "const d=JSON.parse(await Bun.stdin.text()); if(!JSON.stringify(d).includes(\"Nubank\")) process.exit(1)"' _ "${CLI[@]}"
 # Writes (POST/PUT/DELETE) go through the same request() path as reads; the
 # mock checks the JSON payload, echoes it back and answers DELETE with 204.

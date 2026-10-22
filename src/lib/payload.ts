@@ -1,4 +1,5 @@
-import { parseId } from '../../../utils/parse.js';
+// Readers for untyped API payloads: a field of the wrong type becomes null, never a guess.
+import { parseId } from '../utils/parse.js';
 
 export function asRecord(value: unknown): Record<string, unknown> | null {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return null;
@@ -11,6 +12,11 @@ export function textOrNull(value: unknown): string | null {
 
 export function numberOrNull(value: unknown): number | null {
   return typeof value === 'number' ? value : null;
+}
+
+/** A JS integer only. Connection payload ids are numbers. */
+export function integerOrNull(value: unknown): number | null {
+  return typeof value === 'number' && Number.isInteger(value) ? value : null;
 }
 
 /** An id as a JS integer or as a positive decimal-integer string (`_ca` and the AI send strings). */

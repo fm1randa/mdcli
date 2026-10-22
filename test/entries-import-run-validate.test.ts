@@ -146,13 +146,14 @@ describe('entries import run actions', () => {
     expect(await refused(['--ids', 'aaaa', '-c', '10'])).toContain('2 entries match it (4242, 4243)');
   });
 
-  test('a candidate outside the 2 days is not linked, and importing beside it fails', async () => {
+  test('a candidate outside the 2 days is not linked, and --ids imports beside it', async () => {
     statement([bank(TX1)]);
     entries([{ id: 4244, dataPrevista: '2026-10-20', valor: -12.34 }]);
 
-    const stderr = await refused(['--ids', 'aaaa', '-c', '10', '--search-to', '2026-10-20']);
+    const body = await plan(['--ids', 'aaaa', '-c', '10', '--search-to', '2026-10-20']);
 
-    expect(stderr).toContain('entries 4244 may already record it');
+    expect(body.conciliated).toEqual([]);
+    expect(body.imported).toEqual([expect.objectContaining({ integrationId: TX1, categoryId: 10 })]);
     const call = api.requests.find((r) => r.path === '/v2/lancamentos');
     expect(call?.query.get('fim')).toBe('2026-10-20');
     expect(api.requests.find((r) => r.path.endsWith('/transactions'))?.query.get('start')).toBe('2026-10-01');

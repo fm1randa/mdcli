@@ -1,9 +1,11 @@
 import chalk from 'chalk';
 import { fetchAccounts, fetchConnections, requestSync } from '../../lib/api.js';
-import { resolveId } from '../../lib/aliases.js';
+import { integerOrNull } from '../../lib/payload.js';
 import { exitWithError } from '../../utils/action.js';
 import { logger } from '../../utils/logger.js';
 import { promptConfirmation } from '../../utils/prompt.js';
+import { resolveAccountOrExit } from '../account-id.js';
+import { accountConnection, connectionList } from '../connection.js';
 import { printSyncList, toSyncList } from './list.js';
 
 interface RunOptions {
@@ -11,61 +13,20 @@ interface RunOptions {
   json?: boolean;
 }
 
-function asRecord(value: unknown): Record<string, unknown> | null {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) return null;
-  return value as Record<string, unknown>;
-}
-
-function integer(value: unknown): number | null {
-  return typeof value === 'number' && Number.isInteger(value) ? value : null;
-}
-
-function connectionList(payload: unknown): Record<string, unknown>[] {
-  if (!Array.isArray(payload)) {
-    throw new Error('GET /v1/integracao/connections did not return a list of connections');
-  }
-  return payload.flatMap((item) => {
-    const connection = asRecord(item);
-    return connection ? [connection] : [];
-  });
-}
-
-/** Connection ids that link this Meu Dinheiro Account (`accounts[].conta`), each id once. */
-function connectionIdsForAccount(payload: unknown, accountId: number): number[] {
-  const ids: number[] = [];
-  for (const connection of connectionList(payload)) {
-    const rows = connection.accounts;
-    const linked = Array.isArray(rows) && rows.some((row) => integer(asRecord(row)?.conta) === accountId);
-    const id = integer(connection.id);
-    if (linked && id !== null && !ids.includes(id)) ids.push(id);
-  }
-  return ids;
-}
-
 /** Every Connection id from the payload, once, in first-seen order. Not an Account lookup. */
 function everyConnectionId(payload: unknown): number[] {
   const ids: number[] = [];
   for (const connection of connectionList(payload)) {
-    const id = integer(connection.id);
+    const id = integerOrNull(connection.id);
     if (id !== null && !ids.includes(id)) ids.push(id);
   }
   return ids;
 }
 
 async function accountConnectionIds(target: string): Promise<number[]> {
-  const accountId = await resolveId('accounts', target);
-  if (accountId === null) {
-    exitWithError(`Unknown account: ${target}`);
-  }
-
-  const ids = connectionIdsForAccount(await fetchConnections(), accountId);
-  if (ids.length === 0) {
-    exitWithError(`Account ${accountId} is not linked to any connection.`);
-  }
-  if (ids.length > 1) {
-    exitWithError(`Account ${accountId} is linked to more than one connection (${ids.join(', ')}).`);
-  }
-  return ids;
+  const accountId = await resolveAccountOrExit(target);
+  const { connectionId } = await accountConnection(accountId);
+  return [connectionId];
 }
 
 function confirmation(ids: number[]): string {

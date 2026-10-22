@@ -1,7 +1,6 @@
-import { fetchCategories } from '../../../lib/api.js';
 import type { Category } from '../../../types/index.js';
 import { exitWithError } from '../../../utils/action.js';
-import { checkEntryCategory } from '../category.js';
+import { categoryCatalog, checkEntryCategory } from '../category.js';
 import type { ImportDocument, ImportTransaction } from './document.js';
 import {
   automaticCandidates,
@@ -10,7 +9,7 @@ import {
   failOnProblems,
   ids,
   label,
-  pickTransactions,
+  matchPrefix,
   planConciliate,
   planImport,
   planReject,
@@ -36,12 +35,17 @@ export interface SelectionItem {
   entry?: number;
 }
 
-/** The same refusal as `entries create` for an inactive category, plus no transfers and no unknown ids. */
-async function checkImportCategory(input: string): Promise<Category | { error: string }> {
-  const checked = await checkEntryCategory(input);
+/**
+ * The same refusal as `entries create` for an inactive category, plus no transfers and no unknown ids.
+ * The catalog is read once for every category of the run.
+ */
+async function checkImportCategory(
+  input: string,
+  catalog: () => Promise<readonly Category[]>,
+): Promise<Category | { error: string }> {
+  const checked = await checkEntryCategory(input, catalog);
   if ('error' in checked) return checked;
-  const { items } = await fetchCategories();
-  const category = items.find((item) => item.id === checked.id);
+  const category = (await catalog()).find((item) => item.id === checked.id);
   if (category === undefined) {
     return { error: `Unknown category: ${input}. See available categories with: mdcli categories list --active` };
   }
@@ -53,7 +57,7 @@ async function checkImportCategory(input: string): Promise<Category | { error: s
 
 /** `checkImportCategory` for --ids: exits on the first refusal. */
 export async function importCategory(input: string): Promise<Category> {
-  const checked = await checkImportCategory(input);
+  const checked = await checkImportCategory(input, categoryCatalog());
   if ('error' in checked) exitWithError(checked.error);
   return checked;
 }
@@ -68,11 +72,12 @@ export async function selectionCategories(
   const categories = new Map<string, Category>();
   const refused = new Map<string, string>();
   const problems: string[] = [];
+  const catalog = categoryCatalog();
   for (const item of items) {
     const input = item.category;
     if (input === undefined) continue;
     if (!categories.has(input) && !refused.has(input)) {
-      const checked = await checkImportCategory(input);
+      const checked = await checkImportCategory(input, catalog);
       if ('error' in checked) refused.set(input, checked.error);
       else categories.set(input, checked);
     }
@@ -97,7 +102,11 @@ export function planSelection(
   const problems: string[] = [];
   const seen = new Map<ImportTransaction, string>();
   for (const item of items) {
-    const [row] = pickTransactions(document.transactions, [item.id], options.source);
+    const row = matchPrefix(document.transactions, item.id, options.source);
+    if (typeof row === 'string') {
+      problems.push(row);
+      continue;
+    }
     const earlier = seen.get(row);
     if (earlier !== undefined) {
       problems.push(`${label(row)}: selected twice (${earlier} and ${item.id}).`);
@@ -128,8 +137,10 @@ function planItem(row: ImportTransaction, item: SelectionItem, options: Selectio
     case 'conciliate':
       return planLink(row, item.entry, options.entryHint, run);
     case 'import': {
-      if (row.candidates.length > 0) {
-        return `entries ${ids(row.candidates)} may already record it. Use conciliate, or skip it.`;
+      // Only an automatic candidate (within two days) already records it; a farther one is linked by hand or not at all.
+      const automatic = automaticCandidates(row);
+      if (automatic.length > 0) {
+        return `entries ${ids(automatic)} may already record it. Use conciliate, or skip it.`;
       }
       const category = item.category === undefined ? null : (options.categories.get(item.category) ?? null);
       return planImport(row, { category, today: options.today, value: item.value, description: item.description }, run);

@@ -1,4 +1,4 @@
-import type { ApiHeaders, AuthConfig, AuthMethod, CategoriesResponse, Category, CreateCategoryPayload, UpdateCategoryPayload, AccountsResponse, TagsResponse, EntriesResponse, EntriesParams, CreateEntryPayload, CreateEntryResponse, UpdateEntryPayload, UpdateTransferPayload, Entry, CardInvoiceResponse, CardFutureResponse, Account, CreateAccountPayload, UpdateAccountPayload, CreateTagPayload, CreateTagResponse, ConnectionPayload } from '../types/index.js';
+import type { ApiHeaders, AuthConfig, AuthMethod, CategoriesResponse, Category, CreateCategoryPayload, UpdateCategoryPayload, AccountsResponse, TagsResponse, EntriesResponse, EntriesParams, CreateEntryPayload, CreateEntryResponse, UpdateEntryPayload, UpdateTransferPayload, Entry, CardInvoiceResponse, CardFutureResponse, Account, CreateAccountPayload, UpdateAccountPayload, CreateTagPayload, CreateTagResponse } from '../types/index.js';
 import { getAuth, getAuthMethod, setAuth, getOpItem, invalidateNameCache } from './config.js';
 import { popStaleNameCacheUse } from './cache-invalidation.js';
 import { captureAuthHeadless } from './browser-auth.js';
@@ -160,9 +160,9 @@ export async function fetchAccounts(): Promise<AccountsResponse> {
   return request<AccountsResponse>('GET', '/v1/cadastros/contas?meta=true&paginate=false');
 }
 
-/** Connections only. Does not request a Sync. */
-export async function fetchConnections(): Promise<ConnectionPayload[]> {
-  return request<ConnectionPayload[]>('GET', '/v1/integracao/connections');
+/** Connections only, untyped: callers read it field by field (src/lib/payload.ts). Does not request a Sync. */
+export async function fetchConnections(): Promise<unknown> {
+  return request<unknown>('GET', '/v1/integracao/connections');
 }
 
 /** Bank transactions for one connection account. Does not request a Sync. */
@@ -182,14 +182,18 @@ export async function fetchImportDuplicates(accountId: number, start: string, en
 }
 
 const CANDIDATE_PAGE_SIZE = 500;
-const MAX_CANDIDATE_PAGES = 20;
+// Only a guard against a server that never stops paging: past it the search fails instead of truncating.
+const MAX_CANDIDATE_PAGES = 200;
 
 interface ImportCandidatePage {
   list?: unknown;
   meta?: { total?: unknown };
 }
 
-/** One account, finalidade 3, pages of 500. Not fetchEntries: that query is finalidade 1. */
+/**
+ * One account, finalidade 3, pages of 500, until meta.total is covered or a page comes back empty.
+ * Not fetchEntries: that query is finalidade 1.
+ */
 export async function fetchImportCandidates(accountId: number, start: string, end: string): Promise<unknown[]> {
   const collected: unknown[] = [];
   for (let page = 1; page <= MAX_CANDIDATE_PAGES; page++) {
@@ -207,7 +211,10 @@ export async function fetchImportCandidates(accountId: number, start: string, en
     const total = response?.meta?.total;
     if (typeof total === 'number' && collected.length >= total) return collected;
   }
-  return collected;
+  throw new Error(
+    `GET /v2/lancamentos still had candidates after ${MAX_CANDIDATE_PAGES} pages (${collected.length} entries). ` +
+      'Narrow the search with --search-from and --search-to.',
+  );
 }
 
 /** The web app's AI category suggestion. The answer is aligned with `tokens`: a Category id or null. */

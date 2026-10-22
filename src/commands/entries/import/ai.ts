@@ -1,7 +1,7 @@
 import { suggestCategoriesWithAi } from '../../../lib/api.js';
 import type { Category } from '../../../types/index.js';
 import type { ImportDocument } from './document.js';
-import { idOrNull } from './read.js';
+import { idOrNull } from '../../../lib/payload.js';
 import type { AiRequest } from './suggest.js';
 
 /**

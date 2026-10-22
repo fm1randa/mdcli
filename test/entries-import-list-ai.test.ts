@@ -55,7 +55,7 @@ function entries(list: unknown[]) {
 function list(json = true) {
   return runCli(
     ['entries', 'import', 'list', '-a', '1001', '--since', '2026-10-01', ...(json ? ['--json'] : [])],
-    { home, api, extraEnv: { MDCLI_NO_AUTO_UPDATE: '1' } },
+    { home, api },
   );
 }
 

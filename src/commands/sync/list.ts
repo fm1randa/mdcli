@@ -2,6 +2,7 @@ import Table from 'cli-table3';
 import chalk from 'chalk';
 import { logger } from '../../utils/logger.js';
 import { fetchAccounts, fetchConnections } from '../../lib/api.js';
+import { asRecord, integerOrNull, textOrNull } from '../../lib/payload.js';
 import type { Account } from '../../types/index.js';
 
 interface SyncListAccount {
@@ -15,19 +16,6 @@ interface SyncListConnection {
   id: number | null;
   status: string | null;
   accounts: SyncListAccount[];
-}
-
-function textOrNull(value: unknown): string | null {
-  return typeof value === 'string' ? value : null;
-}
-
-function idOrNull(value: unknown): number | null {
-  return typeof value === 'number' && Number.isInteger(value) ? value : null;
-}
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) return null;
-  return value as Record<string, unknown>;
 }
 
 function accountName(accountId: number | null, accounts: Account[]): string | null {
@@ -47,13 +35,13 @@ export function toSyncList(payload: unknown, accounts: Account[]): SyncListConne
     const rows = connection?.accounts;
     const accountsOnConnection = Array.isArray(rows) ? rows : [];
     return {
-      id: idOrNull(connection?.id),
+      id: integerOrNull(connection?.id),
       status: textOrNull(connection?.status),
       accounts: accountsOnConnection.map((row): SyncListAccount => {
         const record = asRecord(row);
-        const accountId = idOrNull(record?.conta);
+        const accountId = integerOrNull(record?.conta);
         return {
-          connectionAccount: idOrNull(record?.id),
+          connectionAccount: integerOrNull(record?.id),
           accountId,
           accountName: accountName(accountId, accounts),
           type: textOrNull(record?.type),

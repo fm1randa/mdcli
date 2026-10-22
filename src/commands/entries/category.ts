@@ -1,7 +1,17 @@
 import { exitWithError } from '../../utils/action.js';
 import { fetchCategories } from '../../lib/api.js';
 import { getAliases, resolveId } from '../../lib/aliases.js';
+import type { Category } from '../../types/index.js';
 import { parseId } from '../../utils/parse.js';
+
+/** The Category catalog, fetched at most once per returned reader and only when asked for. */
+export function categoryCatalog(): () => Promise<readonly Category[]> {
+  let loaded: Promise<readonly Category[]> | null = null;
+  return () => {
+    loaded ??= fetchCategories().then((response) => response.items);
+    return loaded;
+  };
+}
 
 /** A bare number or an Alias points at one exact category; only a name can match several. */
 function isExplicitReference(input: string): boolean {
@@ -21,14 +31,20 @@ export async function resolveEntryCategory(input: string): Promise<number> {
   return checked.id;
 }
 
-/** `resolveEntryCategory` without exiting: the id, or the message it would exit with. */
-export async function checkEntryCategory(input: string): Promise<{ id: number } | { error: string }> {
+/**
+ * `resolveEntryCategory` without exiting: the id, or the message it would exit with.
+ * `catalog` lets a caller checking several categories read the list once.
+ */
+export async function checkEntryCategory(
+  input: string,
+  catalog: () => Promise<readonly Category[]> = categoryCatalog(),
+): Promise<{ id: number } | { error: string }> {
   const id = await resolveId('categories', input);
   if (id === null) {
     return { error: `Unknown category: ${input}. See available categories with: mdcli categories list --active` };
   }
 
-  const { items } = await fetchCategories();
+  const items = await catalog();
   const category = items.find((c) => c.id === id);
   if (!category || category.status) return { id };
 

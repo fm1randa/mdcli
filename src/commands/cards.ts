@@ -4,7 +4,7 @@ import chalk from 'chalk';
 import { logger } from '../utils/logger.js';
 import { action, exitWithError } from '../utils/action.js';
 import { fetchAccounts, fetchAccountById, normalizeCards, isCreditCard, fetchCardInvoice, normalizeCardEntries, fetchCardFuture, normalizeCardInstallments } from '../lib/api.js';
-import { resolveId } from '../lib/aliases.js';
+import { resolveAccountOrExit } from './account-id.js';
 import { formatCurrency } from '../utils/currency.js';
 import { truncate } from '../utils/text.js';
 import { cardDueAnchor } from './entries/card-invoice.js';
@@ -103,10 +103,7 @@ function printInvoiceSummary(rows: SummaryRow[]): void {
 
 /** The credit card an -a value names, or exit with why it is not one. */
 async function resolveCardOrExit(input: string): Promise<Account> {
-  const accountId = await resolveId('accounts', input);
-  if (!accountId) {
-    exitWithError(`Unknown account: ${input}`);
-  }
+  const accountId = await resolveAccountOrExit(input);
 
   const account = await fetchAccountById(accountId);
   if (!account) {

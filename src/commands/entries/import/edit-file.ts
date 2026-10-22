@@ -1,6 +1,6 @@
 import { parseAmount, parseId } from '../../../utils/parse.js';
 import type { ImportDocument, ImportTransaction } from './document.js';
-import { pickTransactions } from './plan.js';
+import { matchPrefix } from './plan.js';
 import { SELECTION_ACTIONS, type SelectionItem } from './selection.js';
 
 const ERROR_MARK = '# error: ';
@@ -56,12 +56,13 @@ export function withErrors(text: string, errors: readonly string[]): string {
   return [...marks, ...kept].join('\n');
 }
 
+const PIPE = / \|(?: |$)/;
 const LINE = /^(\S+)\s+(\S+)(?:\s+(\d+))?\s+(\S+)\s+(\S+)(?:\s+(.*?))?\s*$/;
 
 /**
  * The command lines as a selection (the same one `--plan` makes), or every syntax problem found.
  * Comments and blank lines are skipped. The rules shared with `--plan` (value, category, candidates)
- * are checked later by `planSelection`; here only what the line format adds: the bank date and a description.
+ * are checked later by `planSelection`; here only what the line format adds: the bank date.
  */
 export function parseEditFile(
   text: string,
@@ -91,22 +92,19 @@ function parseLine(
   where: string,
   transactions: readonly ImportTransaction[],
 ): { row: ImportTransaction; item: SelectionItem } | string {
-  const pipe = line.indexOf(' | ');
-  const head = pipe === -1 ? line : line.slice(0, pipe);
-  const description = pipe === -1 ? '' : line.slice(pipe + 3).trim();
+  // The line is trimmed, so an empty description leaves the pipe last: "... |".
+  const pipe = PIPE.exec(line);
+  const head = pipe === null ? line : line.slice(0, pipe.index);
+  const description = pipe === null ? '' : line.slice(pipe.index + pipe[0].length).trim();
   const match = LINE.exec(head);
-  if (match === null || pipe === -1) {
+  if (match === null || pipe === null) {
     return `${where}: expected "<command> <prefix> <date> <value> <category> | <description>".`;
   }
   const [, command, prefix, entryText, date, valueText, categoryText = ''] = match;
   const action = SELECTION_ACTIONS.find((name) => name === command);
   if (action === undefined) return `${where}: unknown command "${command}". Use ${SELECTION_ACTIONS.join(', ')}.`;
-  let row: ImportTransaction;
-  try {
-    [row] = pickTransactions(transactions, [prefix], `${where}: prefix`);
-  } catch (error) {
-    return error instanceof Error ? error.message : `${where}: unknown prefix ${prefix}.`;
-  }
+  const row = matchPrefix(transactions, prefix, `${where}: prefix`);
+  if (typeof row === 'string') return row;
   const id = row.prefix ?? prefix;
   if (entryText !== undefined && action !== 'conciliate') return `${id}: only conciliate takes an entry id.`;
   if (date !== row.date) return `${id}: the date must be the bank date ${row.date ?? '-'}.`;
@@ -114,8 +112,8 @@ function parseLine(
   if (value === undefined) return `${id}: the value ${valueText} is not a number.`;
   const item: SelectionItem = { id, action, value };
   if (action === 'import') {
-    if (description === '') return `${id}: an imported entry needs a description.`;
-    item.description = description;
+    // Empty: the suggested description, then the bank text (planImport).
+    if (description !== '') item.description = description;
     const category = categoryText.trim();
     if (category !== '') item.category = category;
   }

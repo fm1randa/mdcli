@@ -117,7 +117,7 @@ afterEach(() => {
 });
 
 function cli(args: string[]) {
-  return runCli(args, { home, api, extraEnv: { MDCLI_NO_AUTO_UPDATE: '1' } });
+  return runCli(args, { home, api });
 }
 
 const READS = [
@@ -242,7 +242,7 @@ describe('entries import list', () => {
     expect(notTheConnectionAccount.exitCode).toBe(1);
     expect(notTheConnectionAccount.stdout).toBe('');
     expect(JSON.parse(notTheConnectionAccount.stderr)).toEqual({
-      error: 'Account 1001 is not linked to a connection.',
+      error: 'Account 1001 is not linked to any connection.',
     });
     expect(api.requests.some((r) => r.path.includes('/transactions'))).toBe(false);
     expect(mutations(api)).toHaveLength(0);
@@ -315,7 +315,7 @@ describe('entries import list', () => {
     expect(JSON.parse(backwards.stderr)).toEqual({
       error: 'Search start 2026-10-20 is after search end 2026-10-01.',
     });
-    expect(api.requests).toHaveLength(0);
+    expect(api.requests.some((r) => r.path === '/v2/lancamentos')).toBe(false);
     expect(mutations(api)).toHaveLength(0);
   });
 

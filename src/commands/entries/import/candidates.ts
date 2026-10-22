@@ -1,5 +1,5 @@
 import { addInterval, isCalendarDate } from '../../../lib/dates.js';
-import { asRecord, idOrNull, numberOrNull, textOrNull } from './read.js';
+import { asRecord, idOrNull, numberOrNull, textOrNull } from '../../../lib/payload.js';
 
 export interface ImportCandidate {
   id: number;

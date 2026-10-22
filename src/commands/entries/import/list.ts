@@ -1,19 +1,20 @@
 import Table from 'cli-table3';
 import chalk from 'chalk';
-import { fetchAccountById, fetchBankTransactions, fetchCardInvoice, fetchCategories, fetchImportCandidates, fetchImportDuplicates, isCreditCard } from '../../../lib/api.js';
-import { resolveId } from '../../../lib/aliases.js';
+import { fetchAccountById, fetchBankTransactions, fetchCardInvoice, fetchImportCandidates, fetchImportDuplicates, isCreditCard } from '../../../lib/api.js';
 import { isCalendarDate } from '../../../lib/dates.js';
 import type { Account, Category } from '../../../types/index.js';
 import { exitWithError } from '../../../utils/action.js';
 import { formatCurrency } from '../../../utils/currency.js';
 import { logger } from '../../../utils/logger.js';
+import { categoryCatalog } from '../category.js';
 import { fillAiCategories } from './ai.js';
 import { candidatesFor } from './candidates.js';
 import { toImportDocument, type ImportDocument, type SuggestedCategory } from './document.js';
 import { aiRequest, duplicateId, loadedDateBounds } from './suggest.js';
-import { linkedConnection } from './link.js';
-import { asRecord } from './read.js';
-import { defaultSince, explicitSince } from './since.js';
+import { resolveAccountOrExit } from '../../account-id.js';
+import { accountConnection } from '../../connection.js';
+import { asRecord } from '../../../lib/payload.js';
+import { calendarDateFlag, defaultSince, explicitSince } from './since.js';
 
 export interface ImportLoadOptions {
   account: string;
@@ -53,32 +54,34 @@ export interface LoadedImport {
  * The AI suggestion is a separate step (`fillSuggestions`): `import run --ids` takes its category from --category.
  */
 export async function loadImport(options: ImportLoadOptions): Promise<LoadedImport> {
-  const searchFrom = calendarFlag(options.searchFrom);
-  const searchTo = calendarFlag(options.searchTo);
-  if (searchFrom !== undefined && searchTo !== undefined && searchFrom > searchTo) {
-    exitWithError(`Search start ${searchFrom} is after search end ${searchTo}.`);
-  }
+  const searchFrom = calendarDateFlag(options.searchFrom);
+  const searchTo = calendarDateFlag(options.searchTo);
 
   const now = new Date();
   const requested = explicitSince(options.since, now);
-  const accountId = await resolveAccount(options.account);
-  const link = await linkedConnection(accountId);
+  const accountId = await resolveAccountOrExit(options.account);
+  const link = await accountConnection(accountId);
+  const { connectionAccount } = link;
+  if (connectionAccount === null) {
+    exitWithError(`Account ${accountId} is linked to connection ${link.connectionId}, which did not include its connection account id.`);
+  }
   const account = await fetchAccountById(accountId);
   if (account !== undefined && isCreditCard(account) && (searchFrom !== undefined || searchTo !== undefined)) {
     exitWithError('A search window on a credit card is not specified. Candidates come from the invoice of proximoVencimento.');
   }
   const since = requested ?? defaultSince(account?.dataUltimoExtrato, now);
-  const payload: unknown = await fetchBankTransactions(link.connectionAccount, since);
+  const payload: unknown = await fetchBankTransactions(connectionAccount, since);
   const document = toImportDocument({
     accountId,
     accountName: account?.nome ?? null,
     connectionId: link.connectionId,
-    connectionAccount: link.connectionAccount,
+    connectionAccount,
     since,
     payload,
   });
   if (searchFrom !== undefined) document.search.from = searchFrom;
   if (searchTo !== undefined) document.search.to = searchTo;
+  // One flag alone can cross the default end the statement sets, so the window is checked once, here.
   const from = document.search.from;
   const to = document.search.to;
   if (from !== null && to !== null && from > to) {
@@ -95,15 +98,6 @@ export async function fillSuggestions(loaded: LoadedImport): Promise<void> {
   const { document, payload, automaticCounts } = loaded;
   await fillAiCategories(document, statementRows(payload).map(aiRequest), automaticCounts, catalog);
   await fillCategoryNames(document, catalog);
-}
-
-/** The Category catalog, fetched at most once per listing and only when asked for. */
-function categoryCatalog(): () => Promise<readonly Category[]> {
-  let loaded: Promise<readonly Category[]> | null = null;
-  return () => {
-    loaded ??= fetchCategories().then((response) => response.items);
-    return loaded;
-  };
 }
 
 /** `nome` from the Category catalog. An id the catalog does not have stays null. */
@@ -193,22 +187,6 @@ function documentNumbers(payload: unknown): (string | null)[] {
     const value = asRecord(row)?.ndocumento;
     return typeof value === 'string' && value !== '' ? value : null;
   });
-}
-
-function calendarFlag(input: string | undefined): string | undefined {
-  if (input === undefined) return undefined;
-  if (!isCalendarDate(input)) {
-    exitWithError(`Invalid date "${input}". Use YYYY-MM-DD (e.g., 2026-10-03).`);
-  }
-  return input;
-}
-
-async function resolveAccount(input: string): Promise<number> {
-  const accountId = await resolveId('accounts', input);
-  if (accountId === null) {
-    exitWithError(`Unknown account: ${input}`);
-  }
-  return accountId;
 }
 
 function printStatement(document: ImportDocument): void {

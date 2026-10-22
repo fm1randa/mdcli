@@ -207,6 +207,35 @@ describe('entries import run --plan --dry-run', () => {
     expect(stderr).toContain('dddd4444: no entry matches it, so there is nothing to link.');
   });
 
+  test('a candidate beyond 2 days does not block import, and conciliate with entry still links it', async () => {
+    statement([bank(TX1), bank(TX2, { valor: -7 })]);
+    entries([
+      { id: 4244, dataPrevista: '2026-10-20', valor: -12.34, descricao: 'Padaria prevista' },
+      { id: 5353, dataPrevista: '2026-10-19', valor: -7, descricao: 'Feira prevista' },
+    ]);
+
+    const result = await run([
+      '--plan',
+      planFile({
+        transactions: [
+          { id: 'aaaa1111', action: 'import', category: 10 },
+          { id: 'bbbb2222', action: 'conciliate', entry: 5353 },
+        ],
+      }),
+      '--search-to',
+      '2026-10-20',
+      '--dry-run',
+      '--json',
+    ]);
+
+    expect(result.stderr).toBe('');
+    expect(result.exitCode).toBe(0);
+    const body = JSON.parse(result.stdout);
+    expect(body.imported).toEqual([expect.objectContaining({ integrationId: TX1, categoryId: 10 })]);
+    expect(body.conciliated).toEqual([expect.objectContaining({ integrationId: TX2, entryId: 5353 })]);
+    expect(mutations(api)).toHaveLength(0);
+  });
+
   test('an inactive category is refused like entries create', async () => {
     statement([bank(TX1)]);
 
@@ -236,89 +265,5 @@ describe('entries import run --plan --dry-run', () => {
     expect(result.stdout).toContain('Salário');
     expect(result.stdout).toContain('cccc3333 (plan)');
     expect(mutations(api)).toHaveLength(0);
-  });
-});
-
-describe('entries import run --plan file checks', () => {
-  test('an unknown key fails the whole command before any request, even with --yes', async () => {
-    statement([bank(TX1)]);
-    const path = planFile({ transactions: [{ id: 'aaaa1111', action: 'import', category: 10, memo: 'x' }] });
-
-    const result = await run(['--plan', path, '--yes', '--json']);
-
-    expect(result.exitCode).toBe(1);
-    expect(result.stdout).toBe('');
-    expect(JSON.parse(result.stderr).error).toContain('transactions[0]: unknown key "memo".');
-    expect(api.requests).toHaveLength(0);
-  });
-
-  test('an unknown action, a wrong type, and a missing category are all listed at once', async () => {
-    const result = await run([
-      '--plan',
-      planFile({
-        transactions: [
-          { id: 'aaaa1111', action: 'ignore' },
-          { id: 'bbbb2222', action: 'import', category: 10, value: '-12.34' },
-          { id: 'cccc3333', action: 'conciliate', entry: '9001' },
-          { id: 'dddd4444', action: 'import' },
-          { id: 42, action: 'skip' },
-        ],
-      }),
-      '--yes',
-    ]);
-
-    expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain('transactions[0]: "action" must be one of import, skip, reject, conciliate.');
-    expect(result.stderr).toContain('transactions[1]: "value" must be a number.');
-    expect(result.stderr).toContain('transactions[2]: "entry" must be a numeric Entry id.');
-    expect(result.stderr).toContain('transactions[3]: "category" is required for import.');
-    expect(result.stderr).toContain('transactions[4]: "id" must be a prefix or UUID string.');
-    expect(api.requests).toHaveLength(0);
-  });
-
-  test('a key that does not apply to the action, an unknown top-level key, or bad JSON fails', async () => {
-    const wrongKey = await run(['--plan', planFile({ transactions: [{ id: 'aaaa1111', action: 'skip', entry: 4242 }] }), '--yes']);
-    expect(wrongKey.stderr).toContain('transactions[0]: "entry" does not apply to skip.');
-
-    const linked = await run([
-      '--plan',
-      planFile({ transactions: [{ id: 'aaaa1111', action: 'conciliate', description: 'Nova' }] }),
-      '--yes',
-    ]);
-    expect(linked.stderr).toContain('transactions[0]: "description" does not apply to conciliate.');
-
-    const topLevel = await run(['--plan', planFile({ account: 1001, transactions: [] }), '--yes']);
-    expect(topLevel.stderr).toContain('unknown key "account"');
-
-    const broken = await run(['--plan', planFile('{"transactions": ['), '--yes']);
-    expect(broken.stderr).toContain('The --plan file is not valid JSON');
-
-    for (const result of [wrongKey, linked, topLevel, broken]) expect(result.exitCode).toBe(1);
-    expect(api.requests).toHaveLength(0);
-  });
-
-  test('--reject, --category, and --ids do not combine with --plan', async () => {
-    const path = planFile({ transactions: [{ id: 'aaaa1111', action: 'skip' }] });
-
-    const reject = await run(['--plan', path, '--reject', 'aaaa1111', '--dry-run']);
-    const category = await run(['--plan', path, '-c', '10', '--dry-run']);
-    const ids = await run(['--plan', path, '--ids', 'aaaa1111', '--dry-run']);
-
-    expect(reject.stderr).toContain('--reject does not combine with --plan.');
-    expect(category.stderr).toContain('--category does not combine with --plan.');
-    expect(ids.stderr).toContain('--ids does not combine with --plan.');
-    for (const result of [reject, category, ids]) expect(result.exitCode).toBe(1);
-    expect(api.requests).toHaveLength(0);
-  });
-
-  test('a prefix that matches nothing, or the same transaction twice, fails without a commit', async () => {
-    statement([bank(TX1)]);
-
-    expect(await refused({ transactions: [{ id: 'ffff', action: 'skip' }] })).toContain(
-      '--plan ffff does not match any bank transaction.',
-    );
-    expect(
-      await refused({ transactions: [{ id: 'aaaa', action: 'skip' }, { id: TX1, action: 'reject' }] }),
-    ).toContain(`aaaa1111: selected twice (aaaa and ${TX1}).`);
   });
 });

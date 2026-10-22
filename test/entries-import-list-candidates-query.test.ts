@@ -43,7 +43,7 @@ afterEach(() => {
 });
 
 function cli(args: string[]) {
-  return runCli(args, { home, api, extraEnv: { MDCLI_NO_AUTO_UPDATE: '1' } });
+  return runCli(args, { home, api });
 }
 
 function list(args: string[] = []) {
@@ -67,6 +67,37 @@ function expectCandidateQuery(request: RecordedRequest, from: string, to: string
 }
 
 describe('entries import list candidate query', () => {
+  test('keeps paging past 20 pages until meta.total is covered', async () => {
+    api.on('GET /v2/lancamentos', (req) => {
+      const page = JSON.parse(req.query.get('list') ?? '{}').page as number;
+      const value = page === 25 ? -12.34 : -99;
+      return { list: [{ id: 7000 + page, dataPrevista: '2026-10-07', valor: value }], meta: { total: 25 } };
+    });
+
+    const result = await list();
+
+    expect(result.stderr).toBe('');
+    expect(result.exitCode).toBe(0);
+    expect(api.requests.filter((r) => r.path === '/v2/lancamentos')).toHaveLength(25);
+    const [row] = JSON.parse(result.stdout).transactions;
+    expect(row.candidates.map((item: { id: number }) => item.id)).toEqual([7025]);
+    expect(row.defaultAction).toBe('conciliate');
+  });
+
+  test('a candidate search that never ends fails instead of listing a truncated result', async () => {
+    api.on('GET /v2/lancamentos', (req) => {
+      const page = JSON.parse(req.query.get('list') ?? '{}').page as number;
+      return { list: [{ id: 7000 + page, dataPrevista: '2026-10-07', valor: -99 }], meta: { total: 1_000_000 } };
+    });
+
+    const result = await list();
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe('');
+    expect(JSON.parse(result.stderr).error).toContain('GET /v2/lancamentos');
+    expect(mutations(api)).toHaveLength(0);
+  });
+
   test('requests the next page when meta.total is larger than the first list', async () => {
     api.on('GET /v2/lancamentos', (req) => {
       const page = JSON.parse(req.query.get('list') ?? '{}').page as number;

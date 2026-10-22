@@ -50,7 +50,7 @@ afterEach(() => {
 });
 
 function cli(args: string[]) {
-  return runCli(args, { home, api, extraEnv: { MDCLI_NO_AUTO_UPDATE: '1' } });
+  return runCli(args, { home, api });
 }
 
 /** Local calendar arithmetic, independent of the production date helpers. */

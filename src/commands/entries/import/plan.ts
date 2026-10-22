@@ -65,17 +65,24 @@ export function pickTransactions(
 ): ImportTransaction[] {
   const picked: ImportTransaction[] = [];
   for (const prefix of prefixes) {
-    const head = prefix.toLowerCase();
-    const matches = transactions.filter((row) => row.integrationId?.toLowerCase().startsWith(head) === true);
-    if (matches.length === 0) {
-      throw new Error(`${flag} ${prefix} does not match any bank transaction.`);
-    }
-    if (matches.length > 1) {
-      throw new Error(`${flag} ${prefix} matches ${matches.length} bank transactions. Use a longer prefix.`);
-    }
-    if (!picked.includes(matches[0])) picked.push(matches[0]);
+    const match = matchPrefix(transactions, prefix, flag);
+    if (typeof match === 'string') throw new Error(match);
+    if (!picked.includes(match)) picked.push(match);
   }
   return picked;
+}
+
+/** The one Bank Transaction whose integrationId starts with `prefix` (ignoring case), or why there is not one. */
+export function matchPrefix(
+  transactions: readonly ImportTransaction[],
+  prefix: string,
+  flag: string,
+): ImportTransaction | string {
+  const head = prefix.toLowerCase();
+  const matches = transactions.filter((row) => row.integrationId?.toLowerCase().startsWith(head) === true);
+  if (matches.length === 0) return `${flag} ${prefix} does not match any bank transaction.`;
+  if (matches.length > 1) return `${flag} ${prefix} matches ${matches.length} bank transactions. Use a longer prefix.`;
+  return matches[0];
 }
 
 /**
@@ -162,9 +169,7 @@ function planSelected(row: ImportTransaction, selection: RunSelection, run: RunD
     return `${automatic.length} entries match it (${ids(automatic)}). --ids cannot choose which one to link.`;
   }
   if (automatic.length === 1) return planConciliate(row, automatic[0], run);
-  if (row.candidates.length > 0) {
-    return `entries ${ids(row.candidates)} may already record it. Importing would create a second Entry.`;
-  }
+  // A candidate beyond two days is only a hint: it is linked by hand (conciliate with its id), never blocks import.
   if (row.duplicateOf !== null && !selection.includeDuplicates) {
     run.skipped.push({ ...reference(row), reason: 'duplicate' });
     return null;
