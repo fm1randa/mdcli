@@ -343,13 +343,14 @@ const server = Bun.serve({
     if (url.pathname === '/api/v2/lancamentos' && req.method === 'GET') {
       return entriesListRoute(url);
     }
+    // duplicidade lives under /lancamentos, so it has to be claimed before that prefix.
+    const imported = importRoute(req.method, url);
+    if (imported) return imported;
     if (url.pathname === ENTRIES_PATH || url.pathname.startsWith(`${ENTRIES_PATH}/`)) {
       return entriesRoute(req, url.pathname);
     }
     const connections = connectionsRoute(req.method, url.pathname);
     if (connections) return connections;
-    const imported = importRoute(req.method, url);
-    if (imported) return imported;
     return notFound();
   },
 });

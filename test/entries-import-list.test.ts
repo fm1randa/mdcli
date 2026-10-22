@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
-import { ACCOUNTS_RESPONSE } from './fixtures.js';
+import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE } from './fixtures.js';
 
 // Fictional ids. 1001 is Nubank and 1002 is Cartão Azul in the account fixture.
 // connection account 9001 is not the Meu Dinheiro account id.
@@ -78,7 +78,12 @@ const LIST_JSON = {
   search: { from: '2026-09-30', to: '2026-10-20' },
   ai: 'unused',
   transactions: [
-    tx(LONE, 'bbbbbbbb', '2026-10-07', -12.34, 'Padaria Ficticia'),
+    {
+      ...tx(LONE, 'bbbbbbbb', '2026-10-07', -12.34, 'Padaria Ficticia'),
+      suggestedDescription: 'Descricao Sugerida',
+      suggestedCategory: { id: 10, name: 'Alimentação', source: 'rule' },
+      defaultAction: 'import',
+    },
     tx(SHARED_A, 'aaaaaaaa-1', '2026-10-08', 8.5, 'Credito Ficticio'),
     tx(SHARED_B, 'aaaaaaaa-2', '2026-10-09', -1, 'Taxi Ficticio'),
     tx(CASE_A, 'CCCCCCCC-1', '2026-10-10', -2, 'Cafe Ficticio'),
@@ -97,6 +102,8 @@ beforeEach(() => {
   api.on('GET /v1/integracao/connections', CONNECTIONS);
   api.on('GET /v1/cadastros/contas', ACCOUNTS_RESPONSE);
   api.on('GET /v1/integracao/account/9001/transactions', STATEMENT);
+  api.on('GET /v1/cadastros/categorias', CATEGORIES_RESPONSE);
+  api.on('GET /v1/lancamentos/duplicidade', {});
   home = createHome({
     ...MANUAL_AUTH,
     aliases: { accounts: [{ id: 1001, name: 'nu' }], categories: [], tags: [] },
@@ -113,13 +120,15 @@ function cli(args: string[]) {
 }
 
 const READS = [
+  'GET /v1/cadastros/categorias',
   'GET /v1/cadastros/contas',
   'GET /v1/integracao/account/9001/transactions',
   'GET /v1/integracao/connections',
+  'GET /v1/lancamentos/duplicidade',
 ];
 
 describe('entries import list', () => {
-  test('prints the statement as JSON and only reads connections, accounts, and transactions', async () => {
+  test('prints the statement as JSON and only reads connections, accounts, transactions, categories, and duplicates', async () => {
     const result = await cli(['entries', 'import', 'list', '-a', '1001', '--since', '2026-10-01', '--json']);
 
     expect(result.exitCode).toBe(0);
@@ -132,10 +141,14 @@ describe('entries import list', () => {
     const call = api.requests.find((r) => r.path.endsWith('/transactions'));
     expect(call?.query.get('start')).toBe('2026-10-01');
     expect([...(call?.query.keys() ?? [])]).toEqual(['start']);
+    const duplicates = api.requests.find((r) => r.path === '/v1/lancamentos/duplicidade');
+    expect(duplicates?.query.get('inicio')).toBe('2026-10-07');
+    expect(duplicates?.query.get('fim')).toBe('2026-10-14');
+    expect(duplicates?.query.get('conta')).toBe('1001');
     expect(mutations(api)).toHaveLength(0);
   });
 
-  test('prints prefix, date, signed value, bank description, and the default action', async () => {
+  test('prints prefix, date, signed value, bank description, suggestion, and the default action', async () => {
     const result = await cli(['entries', 'import', 'list', '-a', '1001', '--since', '2026-10-01']);
     const stdout = result.stdout.replace(/\u00a0/g, ' ');
 
@@ -151,6 +164,13 @@ describe('entries import list', () => {
     expect(stdout).toContain('-R$ 12,34');
     expect(stdout).toContain('R$ 8,50');
     expect(stdout).toContain('needs-category');
+    expect(stdout).toContain('import');
+    expect(stdout).toContain('Category');
+    expect(stdout).toContain('Suggested description');
+    expect(stdout).toContain('Tags');
+    expect(stdout).toContain('Duplicate');
+    expect(stdout).toContain('Alimentação');
+    expect(stdout).toContain('Descricao Sugerida');
     expect(stdout).toContain('since 2026-10-01');
     expect(stdout).toContain('aaaaaaaa-1');
     expect(stdout).toContain('aaaaaaaa-2');
@@ -158,7 +178,6 @@ describe('entries import list', () => {
     expect(stdout).toContain(FULL_A);
     expect(stdout).not.toContain(LONE);
     expect(stdout).not.toContain(SHARED_A);
-    expect(stdout).not.toContain('Descricao Sugerida');
     expect(stdout).not.toContain('Status');
     expect(stdout).not.toContain('Reconciled');
     expect(stdout).not.toContain('"transactions"');
@@ -194,6 +213,8 @@ describe('entries import list', () => {
     expect(api.requests.filter((r) => r.path.includes('/transactions')).map((r) => r.path)).toEqual([
       '/v1/integracao/account/1001/transactions',
     ]);
+    const duplicates = api.requests.find((r) => r.path === '/v1/lancamentos/duplicidade');
+    expect(duplicates?.query.get('conta')).toBe('1002');
 
     api.requests.length = 0;
     const notTheConnectionAccount = await cli([

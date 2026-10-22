@@ -1,11 +1,21 @@
 import { addInterval, isCalendarDate } from '../../../lib/dates.js';
 import { asRecord, numberOrNull, textOrNull } from './read.js';
+import { learnedFields } from './suggest.js';
 
 interface BankTransaction {
   integrationId: string | null;
   date: string | null;
   value: number | null;
   description: string | null;
+  categoryId: number | null;
+  suggestedDescription: string | null;
+  suggestedTagIds: number[];
+}
+
+export interface SuggestedCategory {
+  id: number;
+  name: string | null;
+  source: 'rule';
 }
 
 interface ImportTransaction {
@@ -14,12 +24,12 @@ interface ImportTransaction {
   date: string | null;
   value: number | null;
   description: string | null;
-  suggestedDescription: null;
+  suggestedDescription: string | null;
   suggestedTagIds: number[];
-  suggestedCategory: null;
-  duplicateOf: null;
+  suggestedCategory: SuggestedCategory | null;
+  duplicateOf: number | null;
   candidates: [];
-  defaultAction: 'needs-category';
+  defaultAction: 'import' | 'needs-category' | 'skip';
 }
 
 export interface ImportDocument {
@@ -69,27 +79,34 @@ export function toImportDocument(input: {
 
 function readBankTransaction(value: unknown): BankTransaction {
   const record = asRecord(value);
+  const learned = learnedFields(value);
   return {
     integrationId: textOrNull(record?.integrationId),
     date: textOrNull(record?.data),
     value: numberOrNull(record?.valor),
     description: textOrNull(record?.descricao),
+    categoryId: learned.categoryId,
+    suggestedDescription: learned.suggestedDescription,
+    suggestedTagIds: learned.suggestedTagIds,
   };
 }
 
 function toTransaction(item: BankTransaction, prefix: string | null): ImportTransaction {
+  const suggestedCategory = item.categoryId === null
+    ? null
+    : { id: item.categoryId, name: null, source: 'rule' as const };
   return {
     integrationId: item.integrationId,
     prefix,
     date: item.date,
     value: item.value,
     description: item.description,
-    suggestedDescription: null,
-    suggestedTagIds: [],
-    suggestedCategory: null,
+    suggestedDescription: item.suggestedDescription,
+    suggestedTagIds: item.suggestedTagIds,
+    suggestedCategory,
     duplicateOf: null,
     candidates: [],
-    defaultAction: 'needs-category',
+    defaultAction: suggestedCategory === null ? 'needs-category' : 'import',
   };
 }
 

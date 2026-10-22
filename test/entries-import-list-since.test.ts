@@ -39,6 +39,7 @@ beforeEach(() => {
   api.on('GET /v1/integracao/connections', CONNECTIONS);
   api.on('GET /v1/cadastros/contas', ACCOUNTS_RESPONSE);
   api.on('GET /v1/integracao/account/9001/transactions', STATEMENT);
+  api.on('GET /v1/lancamentos/duplicidade', {});
   home = createHome(MANUAL_AUTH);
 });
 

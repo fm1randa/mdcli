@@ -2,6 +2,7 @@
 // Fictional ids only. 9001 is Nubank's connection account in mock-connections.ts.
 
 const TRANSACTIONS = /^\/api\/v1\/integracao\/account\/(\d+)\/transactions$/;
+const DUPLICATES = '/api/v1/lancamentos/duplicidade';
 
 const STATEMENT = {
   inicio: '2026-10-01',
@@ -20,6 +21,7 @@ const STATEMENT = {
 
 /** The fictional statement for connection account 9001, or null when this request is not that GET. */
 export function importRoute(method: string, url: URL): Response | null {
+  if (method === 'GET' && url.pathname === DUPLICATES) return Response.json({});
   const match = TRANSACTIONS.exec(url.pathname);
   if (!match || method !== 'GET') return null;
   if (match[1] !== '9001') return Response.json({ message: 'not found' }, { status: 404 });

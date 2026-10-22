@@ -171,6 +171,16 @@ export async function fetchBankTransactions(connectionAccount: number, start: st
   return request<unknown>('GET', `/v1/integracao/account/${connectionAccount}/transactions?${query.toString()}`);
 }
 
+/** Possible duplicates for one Account between two dates. Does not write. */
+export async function fetchImportDuplicates(accountId: number, start: string, end: string): Promise<unknown> {
+  const query = new URLSearchParams({
+    inicio: start,
+    fim: end,
+    conta: String(accountId),
+  });
+  return request<unknown>('GET', `/v1/lancamentos/duplicidade?${query.toString()}`);
+}
+
 /** One manual Sync. The body is the web app's sync button; there is no local daily counter. */
 export async function requestSync(connectionId: number): Promise<void> {
   await request<unknown>('PUT', `/v1/integracao/connection/update/${connectionId}`, { force: true });
