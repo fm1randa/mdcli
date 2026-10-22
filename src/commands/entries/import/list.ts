@@ -38,7 +38,7 @@ export async function listAction(options: ImportListOptions): Promise<void> {
   printStatement(document);
 }
 
-interface LoadedImport {
+export interface LoadedImport {
   document: ImportDocument;
   account: Account | undefined;
   /** The raw statement payload, row for row with `document.transactions`. */

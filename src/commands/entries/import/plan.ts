@@ -1,6 +1,6 @@
 import { isCalendarDate } from '../../../lib/dates.js';
 import type { Category } from '../../../types/index.js';
-import { withinTwoDays } from './candidates.js';
+import { withinTwoDays, type ImportCandidate } from './candidates.js';
 import type { ImportDocument, ImportTransaction } from './document.js';
 
 interface RunReference {
@@ -83,8 +83,24 @@ export function pickTransactions(
  * Any invalid item throws, listing every problem, before anything is printed or written.
  */
 export function planRun(document: ImportDocument, selection: RunSelection): RunDocument {
-  const run: RunDocument = {
-    dryRun: selection.dryRun,
+  const run = emptyRun(document, selection.dryRun);
+  const problems: string[] = [];
+  for (const row of selection.ids) {
+    const problem = planSelected(row, selection, run);
+    if (problem !== null) problems.push(`${label(row)}: ${problem}`);
+  }
+  for (const row of selection.rejects) {
+    const problem = planReject(row, run);
+    if (problem !== null) problems.push(`${label(row)}: ${problem}`);
+  }
+  failOnProblems(problems);
+  return run;
+}
+
+/** A run with nothing in it yet. Overwrite preferences are not read: the web default applies. */
+export function emptyRun(document: ImportDocument, dryRun: boolean): RunDocument {
+  return {
+    dryRun,
     accountId: document.account.id,
     connectionAccount: document.connection.connectionAccount,
     statement: document.statement,
@@ -95,37 +111,45 @@ export function planRun(document: ImportDocument, selection: RunSelection): RunD
     skipped: [],
     markImportedError: null,
   };
-  const problems: string[] = [];
-  for (const row of selection.ids) {
-    const problem = planSelected(row, selection, run);
-    if (problem !== null) problems.push(`${label(row)}: ${problem}`);
-  }
-  for (const row of selection.rejects) {
-    // The commit dates each page by its latest bank date, rejects included.
-    if (row.date === null || !isCalendarDate(row.date)) problems.push(`${label(row)}: the bank did not send a date.`);
-    else run.rejected.push(reference(row));
-  }
+}
+
+/** One message for the whole batch, so every problem is fixed in one pass. */
+export function failOnProblems(problems: readonly string[]): void {
   if (problems.length > 0) {
     throw new Error(`Nothing was imported. Fix the selection:\n${problems.join('\n')}`);
   }
-  return run;
+}
+
+export function planReject(row: ImportTransaction, run: RunDocument): string | null {
+  // The commit dates each page by its latest bank date, rejects included.
+  if (row.date === null || !isCalendarDate(row.date)) return 'the bank did not send a date.';
+  run.rejected.push(reference(row));
+  return null;
+}
+
+/** Candidates within two days of the bank date: the ones the web links by itself. */
+export function automaticCandidates(row: ImportTransaction): ImportCandidate[] {
+  return row.candidates.filter(
+    (candidate) => row.date !== null && isCalendarDate(row.date) && withinTwoDays(row.date, candidate.date),
+  );
+}
+
+/** Links the row to `entry`, keeping the Entry's value and description (overwrite is off). */
+export function planConciliate(row: ImportTransaction, entry: ImportCandidate, run: RunDocument): string | null {
+  if (row.date === null || !isCalendarDate(row.date)) return 'the bank did not send a date.';
+  if (row.value === 0) return 'the value is zero.';
+  const kept = { value: entry.value, description: entry.description };
+  run.conciliated.push({ ...reference(row), entryId: entry.id, before: kept, after: { ...kept } });
+  return null;
 }
 
 /** Adds the item to `run`, or returns why it cannot be part of the batch. */
 function planSelected(row: ImportTransaction, selection: RunSelection, run: RunDocument): string | null {
-  const automatic = row.candidates.filter(
-    (candidate) => row.date !== null && isCalendarDate(row.date) && withinTwoDays(row.date, candidate.date),
-  );
+  const automatic = automaticCandidates(row);
   if (automatic.length > 1) {
     return `${automatic.length} entries match it (${ids(automatic)}). --ids cannot choose which one to link.`;
   }
-  if (automatic.length === 1) {
-    const entry = automatic[0];
-    if (row.value === 0) return 'the value is zero.';
-    const kept = { value: entry.value, description: entry.description };
-    run.conciliated.push({ ...reference(row), entryId: entry.id, before: kept, after: { ...kept } });
-    return null;
-  }
+  if (automatic.length === 1) return planConciliate(row, automatic[0], run);
   if (row.candidates.length > 0) {
     return `entries ${ids(row.candidates)} may already record it. Importing would create a second Entry.`;
   }
@@ -133,16 +157,31 @@ function planSelected(row: ImportTransaction, selection: RunSelection, run: RunD
     run.skipped.push({ ...reference(row), reason: 'duplicate' });
     return null;
   }
-  return planImport(row, selection, run);
+  return planImport(row, { category: selection.category, today: selection.today }, run);
 }
 
-function planImport(row: ImportTransaction, selection: RunSelection, run: RunDocument): string | null {
-  const category = selection.category;
+export interface ImportChoice {
+  category: Category | null;
+  /** Local calendar day. On or before it is Reconciled; after it, Scheduled. */
+  today: string;
+  /** Replaces the bank value. Only the sign may differ. */
+  value?: number;
+  /** Replaces the suggested description. */
+  description?: string;
+}
+
+/** Adds a new Entry for the row to `run`, or returns why it cannot be created. */
+export function planImport(row: ImportTransaction, choice: ImportChoice, run: RunDocument): string | null {
+  const category = choice.category;
   if (category === null) return 'it has no category.';
-  const { date, value } = row;
+  const { date } = row;
   if (date === null || !isCalendarDate(date)) return 'the bank did not send a date.';
-  if (value === null) return 'the bank did not send a value.';
-  if (value === 0) return 'the value is zero.';
+  if (row.value === null) return 'the bank did not send a value.';
+  if (row.value === 0) return 'the value is zero.';
+  const value = choice.value ?? row.value;
+  if (Math.round(Math.abs(value) * 100) !== Math.round(Math.abs(row.value) * 100)) {
+    return `value ${value} is not the bank value ${row.value}. Only the sign can change.`;
+  }
   if (category.tipo === 'd' && value > 0) {
     return `category "${category.nome}" is an expense, so the value must be negative.`;
   }
@@ -154,23 +193,23 @@ function planImport(row: ImportTransaction, selection: RunSelection, run: RunDoc
     ...reference(row),
     date,
     value,
-    description: row.suggestedDescription ?? row.description,
+    description: choice.description ?? row.suggestedDescription ?? row.description,
     categoryId: category.id,
     tagIds: row.suggestedTagIds,
-    status: date <= selection.today ? 'reconciled' : 'scheduled',
+    status: date <= choice.today ? 'reconciled' : 'scheduled',
   });
   return null;
 }
 
-function reference(row: ImportTransaction): RunReference {
+export function reference(row: ImportTransaction): RunReference {
   const integrationId = row.integrationId ?? '';
   return { integrationId, prefix: row.prefix ?? integrationId };
 }
 
-function label(row: ImportTransaction): string {
+export function label(row: ImportTransaction): string {
   return row.prefix ?? row.integrationId ?? '?';
 }
 
-function ids(candidates: readonly { id: number }[]): string {
+export function ids(candidates: readonly { id: number }[]): string {
   return candidates.map((candidate) => candidate.id).join(', ');
 }

@@ -6,7 +6,7 @@ import { logger } from '../../../utils/logger.js';
 import type { RunDocument } from './plan.js';
 
 /** The summary of a run: statement, counts, and each item by action. */
-export function printRun(run: RunDocument, context: { accountName: string | null; category: Category | null }): void {
+export function printRun(run: RunDocument, context: { accountName: string | null; categories: readonly Category[] }): void {
   const name = context.accountName ?? String(run.accountId);
   logger.header(`${run.dryRun ? 'Import dry run' : 'Import'} for ${name} (connection account ${run.connectionAccount})`);
   const { start, end, balance } = run.statement;
@@ -23,14 +23,13 @@ export function printRun(run: RunDocument, context: { accountName: string | null
       head: ['Prefix', 'Date', 'Value', 'Description', 'Category', 'Tags', 'Status'],
       style: { head: ['cyan'] },
     });
-    const categoryName = context.category?.nome ?? null;
     for (const item of run.imported) {
       table.push([
         item.prefix,
         item.date,
         formatCurrency(item.value),
         cell(item.description),
-        categoryName ?? String(item.categoryId),
+        context.categories.find((category) => category.id === item.categoryId)?.nome ?? String(item.categoryId),
         item.tagIds.length === 0 ? chalk.gray('-') : item.tagIds.join(', '),
         item.status === 'reconciled' ? 'Reconciled' : 'Scheduled',
       ]);

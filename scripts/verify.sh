@@ -181,6 +181,30 @@ import_run_dry() {
   fi
 }
 step "cli entries import run --dry-run (mock)" import_run_dry
+# Rehearses an Import from a --plan file. No --yes. Any write fails the step.
+import_run_plan_dry() {
+  local log="$MDCLI_MOCK_LOG"
+  local before=0
+  [ -f "$log" ] && before=$(wc -l <"$log")
+  local plan="$SANDBOX/import-plan.json"
+  cat >"$plan" <<'JSON'
+{"transactions":[{"id":"aaaaaaaa","action":"import","category":10,"description":"Plano ensaiado"}]}
+JSON
+  local out
+  out=$("${CLI[@]}" entries import run -a 1001 --plan "$plan" --dry-run </dev/null 2>&1) \
+    || { echo "saída: $out"; return 1; }
+  grep -Eq 'Plano ensaiado' <<<"$out" || { echo "esperava a descrição do plano em: $out"; return 1; }
+  grep -Eq 'Dry run' <<<"$out" || { echo "esperava o aviso de ensaio em: $out"; return 1; }
+  local fresh
+  fresh=$(tail -n +"$((before + 1))" "$log")
+  grep -Eq '/api/v1/integracao/account/9001/transactions' <<<"$fresh" \
+    || { echo "faltou GET de transactions: $fresh"; return 1; }
+  if grep -Ev '"method":"GET"' <<<"$fresh" | grep -q .; then
+    echo "entries import run --plan --dry-run não pode gravar: $fresh"
+    return 1
+  fi
+}
+step "cli entries import run --plan --dry-run (mock)" import_run_plan_dry
 # Writes an Import, mock only: markImported, conciliacao, importar, in this
 # order, and no Sync PUT.
 import_run_yes() {
