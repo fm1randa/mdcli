@@ -31,6 +31,18 @@ _Avoid_: "balance" for a card (`cards list --json` has none: `saldoUltimoExtrato
 A recurring Entry rule (agenda). Occurrences carry `agendaId` and `parcela` (e.g. `fixa`, `2/6`). On update/delete, `--scope this` (default) touches only the current occurrence; `--scope following` touches this one and the ones after it. Both map to the API flag `todos` (`false` / `true`). The web labels are "Apenas neste" / "Neste e em todos na sequência". There is no `--scope all` — the web only exposes that boolean.
 _Avoid_: "recurrence" alone (prefer Series when talking about `--scope`)
 
+**Connection**:
+A link between a bank and Meu Dinheiro through the web app's bank integration (Integração bancária). It belongs to one Account, and the bank's side of it is a connection account. **Sync** asks the bank for new data through the Connection (the web's "Atualizar conexão"), at most 3 times a day per connector.
+_Avoid_: "integration" for a single link (the integration is the feature; a Connection is one bank link)
+
+**Bank Transaction**:
+A movement the bank reported through a Connection that may not be an Entry yet. It has the bank's identifier, a description, a value and a date, but no Entry ID and no Status.
+_Avoid_: "transaction" alone, "entry" (an Entry is what exists in Meu Dinheiro)
+
+**Import**:
+Turning selected Bank Transactions into Entries, each with a Category. As in the web app, an Import is all or nothing: it runs only when every selected Bank Transaction has a Category. A Bank Transaction that matches an existing Entry (same Account and value, date within 2 days) already exists and is not imported again. The web calls this screen "Conciliação bancária", but importing is not the Reconciled Status: an imported Entry dated today or earlier simply starts as Reconciled.
+_Avoid_: "conciliação", "reconcile" for the act of importing (Reconciled is a Status)
+
 **Alias**:
 A user-defined short string mapped to exactly one Account, Category, or Tag ID. Stored locally in `~/.config/mdcli/mdcli.config.json`. Aliases are offline — no API call needed to resolve them.
 _Avoid_: "shortcut", "nickname"
