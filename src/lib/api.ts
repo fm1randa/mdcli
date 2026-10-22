@@ -210,6 +210,11 @@ export async function fetchImportCandidates(accountId: number, start: string, en
   return collected;
 }
 
+/** The web app's AI category suggestion. The answer is aligned with `tokens`: a Category id or null. */
+export async function suggestCategoriesWithAi(tokens: unknown[]): Promise<unknown> {
+  return request<unknown>('POST', '/v1/smartmatch/ai', { t: tokens });
+}
+
 /** One manual Sync. The body is the web app's sync button; there is no local daily counter. */
 export async function requestSync(connectionId: number): Promise<void> {
   await request<unknown>('PUT', `/v1/integracao/connection/update/${connectionId}`, { force: true });

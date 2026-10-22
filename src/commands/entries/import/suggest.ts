@@ -41,6 +41,21 @@ export function learnedFields(row: unknown): LearnedFields {
   };
 }
 
+export interface AiRequest {
+  kind: SuggestionKind;
+  token: unknown;
+}
+
+/** `_ca.ait[tipo]`, the token the web app sends to the AI, with the row's tipo. Null when there is none. */
+export function aiRequest(row: unknown): AiRequest | null {
+  const record = asRecord(row);
+  const ca = asRecord(record?._ca);
+  const kind = suggestionKind(numberOrNull(record?.valor), ca?.st === true);
+  if (ca === null || kind === null) return null;
+  const token = asRecord(ca.ait)?.[kind] ?? null;
+  return token === null ? null : { kind, token };
+}
+
 /** Smallest and largest calendar dates on the loaded rows. No date means no duplicate lookup. */
 export function loadedDateBounds(dates: readonly (string | null)[]): { start: string; end: string } | null {
   let start: string | null = null;

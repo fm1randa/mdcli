@@ -254,7 +254,7 @@ describe('entries import list suggestions', () => {
     expect(mutations(api)).toHaveLength(0);
   });
 
-  test('reads suggested tag ids as one number or a list of numbers', async () => {
+  test('reads suggested ids as numbers or decimal-integer strings, one or a list', async () => {
     statement([
       {
         integrationId: TAG_ONE,
@@ -312,7 +312,7 @@ describe('entries import list suggestions', () => {
       { suggestedTagIds: [501, 502], categoryId: null },
       { suggestedTagIds: [502], categoryId: null },
       { suggestedTagIds: [], categoryId: 11 },
-      { suggestedTagIds: [501], categoryId: null },
+      { suggestedTagIds: [501, 502], categoryId: 20 },
     ]);
     expect(mutations(api)).toHaveLength(0);
   });

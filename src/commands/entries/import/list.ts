@@ -3,13 +3,14 @@ import chalk from 'chalk';
 import { fetchAccountById, fetchBankTransactions, fetchCardInvoice, fetchCategories, fetchImportCandidates, fetchImportDuplicates, isCreditCard } from '../../../lib/api.js';
 import { resolveId } from '../../../lib/aliases.js';
 import { isCalendarDate } from '../../../lib/dates.js';
-import type { Account } from '../../../types/index.js';
+import type { Account, Category } from '../../../types/index.js';
 import { exitWithError } from '../../../utils/action.js';
 import { formatCurrency } from '../../../utils/currency.js';
 import { logger } from '../../../utils/logger.js';
+import { fillAiCategories } from './ai.js';
 import { candidatesFor } from './candidates.js';
 import { toImportDocument, type ImportDocument, type SuggestedCategory } from './document.js';
-import { duplicateId, loadedDateBounds } from './suggest.js';
+import { aiRequest, duplicateId, loadedDateBounds } from './suggest.js';
 import { linkedConnection } from './link.js';
 import { asRecord } from './read.js';
 import { defaultSince, explicitSince } from './since.js';
@@ -54,11 +55,11 @@ export async function listAction(options: ImportListOptions): Promise<void> {
   if (from !== null && to !== null && from > to) {
     exitWithError(`Search start ${from} is after search end ${to}.`);
   }
-  await Promise.all([
-    fillCategoryNames(document),
-    fillDuplicates(document, accountId),
-  ]);
-  await fillCandidates(document, account, payload);
+  await fillDuplicates(document, accountId);
+  const automaticCounts = await fillCandidates(document, account, payload);
+  const catalog = categoryCatalog();
+  await fillAiCategories(document, statementRows(payload).map(aiRequest), automaticCounts, catalog);
+  await fillCategoryNames(document, catalog);
 
   if (options.json) {
     console.log(JSON.stringify(document, null, 2));
@@ -67,14 +68,23 @@ export async function listAction(options: ImportListOptions): Promise<void> {
   printStatement(document);
 }
 
+/** The Category catalog, fetched at most once per listing and only when asked for. */
+function categoryCatalog(): () => Promise<readonly Category[]> {
+  let loaded: Promise<readonly Category[]> | null = null;
+  return () => {
+    loaded ??= fetchCategories().then((response) => response.items);
+    return loaded;
+  };
+}
+
 /** `nome` from the Category catalog. An id the catalog does not have stays null. */
-async function fillCategoryNames(document: ImportDocument): Promise<void> {
+async function fillCategoryNames(document: ImportDocument, catalog: () => Promise<readonly Category[]>): Promise<void> {
   const pending: SuggestedCategory[] = [];
   for (const row of document.transactions) {
     if (row.suggestedCategory !== null) pending.push(row.suggestedCategory);
   }
   if (pending.length === 0) return;
-  const { items } = await fetchCategories();
+  const items = await catalog();
   const names = new Map<number, string>();
   for (const item of items) names.set(item.id, item.nome);
   for (const category of pending) {
@@ -94,12 +104,16 @@ async function fillDuplicates(document: ImportDocument, accountId: number): Prom
   }
 }
 
-/** Same value inside the search window. One or more automatic matches conciliate, and that wins over a duplicate. */
-async function fillCandidates(document: ImportDocument, account: Account | undefined, payload: unknown): Promise<void> {
-  if (document.transactions.length === 0) return;
+/**
+ * Same value inside the search window. One or more automatic matches conciliate, and that wins over a duplicate.
+ * Returns how many automatic matches each row has.
+ */
+async function fillCandidates(document: ImportDocument, account: Account | undefined, payload: unknown): Promise<number[]> {
+  const counts = document.transactions.map(() => 0);
+  if (document.transactions.length === 0) return counts;
   const from = document.search.from;
   const to = document.search.to;
-  if (from === null || to === null) return;
+  if (from === null || to === null) return counts;
 
   const card = account !== undefined && isCreditCard(account);
   const rows = card
@@ -115,8 +129,10 @@ async function fillCandidates(document: ImportDocument, account: Account | undef
       card ? 'invoice' : 'entry',
     );
     transaction.candidates = matched.candidates;
-    if (matched.automatic) transaction.defaultAction = 'conciliate';
+    counts[index] = matched.automatic;
+    if (matched.automatic > 0) transaction.defaultAction = 'conciliate';
   }
+  return counts;
 }
 
 async function invoiceRows(account: Account): Promise<unknown[]> {
@@ -134,10 +150,13 @@ function invoiceDueDate(account: Account): string {
   exitWithError(`Account ${account.id} has no proximoVencimento date to load an invoice from.`);
 }
 
-function documentNumbers(payload: unknown): (string | null)[] {
+function statementRows(payload: unknown): unknown[] {
   const rows = asRecord(payload)?.lancamentos;
-  if (!Array.isArray(rows)) return [];
-  return rows.map((row) => {
+  return Array.isArray(rows) ? rows : [];
+}
+
+function documentNumbers(payload: unknown): (string | null)[] {
+  return statementRows(payload).map((row) => {
     const value = asRecord(row)?.ndocumento;
     return typeof value === 'string' && value !== '' ? value : null;
   });
@@ -198,11 +217,15 @@ function printStatement(document: ImportDocument): void {
   }
   logger.header(`Bank transactions (${document.transactions.length}) since ${document.since}`);
   console.log(table.toString());
+  if (document.ai === 'unavailable') {
+    logger.warning('AI category suggestions are unavailable. Only the learned rules were applied.');
+  }
 }
 
 function categoryLabel(category: SuggestedCategory | null): string | null {
   if (category === null) return null;
-  return category.name ?? String(category.id);
+  const label = category.name ?? String(category.id);
+  return category.source === 'ai' ? `${label} (AI)` : label;
 }
 
 function cell(value: string | null): string {

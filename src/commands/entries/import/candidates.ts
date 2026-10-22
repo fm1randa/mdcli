@@ -15,15 +15,15 @@ interface BankSide {
   ndocumento: string | null;
 }
 
-/** Same signed value inside the window. Automatic when the entry is also within 2 calendar days. */
+/** Same signed value inside the window. `automatic` counts the entries also within 2 calendar days. */
 export function candidatesFor(
   bank: BankSide,
   rows: readonly unknown[],
   window: { from: string; to: string },
   source: 'entry' | 'invoice',
-): { candidates: ImportCandidate[]; automatic: boolean } {
+): { candidates: ImportCandidate[]; automatic: number } {
   const candidates: ImportCandidate[] = [];
-  let automatic = false;
+  let automatic = 0;
   for (const row of rows) {
     const record = asRecord(row);
     const candidate = record === null ? null : readCandidate(record, source);
@@ -33,7 +33,7 @@ export function candidatesFor(
     if (documentsDiffer(bank.ndocumento, record.ndocumento)) continue;
     candidates.push(candidate);
     if (bank.date !== null && isCalendarDate(bank.date) && withinTwoDays(bank.date, candidate.date)) {
-      automatic = true;
+      automatic += 1;
     }
   }
   return { candidates, automatic };

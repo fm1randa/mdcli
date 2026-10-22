@@ -16,7 +16,7 @@ interface BankTransaction {
 export interface SuggestedCategory {
   id: number;
   name: string | null;
-  source: 'rule';
+  source: 'rule' | 'ai';
 }
 
 interface ImportTransaction {
@@ -39,7 +39,7 @@ export interface ImportDocument {
   since: string;
   statement: { start: string | null; end: string | null; balance: number | null };
   search: { from: string | null; to: string | null };
-  ai: 'unused';
+  ai: 'ok' | 'unavailable' | 'unused';
   transactions: ImportTransaction[];
 }
 
