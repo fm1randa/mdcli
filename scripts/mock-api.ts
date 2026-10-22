@@ -10,6 +10,7 @@ import {
 } from '../test/fixtures.js';
 import { SEEDED_ENTRIES, checkCreatePayload, createCardPurchase, createdEntry, invoiceItems, statusLabel } from './mock-entries.js';
 import { connectionsRoute, recordMockRequest } from './mock-connections.js';
+import { importRoute } from './mock-import.js';
 
 // GitHub "latest release" endpoint used by the self-updater (no auth).
 const MOCK_LATEST_TAG = 'v2099.1.1';
@@ -347,6 +348,8 @@ const server = Bun.serve({
     }
     const connections = connectionsRoute(req.method, url.pathname);
     if (connections) return connections;
+    const imported = importRoute(req.method, url);
+    if (imported) return imported;
     return notFound();
   },
 });

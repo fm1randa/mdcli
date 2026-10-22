@@ -1,0 +1,127 @@
+import { addInterval, isCalendarDate } from '../../../lib/dates.js';
+import { asRecord, numberOrNull, textOrNull } from './read.js';
+
+interface BankTransaction {
+  integrationId: string | null;
+  date: string | null;
+  value: number | null;
+  description: string | null;
+}
+
+interface ImportTransaction {
+  integrationId: string | null;
+  prefix: string | null;
+  date: string | null;
+  value: number | null;
+  description: string | null;
+  suggestedDescription: null;
+  suggestedTagIds: number[];
+  suggestedCategory: null;
+  duplicateOf: null;
+  candidates: [];
+  defaultAction: 'needs-category';
+}
+
+export interface ImportDocument {
+  account: { id: number; name: string | null };
+  connection: { id: number; connectionAccount: number };
+  since: string;
+  statement: { start: string | null; end: string | null; balance: number | null };
+  search: { from: string | null; to: string | null };
+  ai: 'unused';
+  transactions: ImportTransaction[];
+}
+
+export function toImportDocument(input: {
+  accountId: number;
+  accountName: string | null;
+  connectionId: number;
+  connectionAccount: number;
+  since: string;
+  payload: unknown;
+}): ImportDocument {
+  const record = asRecord(input.payload);
+  if (!record) {
+    throw new Error(
+      `GET /v1/integracao/account/${input.connectionAccount}/transactions did not return a statement`,
+    );
+  }
+  const rows = record.lancamentos;
+  if (rows !== undefined && !Array.isArray(rows)) {
+    throw new Error(
+      `GET /v1/integracao/account/${input.connectionAccount}/transactions did not return lancamentos`,
+    );
+  }
+  const items = (Array.isArray(rows) ? rows : []).map(readBankTransaction);
+  const prefixes = uniquePrefixes(items.map((item) => item.integrationId));
+  const start = textOrNull(record.inicio);
+  const end = textOrNull(record.fim);
+  return {
+    account: { id: input.accountId, name: input.accountName },
+    connection: { id: input.connectionId, connectionAccount: input.connectionAccount },
+    since: input.since,
+    statement: { start, end, balance: numberOrNull(record.saldo) },
+    search: searchWindow(start, end),
+    ai: 'unused',
+    transactions: items.map((item, index) => toTransaction(item, prefixes[index] ?? null)),
+  };
+}
+
+function readBankTransaction(value: unknown): BankTransaction {
+  const record = asRecord(value);
+  return {
+    integrationId: textOrNull(record?.integrationId),
+    date: textOrNull(record?.data),
+    value: numberOrNull(record?.valor),
+    description: textOrNull(record?.descricao),
+  };
+}
+
+function toTransaction(item: BankTransaction, prefix: string | null): ImportTransaction {
+  return {
+    integrationId: item.integrationId,
+    prefix,
+    date: item.date,
+    value: item.value,
+    description: item.description,
+    suggestedDescription: null,
+    suggestedTagIds: [],
+    suggestedCategory: null,
+    duplicateOf: null,
+    candidates: [],
+    defaultAction: 'needs-category',
+  };
+}
+
+/** Statement period expanded by 2 days on each side (the web app's default search). */
+function searchWindow(start: string | null, end: string | null): { from: string | null; to: string | null } {
+  if (start === null || end === null || !isCalendarDate(start) || !isCalendarDate(end)) {
+    return { from: null, to: null };
+  }
+  return { from: addInterval(start, -2, 'd'), to: addInterval(end, 2, 'd') };
+}
+
+/** At least 8 characters, grown until unique in this list. Comparison ignores case. */
+function uniquePrefixes(ids: readonly (string | null)[]): (string | null)[] {
+  const known: string[] = [];
+  for (const id of ids) {
+    if (id !== null) known.push(id.toLowerCase());
+  }
+  return ids.map((id) => {
+    if (id === null) return null;
+    return id.slice(0, prefixLength(id.toLowerCase(), known));
+  });
+}
+
+function prefixLength(mine: string, all: readonly string[]): number {
+  const start = Math.min(8, mine.length);
+  for (let length = start; length < mine.length; length += 1) {
+    const head = mine.slice(0, length);
+    let count = 0;
+    for (const other of all) {
+      if (other.startsWith(head)) count += 1;
+    }
+    if (count === 1) return length;
+  }
+  return mine.length;
+}

@@ -88,6 +88,8 @@ for c in auth accounts categories tags entries cards sync; do
 done
 step "cli sync list --help" expect_ok 'Usage' sync list --help
 step "cli sync run --help"  expect_ok 'Usage' sync run --help
+step "cli entries import --help" expect_ok 'Usage' entries import --help
+step "cli entries import list --help" expect_ok 'Usage' entries import list --help
 step "cli comando inválido" expect_fail 'unknown command' nope
 step "cli auth status"      expect_ok 'Authenticated: No' auth status
 step "cli sem login"        expect_fail 'Not authenticated' accounts list
@@ -126,6 +128,30 @@ sync_list() {
 }
 step "cli accounts list (mock)"        expect_ok 'Nubank' accounts list
 step "cli sync list (mock)"            sync_list
+# Reads the statement. No --yes. A POST or PUT fails the step.
+import_list() {
+  local log="$MDCLI_MOCK_LOG"
+  local before=0
+  [ -f "$log" ] && before=$(wc -l <"$log")
+  local out
+  out=$("${CLI[@]}" entries import list -a 1001 </dev/null 2>&1) || { echo "saída: $out"; return 1; }
+  grep -Eq 'Padaria Ficticia' <<<"$out" || { echo "esperava o extrato em: $out"; return 1; }
+  grep -Eq 'aaaaaaaa' <<<"$out" || { echo "esperava o prefixo em: $out"; return 1; }
+  local fresh
+  fresh=$(tail -n +"$((before + 1))" "$log")
+  [ -n "$fresh" ] || { echo "mock não registrou o import list"; return 1; }
+  if grep -Ev '"method":"GET"' <<<"$fresh" | grep -q .; then
+    echo "entries import list não pode gravar: $fresh"
+    return 1
+  fi
+  grep -Eq '/api/v1/integracao/account/9001/transactions' <<<"$fresh" \
+    || { echo "faltou GET de transactions: $fresh"; return 1; }
+  if grep -Eq 'markImported|connection/update|/lancamentos/importar|/lancamentos/conciliacao' <<<"$fresh"; then
+    echo "entries import list chamou gravação ou sync: $fresh"
+    return 1
+  fi
+}
+step "cli entries import list (mock)"  import_list
 step "cli accounts list --json (mock)" bash -c '"$@" accounts list --json </dev/null | bun -e "const d=JSON.parse(await Bun.stdin.text()); if(!JSON.stringify(d).includes(\"Nubank\")) process.exit(1)"' _ "${CLI[@]}"
 # Writes (POST/PUT/DELETE) go through the same request() path as reads; the
 # mock checks the JSON payload, echoes it back and answers DELETE with 204.

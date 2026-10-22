@@ -165,6 +165,12 @@ export async function fetchConnections(): Promise<ConnectionPayload[]> {
   return request<ConnectionPayload[]>('GET', '/v1/integracao/connections');
 }
 
+/** Bank transactions for one connection account. Does not request a Sync. */
+export async function fetchBankTransactions(connectionAccount: number, start: string): Promise<unknown> {
+  const query = new URLSearchParams({ start });
+  return request<unknown>('GET', `/v1/integracao/account/${connectionAccount}/transactions?${query.toString()}`);
+}
+
 /** One manual Sync. The body is the web app's sync button; there is no local daily counter. */
 export async function requestSync(connectionId: number): Promise<void> {
   await request<unknown>('PUT', `/v1/integracao/connection/update/${connectionId}`, { force: true });

@@ -5,6 +5,7 @@ import { deleteAction } from './delete.js';
 import { addFilterOptions } from './filters.js';
 import { listAction, summaryAction } from './list.js';
 import { scopeOption } from './series.js';
+import { importCommand } from './import/index.js';
 import { showAction } from './show.js';
 import { updateAction } from './update.js';
 
@@ -82,3 +83,5 @@ entriesCommand
   .option('--dangerously-skip-confirmation', 'Skip confirmation prompt')
   .option('--json', 'Output as JSON')
   .action(action(deleteAction));
+
+entriesCommand.addCommand(importCommand);
