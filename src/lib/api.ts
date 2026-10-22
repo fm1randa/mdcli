@@ -165,6 +165,11 @@ export async function fetchConnections(): Promise<ConnectionPayload[]> {
   return request<ConnectionPayload[]>('GET', '/v1/integracao/connections');
 }
 
+/** One manual Sync. The body is the web app's sync button; there is no local daily counter. */
+export async function requestSync(connectionId: number): Promise<void> {
+  await request<unknown>('PUT', `/v1/integracao/connection/update/${connectionId}`, { force: true });
+}
+
 export async function createAccount(payload: CreateAccountPayload): Promise<Account> {
   return request<Account>('POST', '/v1/cadastros/contas', payload);
 }

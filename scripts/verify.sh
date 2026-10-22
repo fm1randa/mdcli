@@ -87,6 +87,7 @@ for c in auth accounts categories tags entries cards sync; do
   step "cli $c --help"      expect_ok 'Usage' "$c" --help
 done
 step "cli sync list --help" expect_ok 'Usage' sync list --help
+step "cli sync run --help"  expect_ok 'Usage' sync run --help
 step "cli comando inválido" expect_fail 'unknown command' nope
 step "cli auth status"      expect_ok 'Authenticated: No' auth status
 step "cli sem login"        expect_fail 'Not authenticated' accounts list

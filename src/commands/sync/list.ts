@@ -37,7 +37,7 @@ function accountName(accountId: number | null, accounts: Account[]): string | nu
 }
 
 /** A field the connections payload did not send stays null. Names come only from the account registry. */
-function toSyncList(payload: unknown, accounts: Account[]): SyncListConnection[] {
+export function toSyncList(payload: unknown, accounts: Account[]): SyncListConnection[] {
   if (!Array.isArray(payload)) {
     throw new Error('GET /v1/integracao/connections did not return a list of connections');
   }
@@ -74,6 +74,11 @@ export async function listAction(options: { json?: boolean }): Promise<void> {
     return;
   }
 
+  printSyncList(connections);
+}
+
+/** Same table as `sync list`: one row per connection account. */
+export function printSyncList(connections: SyncListConnection[]): void {
   const table = new Table({
     head: ['Connection', 'Status', 'Type', 'Connection account', 'Account'],
     style: { head: ['cyan'] },

@@ -122,6 +122,7 @@ export async function runCli(
       // reads the config this test wrote.
       MDCLI_CONFIG_DIR: join(env.home.dir, '.config', 'mdcli'),
       MDCLI_API_URL: env.api.url,
+      MDCLI_NO_AUTO_UPDATE: '1',
       FORCE_COLOR: '0',
       ...env.extraEnv,
     },
