@@ -5,6 +5,8 @@
 Everything code-related must be written in American English. Examples: variables, functions, comments, commits.
 Issues and pull requests must be written in Brazilian Portuguese.
 
+`README.md` is written in Brazilian Portuguese and is the reference version. `README.en.md` is its English translation: whenever a PR changes `README.md`, update `README.en.md` in the same PR to match, and set the commit SHA in the comment at the top of `README.en.md` to the commit the translation now reflects.
+
 ## Post-Completion Verification
 
 After completing any user request that modifies code:
