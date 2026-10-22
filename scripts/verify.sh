@@ -83,13 +83,18 @@ expect_json_error() { # expect_json_error <regex on .error> <args...> — fails,
 PKG_VERSION=$(bun -e 'console.log((await Bun.file("package.json").json()).version)')
 step "cli --version"        expect_ok "^${PKG_VERSION//./\\.}\$" --version
 step "cli --help"           expect_ok 'accounts' --help
-for c in auth accounts categories tags entries cards; do
+for c in auth accounts categories tags entries cards sync; do
   step "cli $c --help"      expect_ok 'Usage' "$c" --help
 done
+step "cli sync list --help" expect_ok 'Usage' sync list --help
 step "cli comando inválido" expect_fail 'unknown command' nope
 step "cli auth status"      expect_ok 'Authenticated: No' auth status
 step "cli sem login"        expect_fail 'Not authenticated' accounts list
 
+# One JSON line per request, so the sync list step can see the method.
+# Unset, the mock does not write this file. Older steps do not read it.
+export MDCLI_MOCK_LOG="$SANDBOX/mock-requests.log"
+: >"$MDCLI_MOCK_LOG"
 PORT_FILE="$SANDBOX/port"
 bun scripts/mock-api.ts >"$PORT_FILE" 2>/dev/null </dev/null &
 MOCK_PID=$!
@@ -99,7 +104,27 @@ export MDCLI_API_URL="http://127.0.0.1:$(head -1 "$PORT_FILE")/api"
 cat >"$SANDBOX/mdcli.config.json" <<JSON
 {"auth":{"apiKey":"verify-key","uid":"verify-uid"},"authMethod":"manual"}
 JSON
+# Reads connections and the account registry. No --yes. A PUT or POST fails the step.
+sync_list() {
+  local log="$MDCLI_MOCK_LOG"
+  local before=0
+  [ -f "$log" ] && before=$(wc -l <"$log")
+  local out
+  out=$("${CLI[@]}" sync list </dev/null 2>&1) || { echo "saída: $out"; return 1; }
+  grep -Eq 'Nubank' <<<"$out" || { echo "esperava Nubank em: $out"; return 1; }
+  grep -Eq 'No account' <<<"$out" || { echo "esperava conta sem vínculo em: $out"; return 1; }
+  local fresh
+  fresh=$(tail -n +"$((before + 1))" "$log")
+  [ -n "$fresh" ] || { echo "mock não registrou o sync list"; return 1; }
+  if grep -Ev '"method":"GET"' <<<"$fresh" | grep -q .; then
+    echo "sync list não pode gravar: $fresh"
+    return 1
+  fi
+  grep -Eq '/api/v1/integracao/connections' <<<"$fresh" \
+    || { echo "faltou GET de connections: $fresh"; return 1; }
+}
 step "cli accounts list (mock)"        expect_ok 'Nubank' accounts list
+step "cli sync list (mock)"            sync_list
 step "cli accounts list --json (mock)" bash -c '"$@" accounts list --json </dev/null | bun -e "const d=JSON.parse(await Bun.stdin.text()); if(!JSON.stringify(d).includes(\"Nubank\")) process.exit(1)"' _ "${CLI[@]}"
 # Writes (POST/PUT/DELETE) go through the same request() path as reads; the
 # mock checks the JSON payload, echoes it back and answers DELETE with 204.

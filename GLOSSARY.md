@@ -32,7 +32,7 @@ A recurring Entry rule (agenda). Occurrences carry `agendaId` and `parcela` (e.g
 _Avoid_: "recurrence" alone (prefer Series when talking about `--scope`)
 
 **Connection**:
-A link between a bank and Meu Dinheiro through the web app's bank integration (Integração bancária). It belongs to one Account, and the bank's side of it is a connection account. **Sync** asks the bank for new data through the Connection (the web's "Atualizar conexão"), at most 3 times a day per connector.
+A link between a bank and Meu Dinheiro through the web app's bank integration (Integração bancária). A Connection has zero or more Accounts (Banco do Brasil and Ourocard can share one). Each bank-side account is a connection account, optionally linked to an Account. **Sync** asks the bank for new data through the Connection (the web's "Atualizar conexão"), at most 3 times a day per connector.
 _Avoid_: "integration" for a single link (the integration is the feature; a Connection is one bank link)
 
 **Bank Transaction**:

@@ -1,4 +1,4 @@
-import type { ApiHeaders, AuthConfig, AuthMethod, CategoriesResponse, Category, CreateCategoryPayload, UpdateCategoryPayload, AccountsResponse, TagsResponse, EntriesResponse, EntriesParams, CreateEntryPayload, CreateEntryResponse, UpdateEntryPayload, UpdateTransferPayload, Entry, CardInvoiceResponse, CardFutureResponse, Account, CreateAccountPayload, UpdateAccountPayload, CreateTagPayload, CreateTagResponse } from '../types/index.js';
+import type { ApiHeaders, AuthConfig, AuthMethod, CategoriesResponse, Category, CreateCategoryPayload, UpdateCategoryPayload, AccountsResponse, TagsResponse, EntriesResponse, EntriesParams, CreateEntryPayload, CreateEntryResponse, UpdateEntryPayload, UpdateTransferPayload, Entry, CardInvoiceResponse, CardFutureResponse, Account, CreateAccountPayload, UpdateAccountPayload, CreateTagPayload, CreateTagResponse, ConnectionPayload } from '../types/index.js';
 import { getAuth, getAuthMethod, setAuth, getOpItem, invalidateNameCache } from './config.js';
 import { popStaleNameCacheUse } from './cache-invalidation.js';
 import { captureAuthHeadless } from './browser-auth.js';
@@ -158,6 +158,11 @@ export async function deleteCategory(id: number, moveEntriesToId: number): Promi
 
 export async function fetchAccounts(): Promise<AccountsResponse> {
   return request<AccountsResponse>('GET', '/v1/cadastros/contas?meta=true&paginate=false');
+}
+
+/** Connections only. Does not request a Sync. */
+export async function fetchConnections(): Promise<ConnectionPayload[]> {
+  return request<ConnectionPayload[]>('GET', '/v1/integracao/connections');
 }
 
 export async function createAccount(payload: CreateAccountPayload): Promise<Account> {
