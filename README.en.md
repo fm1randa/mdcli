@@ -1,4 +1,4 @@
-<!-- traduzido de README.md @ f35c705 (base: f35c705a3f1832bc72df52866bd7d16e70ce7cf3; readme-blob: 4041ad6c5b5351d00322ce79b776d4ee0194c6b9); ao atualizar o README.md, sincronize este arquivo e atualize o SHA e o readme-blob (git hash-object README.md) -->
+<!-- traduzido de README.md @ f35c705 (base: f35c705a3f1832bc72df52866bd7d16e70ce7cf3; readme-blob: 75168bfbd0f405a5d64d329a4bd0edd40bd07ba4); ao atualizar o README.md, sincronize este arquivo e atualize o SHA e o readme-blob (git hash-object README.md) -->
 
 [Português (Brasil)](README.md) · **English**
 
@@ -299,7 +299,8 @@ mdcli entries delete 12345 --scope following
 
 # List credit cards (--json has limit, dueDay, nextDueDate, nextClosingDate,
 # closingDaysBeforeDue and paymentAccountId; no balance, which means nothing
-# for a card)
+# for a card). null dueDay/nextDueDate/nextClosingDate: the API has no next due
+# date and the CLI counts invoices from primeiraFatura (see docs/cards-json.md)
 mdcli cards list --active
 
 # Show a credit card invoice (defaults to the current/next one): the summary the
