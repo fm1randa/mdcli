@@ -5,6 +5,11 @@
 Everything code-related must be written in American English. Examples: variables, functions, comments, commits.
 Issues and pull requests must be written in Brazilian Portuguese.
 
+`README.md` is written in Brazilian Portuguese and is the reference version. `README.en.md` is its English translation: whenever a PR changes `README.md`, update `README.en.md` in the same PR to match, and update the comment on line 1 of `README.en.md`:
+
+- `readme-blob:` the git blob hash of the `README.md` the translation matches, from `git hash-object README.md` run on the final `README.md`. `scripts/verify.sh` (step `readme sync`) fails when it differs from the current `README.md`, so a `README.md` change without a synced translation does not pass CI.
+- The commit SHA (short after `@`, full after `base:`): the commit on `main` the translation was last synced from. In a PR that changes `README.md` itself, keep the `main` commit the branch starts from (the squash-merge SHA is not known in advance); the blob is what pins the exact content.
+
 ## Post-Completion Verification
 
 After completing any user request that modifies code:

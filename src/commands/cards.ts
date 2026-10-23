@@ -44,8 +44,7 @@ async function listAction(options: { json?: boolean; active?: boolean }): Promis
       card.nome,
       card.banco?.nome ?? chalk.gray('-'),
       card.limite ? formatCurrency(card.limite) : chalk.gray('-'),
-      // Display only, not an invoice anchor (see cardDueAnchor).
-      // eslint-disable-next-line no-restricted-syntax
+      // eslint-disable-next-line local/no-due-anchor-fallback -- display only (Next Due column), not an invoice anchor (see cardDueAnchor)
       card.proximoVencimento ?? chalk.gray('-'),
       formatStatus(card.status, card.encerrada),
     ]);

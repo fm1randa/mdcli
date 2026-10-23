@@ -1,10 +1,12 @@
+**Português (Brasil)** · [English](README.en.md)
+
 # mdcli
 
-Unofficial CLI client for [Meu Dinheiro](https://meudinheiroweb.com.br) - a Brazilian personal finance app.
+Cliente de linha de comando (CLI) não oficial do [Meu Dinheiro](https://meudinheiroweb.com.br), um app brasileiro de finanças pessoais.
 
-## Installation
+## Instalação
 
-> Requires [Bun](https://bun.sh). mdcli runs TypeScript directly and relies on Bun-only APIs, so it does not run under plain Node.js.
+> Requer o [Bun](https://bun.sh). O mdcli executa TypeScript diretamente e depende de APIs exclusivas do Bun, então não roda no Node.js puro.
 
 ### Global
 
@@ -12,29 +14,29 @@ Unofficial CLI client for [Meu Dinheiro](https://meudinheiroweb.com.br) - a Braz
 bun install -g github:fm1randa/mdcli
 ```
 
-#### Automatic updates
+#### Atualizações automáticas
 
-A global install keeps itself on the latest **release** (a `vYYYY.M.D` tag with a GitHub Release). Commits merged to `main` without a release are not installed.
+Uma instalação global se mantém sempre na **release** mais recente (uma tag `vYYYY.M.D` com uma GitHub Release). Commits mesclados na `main` sem uma release não são instalados.
 
-At most once every 24 hours, mdcli asks GitHub for the latest release (`api.github.com/repos/fm1randa/mdcli/releases/latest`, 1.5 s timeout, no token) and compares it with the installed version (the `package.json` of the install). If the release is newer, it runs `bun install -g github:fm1randa/mdcli#<tag>` in the background; the new version is used from the next run on, which prints one line to stderr, e.g. `mdcli atualizado de 2026.10.13 para 2026.10.20`. stdout is never touched, so `--json` and `--csv` output stays clean.
+No máximo uma vez a cada 24 horas, o mdcli consulta o GitHub pela release mais recente (`api.github.com/repos/fm1randa/mdcli/releases/latest`, timeout de 1,5 s, sem token) e a compara com a versão instalada (o `package.json` da instalação). Se a release for mais nova, ele executa `bun install -g github:fm1randa/mdcli#<tag>` em segundo plano; a nova versão passa a ser usada a partir da próxima execução, que imprime uma linha no stderr, por exemplo `mdcli atualizado de 2026.10.13 para 2026.10.20`. O stdout nunca é afetado, então a saída de `--json` e `--csv` continua limpa.
 
-The check is skipped when running from a source checkout, when `CI` is set, and when offline; a failed check or update never fails the command. The last check time is stored in `update-check.json` inside the config directory (`MDCLI_CONFIG_DIR`, default `~/.config/mdcli`).
+A verificação é ignorada ao rodar a partir de um checkout do código-fonte, quando `CI` está definida e quando não há conexão; uma verificação ou atualização que falhe nunca faz o comando falhar. O horário da última verificação fica salvo em `update-check.json`, dentro do diretório de configuração (`MDCLI_CONFIG_DIR`, padrão `~/.config/mdcli`).
 
-To update right away (in the foreground, reporting the result; works even with automatic updates off):
+Para atualizar na hora (em primeiro plano, informando o resultado; funciona mesmo com as atualizações automáticas desligadas):
 
 ```bash
 mdcli update
 ```
 
-To turn automatic updates off, either set the environment variable:
+Para desligar as atualizações automáticas, defina a variável de ambiente:
 
 ```bash
 export MDCLI_NO_AUTO_UPDATE=1
 ```
 
-or add `"autoUpdate": false` to `~/.config/mdcli/mdcli.config.json`.
+ou adicione `"autoUpdate": false` ao `~/.config/mdcli/mdcli.config.json`.
 
-### From Source
+### A partir do código-fonte
 
 ```bash
 gh repo clone fm1randa/mdcli
@@ -43,48 +45,48 @@ bun install
 bun dev --help
 ```
 
-### Optional: 1Password CLI
+### Opcional: 1Password CLI
 
-For automatic login when browser session extraction fails, install the [1Password CLI](https://developer.1password.com/docs/cli/get-started/):
+Para login automático quando a extração da sessão do navegador falhar, instale o [1Password CLI](https://developer.1password.com/docs/cli/get-started/):
 
 ```bash
 # macOS
 brew install 1password-cli
 
 # Linux
-# See https://developer.1password.com/docs/cli/get-started/#install
+# Veja https://developer.1password.com/docs/cli/get-started/#install
 ```
 
-Create a 1Password item with the following fields:
-- `username` - your login email
-- `password` - your password
-- `otp` - one-time password (configured as TOTP)
+Crie um item no 1Password com os seguintes campos:
+- `username` - seu e-mail de login
+- `password` - sua senha
+- `otp` - senha de uso único (configurada como TOTP)
 
-### Optional: 2Captcha API Key
+### Opcional: chave de API do 2Captcha
 
-If the login page shows a reCAPTCHA challenge, you can configure a [2Captcha](https://2captcha.com/) API key to automatically solve it:
+Se a página de login mostrar um desafio reCAPTCHA, você pode configurar uma chave de API do [2Captcha](https://2captcha.com/) para resolvê-lo automaticamente:
 
 ```bash
 mdcli auth login --captcha-key <your-2captcha-api-key>
 ```
 
-The API key is saved to config and reused for future logins.
+A chave de API é salva na configuração e reutilizada nos próximos logins.
 
-## Authentication
+## Autenticação
 
-The API authenticates each request with two headers, `Mdapikey` and `Mduid`, plus a bearer token when one is available. Every login method below ends up saving these values to `~/.config/mdcli/mdcli.config.json`.
+A API autentica cada requisição com dois headers, `Mdapikey` e `Mduid`, além de um bearer token quando houver um. Todos os métodos de login abaixo acabam salvando esses valores em `~/.config/mdcli/mdcli.config.json`.
 
-### Default flow
+### Fluxo padrão
 
 ```bash
 mdcli auth login
 ```
 
-Without flags, the CLI first tries the method that worked last time (a Chrome session on first run). If that fails and you're in an interactive terminal, it offers the other methods. Outside a terminal (scripts, CI) it exits with an error listing the explicit flags instead of waiting for input.
+Sem flags, a CLI tenta primeiro o método que funcionou da última vez (uma sessão do Chrome na primeira execução). Se ele falhar e você estiver em um terminal interativo, ela oferece os outros métodos. Fora de um terminal (scripts, CI), ela sai com um erro listando as flags explícitas em vez de ficar esperando uma entrada.
 
-### Browser session
+### Sessão do navegador
 
-If you're already logged into Meu Dinheiro in a browser, the CLI can reuse that session:
+Se você já está logado no Meu Dinheiro em um navegador, a CLI pode reaproveitar essa sessão:
 
 ```bash
 mdcli auth login --session chrome
@@ -92,17 +94,17 @@ mdcli auth login --session edge
 mdcli auth login --session firefox
 ```
 
-On macOS, reading a browser profile requires **Full Disk Access** for the terminal app you run `mdcli` from (System Settings → Privacy & Security → Full Disk Access). Restart the terminal after enabling it.
+No macOS, ler um perfil do navegador exige **Acesso Total ao Disco** para o app de terminal em que você roda o `mdcli` (Ajustes do Sistema → Privacidade e Segurança → Acesso Total ao Disco). Reinicie o terminal depois de ativar.
 
-### Manual entry
+### Entrada manual
 
-Copy the headers from your browser's DevTools: open the **Network** tab, pick any request to `/api/`, and look under **Request Headers**.
+Copie os headers pelo DevTools do navegador: abra a aba **Network** (Rede), escolha qualquer requisição para `/api/` e procure em **Request Headers** (Cabeçalhos de solicitação).
 
 ```bash
 mdcli auth login --manual
 ```
 
-You'll be asked for `Mdapikey`, `Mduid`, and the bearer token (the `Authorization` value without `Bearer `). This method doesn't automate a browser, so it works even where the others are blocked.
+Serão pedidos o `Mdapikey`, o `Mduid` e o bearer token (o valor de `Authorization` sem o `Bearer `). Esse método não automatiza um navegador, então funciona mesmo onde os outros são bloqueados.
 
 ### 1Password
 
@@ -110,360 +112,361 @@ You'll be asked for `Mdapikey`, `Mduid`, and the bearer token (the `Authorizatio
 mdcli auth login --item "My Meu Dinheiro"
 ```
 
-The item name is saved and reused on later logins. If you run `mdcli auth login` without `--item` and no item is saved yet, you'll be prompted for the name, with `MeuDinheiroWeb` as the default.
+O nome do item é salvo e reutilizado nos logins seguintes. Se você rodar `mdcli auth login` sem `--item` e ainda não houver item salvo, o nome será pedido, com `MeuDinheiroWeb` como padrão.
 
-### Browser login
+### Login pelo navegador
 
-Opens Chrome or Edge (whichever is installed) so you can log in by hand:
+Abre o Chrome ou o Edge (o que estiver instalado) para você fazer login manualmente:
 
 ```bash
 mdcli auth login --browser
 ```
 
-The login page is protected by Cloudflare, which may reject logins from an automated browser. If you see "Falha na verificação", use `--session` or `--manual` instead.
+A página de login é protegida pelo Cloudflare, que pode rejeitar logins vindos de um navegador automatizado. Se aparecer "Falha na verificação", use `--session` ou `--manual`.
 
-### Troubleshooting
+### Solução de problemas
 
 ```bash
 mdcli auth doctor
 ```
 
-Checks whether the Chrome, Edge, and Firefox profiles are present and readable, whether the 1Password CLI is installed, and whether you're currently authenticated.
+Verifica se os perfis do Chrome, do Edge e do Firefox existem e podem ser lidos, se o 1Password CLI está instalado e se você está autenticado no momento.
 
-When the API rejects the saved credentials, the CLI retries with the method you last logged in with. For manual and browser logins it asks you to run `mdcli auth login` again.
+Quando a API rejeita as credenciais salvas, a CLI tenta de novo com o método do seu último login. Para logins manuais e pelo navegador, ela pede que você rode `mdcli auth login` de novo.
 
-### Check Status
+### Verificar status
 
 ```bash
 mdcli auth status
 ```
 
-Shows your authentication status including the method used (Browser session, 1Password, etc.).
+Mostra o status da sua autenticação, incluindo o método usado (sessão do navegador, 1Password etc.).
 
 ### Logout
 
 ```bash
-# Remove the stored session
+# Remove a sessão salva
 mdcli auth logout
 
-# Also clear the saved 1Password item and 2Captcha key
+# Também apaga o item do 1Password e a chave do 2Captcha salvos
 mdcli auth logout --all
 ```
 
-## Usage
+## Uso
 
-### Identifying accounts, categories, and tags
+### Identificando contas, categorias e tags
 
-`--account`, `--category`, and `--tag` accept three forms, tried in this order:
+`--account`, `--category` e `--tag` aceitam três formas, tentadas nesta ordem:
 
-1. **Numeric ID** — e.g. `--account 1167419`. Fastest, no network needed.
-2. **Alias** — a short name you've mapped to an ID via `mdcli accounts alias add`. Stored locally in `~/.config/mdcli/mdcli.config.json`.
-3. **Exact name** — the entity's real name as shown by `mdcli accounts list`, matched case-insensitively. Names are looked up via a 30-day on-disk cache and auto-invalidated when a request using a cached ID returns a non-2xx.
+1. **ID numérico** — ex.: `--account 1167419`. O mais rápido, sem precisar de rede.
+2. **Alias** — um nome curto que você associou a um ID com `mdcli accounts alias add`. Fica salvo localmente em `~/.config/mdcli/mdcli.config.json`.
+3. **Nome exato** — o nome real da entidade, como mostrado por `mdcli accounts list`, comparado sem diferenciar maiúsculas de minúsculas. Os nomes são buscados em um cache em disco de 30 dias, invalidado automaticamente quando uma requisição que usou um ID do cache retorna um status fora da faixa 2xx.
 
-Aliases win over names when both match the same string, so your shortcuts always take priority.
+Quando a mesma string corresponde a um alias e a um nome, o alias vence, então seus atalhos sempre têm prioridade.
 
 ```bash
-# Authenticate (extracts session from Chrome by default)
+# Autentica (por padrão, extrai a sessão do Chrome)
 mdcli auth login
 
-# Or use 1Password
+# Ou use o 1Password
 mdcli auth login --item "My Meu Dinheiro"
 
-# List accounts
+# Lista as contas
 mdcli accounts list --active
 
-# List the account types accepted by --type
+# Lista os tipos de conta aceitos por --type
 mdcli accounts types
 
-# Create an account (--type accepts the ID or the name from "accounts types")
+# Cria uma conta (--type aceita o ID ou o nome mostrado em "accounts types")
 mdcli accounts create --name "Nubank" --type "Conta Corrente" --bank nubank --balance 0
 
-# Update an account (only the fields you pass are changed)
+# Atualiza uma conta (só os campos informados são alterados)
 mdcli accounts update 1167419 --name "Nubank PF"
 
-# Archive (deactivate) or reactivate an account
+# Arquiva (desativa) ou reativa uma conta
 mdcli accounts update 1167419 --inactive
 mdcli accounts update 1167419 --active
 
-# Delete an account (asks for confirmation)
+# Exclui uma conta (pede confirmação)
 mdcli accounts delete 1167419
 
-# Create an alias for quick access
+# Cria um alias para acesso rápido
 mdcli accounts alias add --id 1167419 --name mp
 
-# List entries using alias
+# Lista lançamentos usando o alias
 mdcli entries list --account mp --from 2024-01-01 --to 2024-01-31
 
-# List entries using the account's exact name (case-insensitive)
+# Lista lançamentos usando o nome exato da conta (sem diferenciar maiúsculas de minúsculas)
 mdcli entries list --account "Nubank - Conta Corrente" --from 2024-01-01 --to 2024-01-31
 
-# Meu Dinheiro loads entries up to 2031-12-31; a later --to is refused before
-# any request. Errors go to stderr with exit code 1; under --json they are
-# JSON too ({"error": "..."}), so stdout only ever holds the result.
+# O Meu Dinheiro carrega lançamentos até 2031-12-31; um --to posterior é recusado
+# antes de qualquer requisição. Erros vão para o stderr com código de saída 1; com
+# --json eles também são JSON ({"error": "..."}), então o stdout só contém o resultado.
 mdcli entries list --account mp --from 2026-11-01 --to 2031-12-31 --json
 
-# Export entries to CSV (all pages, with account, category, transfer-account and tag names,
-# effective/competence dates, repetition, notes and document number;
-# date is the planned date, the one --from/--to filter on)
+# Exporta lançamentos para CSV (todas as páginas, com nomes de conta, categoria,
+# conta da transferência e tags, datas efetiva/de competência, repetição,
+# observações e número do documento; date é a data prevista, a que --from/--to filtram)
 mdcli entries list --account mp --from 2026-01-01 --to 2026-03-31 --csv > entries.csv
 
-# A credit card's purchases, read from its invoices due in the range (the
-# statement list leaves card purchases out); dated by the invoice due date,
-# with the purchase date as competenceDate
+# As compras de um cartão de crédito, lidas das faturas que vencem no período (a
+# listagem do extrato deixa as compras no cartão de fora); datadas pelo vencimento
+# da fatura, com a data da compra em competenceDate
 mdcli entries list --account <cardId> --from 2026-10-01 --to 2026-12-31 --json
 
-# Checking account without the card bill projection (type invoice, no ID) the
-# API adds for each card it pays; also on summary
+# Conta corrente sem a projeção da fatura do cartão (tipo invoice, sem ID) que a
+# API adiciona para cada cartão pago por ela; também no summary
 mdcli entries list --account mp --from 2026-11-01 --to 2026-11-30 --no-invoices
 
-# Only installments and fixed series (the web app's Repetição filter);
-# also on summary. Values: single, installment, fixed
+# Só parcelados e séries fixas (o filtro Repetição do app web);
+# também no summary. Valores: single, installment, fixed
 mdcli entries list --account mp --repetition installment,fixed
 
-# Every field of one entry; --json is the list shape, --raw the API answer
+# Todos os campos de um lançamento; --json é o formato da listagem, --raw a resposta da API
 mdcli entries show 12345
 mdcli entries show 12345 --raw
 
-# Income vs. expenses by category for the current month (transfers left out)
+# Receitas x despesas por categoria no mês atual (transferências ficam de fora)
 mdcli entries summary --account mp,nubank
 
-# Month by month for a quarter, or per account; --json/--csv also work here
+# Mês a mês em um trimestre, ou por conta; --json/--csv também funcionam aqui
 mdcli entries summary --account mp --from 2026-01-01 --to 2026-03-31 --by month
 mdcli entries summary --account mp,nubank --by account --include-transfers
 
-# Leave out categories (and their subcategories), e.g. a card bill paid from
-# checking that would double-count the purchases already on the card
+# Deixa categorias (e suas subcategorias) de fora, ex.: uma fatura de cartão paga
+# pela conta corrente, que contaria em dobro as compras já lançadas no cartão
 mdcli entries summary --account mp,nubank --exclude-category "Pagamento de cartão"
 
-# Create an entry
+# Cria um lançamento
 mdcli entries create --account mp --description "Groceries" --value 150 --category food
 
-# A card purchase goes to the open invoice (or --invoice YYYY-MM); the ID
-# printed is the entry ID from the invoice, usable with update/show/delete
+# Uma compra no cartão vai para a fatura aberta (ou --invoice YYYY-MM); o ID
+# impresso é o do lançamento na fatura, que serve para update/show/delete
 mdcli entries create --account <cardId> --description "Voo" --value 900 --category travel
 
-# Create an entry using the account name instead of an alias
+# Cria um lançamento usando o nome da conta em vez de um alias
 mdcli entries create --account "Mercado Pago" --description "Groceries" --value 150 --category food
 
-# Transfer between two accounts (--account is the origin); the category
-# defaults to the system transfer category, as in the web app. Transfers to or
-# from a credit card, or between currencies, are not supported yet.
+# Transferência entre duas contas (--account é a origem); a categoria padrão é
+# a categoria de transferência do sistema, como no app web. Transferências de ou
+# para um cartão de crédito, ou entre moedas, ainda não são suportadas.
 mdcli entries create --account mp --type transfer --to-account nubank --description "Reserva" --value 500
 
-# Installments (parcelada): 1200 split into 10 monthly installments; the first
-# one absorbs the rounding cent. --per-installment makes --value each one's,
-# --repeat/--frequency set the spacing, --first-installment the starting number.
+# Parcelado: 1200 dividido em 10 parcelas mensais; a primeira absorve o centavo
+# do arredondamento. --per-installment faz de --value o valor de cada parcela,
+# --repeat/--frequency definem o intervalo, --first-installment o número inicial.
 mdcli entries create --account mp --description "Notebook" --value 1200 --category tech --installments 10
 
-# Fixed series every 2 months, 6 times (--frequency and --times can be combined)
+# Série fixa a cada 2 meses, 6 vezes (--frequency e --times podem ser combinados)
 mdcli entries create --account mp --description "Academia" --value 90 --category gym --repeat monthly --frequency 2 --times 6
 
-# Pending (Confirmado off, no effective date yet). The API shows it as pending
-# up to today and as scheduled (agendado) for a future date.
+# Pendente (Confirmado desligado, ainda sem data efetiva). A API o mostra como
+# pendente até hoje e como agendado para uma data futura.
 mdcli entries create --account mp --description "IPVA" --value 800 --category car --date 2027-01-20 --pending
 
-# Confirmed but not reconciled (without a status flag, create reconciles).
-# Credit card purchases are always left unreconciled on the invoice.
+# Confirmado, mas não conciliado (sem flag de status, o create concilia).
+# Compras no cartão de crédito sempre ficam não conciliadas na fatura.
 mdcli entries create --account mp --description "Feira" --value 30 --category food --confirmed
 
-# Update an entry (only the fields you pass are changed)
+# Atualiza um lançamento (só os campos informados são alterados)
 mdcli entries update 12345 --value 200 --category food
 
-# Turn a confirmed entry back into a pending one (clears the effective date
-# and value); --confirmed confirms it again, --reconciled reconciles it
+# Volta um lançamento confirmado para pendente (limpa a data e o valor
+# efetivos); --confirmed o confirma de novo, --reconciled o concilia
 mdcli entries update 12345 --pending
 
-# Update a transfer from either half of the pair - both halves move together.
-# A transfer cannot be turned into an expense or an income.
+# Atualiza uma transferência por qualquer um dos lados do par - os dois mudam juntos.
+# Uma transferência não pode virar despesa nem receita.
 mdcli entries update 12345 --value 200
 
-# Recurring series (fixed or installments): by default only this occurrence
-# changes, and it leaves the series (a warning on stderr says so). A pending or
-# scheduled occurrence stays unconfirmed unless you pass --confirmed or --reconciled.
+# Série recorrente (fixa ou parcelada): por padrão só esta ocorrência muda, e ela
+# sai da série (um aviso no stderr informa isso). Uma ocorrência pendente ou
+# agendada continua não confirmada, a menos que você passe --confirmed ou --reconciled.
 mdcli entries update 12345 --date 2027-01-25 --scope this
-# This occurrence and the following ones; earlier ones are left untouched
+# Esta ocorrência e as seguintes; as anteriores não são alteradas
 mdcli entries update 12345 --date 2027-01-25 --scope following
 
-# Delete an entry
+# Exclui um lançamento
 mdcli entries delete 12345
 
-# Delete this occurrence of a recurring series and the following ones
-# (the web app's "Neste e em todos na sequência"); the default is --scope this
+# Exclui esta ocorrência de uma série recorrente e as seguintes
+# (o "Neste e em todos na sequência" do app web); o padrão é --scope this
 mdcli entries delete 12345 --scope following
 
-# List credit cards (--json has limit, dueDay, nextDueDate, nextClosingDate,
-# closingDaysBeforeDue and paymentAccountId; no balance, which means nothing
-# for a card)
+# Lista os cartões de crédito (o --json tem limit, dueDay, nextDueDate, nextClosingDate,
+# closingDaysBeforeDue e paymentAccountId; sem saldo, que não significa nada
+# para um cartão). dueDay/nextDueDate/nextClosingDate null: a API não tem o próximo
+# vencimento e a CLI conta as faturas da primeiraFatura (veja docs/cards-json.md)
 mdcli cards list --active
 
-# Show a credit card invoice (defaults to the current/next one): the summary the
-# web shows (due and closing dates, previous invoice, paid, scheduled payments,
-# expenses, income, total, to pay, reconciled/unreconciled, limit, available),
-# then the items by purchase date. Lines the API does not send are left out.
+# Mostra uma fatura do cartão de crédito (por padrão, a atual/próxima): o resumo
+# que o web mostra (vencimento e fechamento, fatura anterior, pago, pagamentos
+# agendados, despesas, receitas, total, a pagar, conciliado/não conciliado, limite,
+# disponível) e depois os itens pela data da compra. Linhas que a API não envia ficam de fora.
 mdcli cards invoice --account <cardId> --month 2026-02
 
-# Show a credit card invoice using the card's exact name
+# Mostra uma fatura do cartão de crédito usando o nome exato do cartão
 mdcli cards invoice --account "Itaú Personalité" --month 2026-02
 
-# In --json (an array of items), date is the invoice due date, the same date
-# entries list --json shows for the item; purchaseDate is when it was bought,
-# dueDate repeats date and competenceDate comes along
+# No --json (um array de itens), date é o vencimento da fatura, a mesma data que
+# entries list --json mostra para o item; purchaseDate é quando foi comprado,
+# dueDate repete date e competenceDate vem junto
 mdcli cards invoice --account <cardId> --month 2026-02 --json
 
-# Only the summary, without the items table
+# Só o resumo, sem a tabela de itens
 mdcli cards invoice --account <cardId> --month 2026-02 --summary
 
-# Summary and items in one JSON object: { "invoice": {...}, "entries": [...] }.
-# invoice has id (closed invoices only), closed, dueDate, closingDate,
+# Resumo e itens em um único objeto JSON: { "invoice": {...}, "entries": [...] }.
+# invoice tem id (só faturas fechadas), closed, dueDate, closingDate,
 # previousInvoice, paid, scheduledPayments, expenses, income, total, toPay,
-# reconciled, unreconciled, limit and available. Amounts are R$ with the API's
-# signs (reconciled/unreconciled are R$, not counts); a field the API does not
-# send is null. entries is the same array --json prints alone.
+# reconciled, unreconciled, limit e available. Os valores são em R$ com os sinais
+# da API (reconciled/unreconciled são R$, não contagens); um campo que a API não
+# envia vem null. entries é o mesmo array que o --json imprime sozinho.
 mdcli cards invoice --account <cardId> --month 2026-02 --json --summary
 
-# Show upcoming installments on a card
+# Mostra as próximas parcelas de um cartão
 mdcli cards future --account <cardId>
 
-# List only expense categories
+# Lista só as categorias de despesa
 mdcli categories list --type expense
 
-# Create a category, then a subcategory (inherits the parent's type)
+# Cria uma categoria e depois uma subcategoria (herda o tipo da categoria pai)
 mdcli categories create --name "Pets" --type expense
 mdcli categories create --name "Vet" --parent "Pets"
 
-# Rename, archive, or reactivate a category
+# Renomeia, arquiva ou reativa uma categoria
 mdcli categories update 12345 --name "Pet care"
 mdcli categories update 12345 --inactive
 
-# Delete a category; its entries move to --move-to (must be the same type).
-# Categories with subcategories must have those removed first.
+# Exclui uma categoria; seus lançamentos vão para --move-to (precisa ser do mesmo tipo).
+# Categorias com subcategorias precisam ter essas removidas antes.
 mdcli categories delete 12345 --move-to "Outros"
 
-# Create a tag (color is optional, defaults to gray)
+# Cria uma tag (a cor é opcional; o padrão é cinza)
 mdcli tags create --name "Travel" --color "#FF6600"
 
-# Update a tag (only the fields you pass are changed)
+# Atualiza uma tag (só os campos informados são alterados)
 mdcli tags update 12345 --color "#00AAFF"
 
-# Archive (deactivate) or reactivate a tag
+# Arquiva (desativa) ou reativa uma tag
 mdcli tags update 12345 --inactive
 mdcli tags update 12345 --active
 
-# Delete a tag
+# Exclui uma tag
 mdcli tags delete 12345
 ```
 
-## Development
+## Desenvolvimento
 
 ```bash
-scripts/verify.sh   # full verification: install, typecheck, lint, knip, tests, CLI end-to-end
+scripts/verify.sh   # verificação completa: install, typecheck, lint, knip, testes, CLI de ponta a ponta
 ```
 
-`scripts/verify.sh` is the official check: CI runs it on every pull request and on pushes to `main`, and branch protection requires it to pass before merging. It succeeds when it exits with code 0 and prints `VERIFICAÇÃO OK` as its last line.
+O `scripts/verify.sh` é a verificação oficial: o CI o executa em todo pull request e em todo push na `main`, e a proteção de branch exige que ele passe antes do merge. Ele passa quando sai com código 0 e imprime `VERIFICAÇÃO OK` como última linha.
 
-While iterating, you can run the individual steps:
+Durante o desenvolvimento, você pode rodar as etapas individualmente:
 
 ```bash
-bun run test        # test suite
+bun run test        # suíte de testes
 bun run typecheck
 bun run lint
-bun run knip        # unused files, dependencies, and exports
+bun run knip        # arquivos, dependências e exports não usados
 ```
 
-The tests in `test/` run the real CLI as a subprocess against a local mock of the Meu Dinheiro API (`MDCLI_API_URL` overrides the API base URL), with `HOME` pointed at a temp dir. `MDCLI_CONFIG_DIR` overrides the config directory; `bunfig.toml` preloads `test/setup.ts`, which points it at a temp dir for the whole run, so in-process tests are isolated too. They never touch your real config, browser profiles, or the live API, and they check both what the CLI prints and the exact requests it sends.
+Os testes em `test/` executam a CLI real como subprocesso contra um mock local da API do Meu Dinheiro (`MDCLI_API_URL` sobrescreve a URL base da API), com `HOME` apontando para um diretório temporário. `MDCLI_CONFIG_DIR` sobrescreve o diretório de configuração; o `bunfig.toml` pré-carrega o `test/setup.ts`, que o aponta para um diretório temporário durante toda a execução, então os testes em processo também ficam isolados. Eles nunca tocam na sua configuração real, nos perfis do navegador nem na API de verdade, e verificam tanto o que a CLI imprime quanto as requisições exatas que ela envia.
 
-## Features
+## Funcionalidades
 
-### Auth
-| Feature | Status |
+### Autenticação
+| Funcionalidade | Status |
 |---------|--------|
-| Browser session extraction (Chrome/Edge/Firefox) | Done |
-| Browser login (auto-capture) | Done |
-| Automatic login (1Password CLI) | Done |
-| Remember last login method | Done |
-| Auto refresh on 401 (using the last method) | Done |
-| Manual token entry | Done |
-| Status check | Done |
-| Diagnostics (`auth doctor`) | Done |
-| Logout | Done |
+| Extração da sessão do navegador (Chrome/Edge/Firefox) | Pronto |
+| Login pelo navegador (captura automática) | Pronto |
+| Login automático (1Password CLI) | Pronto |
+| Lembrar o último método de login | Pronto |
+| Renovação automática em caso de 401 (usando o último método) | Pronto |
+| Entrada manual do token | Pronto |
+| Verificação de status | Pronto |
+| Diagnóstico (`auth doctor`) | Pronto |
+| Logout | Pronto |
 
-### Accounts
-| Feature | Status |
+### Contas
+| Funcionalidade | Status |
 |---------|--------|
-| List | Done |
-| Filter by active | Done |
-| JSON output | Done |
-| Aliases (add/list/rm/update) | Done |
-| List types | Done |
-| Create | Done |
-| Update | Done |
-| Delete | Done |
-| Archive | Done |
+| Listar | Pronto |
+| Filtrar por ativas | Pronto |
+| Saída em JSON | Pronto |
+| Aliases (add/list/rm/update) | Pronto |
+| Listar tipos | Pronto |
+| Criar | Pronto |
+| Atualizar | Pronto |
+| Excluir | Pronto |
+| Arquivar | Pronto |
 
-### Categories
-| Feature | Status |
+### Categorias
+| Funcionalidade | Status |
 |---------|--------|
-| List | Done |
-| Filter by active | Done |
-| Filter by type | Done |
-| JSON output | Done |
-| Aliases (add/list/rm/update) | Done |
-| Create (incl. subcategories) | Done |
-| Update | Done |
-| Delete (moves entries to another category) | Done |
-| Archive | Done |
+| Listar | Pronto |
+| Filtrar por ativas | Pronto |
+| Filtrar por tipo | Pronto |
+| Saída em JSON | Pronto |
+| Aliases (add/list/rm/update) | Pronto |
+| Criar (incl. subcategorias) | Pronto |
+| Atualizar | Pronto |
+| Excluir (move os lançamentos para outra categoria) | Pronto |
+| Arquivar | Pronto |
 
 ### Tags
-| Feature | Status |
+| Funcionalidade | Status |
 |---------|--------|
-| List | Done |
-| Filter by active | Done |
-| JSON output | Done |
-| Aliases (add/list/rm/update) | Done |
-| Create | Done |
-| Update | Done |
-| Delete | Done |
-| Archive | Done |
+| Listar | Pronto |
+| Filtrar por ativas | Pronto |
+| Saída em JSON | Pronto |
+| Aliases (add/list/rm/update) | Pronto |
+| Criar | Pronto |
+| Atualizar | Pronto |
+| Excluir | Pronto |
+| Arquivar | Pronto |
 
-### Entries
-| Feature | Status |
+### Lançamentos
+| Funcionalidade | Status |
 |---------|--------|
-| List by account | Done |
-| Filter by date range | Done |
-| Filter by status | Done |
-| Filter by type | Done |
-| Filter by category | Done |
-| Filter by tag | Done |
-| Filter by keywords | Done |
-| Filter by value | Done |
-| JSON output | Done |
-| CSV export | Done |
-| All pages (no 200-entry cap) | Done |
-| Summary by category/month/account | Done |
-| Exclude categories (`--exclude-category`) | Done |
-| Alias support (account/category/tag) | Done |
-| Filter by repetition (`--repetition single,installment,fixed`) | Done |
-| Leave out card invoice projections (`--no-invoices`) | Done |
-| Card purchases in list/summary (read from the invoices) | Done |
-| Show one entry (`entries show`, `--json`/`--raw`) | Done |
-| Create (single) | Done |
-| Create (recurring, `--repeat`/`--frequency`/`--times`) | Done |
-| Create installments (`--installments`, `--per-installment`, `--first-installment`) | Done |
-| Create transfer (`-T transfer --to-account`) | Done |
-| Status on create/update (`-p/--pending`, `--confirmed`, `-r/--reconciled` on update) | Done |
-| Credit card purchase on a chosen invoice (`--invoice`) | Done |
-| Update | Done |
-| Update/delete a series occurrence (`--scope this\|following`) | Done |
-| Delete | Done |
+| Listar por conta | Pronto |
+| Filtrar por período | Pronto |
+| Filtrar por status | Pronto |
+| Filtrar por tipo | Pronto |
+| Filtrar por categoria | Pronto |
+| Filtrar por tag | Pronto |
+| Filtrar por palavras-chave | Pronto |
+| Filtrar por valor | Pronto |
+| Saída em JSON | Pronto |
+| Exportação para CSV | Pronto |
+| Todas as páginas (sem o limite de 200 lançamentos) | Pronto |
+| Resumo por categoria/mês/conta | Pronto |
+| Excluir categorias do resumo (`--exclude-category`) | Pronto |
+| Suporte a alias (conta/categoria/tag) | Pronto |
+| Filtrar por repetição (`--repetition single,installment,fixed`) | Pronto |
+| Deixar de fora as projeções de fatura do cartão (`--no-invoices`) | Pronto |
+| Compras no cartão no list/summary (lidas das faturas) | Pronto |
+| Mostrar um lançamento (`entries show`, `--json`/`--raw`) | Pronto |
+| Criar (único) | Pronto |
+| Criar (recorrente, `--repeat`/`--frequency`/`--times`) | Pronto |
+| Criar parcelado (`--installments`, `--per-installment`, `--first-installment`) | Pronto |
+| Criar transferência (`-T transfer --to-account`) | Pronto |
+| Status ao criar/atualizar (`-p/--pending`, `--confirmed`, `-r/--reconciled` no update) | Pronto |
+| Compra no cartão de crédito em uma fatura escolhida (`--invoice`) | Pronto |
+| Atualizar | Pronto |
+| Atualizar/excluir uma ocorrência da série (`--scope this\|following`) | Pronto |
+| Excluir | Pronto |
 
-### Cards
-| Feature | Status |
+### Cartões
+| Funcionalidade | Status |
 |---------|--------|
-| List | Done |
-| Filter by active | Done |
-| JSON output | Done |
-| Invoice (by month) | Done |
-| Invoice items with due, purchase and competence dates (`--json`, `date` = due date) | Done |
-| Invoice summary (closing, previous invoice, paid, to pay, reconciled, limit, available) | Done (text; `--summary`; `--json --summary`) |
-| Card settings in `cards list --json` (limit, due/closing dates, payment account) | Done |
-| Future installments | Done |
+| Listar | Pronto |
+| Filtrar por ativos | Pronto |
+| Saída em JSON | Pronto |
+| Fatura (por mês) | Pronto |
+| Itens da fatura com datas de vencimento, compra e competência (`--json`, `date` = vencimento) | Pronto |
+| Resumo da fatura (fechamento, fatura anterior, pago, a pagar, conciliado, limite, disponível) | Pronto (texto; `--summary`; `--json --summary`) |
+| Configurações do cartão no `cards list --json` (limite, datas de vencimento/fechamento, conta de pagamento) | Pronto |
+| Parcelas futuras | Pronto |
