@@ -1,3 +1,4 @@
+import { sameName } from '../../../lib/name-cache.js';
 import type { Category } from '../../../types/index.js';
 import { parseAmount, parseId } from '../../../utils/parse.js';
 import type { ImportDocument, BankTransactionRow } from './document.js';
@@ -52,7 +53,7 @@ function suggestedCategoryText(row: BankTransactionRow, categories: readonly Cat
   if (suggested === null) return '';
   const name = suggested.name;
   if (name === null) return String(suggested.id);
-  const same = categories.filter((category) => category.nome.toLowerCase() === name.toLowerCase());
+  const same = categories.filter((category) => sameName(category.nome, name));
   return same.length > 1 ? String(suggested.id) : name;
 }
 
@@ -70,7 +71,7 @@ function defaultCommand(row: BankTransactionRow): string {
 function keptSuggestion(row: BankTransactionRow, category: string): string | null {
   const suggested = row.suggestedCategory;
   if (suggested === null || suggested.name === null) return null;
-  return suggested.name.toLowerCase() === category.toLowerCase() ? String(suggested.id) : null;
+  return sameName(suggested.name, category) ? String(suggested.id) : null;
 }
 
 function amount(value: number): string {

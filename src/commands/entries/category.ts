@@ -1,11 +1,15 @@
 import { exitWithError } from '../../utils/action.js';
 import { fetchCategories } from '../../lib/api.js';
 import { getAliases, resolveId } from '../../lib/aliases.js';
+import { sameName } from '../../lib/name-cache.js';
 import type { Category } from '../../types/index.js';
 import { parseId } from '../../utils/parse.js';
 
+/** A reader of the Category catalog. */
+export type CategoryCatalog = () => Promise<readonly Category[]>;
+
 /** The Category catalog, fetched at most once per returned reader and only when asked for. */
-export function categoryCatalog(): () => Promise<readonly Category[]> {
+export function categoryCatalog(): CategoryCatalog {
   let loaded: Promise<readonly Category[]> | null = null;
   return () => {
     loaded ??= fetchCategories().then((response) => response.items);
@@ -37,7 +41,7 @@ export async function resolveEntryCategory(input: string): Promise<number> {
  */
 export async function checkEntryCategory(
   input: string,
-  catalog: () => Promise<readonly Category[]> = categoryCatalog(),
+  catalog: CategoryCatalog = categoryCatalog(),
 ): Promise<{ id: number } | { error: string }> {
   const id = await resolveId('categories', input);
   if (id === null) {
@@ -49,8 +53,7 @@ export async function checkEntryCategory(
   if (!category || category.status) return { id };
 
   if (!isExplicitReference(input)) {
-    const name = input.toLowerCase();
-    const active = items.find((c) => c.status && c.nome.toLowerCase() === name);
+    const active = items.find((c) => c.status && sameName(c.nome, input));
     if (active) return { id: active.id };
   }
 

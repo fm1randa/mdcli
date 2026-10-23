@@ -1,5 +1,5 @@
 import { suggestCategoriesWithAi } from '../../../lib/api.js';
-import type { Category } from '../../../types/index.js';
+import type { CategoryCatalog } from '../category.js';
 import type { ImportDocument } from './document.js';
 import { idOrNull } from '../../../lib/payload.js';
 import type { AiRequest } from './suggest.js';
@@ -16,7 +16,7 @@ import type { AiRequest } from './suggest.js';
 export async function fillAiCategories(
   document: ImportDocument,
   requests: readonly (AiRequest | null)[],
-  catalog: () => Promise<readonly Category[]>,
+  catalog: CategoryCatalog,
 ): Promise<void> {
   const eligible: { index: number; kind: AiRequest['kind'] }[] = [];
   document.transactions.forEach((row, index) => {

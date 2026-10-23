@@ -1,12 +1,12 @@
 import { fetchCardInvoice, fetchFirstInvoiceDate } from '../../lib/api.js';
-import { dueDateInMonth, parseInvoiceMonth, shiftDueDate } from '../../lib/dates.js';
+import { dueDateInMonth, isCalendarDate, parseInvoiceMonth, shiftDueDate } from '../../lib/dates.js';
 import type { Account } from '../../types/index.js';
 
 const MAX_INVOICE_STEPS = 24;
 
 /**
- * The due date (YYYY-MM-DD) the card's invoices are counted from, and the
- * only place that reads proximoVencimento for that (the ESLint rule
+ * The due date (YYYY-MM-DD) the card's invoices are counted from. This file
+ * is the only place that reads proximoVencimento (the ESLint rule
  * local/no-due-anchor-fallback bans any read of it elsewhere). A card without one, like a new card,
  * takes the API's first invoice date (GET primeiraFatura) instead. Before
  * this, cards invoice --month assumed day 10, cards invoice and entries list
@@ -14,6 +14,18 @@ const MAX_INVOICE_STEPS = 24;
  */
 export async function cardDueAnchor(account: Account): Promise<string> {
   return (account.proximoVencimento ?? (await fetchFirstInvoiceDate(account.id))).slice(0, 10);
+}
+
+/**
+ * The card's own proximoVencimento (YYYY-MM-DD), or null when it has no valid
+ * one. No primeiraFatura fallback: the Import reconciles against the current
+ * invoice only, like the web (carregarFatura(id, proximoVencimento)).
+ */
+export function ownDueDate(account: Account): string | null {
+  const raw = account.proximoVencimento;
+  if (typeof raw !== 'string') return null;
+  const date = raw.slice(0, 10);
+  return isCalendarDate(date) ? date : null;
 }
 
 /**

@@ -1,6 +1,6 @@
 import type { Category } from '../../../types/index.js';
 import { exitWithError } from '../../../utils/action.js';
-import { categoryCatalog, checkEntryCategory } from '../category.js';
+import { categoryCatalog, checkEntryCategory, type CategoryCatalog } from '../category.js';
 import type { ImportCandidate } from './candidates.js';
 import type { ImportDocument, BankTransactionRow } from './document.js';
 import {
@@ -42,7 +42,7 @@ export interface SelectionItem {
  */
 async function checkImportCategory(
   input: string,
-  catalog: () => Promise<readonly Category[]>,
+  catalog: CategoryCatalog,
 ): Promise<Category | { error: string }> {
   const checked = await checkEntryCategory(input, catalog);
   if ('error' in checked) return checked;
@@ -69,7 +69,7 @@ export async function importCategory(input: string): Promise<Category> {
  */
 export async function selectionCategories(
   items: readonly SelectionItem[],
-  catalog: () => Promise<readonly Category[]> = categoryCatalog(),
+  catalog: CategoryCatalog = categoryCatalog(),
 ): Promise<{ categories: Map<string, Category>; problems: string[] }> {
   const categories = new Map<string, Category>();
   const refused = new Map<string, string>();

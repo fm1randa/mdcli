@@ -1,13 +1,13 @@
 import Table from 'cli-table3';
 import chalk from 'chalk';
 import { fetchAccountById, fetchBankTransactions, fetchCardInvoice, fetchImportCandidates, fetchImportDuplicates, isCreditCard } from '../../../lib/api.js';
-import type { Account, Category } from '../../../types/index.js';
+import type { Account } from '../../../types/index.js';
 import { exitWithError } from '../../../utils/action.js';
-import { cardDueAnchor } from '../card-invoice.js';
+import { ownDueDate } from '../card-invoice.js';
 import { formatCurrency } from '../../../utils/currency.js';
 import { logger } from '../../../utils/logger.js';
 import { cell } from '../../../utils/text.js';
-import { categoryCatalog } from '../category.js';
+import { categoryCatalog, type CategoryCatalog } from '../category.js';
 import { fillAiCategories } from './ai.js';
 import { automaticLinks, candidatesFor, readExisting, type ImportCandidate } from './candidates.js';
 import { toImportDocument, type ImportDocument, type BankTransactionRow, type SuggestedCategory } from './document.js';
@@ -105,7 +105,7 @@ export function linkableOf(loaded: LoadedImport): (row: BankTransactionRow) => r
 /** The AI category for the rows the rules left without one, and every suggested category's name. */
 export async function fillSuggestions(
   loaded: LoadedImport,
-  catalog: () => Promise<readonly Category[]> = categoryCatalog(),
+  catalog: CategoryCatalog = categoryCatalog(),
 ): Promise<void> {
   const { document, payload } = loaded;
   await fillAiCategories(document, statementRows(payload).map(aiRequest), catalog);
@@ -113,7 +113,7 @@ export async function fillSuggestions(
 }
 
 /** `nome` from the Category catalog. An id the catalog does not have stays null. */
-async function fillCategoryNames(document: ImportDocument, catalog: () => Promise<readonly Category[]>): Promise<void> {
+async function fillCategoryNames(document: ImportDocument, catalog: CategoryCatalog): Promise<void> {
   const pending: SuggestedCategory[] = [];
   for (const row of document.transactions) {
     if (row.suggestedCategory !== null) pending.push(row.suggestedCategory);
@@ -179,7 +179,8 @@ async function fillCandidates(
 }
 
 async function invoiceRows(account: Account): Promise<unknown[]> {
-  const due = await cardDueAnchor(account);
+  const due = ownDueDate(account);
+  if (due === null) exitWithError(`Account ${account.id} has no proximoVencimento date to load an invoice from.`);
   const invoice = await fetchCardInvoice(account.id, due);
   if (!Array.isArray(invoice.lancamentos)) {
     throw new Error(`GET /v1/cartoes/${account.id}/fatura/${due} did not return lancamentos`);

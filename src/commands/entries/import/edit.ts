@@ -3,6 +3,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Category } from '../../../types/index.js';
+import type { CategoryCatalog } from '../category.js';
 import type { ImportCandidate } from './candidates.js';
 import type { ImportDocument, BankTransactionRow } from './document.js';
 import { parseEditFile, renderEditFile, withErrors } from './edit-file.js';
@@ -20,7 +21,7 @@ interface EditOptions {
   dryRun: boolean;
   linkable: (row: BankTransactionRow) => readonly ImportCandidate[];
   /** The Category catalog, read once for the file and every round of checks. */
-  catalog: () => Promise<readonly Category[]>;
+  catalog: CategoryCatalog;
 }
 
 /**

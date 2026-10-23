@@ -95,9 +95,9 @@ export async function resolveId(type: AliasType, input: string): Promise<number 
 
   // Lazy: importing name-cache pulls in api.ts, which reads MDCLI_API_URL at
   // module load. Keep that off the path for alias CRUD and offline resolution.
-  const { getNameIndex } = await import('./name-cache.js');
+  const { getNameIndex, nameKey } = await import('./name-cache.js');
   const index = await getNameIndex(type);
-  return index[input.toLowerCase()] ?? null;
+  return index[nameKey(input)] ?? null;
 }
 
 export async function resolveIds(type: AliasType, input: string): Promise<{ ids: number[]; unresolved: string[] }> {
@@ -123,11 +123,11 @@ export async function resolveIds(type: AliasType, input: string): Promise<{ ids:
     return { ids, unresolved: [] };
   }
 
-  const { getNameIndex } = await import('./name-cache.js');
+  const { getNameIndex, nameKey } = await import('./name-cache.js');
   const index = await getNameIndex(type);
   const unresolved: string[] = [];
   for (const part of remaining) {
-    const id = index[part.toLowerCase()];
+    const id = index[nameKey(part)];
     if (id !== undefined) {
       ids.push(id);
     } else {
