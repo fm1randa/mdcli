@@ -140,8 +140,8 @@ async function fillDuplicates(document: ImportDocument, accountId: number): Prom
 }
 
 /**
- * Same value inside the search window, and the one Entry the web links on its own (`conciliateWith`).
- * A linked row conciliates, and that wins over a duplicate. Reconciled Entries stay out of
+ * Same value inside the search window (a card: anywhere in its invoice), and the one Entry the web
+ * links on its own (`conciliateWith`). A linked row conciliates, and that wins over a duplicate. Reconciled Entries stay out of
  * `candidates` unless linked, but a plan or the editor may still link one (`linkable`).
  */
 async function fillCandidates(
@@ -151,16 +151,11 @@ async function fillCandidates(
 ): Promise<{ linkable: ImportCandidate[][]; rows: unknown[] }> {
   const linkable = document.transactions.map((): ImportCandidate[] => []);
   if (document.transactions.length === 0) return { linkable, rows: [] };
-  const from = document.search.from;
-  const to = document.search.to;
-  if (from === null || to === null) return { linkable, rows: [] };
-
   const card = account !== undefined && isCreditCard(account);
-  const rows = card
-    ? await invoiceRows(account)
-    : await fetchImportCandidates(document.account.id, from, to);
+  const rows = card ? await invoiceRows(account) : await windowRows(document);
+  const { from, to } = document.search;
   const existing = readExisting(rows, card ? 'invoice' : 'entry').filter(
-    (item) => item.candidate.date >= from && item.candidate.date <= to,
+    (item) => card || (from !== null && to !== null && item.candidate.date >= from && item.candidate.date <= to),
   );
   const docs = documentNumbers(payload);
   const banks = document.transactions.map((row, index) => ({ date: row.date, value: row.value, ndocumento: docs[index] ?? null }));
@@ -178,6 +173,14 @@ async function fillCandidates(
   return { linkable, rows };
 }
 
+/** A checking account searches the statement period ±2 days; no period means nothing to search. */
+async function windowRows(document: ImportDocument): Promise<unknown[]> {
+  const { from, to } = document.search;
+  if (from === null || to === null) return [];
+  return fetchImportCandidates(document.account.id, from, to);
+}
+
+/** A card's candidates are its whole `proximoVencimento` invoice, like the web: no date window. */
 async function invoiceRows(account: Account): Promise<unknown[]> {
   const due = ownDueDate(account);
   if (due === null) exitWithError(`Account ${account.id} has no proximoVencimento date to load an invoice from.`);

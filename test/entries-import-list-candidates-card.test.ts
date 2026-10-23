@@ -1,3 +1,5 @@
+import { writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, CHECKING_ACCOUNT, CREDIT_CARD_ACCOUNT } from './fixtures.js';
@@ -85,6 +87,7 @@ describe('entries import list card candidates', () => {
     expect(body.transactions[0].conciliateWith).toBe(777);
     expect(body.transactions[0].defaultAction).toBe('conciliate');
     expect(body.transactions[0].candidates).toEqual([
+      { id: 778, date: '2026-01-02', value: -12.34, description: 'So Compra', categoryId: 11 },
       { id: 777, date: '2026-10-08', value: -12.34, description: 'Compra Ficticia', categoryId: 10 },
     ]);
     expect(api.requests.some((r) => r.path === INVOICE)).toBe(true);
@@ -108,6 +111,47 @@ describe('entries import list card candidates', () => {
     expect(row.conciliateWith).toBeNull();
     expect(row.defaultAction).toBe('import');
     expect(api.requests.some((r) => r.path === '/v2/lancamentos')).toBe(false);
+  });
+
+  test('lists the whole invoice, even an item well before the statement, and a plan may conciliate it', async () => {
+    invoice([
+      { id: 783, descricao: 'Antes do extrato', valor: -12.34, dataCompetencia: '2026-09-22', categoria: 10 },
+    ]);
+
+    const listed = await list();
+
+    expect(listed.exitCode).toBe(0);
+    const row = JSON.parse(listed.stdout).transactions[0];
+    expect(row.candidates).toEqual([
+      { id: 783, date: '2026-09-22', value: -12.34, description: 'Antes do extrato', categoryId: 10 },
+    ]);
+    expect(row.conciliateWith).toBeNull();
+
+    const plan = join(home.dir, 'plan.json');
+    writeFileSync(plan, JSON.stringify({ transactions: [{ id: TX.slice(0, 8), action: 'conciliate', entry: 783 }] }));
+    const result = await cli(['entries', 'import', 'run', '-a', '1002', '--since', '2026-10-01', '--plan', plan, '--dry-run', '--json']);
+
+    expect(result.stderr).toBe('');
+    expect(result.exitCode).toBe(0);
+    expect(JSON.parse(result.stdout).conciliated).toEqual([expect.objectContaining({ integrationId: TX, entryId: 783 })]);
+    expect(mutations(api)).toHaveLength(0);
+  });
+
+  test('lists invoice candidates when the statement has no period', async () => {
+    api.on('GET /v1/integracao/account/9002/transactions', {
+      saldo: 0,
+      lancamentos: [{ integrationId: TX, descricao: 'Compra no cartao', valor: -12.34, data: '2026-10-07', moeda: 1 }],
+    });
+    invoice([{ id: 784, descricao: 'Sem periodo', valor: -12.34, dataCompetencia: '2026-10-07', categoria: 10 }]);
+
+    const result = await list();
+
+    expect(result.exitCode).toBe(0);
+    const row = JSON.parse(result.stdout).transactions[0];
+    expect(row.candidates).toEqual([
+      { id: 784, date: '2026-10-07', value: -12.34, description: 'Sem periodo', categoryId: 10 },
+    ]);
+    expect(row.conciliateWith).toBe(784);
   });
 
   test('reads a dataCompetencia that carries a time', async () => {
