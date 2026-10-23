@@ -67,7 +67,8 @@ export async function loadImport(options: ImportLoadOptions): Promise<LoadedImpo
     exitWithError(`Account ${accountId} is linked to connection ${link.connectionId}, which did not include its connection account id.`);
   }
   const account = await fetchAccountById(accountId);
-  if (account !== undefined && isCreditCard(account) && (searchFrom !== undefined || searchTo !== undefined)) {
+  const card = account !== undefined && isCreditCard(account);
+  if (card && (searchFrom !== undefined || searchTo !== undefined)) {
     exitWithError('A search window on a credit card is not specified. Candidates come from the current card invoice.');
   }
   // Like the web: the import badge shows the connection's summary (what the server has not seen imported);
@@ -84,6 +85,8 @@ export async function loadImport(options: ImportLoadOptions): Promise<LoadedImpo
     since: requested ?? null,
     payload,
   });
+  // A card searches its whole invoice, not a window: `search` must not announce one.
+  if (card) document.search = { from: null, to: null };
   if (searchFrom !== undefined) document.search.from = searchFrom;
   if (searchTo !== undefined) document.search.to = searchTo;
   // One flag alone can cross the default end the statement sets, so the window is checked once, here.

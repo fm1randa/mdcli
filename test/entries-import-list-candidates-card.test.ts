@@ -81,7 +81,7 @@ describe('entries import list card candidates', () => {
     expect(result.exitCode).toBe(0);
     expect(result.stderr).toBe('');
     const body = JSON.parse(result.stdout);
-    expect(body.search).toEqual({ from: '2026-09-29', to: '2026-10-12' });
+    expect(body.search).toEqual({ from: null, to: null });
     expect(body.ai).toBe('unused');
     expect(body.transactions[0].duplicateOf).toBe(77);
     expect(body.transactions[0].conciliateWith).toBe(777);
