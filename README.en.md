@@ -1,4 +1,4 @@
-<!-- traduzido de README.md @ f8fd738 (base: f8fd7380d3702e22981bad66e394045e1053aa84); ao atualizar o README.md, sincronize este arquivo e atualize este SHA -->
+<!-- traduzido de README.md @ f35c705 (base: f35c705a3f1832bc72df52866bd7d16e70ce7cf3; readme-blob: 4041ad6c5b5351d00322ce79b776d4ee0194c6b9); ao atualizar o README.md, sincronize este arquivo e atualize o SHA e o readme-blob (git hash-object README.md) -->
 
 [Português (Brasil)](README.md) · **English**
 

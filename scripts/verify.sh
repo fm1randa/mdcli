@@ -13,6 +13,27 @@ step() {
 }
 
 step "install"   bun install --frozen-lockfile
+# README.en.md translates README.md: its top comment records the git blob hash
+# of the README.md it matches (readme-blob). Computed in Bun, like
+# `git hash-object README.md`, since CI checks out without history.
+readme_sync() {
+  bun -e '
+    const readme = new Uint8Array(await Bun.file("README.md").arrayBuffer());
+    const hasher = new Bun.CryptoHasher("sha1");
+    hasher.update(`blob ${readme.length}\0`);
+    hasher.update(readme);
+    const actual = hasher.digest("hex");
+    const head = (await Bun.file("README.en.md").text()).split("\n", 1)[0];
+    const recorded = head.match(/readme-blob: ([0-9a-f]{40})/)?.[1];
+    if (recorded === actual) process.exit(0);
+    console.log(recorded
+      ? `README.md mudou (blob ${actual}) e o README.en.md ainda traduz o blob ${recorded}.`
+      : "README.en.md: falta \"readme-blob: <hash>\" no comentário da linha 1.");
+    console.log("Sincronize o README.en.md com o README.md e atualize no comentário da linha 1 o SHA base e o readme-blob (git hash-object README.md).");
+    process.exit(1);
+  '
+}
+step "readme sync" readme_sync
 step "typecheck" bun run typecheck
 step "lint"      bun run lint
 step "knip"      bun run knip
