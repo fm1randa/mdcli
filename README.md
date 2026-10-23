@@ -295,7 +295,8 @@ mdcli entries delete 12345 --scope following
 
 # Lista os cartões de crédito (o --json tem limit, dueDay, nextDueDate, nextClosingDate,
 # closingDaysBeforeDue e paymentAccountId; sem saldo, que não significa nada
-# para um cartão)
+# para um cartão). dueDay/nextDueDate/nextClosingDate null: a API não tem o próximo
+# vencimento e a CLI conta as faturas da primeiraFatura (veja docs/cards-json.md)
 mdcli cards list --active
 
 # Mostra uma fatura do cartão de crédito (por padrão, a atual/próxima): o resumo
