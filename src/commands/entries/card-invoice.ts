@@ -1,5 +1,5 @@
 import { fetchCardInvoice, fetchFirstInvoiceDate } from '../../lib/api.js';
-import { dueDateInMonth, isCalendarDate, parseInvoiceMonth, shiftDueDate } from '../../lib/dates.js';
+import { calendarDay, dueDateInMonth, parseInvoiceMonth, shiftDueDate } from '../../lib/dates.js';
 import type { Account } from '../../types/index.js';
 
 const MAX_INVOICE_STEPS = 24;
@@ -22,10 +22,7 @@ export async function cardDueAnchor(account: Account): Promise<string> {
  * invoice only, like the web (carregarFatura(id, proximoVencimento)).
  */
 export function ownDueDate(account: Account): string | null {
-  const raw = account.proximoVencimento;
-  if (typeof raw !== 'string') return null;
-  const date = raw.slice(0, 10);
-  return isCalendarDate(date) ? date : null;
+  return calendarDay(account.proximoVencimento);
 }
 
 /**

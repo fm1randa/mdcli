@@ -1,12 +1,10 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE } from './fixtures.js';
+import { CONNECTIONS, mockStatement } from './import-harness.js';
 
 // The new Entry's payload in /lancamentos/importar, field by field as the web builds it.
 // Fictional ids. 1001 is Nubank (connection account 9001). Category 10 is Alimentação (d).
-const CONNECTIONS = [
-  { id: 501, status: 'UPDATED', accounts: [{ id: 9001, type: 'CONTA CORRENTE', conta: 1001 }] },
-];
 
 const TX1 = 'aaaa1111-1111-4000-8000-000000000001';
 const TX3 = 'cccc3333-3333-4000-8000-000000000003';
@@ -37,12 +35,7 @@ function bank(integrationId: string, extra: Record<string, unknown> = {}) {
 }
 
 function statement(rows: unknown[]) {
-  api.on('GET /v1/integracao/account/9001/transactions', {
-    inicio: '2026-10-01',
-    fim: '2026-10-10',
-    saldo: 250.5,
-    lancamentos: rows,
-  });
+  mockStatement(api, rows, { saldo: 250.5 });
 }
 
 function entries(list: unknown[]) {

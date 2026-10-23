@@ -1,12 +1,10 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE } from './fixtures.js';
+import { CONNECTIONS, mockStatement } from './import-harness.js';
 
 // Fictional ids. 1001 is Nubank. 9001 is its connection account, not the Account id.
 // Statement 2026-10-01..2026-10-10, so the search window is 2026-09-29..2026-10-12.
-const CONNECTIONS = [
-  { id: 501, status: 'UPDATED', accounts: [{ id: 9001, type: 'CONTA CORRENTE', conta: 1001 }] },
-];
 
 const RULE = 'a1a1a1a1-1111-4000-8000-000000000001';
 const MARKET = 'b2b2b2b2-1111-4000-8000-000000000002';
@@ -36,12 +34,7 @@ afterEach(() => {
 });
 
 function statement(rows: unknown[]) {
-  api.on('GET /v1/integracao/account/9001/transactions', {
-    inicio: '2026-10-01',
-    fim: '2026-10-10',
-    saldo: 0,
-    lancamentos: rows,
-  });
+  mockStatement(api, rows);
 }
 
 function bank(integrationId: string, valor: number, descricao: string, ca: Record<string, unknown>, data = '2026-10-07') {

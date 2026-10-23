@@ -3,12 +3,10 @@ import { existsSync } from 'node:fs';
 import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE } from './fixtures.js';
 import { FakeEditor } from './import-edit-harness.js';
+import { CONNECTIONS, mockStatement } from './import-harness.js';
 
 // Fictional ids. 1001 is Nubank (connection account 9001).
 // Categories: 10 Alimentação (d), 20 Salário (r), 60 Antiga (d, inactive).
-const CONNECTIONS = [
-  { id: 501, status: 'UPDATED', accounts: [{ id: 9001, type: 'CONTA CORRENTE', conta: 1001 }] },
-];
 const INACTIVE = { ...CATEGORIES_RESPONSE.items[4], id: 60, nome: 'Antiga', nomeRel: 'Antiga', status: false };
 const COMMIT = [
   'POST /v1/integracao/transactions/markImported',
@@ -51,12 +49,7 @@ function bank(integrationId: string, extra: Record<string, unknown> = {}) {
 }
 
 function statement(rows: unknown[]) {
-  api.on('GET /v1/integracao/account/9001/transactions', {
-    inicio: '2026-10-01',
-    fim: '2026-10-10',
-    saldo: 250.5,
-    lancamentos: rows,
-  });
+  mockStatement(api, rows, { saldo: 250.5 });
 }
 
 function entries(list: unknown[]) {

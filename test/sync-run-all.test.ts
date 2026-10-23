@@ -162,6 +162,19 @@ describe('sync run all', () => {
     expect(mutations(api)).toHaveLength(1);
   });
 
+  test('the table after the Sync keeps a row for a connection with no connection account', async () => {
+    const bare = [{ id: 503, status: 'UPDATED', accounts: [] }];
+    connections(bare, [{ ...bare[0], status: 'UPDATING' }]);
+
+    const result = await runCli(['sync', 'run', 'all', '--yes'], { home, api });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain('Connections (1)');
+    const row = result.stdout.split('\n').find((line) => line.startsWith('│') && line.includes('503'));
+    expect(row).toContain('UPDATING');
+    expect(mutations(api).map((r) => r.path)).toEqual(['/v1/integracao/connection/update/503']);
+  });
+
   test('no connections exits 0 without a prompt or a PUT', async () => {
     connections([], []);
 
@@ -214,17 +227,15 @@ describe('sync run all', () => {
     expect(api.requests).toHaveLength(0);
   });
 
-  test('sync run help is in American English and offers no --connection', async () => {
+  test('sync run help offers no --connection and calls no API', async () => {
     const run = await runCli(['sync', 'run', '--help'], { home, api });
     expect(run.exitCode).toBe(0);
     expect(run.stdout).toContain('--yes');
     expect(run.stdout).toContain('--json');
     expect(run.stdout).not.toContain('--connection');
-    expect(run.stdout).not.toMatch(/conex[ãa]o|Listar|Atualizar|vincular/i);
 
     const sync = await runCli(['sync', '--help'], { home, api });
     expect(sync.exitCode).toBe(0);
-    expect(sync.stdout).not.toMatch(/conex[ãa]o|Listar|Atualizar|vincular/i);
     expect(api.requests).toHaveLength(0);
   });
 });

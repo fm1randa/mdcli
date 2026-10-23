@@ -243,11 +243,13 @@ describe('sync run', () => {
   test('does not keep a local count of the 3 syncs per day', async () => {
     connections(ONE_CONNECTION, ONE_CONNECTION);
 
-    const first = await runCli(['sync', 'run', '1001', '--yes'], { home, api });
-    const second = await runCli(['sync', 'run', '1001', '--yes'], { home, api });
+    // One run past the bank's limit of 3 per day: the API decides, not a local counter.
+    const exitCodes: number[] = [];
+    for (let run = 0; run < 4; run += 1) {
+      exitCodes.push((await runCli(['sync', 'run', '1001', '--yes'], { home, api })).exitCode);
+    }
 
-    expect(first.exitCode).toBe(0);
-    expect(second.exitCode).toBe(0);
-    expect(mutations(api).map((r) => r.body)).toEqual([{ force: true }, { force: true }]);
+    expect(exitCodes).toEqual([0, 0, 0, 0]);
+    expect(mutations(api).map((r) => r.body)).toEqual([{ force: true }, { force: true }, { force: true }, { force: true }]);
   });
 });

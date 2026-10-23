@@ -44,7 +44,7 @@ export interface RunDocument {
 
 export interface RunSelection {
   /** Bank Transactions picked with --ids. They get `category`. */
-  ids: BankTransactionRow[];
+  toImport: BankTransactionRow[];
   /** Bank Transactions picked with --reject. */
   rejects: BankTransactionRow[];
   category: Category | null;
@@ -92,7 +92,7 @@ export function matchPrefix(
 export function planRun(document: ImportDocument, selection: RunSelection): RunDocument {
   const run = emptyRun(document, selection.dryRun);
   const problems: string[] = [];
-  for (const row of selection.ids) {
+  for (const row of selection.toImport) {
     const problem = planSelected(row, selection, run);
     if (problem !== null) problems.push(`${label(row)}: ${problem}`);
   }
@@ -132,6 +132,14 @@ export function failOnProblems(problems: readonly string[]): void {
   if (problems.length > 0) throw new PlanError(problems);
 }
 
+const NO_BANK_DATE = 'the bank did not send a date.';
+const ZERO_VALUE = 'the value is zero.';
+
+/** The row's bank date when it is a calendar day; otherwise null. */
+function bankDate(row: BankTransactionRow): string | null {
+  return row.date !== null && isCalendarDate(row.date) ? row.date : null;
+}
+
 /** A written value may only flip the sign of the bank value. */
 export function checkWrittenValue(row: BankTransactionRow, value: number | undefined): string | null {
   if (value === undefined || row.value === null) return null;
@@ -141,7 +149,7 @@ export function checkWrittenValue(row: BankTransactionRow, value: number | undef
 
 export function planReject(row: BankTransactionRow, run: RunDocument): string | null {
   // The commit dates each page by its latest bank date, rejects included.
-  if (row.date === null || !isCalendarDate(row.date)) return 'the bank did not send a date.';
+  if (bankDate(row) === null) return NO_BANK_DATE;
   run.rejected.push(reference(row));
   return null;
 }
@@ -153,8 +161,8 @@ export function linkedCandidate(row: BankTransactionRow): ImportCandidate | null
 
 /** Links the row to `entry`, keeping the Entry's value and description (overwrite is off). */
 export function planConciliate(row: BankTransactionRow, entry: ImportCandidate, run: RunDocument): string | null {
-  if (row.date === null || !isCalendarDate(row.date)) return 'the bank did not send a date.';
-  if (row.value === 0) return 'the value is zero.';
+  if (bankDate(row) === null) return NO_BANK_DATE;
+  if (row.value === 0) return ZERO_VALUE;
   const kept = { value: entry.value, description: entry.description };
   run.conciliated.push({ ...reference(row), entryId: entry.id, before: kept, after: { ...kept } });
   return null;
@@ -186,10 +194,10 @@ export interface ImportChoice {
 export function planImport(row: BankTransactionRow, choice: ImportChoice, run: RunDocument): string | null {
   const category = choice.category;
   if (category === null) return 'it has no category.';
-  const { date } = row;
-  if (date === null || !isCalendarDate(date)) return 'the bank did not send a date.';
+  const date = bankDate(row);
+  if (date === null) return NO_BANK_DATE;
   if (row.value === null) return 'the bank did not send a value.';
-  if (row.value === 0) return 'the value is zero.';
+  if (row.value === 0) return ZERO_VALUE;
   const value = choice.value ?? row.value;
   if (category.tipo === 'd' && value > 0) {
     return `category "${category.nome}" is an expense, so the value must be negative.`;

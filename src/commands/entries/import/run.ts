@@ -121,7 +121,7 @@ async function fromFlags(options: ImportRunOptions, today: string): Promise<Plan
     exitWithError(`${both.prefix ?? both.integrationId} is selected by both --ids and --reject.`);
   }
   const run = planRun(loaded.document, {
-    ids: picked,
+    toImport: picked,
     rejects: rejected,
     category,
     includeDuplicates: options.includeDuplicates === true,

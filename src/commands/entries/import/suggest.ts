@@ -19,6 +19,13 @@ function fieldValue(ca: Record<string, unknown> | null, kind: SuggestionKind | n
   return entry?.v;
 }
 
+/** The row's `_ca` and the suggestion kind it is read with. */
+function readCa(row: unknown): { ca: Record<string, unknown> | null; kind: SuggestionKind | null } {
+  const record = asRecord(row);
+  const ca = asRecord(record?._ca);
+  return { ca, kind: suggestionKind(numberOrNull(record?.valor), ca?.st === true) };
+}
+
 interface LearnedFields {
   categoryId: number | null;
   suggestedDescription: string | null;
@@ -27,9 +34,7 @@ interface LearnedFields {
 
 /** Category, description, and tag ids from `_ca.c[tipo]`, with `_ca.d` as the description fallback. */
 export function learnedFields(row: unknown): LearnedFields {
-  const record = asRecord(row);
-  const ca = asRecord(record?._ca);
-  const kind = suggestionKind(numberOrNull(record?.valor), ca?.st === true);
+  const { ca, kind } = readCa(row);
   const fromField = fieldValue(ca, kind, 'descricao');
   let suggestedDescription: string | null = null;
   if (typeof fromField === 'string') suggestedDescription = fromField;
@@ -48,9 +53,7 @@ export interface AiRequest {
 
 /** `_ca.ait[tipo]`, the token the web app sends to the AI, with the row's tipo. Null when there is none. */
 export function aiRequest(row: unknown): AiRequest | null {
-  const record = asRecord(row);
-  const ca = asRecord(record?._ca);
-  const kind = suggestionKind(numberOrNull(record?.valor), ca?.st === true);
+  const { ca, kind } = readCa(row);
   if (ca === null || kind === null) return null;
   const token = asRecord(ca.ait)?.[kind] ?? null;
   return token === null ? null : { kind, token };

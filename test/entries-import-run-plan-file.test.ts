@@ -3,13 +3,11 @@ import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE } from './fixtures.js';
+import { CONNECTIONS, mockStatement } from './import-harness.js';
 
 // The --plan file itself: its keys and types, the flags it combines with, and its prefixes.
 // Fictional ids. 1001 is Nubank (connection account 9001).
 // Categories: 10 Alimentação (d), 20 Salário (r), 30 Transferência (t), 60 Antiga (d, inactive).
-const CONNECTIONS = [
-  { id: 501, status: 'UPDATED', accounts: [{ id: 9001, type: 'CONTA CORRENTE', conta: 1001 }] },
-];
 const INACTIVE = { ...CATEGORIES_RESPONSE.items[4], id: 60, nome: 'Antiga', nomeRel: 'Antiga', status: false };
 
 const TX1 = 'aaaa1111-1111-4000-8000-000000000001';
@@ -41,12 +39,7 @@ function bank(integrationId: string, extra: Record<string, unknown> = {}) {
 }
 
 function statement(rows: unknown[]) {
-  api.on('GET /v1/integracao/account/9001/transactions', {
-    inicio: '2026-10-01',
-    fim: '2026-10-10',
-    saldo: 0,
-    lancamentos: rows,
-  });
+  mockStatement(api, rows);
 }
 
 function entries(list: unknown[]) {

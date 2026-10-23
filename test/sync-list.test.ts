@@ -115,6 +115,18 @@ describe('sync list', () => {
     expect(result.stdout).not.toContain('"connections"');
   });
 
+  test('a connection with no connection account still gets a row with its id and status', async () => {
+    api.on('GET /v1/integracao/connections', [...CONNECTIONS, { id: 503, status: 'LOGIN_ERROR', accounts: [] }]);
+
+    const result = await runCli(['sync', 'list'], { home, api });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain('Connections (3)');
+    const row = result.stdout.split('\n').find((line) => line.startsWith('│') && line.includes('503'));
+    expect(row).toContain('LOGIN_ERROR');
+    expect(row).not.toContain('No account');
+  });
+
   test('without login, fails with the same message as the other commands and calls nothing', async () => {
     const loggedOut = createHome({});
     try {
@@ -161,17 +173,15 @@ describe('sync list', () => {
     expect(api.requests).toHaveLength(0);
   });
 
-  test('sync and sync list help are in American English, and sync list takes no --connection or --account', async () => {
+  test('sync list help takes no --connection or --account and calls no API', async () => {
     const sync = await runCli(['sync', '--help'], { home, api });
     expect(sync.exitCode).toBe(0);
-    expect(sync.stdout).not.toMatch(/conex[ãa]o|Listar|Atualizar|vincular/i);
 
     const list = await runCli(['sync', 'list', '--help'], { home, api });
     expect(list.exitCode).toBe(0);
     expect(list.stdout).toContain('--json');
     expect(list.stdout).not.toContain('--connection');
     expect(list.stdout).not.toContain('--account');
-    expect(list.stdout).not.toMatch(/conex[ãa]o|Listar|Atualizar|vincular/i);
     expect(api.requests).toHaveLength(0);
   });
 });

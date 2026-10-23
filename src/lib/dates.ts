@@ -71,3 +71,10 @@ export function addInterval(date: string, count: number, interval: 'd' | 'w' | '
   const days = interval === 'w' ? count * 7 : count;
   return toLocalDateString(new Date(year, month - 1, day + days));
 }
+
+/** The API sends `YYYY-MM-DD` or `YYYY-MM-DDT00:00:00`; only the calendar day counts. */
+export function calendarDay(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const day = value.slice(0, 10);
+  return isCalendarDate(day) ? day : null;
+}

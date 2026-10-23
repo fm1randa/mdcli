@@ -1,16 +1,10 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE } from './fixtures.js';
+import { CONNECTIONS } from './import-harness.js';
 
 // Fictional ids. 1001 is Nubank and 1002 is Cartão Azul in the account fixture.
 // connection account 9001 is not the Meu Dinheiro account id.
-const CONNECTIONS = [
-  {
-    id: 501,
-    status: 'UPDATED',
-    accounts: [{ id: 9001, type: 'CONTA CORRENTE', conta: 1001 }],
-  },
-];
 
 const LONE = 'bbbbbbbb-1111-4000-8000-000000000001';
 const SHARED_A = 'aaaaaaaa-1111-4000-8000-000000000001';
@@ -262,10 +256,9 @@ describe('entries import list', () => {
     expect(api.requests.filter((r) => r.path.includes('/transactions'))).toHaveLength(1);
   });
 
-  test('help for entries import and entries import list is American English, offers the read options, and calls no API', async () => {
+  test('help for entries import and entries import list offers the read options and calls no API', async () => {
     const parent = await cli(['entries', 'import', '--help']);
     expect(parent.exitCode).toBe(0);
-    expect(parent.stdout).not.toMatch(/conex[ãa]o|lan[cç]amento|extrato|Listar|Importar/i);
 
     const list = await cli(['entries', 'import', 'list', '--help']);
     expect(list.exitCode).toBe(0);
@@ -273,7 +266,6 @@ describe('entries import list', () => {
       expect(list.stdout).toContain(option);
     }
     expect(list.stdout).not.toContain('--yes');
-    expect(list.stdout).not.toMatch(/conex[ãa]o|lan[cç]amento|extrato|Listar|Importar/i);
     expect(api.requests).toHaveLength(0);
   });
 

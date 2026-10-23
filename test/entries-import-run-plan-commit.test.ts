@@ -3,11 +3,9 @@ import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE } from './fixtures.js';
+import { CONNECTIONS, mockStatement } from './import-harness.js';
 
 // Fictional ids. 1001 is Nubank (connection account 9001). 10 Alimentação (d), 20 Salário (r).
-const CONNECTIONS = [
-  { id: 501, status: 'UPDATED', accounts: [{ id: 9001, type: 'CONTA CORRENTE', conta: 1001 }] },
-];
 const FONTE = 'Importado via Integração bancária automática';
 
 const TX1 = 'aaaa1111-1111-4000-8000-000000000001';
@@ -41,12 +39,7 @@ function bank(integrationId: string, extra: Record<string, unknown> = {}) {
 }
 
 function statement(rows: unknown[]) {
-  api.on('GET /v1/integracao/account/9001/transactions', {
-    inicio: '2026-10-01',
-    fim: '2026-10-10',
-    saldo: 80,
-    lancamentos: rows,
-  });
+  mockStatement(api, rows, { saldo: 80 });
 }
 
 function planFile(content: unknown): string {

@@ -127,7 +127,7 @@ function commitItems(input: CommitInput): CommitItem[] {
       entry.lembrete = '0';
       entry.enviarLembrete = true;
     }
-    items.push({ action: 'import', integrationId: item.integrationId, date: item.date, payload: withoutNulls(entry) });
+    items.push({ action: 'import', integrationId: item.integrationId, date: item.date, payload: webPayload(entry) });
   }
   for (const item of run.conciliated) {
     const date = bankDate(item.integrationId);
@@ -135,7 +135,7 @@ function commitItems(input: CommitInput): CommitItem[] {
     const linked: Record<string, unknown> = { data: date };
     for (const field of LINKED_FIELDS) linked[field] = entry?.[field];
     linked.ids = [item.entryId];
-    items.push({ action: 'conciliate', integrationId: item.integrationId, date, payload: withoutNulls(linked) });
+    items.push({ action: 'conciliate', integrationId: item.integrationId, date, payload: webPayload(linked) });
   }
   for (const item of run.rejected) {
     items.push({ action: 'reject', integrationId: item.integrationId, date: bankDate(item.integrationId), payload: null });
@@ -152,7 +152,7 @@ function payloads(page: readonly CommitItem[], action: CommitItem['action']): Re
 }
 
 /** The web does not send null fields, nor fields whose name starts with `$`. */
-function withoutNulls(record: Record<string, unknown>): Record<string, unknown> {
+function webPayload(record: Record<string, unknown>): Record<string, unknown> {
   const clean: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(record)) {
     if (value !== null && value !== undefined && !key.startsWith('$')) clean[key] = value;

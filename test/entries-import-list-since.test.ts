@@ -1,14 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE } from './fixtures.js';
-
-const CONNECTIONS = [
-  {
-    id: 501,
-    status: 'UPDATED',
-    accounts: [{ id: 9001, type: 'CONTA CORRENTE', conta: 1001 }],
-  },
-];
+import { CONNECTIONS } from './import-harness.js';
 
 const STATEMENT = {
   inicio: '2026-08-01',

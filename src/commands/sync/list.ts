@@ -62,7 +62,7 @@ export async function listAction(options: { json?: boolean }): Promise<void> {
   printSyncList(connections);
 }
 
-/** Same table as `sync list`: one row per connection account. */
+/** Same table as `sync list`: one row per connection account, or one for a connection with none. */
 export function printSyncList(connections: SyncListConnection[]): void {
   const table = new Table({
     head: ['Connection', 'Status', 'Type', 'Connection account', 'Account'],
@@ -70,6 +70,10 @@ export function printSyncList(connections: SyncListConnection[]): void {
   });
 
   for (const connection of connections) {
+    // A connection with no connection account (e.g. a failed setup) still shows its status.
+    if (connection.accounts.length === 0) {
+      table.push([cell(connection.id), cell(connection.status), cell(null), cell(null), cell(null)]);
+    }
     for (const account of connection.accounts) {
       table.push([
         cell(connection.id),

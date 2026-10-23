@@ -240,7 +240,7 @@ function printStatement(document: ImportDocument): void {
       cell(categoryLabel(bankTransaction.suggestedCategory)),
       cell(bankTransaction.suggestedDescription),
       bankTransaction.suggestedTagIds.length === 0 ? chalk.gray('-') : bankTransaction.suggestedTagIds.join(', '),
-      bankTransaction.duplicateOf === null ? chalk.gray('-') : String(bankTransaction.duplicateOf),
+      cell(bankTransaction.duplicateOf),
       bankTransaction.candidates.length === 0
         ? chalk.gray('-')
         : bankTransaction.candidates

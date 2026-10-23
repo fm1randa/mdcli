@@ -1,4 +1,4 @@
-import { addInterval, compareDates, isCalendarDate } from '../../../lib/dates.js';
+import { addInterval, calendarDay, compareDates } from '../../../lib/dates.js';
 import { asRecord, idOrNull, nonEmptyTextOrNull, numberOrNull, textOrNull } from '../../../lib/payload.js';
 
 export interface ImportCandidate {
@@ -107,11 +107,4 @@ function entryDate(record: Record<string, unknown>): string | null {
   const effective = calendarDay(record.dataEfetiva);
   if (effective !== null) return effective;
   return calendarDay(record.dataPrevista);
-}
-
-/** The API sends `YYYY-MM-DD` or `YYYY-MM-DDT00:00:00`; only the calendar day counts. */
-function calendarDay(value: unknown): string | null {
-  if (typeof value !== 'string') return null;
-  const day = value.slice(0, 10);
-  return isCalendarDate(day) ? day : null;
 }

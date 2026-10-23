@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE } from './fixtures.js';
+import { mockStatement } from './import-harness.js';
 
 // Fictional ids. 1001 is Nubank (9001), 1002 is Cartão Azul (9002, due 2026-01-16).
 // Categories: 10 Alimentação (d), 20 Salário (r), 30 Transferência (t), 60 Antiga (d, inactive).
@@ -42,12 +43,7 @@ function bank(integrationId: string, extra: Record<string, unknown> = {}) {
 }
 
 function statement(rows: unknown[], connectionAccount = 9001) {
-  api.on(`GET /v1/integracao/account/${connectionAccount}/transactions`, {
-    inicio: '2026-10-01',
-    fim: '2026-10-10',
-    saldo: 0,
-    lancamentos: rows,
-  });
+  mockStatement(api, rows, { connectionAccount });
 }
 
 function entries(list: unknown[]) {
