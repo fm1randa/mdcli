@@ -140,20 +140,30 @@ describe('entries import list card candidates', () => {
     expect(mutations(api)).toHaveLength(0);
   });
 
-  test('fails when proximoVencimento is missing or not a calendar date', async () => {
+  test('loads the first invoice (primeiraFatura) for a card without proximoVencimento', async () => {
     const { proximoVencimento: _omit, ...withoutDue } = CREDIT_CARD_ACCOUNT;
-    const cards = [withoutDue, { ...CREDIT_CARD_ACCOUNT, proximoVencimento: '2026-02-31T00:00:00' }];
-    for (const card of cards) {
-      api.requests.length = 0;
-      api.on('GET /v1/cadastros/contas', { ...ACCOUNTS_RESPONSE, items: [CHECKING_ACCOUNT, card] });
-      const result = await list();
-      expect(result.exitCode).toBe(1);
-      expect(result.stdout).toBe('');
-      expect(JSON.parse(result.stderr).error).toContain('proximoVencimento');
-      expect(api.requests.some((r) => r.path.includes('primeiraFatura'))).toBe(false);
-      expect(api.requests.some((r) => r.path.includes('/fatura'))).toBe(false);
-      expect(api.requests.some((r) => r.path === '/v2/lancamentos')).toBe(false);
-    }
+    api.on('GET /v1/cadastros/contas', { ...ACCOUNTS_RESPONSE, items: [CHECKING_ACCOUNT, withoutDue] });
+    api.on('GET /v1/cartoes/1002/primeiraFatura', () => '2026-02-21T00:00:00');
+    api.on('GET /v1/cartoes/1002/fatura/2026-02-21', {
+      lancamentos: [
+        { id: 790, descricao: 'Primeira Fatura', valor: -12.34, dataCompetencia: '2026-10-07', categoria: 10 },
+      ],
+      vencimento: '2026-02-21',
+      fechamento: '2026-02-11',
+      valor: -12.34,
+    });
+
+    const result = await list();
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe('');
+    const row = JSON.parse(result.stdout).transactions[0];
+    expect(row.candidates).toEqual([
+      { id: 790, date: '2026-10-07', value: -12.34, description: 'Primeira Fatura', categoryId: 10 },
+    ]);
+    expect(row.conciliateWith).toBe(790);
+    expect(api.requests.some((r) => r.path === INVOICE)).toBe(false);
+    expect(api.requests.some((r) => r.path === '/v2/lancamentos')).toBe(false);
     expect(mutations(api)).toHaveLength(0);
   });
 

@@ -1,9 +1,9 @@
 import Table from 'cli-table3';
 import chalk from 'chalk';
 import { fetchAccountById, fetchBankTransactions, fetchCardInvoice, fetchImportCandidates, fetchImportDuplicates, isCreditCard } from '../../../lib/api.js';
-import { isCalendarDate } from '../../../lib/dates.js';
 import type { Account, Category } from '../../../types/index.js';
 import { exitWithError } from '../../../utils/action.js';
+import { cardDueAnchor } from '../card-invoice.js';
 import { formatCurrency } from '../../../utils/currency.js';
 import { logger } from '../../../utils/logger.js';
 import { cell } from '../../../utils/text.js';
@@ -68,7 +68,7 @@ export async function loadImport(options: ImportLoadOptions): Promise<LoadedImpo
   }
   const account = await fetchAccountById(accountId);
   if (account !== undefined && isCreditCard(account) && (searchFrom !== undefined || searchTo !== undefined)) {
-    exitWithError('A search window on a credit card is not specified. Candidates come from the invoice of proximoVencimento.');
+    exitWithError('A search window on a credit card is not specified. Candidates come from the current card invoice.');
   }
   // Like the web: the import badge shows the connection's summary (what the server has not seen imported);
   // the manual import dialog loads everything since a date, already imported or not.
@@ -179,18 +179,12 @@ async function fillCandidates(
 }
 
 async function invoiceRows(account: Account): Promise<unknown[]> {
-  const due = invoiceDueDate(account);
+  const due = await cardDueAnchor(account);
   const invoice = await fetchCardInvoice(account.id, due);
   if (!Array.isArray(invoice.lancamentos)) {
     throw new Error(`GET /v1/cartoes/${account.id}/fatura/${due} did not return lancamentos`);
   }
   return invoice.lancamentos;
-}
-
-function invoiceDueDate(account: Account): string {
-  const raw = account.proximoVencimento;
-  if (typeof raw === 'string' && isCalendarDate(raw.slice(0, 10))) return raw.slice(0, 10);
-  exitWithError(`Account ${account.id} has no proximoVencimento date to load an invoice from.`);
 }
 
 /** `{inicio, fim, saldo, lancamentos}` from the connection; no summary is an empty one (the web shows no badge). */
