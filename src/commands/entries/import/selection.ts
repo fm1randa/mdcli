@@ -2,12 +2,12 @@ import type { Category } from '../../../types/index.js';
 import { exitWithError } from '../../../utils/action.js';
 import { categoryCatalog, checkEntryCategory } from '../category.js';
 import type { ImportCandidate } from './candidates.js';
-import type { ImportDocument, ImportTransaction } from './document.js';
+import type { ImportDocument, BankTransactionRow } from './document.js';
 import {
   checkWrittenValue,
   emptyRun,
   failOnProblems,
-  ids,
+  formatIds,
   label,
   linkedCandidate,
   matchPrefix,
@@ -69,11 +69,11 @@ export async function importCategory(input: string): Promise<Category> {
  */
 export async function selectionCategories(
   items: readonly SelectionItem[],
+  catalog: () => Promise<readonly Category[]> = categoryCatalog(),
 ): Promise<{ categories: Map<string, Category>; problems: string[] }> {
   const categories = new Map<string, Category>();
   const refused = new Map<string, string>();
   const problems: string[] = [];
-  const catalog = categoryCatalog();
   for (const item of items) {
     const input = item.category;
     if (input === undefined) continue;
@@ -101,7 +101,7 @@ export function planSelection(
 ): RunDocument {
   const run = emptyRun(document, options.dryRun);
   const problems: string[] = [];
-  const seen = new Map<ImportTransaction, string>();
+  const seen = new Map<BankTransactionRow, string>();
   for (const item of items) {
     const row = matchPrefix(document.transactions, item.id, options.source);
     if (typeof row === 'string') {
@@ -127,10 +127,10 @@ interface SelectionOptions {
   /** How to name the Entry when `conciliate` has no automatically linked one, in the source's syntax. */
   entryHint: (prefix: string) => string;
   /** Every Entry `conciliate` may name for the row: its candidates and the Reconciled ones they hide. */
-  linkable: (row: ImportTransaction) => readonly ImportCandidate[];
+  linkable: (row: BankTransactionRow) => readonly ImportCandidate[];
 }
 
-function planItem(row: ImportTransaction, item: SelectionItem, options: SelectionOptions, run: RunDocument): string | null {
+function planItem(row: BankTransactionRow, item: SelectionItem, options: SelectionOptions, run: RunDocument): string | null {
   switch (item.action) {
     case 'skip':
       run.skipped.push({ ...reference(row), reason: 'plan' });
@@ -152,7 +152,7 @@ function planItem(row: ImportTransaction, item: SelectionItem, options: Selectio
 }
 
 function planLink(
-  row: ImportTransaction,
+  row: BankTransactionRow,
   entryId: number | undefined,
   options: SelectionOptions,
   run: RunDocument,
@@ -161,7 +161,7 @@ function planLink(
     // Like the web with "carregar conciliados": a Reconciled Entry hidden from the candidates may be named.
     const entry = options.linkable(row).find((candidate) => candidate.id === entryId);
     if (entry === undefined) {
-      const known = row.candidates.length === 0 ? 'it has no candidates' : `candidates: ${ids(row.candidates)}`;
+      const known = row.candidates.length === 0 ? 'it has no candidates' : `candidates: ${formatIds(row.candidates)}`;
       return `entry ${entryId} is not a candidate (${known}).`;
     }
     return planConciliate(row, entry, run);
@@ -170,5 +170,5 @@ function planLink(
   if (linked !== null) return planConciliate(row, linked, run);
   if (row.candidates.length === 0) return 'no entry matches it, so there is nothing to link.';
   const count = row.candidates.length;
-  return `${count} ${count === 1 ? 'entry' : 'entries'} may match it (${ids(row.candidates)}), none linked automatically. ${options.entryHint(label(row))}`;
+  return `${count} ${count === 1 ? 'entry' : 'entries'} may match it (${formatIds(row.candidates)}), none linked automatically. ${options.entryHint(label(row))}`;
 }

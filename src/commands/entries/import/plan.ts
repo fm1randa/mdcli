@@ -1,7 +1,7 @@
 import { isCalendarDate } from '../../../lib/dates.js';
 import type { Category } from '../../../types/index.js';
 import type { ImportCandidate } from './candidates.js';
-import type { ImportDocument, ImportTransaction } from './document.js';
+import type { ImportDocument, BankTransactionRow } from './document.js';
 
 interface RunReference {
   integrationId: string;
@@ -44,9 +44,9 @@ export interface RunDocument {
 
 export interface RunSelection {
   /** Bank Transactions picked with --ids. They get `category`. */
-  ids: ImportTransaction[];
+  ids: BankTransactionRow[];
   /** Bank Transactions picked with --reject. */
-  rejects: ImportTransaction[];
+  rejects: BankTransactionRow[];
   category: Category | null;
   includeDuplicates: boolean;
   /** Local calendar day. On or before it is Reconciled; after it, Scheduled. */
@@ -58,14 +58,14 @@ export interface RunSelection {
  * Each selected prefix to the one Bank Transaction whose integrationId starts with it, ignoring case.
  * A prefix that matches none, or more than one, fails the whole run.
  */
-export function pickTransactions(
-  transactions: readonly ImportTransaction[],
+export function pickBankTransactions(
+  bankTransactions: readonly BankTransactionRow[],
   prefixes: readonly string[],
   flag: string,
-): ImportTransaction[] {
-  const picked: ImportTransaction[] = [];
+): BankTransactionRow[] {
+  const picked: BankTransactionRow[] = [];
   for (const prefix of prefixes) {
-    const match = matchPrefix(transactions, prefix, flag);
+    const match = matchPrefix(bankTransactions, prefix, flag);
     if (typeof match === 'string') throw new Error(match);
     if (!picked.includes(match)) picked.push(match);
   }
@@ -74,12 +74,12 @@ export function pickTransactions(
 
 /** The one Bank Transaction whose integrationId starts with `prefix` (ignoring case), or why there is not one. */
 export function matchPrefix(
-  transactions: readonly ImportTransaction[],
+  bankTransactions: readonly BankTransactionRow[],
   prefix: string,
   flag: string,
-): ImportTransaction | string {
+): BankTransactionRow | string {
   const head = prefix.toLowerCase();
-  const matches = transactions.filter((row) => row.integrationId?.toLowerCase().startsWith(head) === true);
+  const matches = bankTransactions.filter((row) => row.integrationId?.toLowerCase().startsWith(head) === true);
   if (matches.length === 0) return `${flag} ${prefix} does not match any bank transaction.`;
   if (matches.length > 1) return `${flag} ${prefix} matches ${matches.length} bank transactions. Use a longer prefix.`;
   return matches[0];
@@ -133,13 +133,13 @@ export function failOnProblems(problems: readonly string[]): void {
 }
 
 /** A written value may only flip the sign of the bank value. */
-export function checkWrittenValue(row: ImportTransaction, value: number | undefined): string | null {
+export function checkWrittenValue(row: BankTransactionRow, value: number | undefined): string | null {
   if (value === undefined || row.value === null) return null;
   if (Math.round(Math.abs(value) * 100) === Math.round(Math.abs(row.value) * 100)) return null;
   return `value ${value} is not the bank value ${row.value}. Only the sign can change.`;
 }
 
-export function planReject(row: ImportTransaction, run: RunDocument): string | null {
+export function planReject(row: BankTransactionRow, run: RunDocument): string | null {
   // The commit dates each page by its latest bank date, rejects included.
   if (row.date === null || !isCalendarDate(row.date)) return 'the bank did not send a date.';
   run.rejected.push(reference(row));
@@ -147,12 +147,12 @@ export function planReject(row: ImportTransaction, run: RunDocument): string | n
 }
 
 /** The candidate the web linked on its own, or null. */
-export function linkedCandidate(row: ImportTransaction): ImportCandidate | null {
+export function linkedCandidate(row: BankTransactionRow): ImportCandidate | null {
   return row.candidates.find((candidate) => candidate.id === row.conciliateWith) ?? null;
 }
 
 /** Links the row to `entry`, keeping the Entry's value and description (overwrite is off). */
-export function planConciliate(row: ImportTransaction, entry: ImportCandidate, run: RunDocument): string | null {
+export function planConciliate(row: BankTransactionRow, entry: ImportCandidate, run: RunDocument): string | null {
   if (row.date === null || !isCalendarDate(row.date)) return 'the bank did not send a date.';
   if (row.value === 0) return 'the value is zero.';
   const kept = { value: entry.value, description: entry.description };
@@ -161,7 +161,7 @@ export function planConciliate(row: ImportTransaction, entry: ImportCandidate, r
 }
 
 /** Adds the item to `run`, or returns why it cannot be part of the batch. */
-function planSelected(row: ImportTransaction, selection: RunSelection, run: RunDocument): string | null {
+function planSelected(row: BankTransactionRow, selection: RunSelection, run: RunDocument): string | null {
   const linked = linkedCandidate(row);
   if (linked !== null) return planConciliate(row, linked, run);
   // An unlinked candidate is only a hint: it is linked by hand (conciliate with its id), never blocks import.
@@ -183,7 +183,7 @@ export interface ImportChoice {
 }
 
 /** Adds a new Entry for the row to `run`, or returns why it cannot be created. */
-export function planImport(row: ImportTransaction, choice: ImportChoice, run: RunDocument): string | null {
+export function planImport(row: BankTransactionRow, choice: ImportChoice, run: RunDocument): string | null {
   const category = choice.category;
   if (category === null) return 'it has no category.';
   const { date } = row;
@@ -210,15 +210,15 @@ export function planImport(row: ImportTransaction, choice: ImportChoice, run: Ru
   return null;
 }
 
-export function reference(row: ImportTransaction): RunReference {
+export function reference(row: BankTransactionRow): RunReference {
   const integrationId = row.integrationId ?? '';
   return { integrationId, prefix: row.prefix ?? integrationId };
 }
 
-export function label(row: ImportTransaction): string {
+export function label(row: BankTransactionRow): string {
   return row.prefix ?? row.integrationId ?? '?';
 }
 
-export function ids(candidates: readonly { id: number }[]): string {
+export function formatIds(candidates: readonly { id: number }[]): string {
   return candidates.map((candidate) => candidate.id).join(', ');
 }

@@ -1,8 +1,10 @@
 import Table from 'cli-table3';
 import chalk from 'chalk';
 import { logger } from '../../utils/logger.js';
+import { cell } from '../../utils/text.js';
 import { fetchAccounts, fetchConnections } from '../../lib/api.js';
 import { asRecord, integerOrNull, textOrNull } from '../../lib/payload.js';
+import { connectionList } from '../connection.js';
 import type { Account } from '../../types/index.js';
 
 interface SyncListAccount {
@@ -26,17 +28,12 @@ function accountName(accountId: number | null, accounts: Account[]): string | nu
 
 /** A field the connections payload did not send stays null. Names come only from the account registry. */
 export function toSyncList(payload: unknown, accounts: Account[]): SyncListConnection[] {
-  if (!Array.isArray(payload)) {
-    throw new Error('GET /v1/integracao/connections did not return a list of connections');
-  }
-
-  return payload.map((item) => {
-    const connection = asRecord(item);
-    const rows = connection?.accounts;
+  return connectionList(payload).map((connection) => {
+    const rows = connection.accounts;
     const accountsOnConnection = Array.isArray(rows) ? rows : [];
     return {
-      id: integerOrNull(connection?.id),
-      status: textOrNull(connection?.status),
+      id: integerOrNull(connection.id),
+      status: textOrNull(connection.status),
       accounts: accountsOnConnection.map((row): SyncListAccount => {
         const record = asRecord(row);
         const accountId = integerOrNull(record?.conta);
@@ -86,10 +83,6 @@ export function printSyncList(connections: SyncListConnection[]): void {
 
   logger.header(`Connections (${connections.length})`);
   console.log(table.toString());
-}
-
-function cell(value: string | number | null): string {
-  return value === null ? chalk.gray('-') : String(value);
 }
 
 /** Name from the registry, or that the bank account has no Account. Never a guessed name. */

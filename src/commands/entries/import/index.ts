@@ -7,6 +7,9 @@ const SINCE_HELP =
   'Load the full statement from this date (YYYY-MM-DD, at most 90 days ago), already imported or not. ' +
   'Default: only the new bank transactions the connection reports, like the web import badge';
 
+const SEARCH_FROM_HELP = 'Earliest candidate date (YYYY-MM-DD). Default: two days before the statement starts';
+const SEARCH_TO_HELP = 'Latest candidate date (YYYY-MM-DD). Default: two days after the statement ends';
+
 const IMPORT_NOTES = `
 Without --since, only the new bank transactions are loaded: the summary the connection reports,
 like the web's import badge. No summary means nothing new.
@@ -28,8 +31,8 @@ importCommand
   .description('List bank transactions for one account')
   .requiredOption('-a, --account <identifier>', 'Account ID, alias, or exact name (case-insensitive)')
   .option('--since <date>', SINCE_HELP)
-  .option('--search-from <date>', 'Earliest candidate date (YYYY-MM-DD). Default: two days before the statement starts')
-  .option('--search-to <date>', 'Latest candidate date (YYYY-MM-DD). Default: two days after the statement ends')
+  .option('--search-from <date>', SEARCH_FROM_HELP)
+  .option('--search-to <date>', SEARCH_TO_HELP)
   .option('--json', 'Output as JSON')
   .addHelpText('after', IMPORT_NOTES)
   .action(action(listAction));
@@ -45,8 +48,8 @@ importCommand
   .option('--edit', 'Choose the action, category, and description of each bank transaction in $EDITOR')
   .option('--include-duplicates', 'Import duplicates instead of skipping them (--ids; --edit opens them as import)')
   .option('--since <date>', SINCE_HELP)
-  .option('--search-from <date>', 'Earliest candidate date (YYYY-MM-DD). Default: two days before the statement starts')
-  .option('--search-to <date>', 'Latest candidate date (YYYY-MM-DD). Default: two days after the statement ends')
+  .option('--search-from <date>', SEARCH_FROM_HELP)
+  .option('--search-to <date>', SEARCH_TO_HELP)
   .option('--dry-run', 'Show what would be imported without writing anything')
   .option('--yes', 'Skip the confirmation prompt')
   .option('--json', 'Output as JSON (requires --yes or --dry-run)')

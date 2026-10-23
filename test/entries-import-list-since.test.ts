@@ -63,22 +63,13 @@ function shiftDays(days: number): string {
   return `${year}-${month}-${day}`;
 }
 
-function accountsWith(dataUltimoExtrato: string | undefined) {
-  const [checking, card] = ACCOUNTS_RESPONSE.items;
-  const { dataUltimoExtrato: _drop, ...rest } = checking;
-  const account = dataUltimoExtrato === undefined ? rest : { ...rest, dataUltimoExtrato };
-  return { ...ACCOUNTS_RESPONSE, items: [account, card] };
-}
-
 function startQuery(): string | null {
   const call = api.requests.find((r) => r.path.endsWith('/transactions'));
   return call?.query.get('start') ?? null;
 }
 
 describe('entries import list --since', () => {
-  test('--since is the start date, earlier or later than dataUltimoExtrato', async () => {
-    api.on('GET /v1/cadastros/contas', accountsWith('2026-10-01'));
-
+  test('--since is the start of the statement request and the document since', async () => {
     const earlier = await cli(['entries', 'import', 'list', '-a', '1001', '--since', '2026-09-15', '--json']);
     expect(earlier.exitCode).toBe(0);
     expect(startQuery()).toBe('2026-09-15');

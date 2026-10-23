@@ -3,7 +3,7 @@ import type { ImportCandidate } from './candidates.js';
 import { asRecord, numberOrNull, textOrNull } from '../../../lib/payload.js';
 import { learnedFields } from './suggest.js';
 
-interface BankTransaction {
+interface ParsedBankTransaction {
   integrationId: string | null;
   date: string | null;
   value: number | null;
@@ -19,7 +19,7 @@ export interface SuggestedCategory {
   source: 'rule' | 'ai';
 }
 
-export interface ImportTransaction {
+export interface BankTransactionRow {
   integrationId: string | null;
   prefix: string | null;
   date: string | null;
@@ -44,7 +44,8 @@ export interface ImportDocument {
   statement: { start: string | null; end: string | null; balance: number | null };
   search: { from: string | null; to: string | null };
   ai: 'ok' | 'unavailable' | 'unused';
-  transactions: ImportTransaction[];
+  /** The Bank Transactions. The key is part of the `--json` contract. */
+  transactions: BankTransactionRow[];
 }
 
 export type ImportSource = 'summary' | 'statement';
@@ -77,11 +78,11 @@ export function toImportDocument(input: {
     statement: { start, end, balance: numberOrNull(record.saldo) },
     search: searchWindow(start, end),
     ai: 'unused',
-    transactions: items.map((item, index) => toTransaction(item, prefixes[index] ?? null)),
+    transactions: items.map((item, index) => toBankTransactionRow(item, prefixes[index] ?? null)),
   };
 }
 
-function readBankTransaction(value: unknown): BankTransaction {
+function readBankTransaction(value: unknown): ParsedBankTransaction {
   const record = asRecord(value);
   const learned = learnedFields(value);
   return {
@@ -95,7 +96,7 @@ function readBankTransaction(value: unknown): BankTransaction {
   };
 }
 
-function toTransaction(item: BankTransaction, prefix: string | null): ImportTransaction {
+function toBankTransactionRow(item: ParsedBankTransaction, prefix: string | null): BankTransactionRow {
   const suggestedCategory = item.categoryId === null
     ? null
     : { id: item.categoryId, name: null, source: 'rule' as const };

@@ -3,6 +3,7 @@ import chalk from 'chalk';
 import type { Category } from '../../../types/index.js';
 import { formatCurrency } from '../../../utils/currency.js';
 import { logger } from '../../../utils/logger.js';
+import { cell } from '../../../utils/text.js';
 import type { RunDocument } from './plan.js';
 
 /** The summary of a run: statement, counts, and each item by action. */
@@ -67,8 +68,4 @@ export function printRun(run: RunDocument, context: { accountName: string | null
     for (const item of run.skipped) console.log(`  ${item.prefix} (${item.reason})`);
   }
   if (run.dryRun) logger.info('Dry run: nothing was written.');
-}
-
-function cell(value: string | null): string {
-  return value === null ? chalk.gray('-') : value;
 }

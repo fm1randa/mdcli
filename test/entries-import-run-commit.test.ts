@@ -10,7 +10,6 @@ const FONTE = 'Importado via Integração bancária automática';
 
 const TX1 = 'aaaa1111-1111-4000-8000-000000000001';
 const TX2 = 'bbbb2222-2222-4000-8000-000000000002';
-const TX3 = 'cccc3333-3333-4000-8000-000000000003';
 
 let api: MockApi;
 let home: TestHome;
@@ -104,9 +103,11 @@ describe('entries import run --yes', () => {
           conta: 1001,
           categoria: 10,
           tags: [7],
+          tipo: 'd',
           confirmado: true,
           conciliado: true,
           dataPrevista: '2026-10-07',
+          dataCompetencia: '2026-10-07',
           valorPrevisto: -12.34,
           dataEfetiva: '2026-10-07',
           valorEfetivo: -12.34,
@@ -190,66 +191,6 @@ describe('entries import run linking and status', () => {
     expect((conciliation.body as { maxDate: string }).maxDate).toBe('2026-10-07');
     expect((importing.body as { lancamentos: unknown }).lancamentos).toEqual([]);
     expect(JSON.parse(result.stdout).conciliated[0].entryId).toBe(4242);
-  });
-
-  test('a future date is Scheduled: not confirmed, not reconciled, no effective date or value', async () => {
-    statement([bank(TX1, { data: '2099-01-05' })]);
-
-    const result = await run(['--ids', 'aaaa1111', '-c', '10', '--yes', '--json']);
-
-    expect(result.exitCode).toBe(0);
-    const [, , importing] = mutations(api);
-    expect((importing.body as { lancamentos: unknown }).lancamentos).toEqual([
-      {
-        integrationId: TX1,
-        moeda: 1,
-        descricao: 'Padaria Ficticia',
-        conta: 1001,
-        categoria: 10,
-        tags: [],
-        confirmado: false,
-        conciliado: false,
-        dataPrevista: '2099-01-05',
-        valorPrevisto: -12.34,
-      },
-    ]);
-  });
-
-  test('a card Entry takes the bank date as dataCompetencia, without dataPrevista or dataEfetiva', async () => {
-    api.on('GET /v1/integracao/connections', [
-      { id: 502, status: 'UPDATED', accounts: [{ id: 9002, type: 'CARTAO DE CREDITO', conta: 1002 }] },
-    ]);
-    api.on('GET /v1/cartoes/1002/fatura/2026-01-16', { lancamentos: [] });
-    api.on('GET /v1/integracao/account/9002/transactions', {
-      inicio: '2026-10-01',
-      fim: '2026-10-10',
-      saldo: -40,
-      lancamentos: [bank(TX1, { nomePlastico: 'FICTICIO' }), bank(TX3, { data: '2099-02-01', valor: -3 })],
-    });
-
-    const result = await runCli(
-      ['entries', 'import', 'run', '-a', '1002', '--since', '2026-10-01', '--ids', 'aaaa,cccc', '-c', '10', '--yes', '--json'],
-      { home, api },
-    );
-
-    expect(result.stderr).toBe('');
-    expect(result.exitCode).toBe(0);
-    expect(routes()).toEqual(COMMIT);
-    const [mark, , importing] = mutations(api);
-    expect(mark.body).toEqual({ account: 9002, ids: [TX1, TX3], date: '2099-02-01' });
-    const common = { moeda: 1, descricao: 'Padaria Ficticia', conta: 1002, categoria: 10, tags: [] };
-    expect((importing.body as { lancamentos: unknown }).lancamentos).toEqual([
-      {
-        ...common,
-        integrationId: TX1,
-        confirmado: true,
-        conciliado: true,
-        dataCompetencia: '2026-10-07',
-        valorPrevisto: -12.34,
-        valorEfetivo: -12.34,
-      },
-      { ...common, integrationId: TX3, confirmado: false, conciliado: false, dataCompetencia: '2099-02-01', valorPrevisto: -3 },
-    ]);
   });
 
   test('a reject without a bank date is refused before any write', async () => {

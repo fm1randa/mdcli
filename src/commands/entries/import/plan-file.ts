@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { asRecord } from '../../../lib/payload.js';
 import { SELECTION_ACTIONS, type SelectionAction, type SelectionItem } from './selection.js';
 
 /** Keys each action accepts besides `id` and `action`. Anything else fails the file. */
@@ -27,10 +28,11 @@ export function readPlanFile(path: string): SelectionItem[] {
   } catch (error) {
     throw new Error(`The --plan file is not valid JSON: ${error instanceof Error ? error.message : 'unknown error'}`, { cause: error });
   }
-  if (!isRecord(parsed)) throw invalid(['the file must be a JSON object with "transactions".']);
-  const extra = Object.keys(parsed).filter((key) => key !== 'transactions');
+  const plan = asRecord(parsed);
+  if (plan === null) throw invalid(['the file must be a JSON object with "transactions".']);
+  const extra = Object.keys(plan).filter((key) => key !== 'transactions');
   if (extra.length > 0) throw invalid([`unknown key ${quote(extra[0])} (the file only has "transactions").`]);
-  const rows = parsed.transactions;
+  const rows = plan.transactions;
   if (!Array.isArray(rows)) throw invalid(['"transactions" must be a list.']);
   if (rows.length === 0) throw invalid(['"transactions" is empty. There is no "import everything".']);
 
@@ -45,8 +47,9 @@ export function readPlanFile(path: string): SelectionItem[] {
   return items;
 }
 
-function readItem(row: unknown, report: (problem: string) => void): SelectionItem | null {
-  if (!isRecord(row)) {
+function readItem(input: unknown, report: (problem: string) => void): SelectionItem | null {
+  const row = asRecord(input);
+  if (row === null) {
     report('must be an object.');
     return null;
   }
@@ -92,10 +95,6 @@ function readItem(row: unknown, report: (problem: string) => void): SelectionIte
 
 function invalid(problems: readonly string[]): Error {
   return new Error(`Invalid --plan file. Nothing was imported.\n${problems.join('\n')}`);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function isAction(value: string): value is SelectionAction {

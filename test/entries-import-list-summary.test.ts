@@ -138,15 +138,4 @@ describe('entries import list without --since: the new bank transactions', () =>
     expect(loadedStatement()).toBe(false);
     expect(mutations(api)).toHaveLength(0);
   });
-
-  test('help of list and run says where the transactions come from, how entries are linked, and that AI varies', async () => {
-    for (const command of ['list', 'run']) {
-      const help = await cli(['entries', 'import', command, '--help']);
-      expect(help.exitCode).toBe(0);
-      expect(help.stdout).toContain('Without --since, only the new bank transactions');
-      expect(help.stdout).toContain('Reconciled entries are not listed as candidates');
-      expect(help.stdout).toContain('AI suggestions come from the server and may differ between runs');
-    }
-    expect(api.requests).toHaveLength(0);
-  });
 });

@@ -114,18 +114,18 @@ sync_list() {
   local before=0
   [ -f "$log" ] && before=$(wc -l <"$log")
   local out
-  out=$("${CLI[@]}" sync list </dev/null 2>&1) || { echo "saída: $out"; return 1; }
-  grep -Eq 'Nubank' <<<"$out" || { echo "esperava Nubank em: $out"; return 1; }
-  grep -Eq 'No account' <<<"$out" || { echo "esperava conta sem vínculo em: $out"; return 1; }
+  out=$("${CLI[@]}" sync list </dev/null 2>&1) || { echo "output: $out"; return 1; }
+  grep -Eq 'Nubank' <<<"$out" || { echo "expected Nubank in: $out"; return 1; }
+  grep -Eq 'No account' <<<"$out" || { echo "expected an unlinked account in: $out"; return 1; }
   local fresh
   fresh=$(tail -n +"$((before + 1))" "$log")
-  [ -n "$fresh" ] || { echo "mock não registrou o sync list"; return 1; }
+  [ -n "$fresh" ] || { echo "the mock did not log sync list"; return 1; }
   if grep -Ev '"method":"GET"' <<<"$fresh" | grep -q .; then
-    echo "sync list não pode gravar: $fresh"
+    echo "sync list must not write: $fresh"
     return 1
   fi
   grep -Eq '/api/v1/integracao/connections' <<<"$fresh" \
-    || { echo "faltou GET de connections: $fresh"; return 1; }
+    || { echo "missing GET of connections: $fresh"; return 1; }
 }
 step "cli accounts list (mock)"        expect_ok 'Nubank' accounts list
 step "cli sync list (mock)"            sync_list
@@ -136,7 +136,7 @@ reads_and_ai_only() {
   local writes
   writes=$(grep -Ev '"method":"GET"' <<<"$1" | grep -Fxv '{"method":"POST","path":"/api/v1/smartmatch/ai"}')
   if [ -n "$writes" ]; then
-    echo "$2 não pode gravar: $writes"
+    echo "$2 must not write: $writes"
     return 1
   fi
 }
@@ -148,21 +148,21 @@ import_list() {
   local before=0
   [ -f "$log" ] && before=$(wc -l <"$log")
   local out
-  out=$("${CLI[@]}" entries import list -a 1001 </dev/null 2>&1) || { echo "saída: $out"; return 1; }
-  grep -Eq 'Padaria Ficticia' <<<"$out" || { echo "esperava o extrato em: $out"; return 1; }
-  grep -Eq 'aaaaaaaa' <<<"$out" || { echo "esperava o prefixo em: $out"; return 1; }
-  grep -Eq 'Alimentação \(AI\)' <<<"$out" || { echo "esperava a categoria da IA em: $out"; return 1; }
+  out=$("${CLI[@]}" entries import list -a 1001 </dev/null 2>&1) || { echo "output: $out"; return 1; }
+  grep -Eq 'Padaria Ficticia' <<<"$out" || { echo "expected the statement in: $out"; return 1; }
+  grep -Eq 'aaaaaaaa' <<<"$out" || { echo "expected the prefix in: $out"; return 1; }
+  grep -Eq 'Alimentação \(AI\)' <<<"$out" || { echo "expected the AI category in: $out"; return 1; }
   local fresh
   fresh=$(tail -n +"$((before + 1))" "$log")
-  [ -n "$fresh" ] || { echo "mock não registrou o import list"; return 1; }
+  [ -n "$fresh" ] || { echo "the mock did not log import list"; return 1; }
   if grep -Eq '/transactions' <<<"$fresh"; then
-    echo "sem --since o import list não carrega o extrato completo: $fresh"
+    echo "without --since, import list must not load the full statement: $fresh"
     return 1
   fi
   grep -Eq '/v2/lancamentos' <<<"$fresh" \
-    || { echo "faltou GET de candidatos: $fresh"; return 1; }
+    || { echo "missing GET of candidates: $fresh"; return 1; }
   grep -Eq '/api/v1/smartmatch/ai' <<<"$fresh" \
-    || { echo "faltou o POST da IA: $fresh"; return 1; }
+    || { echo "missing the AI POST: $fresh"; return 1; }
   reads_and_ai_only "$fresh" "entries import list"
 }
 step "cli entries import list (mock)"  import_list
@@ -174,13 +174,13 @@ import_run_dry() {
   [ -f "$log" ] && before=$(wc -l <"$log")
   local out
   out=$("${CLI[@]}" entries import run -a 1001 --since "$IMPORT_SINCE" --ids aaaaaaaa -c 10 --dry-run </dev/null 2>&1) \
-    || { echo "saída: $out"; return 1; }
-  grep -Eq 'aaaaaaaa' <<<"$out" || { echo "esperava o prefixo em: $out"; return 1; }
-  grep -Eq 'Dry run' <<<"$out" || { echo "esperava o aviso de ensaio em: $out"; return 1; }
+    || { echo "output: $out"; return 1; }
+  grep -Eq 'aaaaaaaa' <<<"$out" || { echo "expected the prefix in: $out"; return 1; }
+  grep -Eq 'Dry run' <<<"$out" || { echo "expected the dry-run notice in: $out"; return 1; }
   local fresh
   fresh=$(tail -n +"$((before + 1))" "$log")
   grep -Eq '/api/v1/integracao/account/9001/transactions' <<<"$fresh" \
-    || { echo "faltou GET de transactions: $fresh"; return 1; }
+    || { echo "missing GET of transactions: $fresh"; return 1; }
   reads_and_ai_only "$fresh" "entries import run --dry-run"
 }
 step "cli entries import run --dry-run (mock)" import_run_dry
@@ -195,9 +195,9 @@ import_run_plan_dry() {
 JSON
   local out
   out=$("${CLI[@]}" entries import run -a 1001 --plan "$plan" --dry-run </dev/null 2>&1) \
-    || { echo "saída: $out"; return 1; }
-  grep -Eq 'Plano ensaiado' <<<"$out" || { echo "esperava a descrição do plano em: $out"; return 1; }
-  grep -Eq 'Dry run' <<<"$out" || { echo "esperava o aviso de ensaio em: $out"; return 1; }
+    || { echo "output: $out"; return 1; }
+  grep -Eq 'Plano ensaiado' <<<"$out" || { echo "expected the plan description in: $out"; return 1; }
+  grep -Eq 'Dry run' <<<"$out" || { echo "expected the dry-run notice in: $out"; return 1; }
   local fresh
   fresh=$(tail -n +"$((before + 1))" "$log")
   reads_and_ai_only "$fresh" "entries import run --plan --dry-run"
@@ -219,12 +219,12 @@ echo 'import aaaaaaaa 2026-10-07 -12,34 10 | Padaria editada' > "\$1"
 SH
   local out
   out=$(EDITOR="sh $editor" "${CLI[@]}" entries import run -a 1001 --edit --dry-run --json </dev/null 2>&1) \
-    || { echo "saída: $out"; return 1; }
+    || { echo "output: $out"; return 1; }
   bun -e 'const d = JSON.parse(process.argv[1]); const i = d.imported[0]; if (d.dryRun !== true || d.imported.length !== 1 || i.description !== "Padaria editada" || i.categoryId !== 10) process.exit(1)' "$out" \
-    || { echo "esperava o ensaio editado em: $out"; return 1; }
+    || { echo "expected the edited dry run in: $out"; return 1; }
   local path
   path=$(cat "$SANDBOX/edit-path")
-  [ ! -e "$path" ] || { echo "o arquivo do --edit ficou no disco: $path"; return 1; }
+  [ ! -e "$path" ] || { echo "the --edit file was left on disk: $path"; return 1; }
   local fresh
   fresh=$(tail -n +"$((before + 1))" "$log")
   reads_and_ai_only "$fresh" "entries import run --edit --dry-run"

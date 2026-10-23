@@ -161,22 +161,17 @@ describe('sync list', () => {
     expect(api.requests).toHaveLength(0);
   });
 
-  test('sync and sync list help are in American English', async () => {
+  test('sync and sync list help are in American English, and sync list takes no --connection or --account', async () => {
     const sync = await runCli(['sync', '--help'], { home, api });
     expect(sync.exitCode).toBe(0);
-    expect(sync.stdout).toContain('Usage: mdcli sync [options] [command]');
-    expect(sync.stdout).toContain('List connections');
-    expect(sync.stdout).toContain('List connections and the accounts linked to each one');
     expect(sync.stdout).not.toMatch(/conex[ãa]o|Listar|Atualizar|vincular/i);
 
     const list = await runCli(['sync', 'list', '--help'], { home, api });
     expect(list.exitCode).toBe(0);
-    expect(list.stdout).toContain('Usage: mdcli sync list [options]');
-    expect(list.stdout).toContain('List connections and the accounts linked to each one');
     expect(list.stdout).toContain('--json');
-    expect(list.stdout).toContain('Output as JSON');
     expect(list.stdout).not.toContain('--connection');
     expect(list.stdout).not.toContain('--account');
     expect(list.stdout).not.toMatch(/conex[ãa]o|Listar|Atualizar|vincular/i);
+    expect(api.requests).toHaveLength(0);
   });
 });

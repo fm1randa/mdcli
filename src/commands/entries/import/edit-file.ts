@@ -1,12 +1,16 @@
+import type { Category } from '../../../types/index.js';
 import { parseAmount, parseId } from '../../../utils/parse.js';
-import type { ImportDocument, ImportTransaction } from './document.js';
+import type { ImportDocument, BankTransactionRow } from './document.js';
 import { matchPrefix } from './plan.js';
 import { SELECTION_ACTIONS, type SelectionItem } from './selection.js';
 
 const ERROR_MARK = '# error: ';
 
-/** The --edit file: one command line per Bank Transaction, candidates as comments above it, help below. */
-export function renderEditFile(document: ImportDocument): string {
+/**
+ * The --edit file: one command line per Bank Transaction, candidates as comments above it, help below.
+ * `categories` is the catalog: a suggested category whose name another category shares is written by id.
+ */
+export function renderEditFile(document: ImportDocument, categories: readonly Category[]): string {
   const out: string[] = [];
   const unusable: string[] = [];
   for (const row of document.transactions) {
@@ -21,7 +25,7 @@ export function renderEditFile(document: ImportDocument): string {
         out.push(`# ${candidate.id} ${candidate.date} ${amount(candidate.value)}${description}`);
       }
     }
-    const category = row.suggestedCategory === null ? '' : (row.suggestedCategory.name ?? String(row.suggestedCategory.id));
+    const category = suggestedCategoryText(row, categories);
     const description = row.suggestedDescription ?? row.description ?? '';
     out.push(`${defaultCommand(row)} ${row.date} ${amount(row.value)} ${category} | ${description}`);
   }
@@ -42,11 +46,31 @@ export function renderEditFile(document: ImportDocument): string {
   return `${out.join('\n')}\n`;
 }
 
+/** The suggested category's name, or its id when there is no name or the name is not unique. */
+function suggestedCategoryText(row: BankTransactionRow, categories: readonly Category[]): string {
+  const suggested = row.suggestedCategory;
+  if (suggested === null) return '';
+  const name = suggested.name;
+  if (name === null) return String(suggested.id);
+  const same = categories.filter((category) => category.nome.toLowerCase() === name.toLowerCase());
+  return same.length > 1 ? String(suggested.id) : name;
+}
+
 /** The command, the prefix and, on conciliate, the automatically linked Entry. */
-function defaultCommand(row: ImportTransaction): string {
+function defaultCommand(row: BankTransactionRow): string {
   const prefix = row.prefix ?? '';
   if (row.defaultAction === 'conciliate' && row.conciliateWith !== null) return `conciliate ${prefix} ${row.conciliateWith}`;
   return `${row.defaultAction === 'needs-category' ? 'import' : row.defaultAction} ${prefix}`;
+}
+
+/**
+ * The suggested category's id when the line still names it: a name lookup could land on
+ * another category with the same name, or on a stale name cache.
+ */
+function keptSuggestion(row: BankTransactionRow, category: string): string | null {
+  const suggested = row.suggestedCategory;
+  if (suggested === null || suggested.name === null) return null;
+  return suggested.name.toLowerCase() === category.toLowerCase() ? String(suggested.id) : null;
 }
 
 function amount(value: number): string {
@@ -70,15 +94,15 @@ const LINE = /^(\S+)\s+(\S+)(?:\s+(\d+))?\s+(\S+)\s+(\S+)(?:\s+(.*?))?\s*$/;
  */
 export function parseEditFile(
   text: string,
-  transactions: readonly ImportTransaction[],
+  bankTransactions: readonly BankTransactionRow[],
 ): { items: SelectionItem[]; errors: string[] } {
   const items: SelectionItem[] = [];
   const errors: string[] = [];
-  const seen = new Set<ImportTransaction>();
+  const seen = new Set<BankTransactionRow>();
   text.split('\n').forEach((raw, index) => {
     const line = raw.trim();
     if (line === '' || line.startsWith('#')) return;
-    const parsed = parseLine(line, `Line ${index + 1}`, transactions);
+    const parsed = parseLine(line, `Line ${index + 1}`, bankTransactions);
     if (typeof parsed === 'string') {
       errors.push(parsed);
     } else if (seen.has(parsed.row)) {
@@ -94,8 +118,8 @@ export function parseEditFile(
 function parseLine(
   line: string,
   where: string,
-  transactions: readonly ImportTransaction[],
-): { row: ImportTransaction; item: SelectionItem } | string {
+  bankTransactions: readonly BankTransactionRow[],
+): { row: BankTransactionRow; item: SelectionItem } | string {
   // The line is trimmed, so an empty description leaves the pipe last: "... |".
   const pipe = PIPE.exec(line);
   const head = pipe === null ? line : line.slice(0, pipe.index);
@@ -107,7 +131,7 @@ function parseLine(
   const [, command, prefix, entryText, date, valueText, categoryText = ''] = match;
   const action = SELECTION_ACTIONS.find((name) => name === command);
   if (action === undefined) return `${where}: unknown command "${command}". Use ${SELECTION_ACTIONS.join(', ')}.`;
-  const row = matchPrefix(transactions, prefix, `${where}: prefix`);
+  const row = matchPrefix(bankTransactions, prefix, `${where}: prefix`);
   if (typeof row === 'string') return row;
   const id = row.prefix ?? prefix;
   if (entryText !== undefined && action !== 'conciliate') return `${id}: only conciliate takes an entry id.`;
@@ -119,7 +143,7 @@ function parseLine(
     // Empty: the suggested description, then the bank text (planImport).
     if (description !== '') item.description = description;
     const category = categoryText.trim();
-    if (category !== '') item.category = category;
+    if (category !== '') item.category = keptSuggestion(row, category) ?? category;
   }
   if (action === 'conciliate' && entryText !== undefined) item.entry = parseId(entryText);
   return { row, item };

@@ -4,11 +4,12 @@ import type { Category } from '../../../types/index.js';
 import { exitWithError } from '../../../utils/action.js';
 import { logger } from '../../../utils/logger.js';
 import { promptConfirmation } from '../../../utils/prompt.js';
+import { categoryCatalog } from '../category.js';
 import { commitRun } from './commit.js';
 import { editRun } from './edit.js';
 import { fillSuggestions, linkableOf, loadImport, nothingNewMessage, statementRows, type ImportLoadOptions, type LoadedImport } from './list.js';
 import type { ImportDocument } from './document.js';
-import { emptyRun, failOnProblems, pickTransactions, planRun, type RunDocument } from './plan.js';
+import { emptyRun, failOnProblems, pickBankTransactions, planRun, type RunDocument } from './plan.js';
 import { readPlanFile } from './plan-file.js';
 import { printRun } from './run-output.js';
 import { importCategory, planSelection, selectionCategories } from './selection.js';
@@ -112,9 +113,9 @@ async function fromFlags(options: ImportRunOptions, today: string): Promise<Plan
   const category = options.category === undefined ? null : await importCategory(options.category);
   const loaded = await loadImport(options);
   if (loaded.document.transactions.length === 0) return nothingNew(loaded, options);
-  const { transactions } = loaded.document;
-  const picked = pickTransactions(transactions, ids, '--ids');
-  const rejected = pickTransactions(transactions, rejects, '--reject');
+  const { transactions: bankTransactions } = loaded.document;
+  const picked = pickBankTransactions(bankTransactions, ids, '--ids');
+  const rejected = pickBankTransactions(bankTransactions, rejects, '--reject');
   const both = picked.find((row) => rejected.includes(row));
   if (both !== undefined) {
     exitWithError(`${both.prefix ?? both.integrationId} is selected by both --ids and --reject.`);
@@ -152,9 +153,15 @@ async function fromPlan(options: ImportRunOptions, path: string, today: string):
 async function fromEdit(options: ImportRunOptions, today: string): Promise<PlannedRun | null> {
   const loaded = await loadImport(options);
   if (loaded.document.transactions.length === 0) return nothingNew(loaded, options);
-  await fillSuggestions(loaded);
+  const catalog = categoryCatalog();
+  await fillSuggestions(loaded, catalog);
   if (options.includeDuplicates) includeDuplicates(loaded.document);
-  const edited = await editRun(loaded.document, { today, dryRun: options.dryRun === true, linkable: linkableOf(loaded) });
+  const edited = await editRun(loaded.document, {
+    today,
+    dryRun: options.dryRun === true,
+    linkable: linkableOf(loaded),
+    catalog,
+  });
   return edited === null ? null : { ...edited, loaded };
 }
 

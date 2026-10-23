@@ -10,6 +10,11 @@ export function textOrNull(value: unknown): string | null {
   return typeof value === 'string' ? value : null;
 }
 
+/** A string with at least one character (`ndocumento` comes as "" when there is none). */
+export function nonEmptyTextOrNull(value: unknown): string | null {
+  return typeof value === 'string' && value !== '' ? value : null;
+}
+
 export function numberOrNull(value: unknown): number | null {
   return typeof value === 'number' ? value : null;
 }

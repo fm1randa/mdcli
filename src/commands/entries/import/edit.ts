@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Category } from '../../../types/index.js';
 import type { ImportCandidate } from './candidates.js';
-import type { ImportDocument, ImportTransaction } from './document.js';
+import type { ImportDocument, BankTransactionRow } from './document.js';
 import { parseEditFile, renderEditFile, withErrors } from './edit-file.js';
 import { PlanError, type RunDocument } from './plan.js';
 import { planSelection, selectionCategories, type SelectionItem } from './selection.js';
@@ -15,17 +15,19 @@ export interface EditedRun {
   categories: Category[];
 }
 
+interface EditOptions {
+  today: string;
+  dryRun: boolean;
+  linkable: (row: BankTransactionRow) => readonly ImportCandidate[];
+  /** The Category catalog, read once for the file and every round of checks. */
+  catalog: () => Promise<readonly Category[]>;
+}
+
 /**
  * The --edit loop, like `git rebase -i`: write the file, run $EDITOR, read it back, validate.
  * An invalid file goes back to the editor with `# error:` lines on top; returned unchanged,
  * it aborts. No command line returns null (cancel). The file is removed however this ends.
  */
-interface EditOptions {
-  today: string;
-  dryRun: boolean;
-  linkable: (row: ImportTransaction) => readonly ImportCandidate[];
-}
-
 export async function editRun(
   document: ImportDocument,
   options: EditOptions,
@@ -35,7 +37,7 @@ export async function editRun(
   const dir = mkdtempSync(join(tmpdir(), 'mdcli-import-'));
   const file = join(dir, 'import.txt');
   try {
-    let text = renderEditFile(document);
+    let text = renderEditFile(document, await options.catalog());
     let shownErrors: string[] = [];
     for (;;) {
       writeFileSync(file, text, { mode: 0o600 });
@@ -76,7 +78,7 @@ async function planItems(
   items: readonly SelectionItem[],
   options: EditOptions,
 ): Promise<EditedRun | { errors: string[] }> {
-  const { categories, problems } = await selectionCategories(items);
+  const { categories, problems } = await selectionCategories(items, options.catalog);
   // A refused category is already reported; planning that line again would only add "it has no category".
   const usable = items.filter((item) => item.category === undefined || categories.has(item.category));
   try {

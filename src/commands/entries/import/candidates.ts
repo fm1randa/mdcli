@@ -1,5 +1,5 @@
-import { addInterval, isCalendarDate } from '../../../lib/dates.js';
-import { asRecord, idOrNull, numberOrNull, textOrNull } from '../../../lib/payload.js';
+import { addInterval, compareDates, isCalendarDate } from '../../../lib/dates.js';
+import { asRecord, idOrNull, nonEmptyTextOrNull, numberOrNull, textOrNull } from '../../../lib/payload.js';
 
 export interface ImportCandidate {
   id: number;
@@ -39,11 +39,11 @@ export function readExisting(rows: readonly unknown[], source: 'entry' | 'invoic
     existing.push({
       candidate: { id, date, value, description: textOrNull(record.descricao), categoryId: idOrNull(record.categoria) },
       reconciled: record.status === 'conciliado',
-      ndocumento: typeof record.ndocumento === 'string' && record.ndocumento !== '' ? record.ndocumento : null,
+      ndocumento: nonEmptyTextOrNull(record.ndocumento),
     });
   }
   // Stable, like Array.prototype.sort in the web: same-day Entries keep the API order.
-  return existing.sort((a, b) => (a.candidate.date < b.candidate.date ? -1 : a.candidate.date > b.candidate.date ? 1 : 0));
+  return existing.sort((a, b) => compareDates(a.candidate.date, b.candidate.date));
 }
 
 /**

@@ -6,14 +6,15 @@ import type { Account, Category } from '../../../types/index.js';
 import { exitWithError } from '../../../utils/action.js';
 import { formatCurrency } from '../../../utils/currency.js';
 import { logger } from '../../../utils/logger.js';
+import { cell } from '../../../utils/text.js';
 import { categoryCatalog } from '../category.js';
 import { fillAiCategories } from './ai.js';
 import { automaticLinks, candidatesFor, readExisting, type ImportCandidate } from './candidates.js';
-import { toImportDocument, type ImportDocument, type ImportTransaction, type SuggestedCategory } from './document.js';
+import { toImportDocument, type ImportDocument, type BankTransactionRow, type SuggestedCategory } from './document.js';
 import { aiRequest, duplicateId, loadedDateBounds } from './suggest.js';
 import { resolveAccountOrExit } from '../../account-id.js';
 import { accountConnection } from '../../connection.js';
-import { asRecord } from '../../../lib/payload.js';
+import { asRecord, nonEmptyTextOrNull } from '../../../lib/payload.js';
 import { calendarDateFlag, explicitSince } from './since.js';
 
 export interface ImportLoadOptions {
@@ -97,13 +98,15 @@ export async function loadImport(options: ImportLoadOptions): Promise<LoadedImpo
 }
 
 /** `LoadedImport.linkable` looked up by row, for `planSelection`. */
-export function linkableOf(loaded: LoadedImport): (row: ImportTransaction) => readonly ImportCandidate[] {
+export function linkableOf(loaded: LoadedImport): (row: BankTransactionRow) => readonly ImportCandidate[] {
   return (row) => loaded.linkable[loaded.document.transactions.indexOf(row)] ?? [];
 }
 
 /** The AI category for the rows the rules left without one, and every suggested category's name. */
-export async function fillSuggestions(loaded: LoadedImport): Promise<void> {
-  const catalog = categoryCatalog();
+export async function fillSuggestions(
+  loaded: LoadedImport,
+  catalog: () => Promise<readonly Category[]> = categoryCatalog(),
+): Promise<void> {
   const { document, payload } = loaded;
   await fillAiCategories(document, statementRows(payload).map(aiRequest), catalog);
   await fillCategoryNames(document, catalog);
@@ -162,15 +165,15 @@ async function fillCandidates(
   const docs = documentNumbers(payload);
   const banks = document.transactions.map((row, index) => ({ date: row.date, value: row.value, ndocumento: docs[index] ?? null }));
   const linked = automaticLinks(banks, existing);
-  document.transactions.forEach((transaction, index) => {
+  document.transactions.forEach((bankTransaction, index) => {
     const id = linked[index] ?? null;
     const matched = candidatesFor(banks[index], existing);
-    transaction.candidates = matched
+    bankTransaction.candidates = matched
       .filter((item) => !item.reconciled || item.candidate.id === id)
       .map((item) => item.candidate);
     linkable[index] = matched.map((item) => item.candidate);
-    transaction.conciliateWith = id;
-    if (id !== null) transaction.defaultAction = 'conciliate';
+    bankTransaction.conciliateWith = id;
+    if (id !== null) bankTransaction.defaultAction = 'conciliate';
   });
   return { linkable, rows };
 }
@@ -209,10 +212,7 @@ export function statementRows(payload: unknown): unknown[] {
 }
 
 function documentNumbers(payload: unknown): (string | null)[] {
-  return statementRows(payload).map((row) => {
-    const value = asRecord(row)?.ndocumento;
-    return typeof value === 'string' && value !== '' ? value : null;
-  });
+  return statementRows(payload).map((row) => nonEmptyTextOrNull(asRecord(row)?.ndocumento));
 }
 
 function printStatement(document: ImportDocument): void {
@@ -236,22 +236,22 @@ function printStatement(document: ImportDocument): void {
     ],
     style: { head: ['cyan'] },
   });
-  for (const transaction of document.transactions) {
+  for (const bankTransaction of document.transactions) {
     table.push([
-      cell(transaction.prefix),
-      cell(transaction.date),
-      transaction.value === null ? chalk.gray('-') : formatCurrency(transaction.value),
-      cell(transaction.description),
-      cell(categoryLabel(transaction.suggestedCategory)),
-      cell(transaction.suggestedDescription),
-      transaction.suggestedTagIds.length === 0 ? chalk.gray('-') : transaction.suggestedTagIds.join(', '),
-      transaction.duplicateOf === null ? chalk.gray('-') : String(transaction.duplicateOf),
-      transaction.candidates.length === 0
+      cell(bankTransaction.prefix),
+      cell(bankTransaction.date),
+      bankTransaction.value === null ? chalk.gray('-') : formatCurrency(bankTransaction.value),
+      cell(bankTransaction.description),
+      cell(categoryLabel(bankTransaction.suggestedCategory)),
+      cell(bankTransaction.suggestedDescription),
+      bankTransaction.suggestedTagIds.length === 0 ? chalk.gray('-') : bankTransaction.suggestedTagIds.join(', '),
+      bankTransaction.duplicateOf === null ? chalk.gray('-') : String(bankTransaction.duplicateOf),
+      bankTransaction.candidates.length === 0
         ? chalk.gray('-')
-        : transaction.candidates
-          .map((item) => (item.id === transaction.conciliateWith ? `${item.id} (linked)` : String(item.id)))
+        : bankTransaction.candidates
+          .map((item) => (item.id === bankTransaction.conciliateWith ? `${item.id} (linked)` : String(item.id)))
           .join(', '),
-      transaction.defaultAction,
+      bankTransaction.defaultAction,
     ]);
   }
   const { start, end } = document.statement;
@@ -270,8 +270,4 @@ function categoryLabel(category: SuggestedCategory | null): string | null {
   if (category === null) return null;
   const label = category.name ?? String(category.id);
   return category.source === 'ai' ? `${label} (AI)` : label;
-}
-
-function cell(value: string | null): string {
-  return value === null ? chalk.gray('-') : value;
 }

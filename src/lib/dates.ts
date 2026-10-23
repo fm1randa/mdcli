@@ -45,6 +45,11 @@ export function dueDateInMonth(month: string, anyDueDate: string): string {
   return shiftDueDate(`${parseInvoiceMonth(month)}-${anyDueDate.slice(8, 10)}`, 0);
 }
 
+/** Sort order of two YYYY-MM-DD dates (plain string order). */
+export function compareDates(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
 const ISO_DATE = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
 /** True for a real YYYY-MM-DD calendar day (rejects 2026-02-31). */
 export function isCalendarDate(value: string): boolean {

@@ -3,9 +3,10 @@ import {
   importBankTransactions,
   markBankTransactionsImported,
 } from '../../../lib/api.js';
+import { compareDates } from '../../../lib/dates.js';
 import type { ImportDocument } from './document.js';
 import type { RunDocument } from './plan.js';
-import { asRecord, idOrNull } from '../../../lib/payload.js';
+import { asRecord, idOrNull, textOrNull } from '../../../lib/payload.js';
 
 /** The web app's source label for an automatic bank import. */
 const SOURCE = 'Importado via Integração bancária automática';
@@ -38,7 +39,7 @@ interface CommitItem {
  * A failed conciliacao or importar stops the import and says how many pages were written.
  */
 export async function commitRun(input: CommitInput): Promise<void> {
-  const items = commitItems(input).sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  const items = commitItems(input).sort((a, b) => compareDates(a.date, b.date));
   const pages: CommitItem[][] = [];
   for (let start = 0; start < items.length; start += PAGE_SIZE) pages.push(items.slice(start, start + PAGE_SIZE));
 
@@ -101,20 +102,30 @@ function commitItems(input: CommitInput): CommitItem[] {
     const reconciled = item.status === 'reconciled';
     const entry: Record<string, unknown> = {
       integrationId: item.integrationId,
+      // Bank fields the web copies from the statement row.
       moeda: raw?.moeda,
+      nomePlastico: raw?.nomePlastico,
       descricao: item.description,
       conta: run.accountId,
       categoria: item.categoryId,
       tags: item.tagIds,
+      // The web sets the type by the sign, and again after a sign flip.
+      tipo: item.value < 0 ? 'd' : 'r',
       confirmado: reconciled,
       conciliado: reconciled,
-      // Card: the purchase date is the competence date. dataPrevista/dataEfetiva stay out (open question).
-      [input.creditCard ? 'dataCompetencia' : 'dataPrevista']: item.date,
+      // On any account, as the web: the bank's competence date, else its date.
+      dataCompetencia: textOrNull(raw?.dataCompetencia) ?? item.date,
       valorPrevisto: item.value,
     };
+    // Card: no dataPrevista/dataEfetiva (approved premise, 2026-10-22).
+    if (!input.creditCard) entry.dataPrevista = item.date;
     if (reconciled) {
       if (!input.creditCard) entry.dataEfetiva = item.date;
       entry.valorEfetivo = item.value;
+    } else {
+      // A future date (Scheduled) gets the web's default reminder.
+      entry.lembrete = '0';
+      entry.enviarLembrete = true;
     }
     items.push({ action: 'import', integrationId: item.integrationId, date: item.date, payload: withoutNulls(entry) });
   }

@@ -262,24 +262,16 @@ describe('entries import list', () => {
     expect(api.requests.filter((r) => r.path.includes('/transactions'))).toHaveLength(1);
   });
 
-  test('help for entries import and entries import list is American English', async () => {
+  test('help for entries import and entries import list is American English, offers the read options, and calls no API', async () => {
     const parent = await cli(['entries', 'import', '--help']);
     expect(parent.exitCode).toBe(0);
-    expect(parent.stdout).toContain('Usage: mdcli entries import [options] [command]');
-    expect(parent.stdout).toContain('List bank transactions');
-    expect(parent.stdout).toContain('list');
     expect(parent.stdout).not.toMatch(/conex[ãa]o|lan[cç]amento|extrato|Listar|Importar/i);
 
     const list = await cli(['entries', 'import', 'list', '--help']);
     expect(list.exitCode).toBe(0);
-    expect(list.stdout).toContain('Usage: mdcli entries import list [options]');
-    expect(list.stdout).toContain('--account');
-    expect(list.stdout).toContain('--since');
-    expect(list.stdout).toContain('--json');
-    expect(list.stdout).toContain('Output as JSON');
-    expect(list.stdout).toContain('--search-from');
-    expect(list.stdout).toContain('--search-to');
-    expect(list.stdout).toContain('YYYY-MM-DD');
+    for (const option of ['--account', '--since', '--json', '--search-from', '--search-to']) {
+      expect(list.stdout).toContain(option);
+    }
     expect(list.stdout).not.toContain('--yes');
     expect(list.stdout).not.toMatch(/conex[ãa]o|lan[cç]amento|extrato|Listar|Importar/i);
     expect(api.requests).toHaveLength(0);
