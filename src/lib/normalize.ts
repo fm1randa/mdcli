@@ -40,6 +40,7 @@ export function normalizeAccounts(response: AccountsResponse): NormalizedAccount
 export function normalizeCards(response: AccountsResponse): NormalizedCard[] {
   return normalizeAccounts(response).map(({ balance: _balance, ...normalized }, i) => {
     const card = response.items[i];
+    // eslint-disable-next-line local/no-due-anchor-fallback -- display only (cards list --json nextDueDate), not an invoice anchor (see cardDueAnchor)
     const nextDueDate = card.proximoVencimento?.slice(0, 10) ?? null;
     return {
       ...normalized,
