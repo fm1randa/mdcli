@@ -8,6 +8,7 @@ import { categoriesCommand } from '../src/commands/categories.js';
 import { tagsCommand } from '../src/commands/tags.js';
 import { entriesCommand } from '../src/commands/entries/index.js';
 import { cardsCommand } from '../src/commands/cards.js';
+import { syncCommand } from '../src/commands/sync/index.js';
 import pkg from '../package.json' with { type: 'json' };
 import { checkForUpdate, runManualUpdate } from '../src/lib/self-update.js';
 
@@ -24,6 +25,7 @@ program.addCommand(accountsCommand);
 program.addCommand(tagsCommand);
 program.addCommand(entriesCommand);
 program.addCommand(cardsCommand);
+program.addCommand(syncCommand);
 
 const packageRoot = join(import.meta.dir, '..');
 

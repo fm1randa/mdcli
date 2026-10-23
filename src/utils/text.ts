@@ -1,3 +1,5 @@
+import chalk from 'chalk';
+
 // Room "..." takes at the end of a cut cell.
 const ELLIPSIS = '...';
 
@@ -9,4 +11,9 @@ const ELLIPSIS = '...';
 export function truncate(text: string, colWidth: number): string {
   const room = colWidth - ELLIPSIS.length;
   return text.length > room ? `${text.slice(0, room)}${ELLIPSIS}` : text;
+}
+
+/** A table cell: the value, or a gray dash when there is none. */
+export function cell(value: string | number | null): string {
+  return value === null ? chalk.gray('-') : String(value);
 }

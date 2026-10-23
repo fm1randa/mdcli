@@ -5,6 +5,16 @@ import type { AliasType } from '../types/index.js';
 
 const CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
+/** The form a name is matched by: case-insensitive. The name index is keyed by it. */
+export function nameKey(name: string): string {
+  return name.toLowerCase();
+}
+
+/** Two names that match, the way a name lookup matches them. */
+export function sameName(a: string, b: string): boolean {
+  return nameKey(a) === nameKey(b);
+}
+
 async function fetchItems(type: AliasType): Promise<{ id: number; nome: string }[]> {
   if (type === 'accounts') {
     const res = await fetchAccounts();
@@ -21,7 +31,7 @@ async function fetchItems(type: AliasType): Promise<{ id: number; nome: string }
 function buildIndex(items: { id: number; nome: string }[]): Record<string, number> {
   const byName: Record<string, number> = {};
   for (const item of items) {
-    byName[item.nome.toLowerCase()] = item.id;
+    byName[nameKey(item.nome)] = item.id;
   }
   return byName;
 }

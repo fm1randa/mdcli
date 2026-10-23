@@ -104,13 +104,22 @@ expect_json_error() { # expect_json_error <regex on .error> <args...> — fails,
 PKG_VERSION=$(bun -e 'console.log((await Bun.file("package.json").json()).version)')
 step "cli --version"        expect_ok "^${PKG_VERSION//./\\.}\$" --version
 step "cli --help"           expect_ok 'accounts' --help
-for c in auth accounts categories tags entries cards; do
+for c in auth accounts categories tags entries cards sync; do
   step "cli $c --help"      expect_ok 'Usage' "$c" --help
 done
+step "cli sync list --help" expect_ok 'Usage' sync list --help
+step "cli sync run --help"  expect_ok 'Usage' sync run --help
+step "cli entries import --help" expect_ok 'Usage' entries import --help
+step "cli entries import list --help" expect_ok 'Usage' entries import list --help
+step "cli entries import run --help" expect_ok 'Usage' entries import run --help
 step "cli comando inválido" expect_fail 'unknown command' nope
 step "cli auth status"      expect_ok 'Authenticated: No' auth status
 step "cli sem login"        expect_fail 'Not authenticated' accounts list
 
+# One JSON line per request, so the sync list step can see the method.
+# Unset, the mock does not write this file. Older steps do not read it.
+export MDCLI_MOCK_LOG="$SANDBOX/mock-requests.log"
+: >"$MDCLI_MOCK_LOG"
 PORT_FILE="$SANDBOX/port"
 bun scripts/mock-api.ts >"$PORT_FILE" 2>/dev/null </dev/null &
 MOCK_PID=$!
@@ -120,7 +129,128 @@ export MDCLI_API_URL="http://127.0.0.1:$(head -1 "$PORT_FILE")/api"
 cat >"$SANDBOX/mdcli.config.json" <<JSON
 {"auth":{"apiKey":"verify-key","uid":"verify-uid"},"authMethod":"manual"}
 JSON
+# Reads connections and the account registry. No --yes. A PUT or POST fails the step.
+sync_list() {
+  local log="$MDCLI_MOCK_LOG"
+  local before=0
+  [ -f "$log" ] && before=$(wc -l <"$log")
+  local out
+  out=$("${CLI[@]}" sync list </dev/null 2>&1) || { echo "output: $out"; return 1; }
+  grep -Eq 'Nubank' <<<"$out" || { echo "expected Nubank in: $out"; return 1; }
+  grep -Eq 'No account' <<<"$out" || { echo "expected an unlinked account in: $out"; return 1; }
+  local fresh
+  fresh=$(tail -n +"$((before + 1))" "$log")
+  [ -n "$fresh" ] || { echo "the mock did not log sync list"; return 1; }
+  if grep -Ev '"method":"GET"' <<<"$fresh" | grep -q .; then
+    echo "sync list must not write: $fresh"
+    return 1
+  fi
+  grep -Eq '/api/v1/integracao/connections' <<<"$fresh" \
+    || { echo "missing GET of connections: $fresh"; return 1; }
+}
 step "cli accounts list (mock)"        expect_ok 'Nubank' accounts list
+step "cli sync list (mock)"            sync_list
+# The import steps only read. The one POST allowed is the AI category
+# suggestion (smartmatch/ai); a commit POST, a Sync PUT, or any other write
+# fails the step. The commit bodies are asserted by the test suite.
+reads_and_ai_only() {
+  local writes
+  writes=$(grep -Ev '"method":"GET"' <<<"$1" | grep -Fxv '{"method":"POST","path":"/api/v1/smartmatch/ai"}')
+  if [ -n "$writes" ]; then
+    echo "$2 must not write: $writes"
+    return 1
+  fi
+}
+# A --since inside the 90-day window whatever day verify runs on.
+IMPORT_SINCE=$(bun -e 'const d = new Date(); d.setDate(d.getDate() - 30); console.log(d.toLocaleDateString("sv-SE"))')
+# Without --since: the connection summary (no full statement), and the AI for the category. No --yes.
+import_list() {
+  local log="$MDCLI_MOCK_LOG"
+  local before=0
+  [ -f "$log" ] && before=$(wc -l <"$log")
+  local out
+  out=$("${CLI[@]}" entries import list -a 1001 </dev/null 2>&1) || { echo "output: $out"; return 1; }
+  grep -Eq 'Padaria Ficticia' <<<"$out" || { echo "expected the statement in: $out"; return 1; }
+  grep -Eq 'aaaaaaaa' <<<"$out" || { echo "expected the prefix in: $out"; return 1; }
+  grep -Eq 'Alimentação \(AI\)' <<<"$out" || { echo "expected the AI category in: $out"; return 1; }
+  local fresh
+  fresh=$(tail -n +"$((before + 1))" "$log")
+  [ -n "$fresh" ] || { echo "the mock did not log import list"; return 1; }
+  if grep -Eq '/transactions' <<<"$fresh"; then
+    echo "without --since, import list must not load the full statement: $fresh"
+    return 1
+  fi
+  grep -Eq '/v2/lancamentos' <<<"$fresh" \
+    || { echo "missing GET of candidates: $fresh"; return 1; }
+  grep -Eq '/api/v1/smartmatch/ai' <<<"$fresh" \
+    || { echo "missing the AI POST: $fresh"; return 1; }
+  reads_and_ai_only "$fresh" "entries import list"
+}
+step "cli entries import list (mock)"  import_list
+step "cli entries import list --search-* (mock)" expect_ok 'Candidates' entries import list -a 1001 --search-from 2026-01-01 --search-to 2026-12-31
+# Rehearses an Import with --ids over the full statement (--since). No --yes.
+import_run_dry() {
+  local log="$MDCLI_MOCK_LOG"
+  local before=0
+  [ -f "$log" ] && before=$(wc -l <"$log")
+  local out
+  out=$("${CLI[@]}" entries import run -a 1001 --since "$IMPORT_SINCE" --ids aaaaaaaa -c 10 --dry-run </dev/null 2>&1) \
+    || { echo "output: $out"; return 1; }
+  grep -Eq 'aaaaaaaa' <<<"$out" || { echo "expected the prefix in: $out"; return 1; }
+  grep -Eq 'Dry run' <<<"$out" || { echo "expected the dry-run notice in: $out"; return 1; }
+  local fresh
+  fresh=$(tail -n +"$((before + 1))" "$log")
+  grep -Eq '/api/v1/integracao/account/9001/transactions' <<<"$fresh" \
+    || { echo "missing GET of transactions: $fresh"; return 1; }
+  reads_and_ai_only "$fresh" "entries import run --dry-run"
+}
+step "cli entries import run --dry-run (mock)" import_run_dry
+# Rehearses an Import from a --plan file over the new bank transactions (summary). No --yes.
+import_run_plan_dry() {
+  local log="$MDCLI_MOCK_LOG"
+  local before=0
+  [ -f "$log" ] && before=$(wc -l <"$log")
+  local plan="$SANDBOX/import-plan.json"
+  cat >"$plan" <<'JSON'
+{"transactions":[{"id":"aaaaaaaa","action":"import","category":10,"description":"Plano ensaiado"}]}
+JSON
+  local out
+  out=$("${CLI[@]}" entries import run -a 1001 --plan "$plan" --dry-run </dev/null 2>&1) \
+    || { echo "output: $out"; return 1; }
+  grep -Eq 'Plano ensaiado' <<<"$out" || { echo "expected the plan description in: $out"; return 1; }
+  grep -Eq 'Dry run' <<<"$out" || { echo "expected the dry-run notice in: $out"; return 1; }
+  local fresh
+  fresh=$(tail -n +"$((before + 1))" "$log")
+  reads_and_ai_only "$fresh" "entries import run --plan --dry-run"
+}
+step "cli entries import run --plan --dry-run (mock)" import_run_plan_dry
+# Rehearses an Import chosen in $EDITOR. A fake editor checks the line the file
+# opened with (the AI category included) and rewrites the description. The
+# temporary file must be gone afterwards.
+import_run_edit_dry() {
+  local log="$MDCLI_MOCK_LOG"
+  local before=0
+  [ -f "$log" ] && before=$(wc -l <"$log")
+  local editor="$SANDBOX/fake-editor.sh"
+  cat >"$editor" <<SH
+#!/bin/sh
+echo "\$1" > "$SANDBOX/edit-path"
+grep -qx 'import aaaaaaaa 2026-10-07 -12.34 Alimentação | Padaria Ficticia' "\$1" || exit 9
+echo 'import aaaaaaaa 2026-10-07 -12,34 10 | Padaria editada' > "\$1"
+SH
+  local out
+  out=$(EDITOR="sh $editor" "${CLI[@]}" entries import run -a 1001 --edit --dry-run --json </dev/null 2>&1) \
+    || { echo "output: $out"; return 1; }
+  bun -e 'const d = JSON.parse(process.argv[1]); const i = d.imported[0]; if (d.dryRun !== true || d.imported.length !== 1 || i.description !== "Padaria editada" || i.categoryId !== 10) process.exit(1)' "$out" \
+    || { echo "expected the edited dry run in: $out"; return 1; }
+  local path
+  path=$(cat "$SANDBOX/edit-path")
+  [ ! -e "$path" ] || { echo "the --edit file was left on disk: $path"; return 1; }
+  local fresh
+  fresh=$(tail -n +"$((before + 1))" "$log")
+  reads_and_ai_only "$fresh" "entries import run --edit --dry-run"
+}
+step "cli entries import run --edit --dry-run (mock)" import_run_edit_dry
 step "cli accounts list --json (mock)" bash -c '"$@" accounts list --json </dev/null | bun -e "const d=JSON.parse(await Bun.stdin.text()); if(!JSON.stringify(d).includes(\"Nubank\")) process.exit(1)"' _ "${CLI[@]}"
 # Writes (POST/PUT/DELETE) go through the same request() path as reads; the
 # mock checks the JSON payload, echoes it back and answers DELETE with 204.

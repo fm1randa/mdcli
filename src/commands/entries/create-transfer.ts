@@ -1,6 +1,6 @@
 import { exitWithError } from '../../utils/action.js';
 import { fetchAccountById, fetchCategories, isCreditCard } from '../../lib/api.js';
-import { resolveId } from '../../lib/aliases.js';
+import { resolveAccountOrExit } from '../account-id.js';
 import type { Account } from '../../types/index.js';
 
 // tipoL of the system "Transferência" category, the one the web app picks
@@ -13,10 +13,7 @@ const TRANSFER_CATEGORY_TIPO_L = 15;
  * contaOrigem/contaDestino; it refuses the same account on both sides.
  */
 export async function resolveTransferDestination(origin: Account | undefined, originId: number, toAccount: string): Promise<number> {
-  const destinationId = await resolveId('accounts', toAccount);
-  if (destinationId === null) {
-    exitWithError(`Unknown account: ${toAccount}`);
-  }
+  const destinationId = await resolveAccountOrExit(toAccount);
   if (destinationId === originId) {
     exitWithError('A transfer needs two different accounts: --to-account names the same account as --account.');
   }

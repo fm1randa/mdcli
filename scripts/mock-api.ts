@@ -9,6 +9,8 @@ import {
   cardInvoice,
 } from '../test/fixtures.js';
 import { SEEDED_ENTRIES, checkCreatePayload, createCardPurchase, createdEntry, invoiceItems, statusLabel } from './mock-entries.js';
+import { connectionsRoute, recordMockRequest } from './mock-connections.js';
+import { importRoute } from './mock-import.js';
 
 // GitHub "latest release" endpoint used by the self-updater (no auth).
 const MOCK_LATEST_TAG = 'v2099.1.1';
@@ -321,6 +323,7 @@ const server = Bun.serve({
   port: 0,
   fetch(req) {
     const url = new URL(req.url);
+    recordMockRequest(req.method, url.pathname);
     if (url.pathname === LATEST_RELEASE_PATH) return Response.json({ tag_name: MOCK_LATEST_TAG });
     if (req.headers.get('Mdapikey') !== 'verify-key') {
       return Response.json({ message: 'unauthorized' }, { status: 401 });
@@ -340,9 +343,14 @@ const server = Bun.serve({
     if (url.pathname === '/api/v2/lancamentos' && req.method === 'GET') {
       return entriesListRoute(url);
     }
+    // duplicidade lives under /lancamentos, so it has to be claimed before that prefix.
+    const imported = importRoute(req.method, url);
+    if (imported) return imported;
     if (url.pathname === ENTRIES_PATH || url.pathname.startsWith(`${ENTRIES_PATH}/`)) {
       return entriesRoute(req, url.pathname);
     }
+    const connections = connectionsRoute(req.method, url.pathname);
+    if (connections) return connections;
     return notFound();
   },
 });

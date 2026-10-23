@@ -2,7 +2,7 @@ import chalk from 'chalk';
 import { logger } from '../../utils/logger.js';
 import { exitWithError } from '../../utils/action.js';
 import { createEntry, fetchAccountById, isCreditCard } from '../../lib/api.js';
-import { resolveId } from '../../lib/aliases.js';
+import { resolveAccountOrExit } from '../account-id.js';
 import { resolveTags } from './tags.js';
 import { resolveEntryCategory } from './category.js';
 import type { CreateEntryPayload, CreateEntryResponse } from '../../types/index.js';
@@ -88,10 +88,7 @@ export async function createAction(options: CreateOptions): Promise<void> {
   const finalValue = tipo === 'r' ? Math.abs(value) : -Math.abs(value);
   const schedule = parseSchedule(options, finalValue, dateStr);
 
-  const accountId = await resolveId('accounts', options.account);
-  if (accountId === null) {
-    exitWithError(`Unknown account: ${options.account}`);
-  }
+  const accountId = await resolveAccountOrExit(options.account);
 
   let categoryId: number | null = options.category ? await resolveEntryCategory(options.category) : null;
   const tagIds = options.tags ? await resolveTags(options.tags) : [];

@@ -45,6 +45,11 @@ export function dueDateInMonth(month: string, anyDueDate: string): string {
   return shiftDueDate(`${parseInvoiceMonth(month)}-${anyDueDate.slice(8, 10)}`, 0);
 }
 
+/** Sort order of two YYYY-MM-DD dates (plain string order). */
+export function compareDates(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
 const ISO_DATE = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
 /** True for a real YYYY-MM-DD calendar day (rejects 2026-02-31). */
 export function isCalendarDate(value: string): boolean {
@@ -65,4 +70,11 @@ export function addInterval(date: string, count: number, interval: 'd' | 'w' | '
   const [year, month, day] = date.split('-').map(Number);
   const days = interval === 'w' ? count * 7 : count;
   return toLocalDateString(new Date(year, month - 1, day + days));
+}
+
+/** The API sends `YYYY-MM-DD` or `YYYY-MM-DDT00:00:00`; only the calendar day counts. */
+export function calendarDay(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const day = value.slice(0, 10);
+  return isCalendarDate(day) ? day : null;
 }

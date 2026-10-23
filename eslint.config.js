@@ -42,7 +42,7 @@ export default tseslint.config(
     rules: { "local/no-number-call": "error", "local/no-double-cast": "error" },
   },
   {
-    // A card's invoice anchor comes from cardDueAnchor alone.
+    // A card's due date is read only in card-invoice.ts (cardDueAnchor, ownDueDate).
     files: ["src/**/*.ts"],
     ignores: ["src/commands/entries/card-invoice.ts"],
     rules: { "local/no-due-anchor-fallback": "error" },
