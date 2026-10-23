@@ -73,4 +73,28 @@ describe('card without a next due date', () => {
     const post = api.requests.find((r) => r.method === 'POST');
     expect(post?.body).toMatchObject({ dataCompetencia: '2026-04-05', dataPrevista: '2026-04-21' });
   });
+
+  describe('entries create without --invoice walks from the first invoice using each invoice closing date', () => {
+    beforeEach(() => {
+      api.on('GET /v1/cartoes/1002/fatura/2026-01-21', cardInvoice('2026-01-21', '2026-01-11'));
+      api.on('GET /v1/cartoes/1002/fatura/2026-02-21', cardInvoice('2026-02-21', '2026-02-11'));
+      api.on('GET /v1/cartoes/1002/fatura/2026-03-21', cardInvoice('2026-03-21', '2026-03-11'));
+      api.on('GET /v1/cartoes/1002/fatura/2026-04-21', cardInvoice('2026-04-21', '2026-04-11'));
+      api.on('POST /v1/lancamentos', { id: 556, descricao: 'Voo', valor: -10, status: 'confirmado', conta: 1002 });
+    });
+
+    async function createPurchase(date: string): Promise<unknown> {
+      const result = await runCli(['entries', 'create', '-a', '1002', '-d', 'Voo', '-v', '10', '-c', '10', '-D', date, '--json'], { home, api });
+      expect(result.exitCode).toBe(0);
+      return api.requests.find((r) => r.method === 'POST')?.body;
+    }
+
+    test('a purchase before the March closing (03-11) goes on the invoice due 03-21', async () => {
+      expect(await createPurchase('2026-03-05')).toMatchObject({ dataCompetencia: '2026-03-05', dataPrevista: '2026-03-21' });
+    });
+
+    test('a purchase after the March closing (03-11) goes on the invoice due 04-21', async () => {
+      expect(await createPurchase('2026-03-15')).toMatchObject({ dataCompetencia: '2026-03-15', dataPrevista: '2026-04-21' });
+    });
+  });
 });
