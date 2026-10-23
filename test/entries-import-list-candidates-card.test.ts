@@ -58,22 +58,18 @@ function invoice(items: unknown[]) {
 }
 
 describe('entries import list card candidates', () => {
-  test('matches the invoice purchase date, not dataCompetencia or dataPrevista', async () => {
+  test('matches the invoice dataCompetencia, not the purchase date or dataPrevista, like the web', async () => {
     invoice([
       {
-        id: 777, descricao: 'Compra Ficticia', valor: -12.34, data: '2026-10-08',
-        dataPrevista: '2026-01-16', dataCompetencia: '2026-01-01', categoria: 10,
+        id: 777, descricao: 'Compra Ficticia', valor: -12.34, data: '2026-01-01',
+        dataPrevista: '2026-01-16', dataCompetencia: '2026-10-08', categoria: 10,
       },
       {
-        id: 778, descricao: 'So Competencia', valor: -12.34, data: '2026-01-02',
-        dataCompetencia: '2026-10-07', dataPrevista: '2026-10-07', categoria: 11,
+        id: 778, descricao: 'So Compra', valor: -12.34, data: '2026-10-07',
+        dataCompetencia: '2026-01-02', dataPrevista: '2026-10-07', categoria: 11,
       },
       {
-        id: 779, descricao: 'Outro Documento', valor: -12.34, data: '2026-10-07',
-        ndocumento: 'DOC-2', categoria: 10,
-      },
-      {
-        id: 780, descricao: 'Sinal Trocado', valor: 12.34, data: '2026-10-07', categoria: 20,
+        id: 780, descricao: 'Sinal Trocado', valor: 12.34, dataCompetencia: '2026-10-07', categoria: 20,
       },
     ]);
     api.on('GET /v1/lancamentos/duplicidade', { '2026-10-07': [{ id: 77, valor: -12.34 }] });
@@ -86,6 +82,7 @@ describe('entries import list card candidates', () => {
     expect(body.search).toEqual({ from: '2026-09-29', to: '2026-10-12' });
     expect(body.ai).toBe('unused');
     expect(body.transactions[0].duplicateOf).toBe(77);
+    expect(body.transactions[0].conciliateWith).toBe(777);
     expect(body.transactions[0].defaultAction).toBe('conciliate');
     expect(body.transactions[0].candidates).toEqual([
       { id: 777, date: '2026-10-08', value: -12.34, description: 'Compra Ficticia', categoryId: 10 },
@@ -96,9 +93,9 @@ describe('entries import list card candidates', () => {
     expect(mutations(api)).toHaveLength(0);
   });
 
-  test('lists an invoice purchase more than two days away without conciliating', async () => {
+  test('lists an invoice item more than two days away without conciliating', async () => {
     invoice([
-      { id: 781, descricao: 'Longe', valor: -12.34, data: '2026-10-04', dataCompetencia: '2026-10-07', categoria: 10 },
+      { id: 781, descricao: 'Longe', valor: -12.34, data: '2026-10-07', dataCompetencia: '2026-10-04', categoria: 10 },
     ]);
 
     const result = await list();
@@ -108,13 +105,14 @@ describe('entries import list card candidates', () => {
     expect(row.candidates).toEqual([
       { id: 781, date: '2026-10-04', value: -12.34, description: 'Longe', categoryId: 10 },
     ]);
+    expect(row.conciliateWith).toBeNull();
     expect(row.defaultAction).toBe('import');
     expect(api.requests.some((r) => r.path === '/v2/lancamentos')).toBe(false);
   });
 
-  test('reads an invoice purchase date that carries a time', async () => {
+  test('reads a dataCompetencia that carries a time', async () => {
     invoice([
-      { id: 782, descricao: 'Com hora', valor: -12.34, data: '2026-10-06T00:00:00', dataPrevista: '2026-01-16T00:00:00', categoria: 10 },
+      { id: 782, descricao: 'Com hora', valor: -12.34, dataCompetencia: '2026-10-06T00:00:00', dataPrevista: '2026-01-16T00:00:00', categoria: 10 },
     ]);
 
     const result = await list();

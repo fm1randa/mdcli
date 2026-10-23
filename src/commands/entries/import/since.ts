@@ -24,16 +24,3 @@ export function explicitSince(typed: string | undefined, now = new Date()): stri
   }
   return input;
 }
-
-/**
- * Later of the account's last statement date and the local day 90 days ago.
- * Only a YYYY-MM-DD value counts; the connections payload does not carry this field.
- */
-export function defaultSince(lastStatement: string | undefined, now = new Date()): string {
-  const today = toLocalDateString(now);
-  const floor = addInterval(today, -90, 'd');
-  if (lastStatement !== undefined && isCalendarDate(lastStatement) && lastStatement > floor) {
-    return lastStatement;
-  }
-  return floor;
-}

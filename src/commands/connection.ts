@@ -7,6 +7,8 @@ export interface AccountConnection {
   connectionId: number;
   /** `accounts[].id`. Null when the connection did not send it. */
   connectionAccount: number | null;
+  /** `accounts[].summary`: the new Bank Transactions the web's import badge shows. Null when the GET left it out. */
+  summary: unknown;
 }
 
 /** Each Connection object of GET /v1/integracao/connections. Anything else in the list is left out. */
@@ -26,6 +28,7 @@ export function connectionList(payload: unknown): Record<string, unknown>[] {
  */
 export async function accountConnection(accountId: number): Promise<AccountConnection> {
   const found = new Map<number, Set<number | null>>();
+  let summary: unknown = null;
   for (const connection of connectionList(await fetchConnections())) {
     const rows = Array.isArray(connection.accounts) ? connection.accounts : [];
     for (const row of rows) {
@@ -37,6 +40,7 @@ export async function accountConnection(accountId: number): Promise<AccountConne
       }
       const accounts = found.get(connectionId) ?? new Set<number | null>();
       accounts.add(integerOrNull(record?.id));
+      summary ??= record?.summary ?? null;
       found.set(connectionId, accounts);
     }
   }
@@ -52,5 +56,5 @@ export async function accountConnection(accountId: number): Promise<AccountConne
   if (accounts.length > 1) {
     exitWithError(`Account ${accountId} is linked twice on connection ${connectionId} (${accounts.join(', ')}).`);
   }
-  return { connectionId, connectionAccount: accounts[0] ?? null };
+  return { connectionId, connectionAccount: accounts[0] ?? null, summary };
 }

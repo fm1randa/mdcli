@@ -140,7 +140,9 @@ reads_and_ai_only() {
     return 1
   fi
 }
-# Reads the statement and asks the AI for the category. No --yes.
+# A --since inside the 90-day window whatever day verify runs on.
+IMPORT_SINCE=$(bun -e 'const d = new Date(); d.setDate(d.getDate() - 30); console.log(d.toLocaleDateString("sv-SE"))')
+# Without --since: the connection summary (no full statement), and the AI for the category. No --yes.
 import_list() {
   local log="$MDCLI_MOCK_LOG"
   local before=0
@@ -153,8 +155,10 @@ import_list() {
   local fresh
   fresh=$(tail -n +"$((before + 1))" "$log")
   [ -n "$fresh" ] || { echo "mock não registrou o import list"; return 1; }
-  grep -Eq '/api/v1/integracao/account/9001/transactions' <<<"$fresh" \
-    || { echo "faltou GET de transactions: $fresh"; return 1; }
+  if grep -Eq '/transactions' <<<"$fresh"; then
+    echo "sem --since o import list não carrega o extrato completo: $fresh"
+    return 1
+  fi
   grep -Eq '/v2/lancamentos' <<<"$fresh" \
     || { echo "faltou GET de candidatos: $fresh"; return 1; }
   grep -Eq '/api/v1/smartmatch/ai' <<<"$fresh" \
@@ -163,13 +167,13 @@ import_list() {
 }
 step "cli entries import list (mock)"  import_list
 step "cli entries import list --search-* (mock)" expect_ok 'Candidates' entries import list -a 1001 --search-from 2026-01-01 --search-to 2026-12-31
-# Rehearses an Import with --ids. No --yes.
+# Rehearses an Import with --ids over the full statement (--since). No --yes.
 import_run_dry() {
   local log="$MDCLI_MOCK_LOG"
   local before=0
   [ -f "$log" ] && before=$(wc -l <"$log")
   local out
-  out=$("${CLI[@]}" entries import run -a 1001 --ids aaaaaaaa -c 10 --dry-run </dev/null 2>&1) \
+  out=$("${CLI[@]}" entries import run -a 1001 --since "$IMPORT_SINCE" --ids aaaaaaaa -c 10 --dry-run </dev/null 2>&1) \
     || { echo "saída: $out"; return 1; }
   grep -Eq 'aaaaaaaa' <<<"$out" || { echo "esperava o prefixo em: $out"; return 1; }
   grep -Eq 'Dry run' <<<"$out" || { echo "esperava o aviso de ensaio em: $out"; return 1; }
@@ -180,7 +184,7 @@ import_run_dry() {
   reads_and_ai_only "$fresh" "entries import run --dry-run"
 }
 step "cli entries import run --dry-run (mock)" import_run_dry
-# Rehearses an Import from a --plan file. No --yes.
+# Rehearses an Import from a --plan file over the new bank transactions (summary). No --yes.
 import_run_plan_dry() {
   local log="$MDCLI_MOCK_LOG"
   local before=0
@@ -196,8 +200,6 @@ JSON
   grep -Eq 'Dry run' <<<"$out" || { echo "esperava o aviso de ensaio em: $out"; return 1; }
   local fresh
   fresh=$(tail -n +"$((before + 1))" "$log")
-  grep -Eq '/api/v1/integracao/account/9001/transactions' <<<"$fresh" \
-    || { echo "faltou GET de transactions: $fresh"; return 1; }
   reads_and_ai_only "$fresh" "entries import run --plan --dry-run"
 }
 step "cli entries import run --plan --dry-run (mock)" import_run_plan_dry

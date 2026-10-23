@@ -23,7 +23,7 @@ export function renderEditFile(document: ImportDocument): string {
     }
     const category = row.suggestedCategory === null ? '' : (row.suggestedCategory.name ?? String(row.suggestedCategory.id));
     const description = row.suggestedDescription ?? row.description ?? '';
-    out.push(`${defaultCommand(row)} ${row.prefix} ${row.date} ${amount(row.value)} ${category} | ${description}`);
+    out.push(`${defaultCommand(row)} ${row.date} ${amount(row.value)} ${category} | ${description}`);
   }
   if (unusable.length > 0) out.push('', `# Left out (no id, date or value from the bank): ${unusable.join(', ')}`);
   const name = document.account.name ?? String(document.account.id);
@@ -33,6 +33,7 @@ export function renderEditFile(document: ImportDocument): string {
     '# Commands:',
     '#   import <prefix> <date> <value> <category> | <description>   create an Entry',
     '#   conciliate <prefix> [<entryId>] <date> <value> <category> | <description>   link an existing Entry',
+    '#     Reconciled Entries are not listed as candidates, but their id may still be written here.',
     '#   skip <prefix> ...     leave it for later',
     '#   reject <prefix> ...   mark it as not imported',
     '# The date and the absolute value must be the bank ones; flipping the sign is allowed.',
@@ -41,8 +42,11 @@ export function renderEditFile(document: ImportDocument): string {
   return `${out.join('\n')}\n`;
 }
 
+/** The command, the prefix and, on conciliate, the automatically linked Entry. */
 function defaultCommand(row: ImportTransaction): string {
-  return row.defaultAction === 'needs-category' ? 'import' : row.defaultAction;
+  const prefix = row.prefix ?? '';
+  if (row.defaultAction === 'conciliate' && row.conciliateWith !== null) return `conciliate ${prefix} ${row.conciliateWith}`;
+  return `${row.defaultAction === 'needs-category' ? 'import' : row.defaultAction} ${prefix}`;
 }
 
 function amount(value: number): string {

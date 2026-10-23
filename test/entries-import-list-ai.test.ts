@@ -12,7 +12,7 @@ const RULE = 'a1a1a1a1-1111-4000-8000-000000000001';
 const MARKET = 'b2b2b2b2-1111-4000-8000-000000000002';
 const UNKNOWN = 'c3c3c3c3-1111-4000-8000-000000000003';
 const ONE_MATCH = 'd4d4d4d4-1111-4000-8000-000000000004';
-const TWO_MATCHES = 'e5e5e5e5-1111-4000-8000-000000000005';
+const FAR_MATCH = 'e5e5e5e5-1111-4000-8000-000000000005';
 const NO_TOKEN = 'f6f6f6f6-1111-4000-8000-000000000006';
 const SALARY = '17171717-1111-4000-8000-000000000007';
 const TRANSFER = '28282828-1111-4000-8000-000000000008';
@@ -75,20 +75,20 @@ function rows(stdout: string): Map<string, Row> {
 }
 
 describe('entries import list AI category', () => {
-  test('asks the AI only for rows without a rule category and without exactly one automatic candidate', async () => {
+  test('asks the AI only for rows without a rule category and without an automatically linked entry', async () => {
     statement([
       bank(RULE, -5, 'Padaria Regra', { c: { d: { categoria: { v: 11 } } }, ait: { d: ['d', 'padaria regra'] } }),
       bank(MARKET, -20, 'Mercado Sem Regra', { ait: { d: ['d', 'mercado sem regra'], r: ['r', 'nao usar'] } }),
       bank(UNKNOWN, -30, 'Loja Desconhecida', { ait: { d: ['d', 'loja desconhecida'] } }),
       bank(ONE_MATCH, -40, 'Boleto Casado', { ait: { d: ['d', 'boleto casado'] } }),
-      bank(TWO_MATCHES, -50, 'Boleto Duplo', { ait: { d: ['d', 'boleto duplo'] } }),
+      bank(FAR_MATCH, -50, 'Boleto Longe', { ait: { d: ['d', 'boleto longe'] } }),
       bank(NO_TOKEN, -60, 'Sem Token', {}),
       bank(SALARY, 900, 'Credito Empresa', { ait: { d: ['d', 'nao usar'], r: ['r', 'credito empresa'] } }),
     ]);
     entries([
       { id: 7001, dataPrevista: '2026-10-08', valor: -40 },
-      { id: 7002, dataPrevista: '2026-10-06', valor: -50 },
-      { id: 7003, dataPrevista: '2026-10-07', valor: -50 },
+      // Four days off: a candidate, but not linked automatically.
+      { id: 7002, dataPrevista: '2026-10-03', valor: -50 },
     ]);
     api.on('POST /v1/smartmatch/ai', [11, null, 10, 20]);
 
@@ -97,7 +97,7 @@ describe('entries import list AI category', () => {
     expect(result.exitCode).toBe(0);
     expect(result.stderr).toBe('');
     expect(aiPosts().map((r) => r.body)).toEqual([
-      { t: [['d', 'mercado sem regra'], ['d', 'loja desconhecida'], ['d', 'boleto duplo'], ['r', 'credito empresa']] },
+      { t: [['d', 'mercado sem regra'], ['d', 'loja desconhecida'], ['d', 'boleto longe'], ['r', 'credito empresa']] },
     ]);
     const body = JSON.parse(result.stdout);
     expect(body.ai).toBe('ok');
@@ -109,8 +109,8 @@ describe('entries import list AI category', () => {
     expect(byId.get(UNKNOWN)?.defaultAction).toBe('needs-category');
     expect(byId.get(ONE_MATCH)?.suggestedCategory).toBeNull();
     expect(byId.get(ONE_MATCH)?.defaultAction).toBe('conciliate');
-    expect(byId.get(TWO_MATCHES)?.suggestedCategory).toEqual({ id: 10, name: 'Alimentação', source: 'ai' });
-    expect(byId.get(TWO_MATCHES)?.defaultAction).toBe('conciliate');
+    expect(byId.get(FAR_MATCH)?.suggestedCategory).toEqual({ id: 10, name: 'Alimentação', source: 'ai' });
+    expect(byId.get(FAR_MATCH)?.defaultAction).toBe('import');
     expect(byId.get(NO_TOKEN)?.suggestedCategory).toBeNull();
     expect(byId.get(SALARY)?.suggestedCategory).toEqual({ id: 20, name: 'Salário', source: 'ai' });
     expect(mutations(api).map((r) => `${r.method} ${r.path}`)).toEqual(['POST /v1/smartmatch/ai']);
@@ -151,7 +151,7 @@ describe('entries import list AI category', () => {
     expect(rows(result.stdout).get(UNKNOWN)?.suggestedCategory).toBeNull();
   });
 
-  test('is unused and sends nothing when every row has a rule category or a single automatic candidate', async () => {
+  test('is unused and sends nothing when every row has a rule category or an automatically linked entry', async () => {
     statement([
       bank(RULE, -5, 'Padaria Regra', { c: { d: { categoria: { v: 11 } } }, ait: { d: ['d', 'padaria regra'] } }),
       bank(ONE_MATCH, -40, 'Boleto Casado', { ait: { d: ['d', 'boleto casado'] } }),
@@ -204,7 +204,7 @@ describe('entries import list AI category', () => {
     statement([
       bank(MARKET, -20, 'Mercado Sem Regra', { ait: { d: ['d', 'mercado sem regra'] } }),
       bank(UNKNOWN, -30, 'Loja Desconhecida', { ait: { d: ['d', 'loja desconhecida'] } }),
-      bank(TWO_MATCHES, -50, 'Boleto Duplo', { ait: { d: ['d', 'boleto duplo'] } }),
+      bank(FAR_MATCH, -50, 'Boleto Longe', { ait: { d: ['d', 'boleto longe'] } }),
     ]);
     api.on('POST /v1/smartmatch/ai', ['1e1', '', '0x0a']);
 
@@ -214,7 +214,7 @@ describe('entries import list AI category', () => {
     const byId = rows(result.stdout);
     expect(byId.get(MARKET)?.suggestedCategory).toBeNull();
     expect(byId.get(UNKNOWN)?.suggestedCategory).toBeNull();
-    expect(byId.get(TWO_MATCHES)?.suggestedCategory).toBeNull();
+    expect(byId.get(FAR_MATCH)?.suggestedCategory).toBeNull();
     expect(byId.get(MARKET)?.defaultAction).toBe('needs-category');
   });
 

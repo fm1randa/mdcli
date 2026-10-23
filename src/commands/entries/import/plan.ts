@@ -1,6 +1,6 @@
 import { isCalendarDate } from '../../../lib/dates.js';
 import type { Category } from '../../../types/index.js';
-import { withinTwoDays, type ImportCandidate } from './candidates.js';
+import type { ImportCandidate } from './candidates.js';
 import type { ImportDocument, ImportTransaction } from './document.js';
 
 interface RunReference {
@@ -146,11 +146,9 @@ export function planReject(row: ImportTransaction, run: RunDocument): string | n
   return null;
 }
 
-/** Candidates within two days of the bank date: the ones the web links by itself. */
-export function automaticCandidates(row: ImportTransaction): ImportCandidate[] {
-  return row.candidates.filter(
-    (candidate) => row.date !== null && isCalendarDate(row.date) && withinTwoDays(row.date, candidate.date),
-  );
+/** The candidate the web linked on its own, or null. */
+export function linkedCandidate(row: ImportTransaction): ImportCandidate | null {
+  return row.candidates.find((candidate) => candidate.id === row.conciliateWith) ?? null;
 }
 
 /** Links the row to `entry`, keeping the Entry's value and description (overwrite is off). */
@@ -164,12 +162,9 @@ export function planConciliate(row: ImportTransaction, entry: ImportCandidate, r
 
 /** Adds the item to `run`, or returns why it cannot be part of the batch. */
 function planSelected(row: ImportTransaction, selection: RunSelection, run: RunDocument): string | null {
-  const automatic = automaticCandidates(row);
-  if (automatic.length > 1) {
-    return `${automatic.length} entries match it (${ids(automatic)}). --ids cannot choose which one to link.`;
-  }
-  if (automatic.length === 1) return planConciliate(row, automatic[0], run);
-  // A candidate beyond two days is only a hint: it is linked by hand (conciliate with its id), never blocks import.
+  const linked = linkedCandidate(row);
+  if (linked !== null) return planConciliate(row, linked, run);
+  // An unlinked candidate is only a hint: it is linked by hand (conciliate with its id), never blocks import.
   if (row.duplicateOf !== null && !selection.includeDuplicates) {
     run.skipped.push({ ...reference(row), reason: 'duplicate' });
     return null;

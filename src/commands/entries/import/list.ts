@@ -8,13 +8,13 @@ import { formatCurrency } from '../../../utils/currency.js';
 import { logger } from '../../../utils/logger.js';
 import { categoryCatalog } from '../category.js';
 import { fillAiCategories } from './ai.js';
-import { candidatesFor } from './candidates.js';
-import { toImportDocument, type ImportDocument, type SuggestedCategory } from './document.js';
+import { automaticLinks, candidatesFor, readExisting, type ImportCandidate } from './candidates.js';
+import { toImportDocument, type ImportDocument, type ImportTransaction, type SuggestedCategory } from './document.js';
 import { aiRequest, duplicateId, loadedDateBounds } from './suggest.js';
 import { resolveAccountOrExit } from '../../account-id.js';
 import { accountConnection } from '../../connection.js';
 import { asRecord } from '../../../lib/payload.js';
-import { calendarDateFlag, defaultSince, explicitSince } from './since.js';
+import { calendarDateFlag, explicitSince } from './since.js';
 
 export interface ImportLoadOptions {
   account: string;
@@ -43,8 +43,8 @@ export interface LoadedImport {
   account: Account | undefined;
   /** The raw statement payload, row for row with `document.transactions`. */
   payload: unknown;
-  /** How many automatic matches each row has. */
-  automaticCounts: number[];
+  /** Row for row, every Entry a plan may link: the candidates plus the Reconciled ones they hide. */
+  linkable: ImportCandidate[][];
   /** The raw Entries (or invoice items) the candidates were read from. */
   candidateRows: unknown[];
 }
@@ -69,14 +69,18 @@ export async function loadImport(options: ImportLoadOptions): Promise<LoadedImpo
   if (account !== undefined && isCreditCard(account) && (searchFrom !== undefined || searchTo !== undefined)) {
     exitWithError('A search window on a credit card is not specified. Candidates come from the invoice of proximoVencimento.');
   }
-  const since = requested ?? defaultSince(account?.dataUltimoExtrato, now);
-  const payload: unknown = await fetchBankTransactions(connectionAccount, since);
+  // Like the web: the import badge shows the connection's summary (what the server has not seen imported);
+  // the manual import dialog loads everything since a date, already imported or not.
+  const payload: unknown = requested === undefined
+    ? summaryStatement(link.summary)
+    : await fetchBankTransactions(connectionAccount, requested);
   const document = toImportDocument({
     accountId,
     accountName: account?.nome ?? null,
     connectionId: link.connectionId,
     connectionAccount,
-    since,
+    source: requested === undefined ? 'summary' : 'statement',
+    since: requested ?? null,
     payload,
   });
   if (searchFrom !== undefined) document.search.from = searchFrom;
@@ -88,15 +92,20 @@ export async function loadImport(options: ImportLoadOptions): Promise<LoadedImpo
     exitWithError(`Search start ${from} is after search end ${to}.`);
   }
   await fillDuplicates(document, accountId);
-  const { counts: automaticCounts, rows: candidateRows } = await fillCandidates(document, account, payload);
-  return { document, account, payload, automaticCounts, candidateRows };
+  const { linkable, rows: candidateRows } = await fillCandidates(document, account, payload);
+  return { document, account, payload, linkable, candidateRows };
+}
+
+/** `LoadedImport.linkable` looked up by row, for `planSelection`. */
+export function linkableOf(loaded: LoadedImport): (row: ImportTransaction) => readonly ImportCandidate[] {
+  return (row) => loaded.linkable[loaded.document.transactions.indexOf(row)] ?? [];
 }
 
 /** The AI category for the rows the rules left without one, and every suggested category's name. */
 export async function fillSuggestions(loaded: LoadedImport): Promise<void> {
   const catalog = categoryCatalog();
-  const { document, payload, automaticCounts } = loaded;
-  await fillAiCategories(document, statementRows(payload).map(aiRequest), automaticCounts, catalog);
+  const { document, payload } = loaded;
+  await fillAiCategories(document, statementRows(payload).map(aiRequest), catalog);
   await fillCategoryNames(document, catalog);
 }
 
@@ -128,38 +137,42 @@ async function fillDuplicates(document: ImportDocument, accountId: number): Prom
 }
 
 /**
- * Same value inside the search window. One or more automatic matches conciliate, and that wins over a duplicate.
- * Returns how many automatic matches each row has, and the rows the candidates came from.
+ * Same value inside the search window, and the one Entry the web links on its own (`conciliateWith`).
+ * A linked row conciliates, and that wins over a duplicate. Reconciled Entries stay out of
+ * `candidates` unless linked, but a plan or the editor may still link one (`linkable`).
  */
 async function fillCandidates(
   document: ImportDocument,
   account: Account | undefined,
   payload: unknown,
-): Promise<{ counts: number[]; rows: unknown[] }> {
-  const counts = document.transactions.map(() => 0);
-  if (document.transactions.length === 0) return { counts, rows: [] };
+): Promise<{ linkable: ImportCandidate[][]; rows: unknown[] }> {
+  const linkable = document.transactions.map((): ImportCandidate[] => []);
+  if (document.transactions.length === 0) return { linkable, rows: [] };
   const from = document.search.from;
   const to = document.search.to;
-  if (from === null || to === null) return { counts, rows: [] };
+  if (from === null || to === null) return { linkable, rows: [] };
 
   const card = account !== undefined && isCreditCard(account);
   const rows = card
     ? await invoiceRows(account)
     : await fetchImportCandidates(document.account.id, from, to);
+  const existing = readExisting(rows, card ? 'invoice' : 'entry').filter(
+    (item) => item.candidate.date >= from && item.candidate.date <= to,
+  );
   const docs = documentNumbers(payload);
-  for (let index = 0; index < document.transactions.length; index += 1) {
-    const transaction = document.transactions[index];
-    const matched = candidatesFor(
-      { date: transaction.date, value: transaction.value, ndocumento: docs[index] ?? null },
-      rows,
-      { from, to },
-      card ? 'invoice' : 'entry',
-    );
-    transaction.candidates = matched.candidates;
-    counts[index] = matched.automatic;
-    if (matched.automatic > 0) transaction.defaultAction = 'conciliate';
-  }
-  return { counts, rows };
+  const banks = document.transactions.map((row, index) => ({ date: row.date, value: row.value, ndocumento: docs[index] ?? null }));
+  const linked = automaticLinks(banks, existing);
+  document.transactions.forEach((transaction, index) => {
+    const id = linked[index] ?? null;
+    const matched = candidatesFor(banks[index], existing);
+    transaction.candidates = matched
+      .filter((item) => !item.reconciled || item.candidate.id === id)
+      .map((item) => item.candidate);
+    linkable[index] = matched.map((item) => item.candidate);
+    transaction.conciliateWith = id;
+    if (id !== null) transaction.defaultAction = 'conciliate';
+  });
+  return { linkable, rows };
 }
 
 async function invoiceRows(account: Account): Promise<unknown[]> {
@@ -177,6 +190,19 @@ function invoiceDueDate(account: Account): string {
   exitWithError(`Account ${account.id} has no proximoVencimento date to load an invoice from.`);
 }
 
+/** `{inicio, fim, saldo, lancamentos}` from the connection; no summary is an empty one (the web shows no badge). */
+function summaryStatement(summary: unknown): unknown {
+  return asRecord(summary) ?? { lancamentos: [] };
+}
+
+/** Why there is nothing to list or import, and how to load more. */
+export function nothingNewMessage(document: ImportDocument): string {
+  if (document.source === 'statement') return `No bank transactions since ${document.since ?? '-'}.`;
+  const name = document.account.name ?? String(document.account.id);
+  return `No new bank transactions for ${name}. ` +
+    'To load the full statement from a date, like the web\'s manual import dialog, use --since <YYYY-MM-DD> (at most 90 days ago).';
+}
+
 export function statementRows(payload: unknown): unknown[] {
   const rows = asRecord(payload)?.lancamentos;
   return Array.isArray(rows) ? rows : [];
@@ -191,7 +217,7 @@ function documentNumbers(payload: unknown): (string | null)[] {
 
 function printStatement(document: ImportDocument): void {
   if (document.transactions.length === 0) {
-    logger.info(`No bank transactions since ${document.since}.`);
+    logger.info(nothingNewMessage(document));
     return;
   }
 
@@ -222,11 +248,18 @@ function printStatement(document: ImportDocument): void {
       transaction.duplicateOf === null ? chalk.gray('-') : String(transaction.duplicateOf),
       transaction.candidates.length === 0
         ? chalk.gray('-')
-        : transaction.candidates.map((item) => String(item.id)).join(', '),
+        : transaction.candidates
+          .map((item) => (item.id === transaction.conciliateWith ? `${item.id} (linked)` : String(item.id)))
+          .join(', '),
       transaction.defaultAction,
     ]);
   }
-  logger.header(`Bank transactions (${document.transactions.length}) since ${document.since}`);
+  const { start, end } = document.statement;
+  logger.header(
+    document.source === 'summary'
+      ? `New bank transactions (${document.transactions.length}), statement ${start ?? '-'} to ${end ?? '-'}`
+      : `Bank transactions (${document.transactions.length}) since ${document.since ?? '-'}`,
+  );
   console.log(table.toString());
   if (document.ai === 'unavailable') {
     logger.warning('AI category suggestions are unavailable. Only the learned rules were applied.');

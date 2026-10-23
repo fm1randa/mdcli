@@ -5,8 +5,8 @@ import { idOrNull } from '../../../lib/payload.js';
 import type { AiRequest } from './suggest.js';
 
 /**
- * Rows without a rule category and without exactly one automatic candidate send
- * their `_ca.ait` token to the AI. Any failure leaves the rule suggestions as
+ * Rows without a rule category and without an automatically linked Entry send their
+ * `_ca.ait` token to the AI, in one call, as the web does. Any failure leaves the rule suggestions as
  * they are and marks the document `unavailable`; it does not fail the listing.
  *
  * Like the web app, an AI category is kept only when the catalog has it, it is
@@ -16,13 +16,12 @@ import type { AiRequest } from './suggest.js';
 export async function fillAiCategories(
   document: ImportDocument,
   requests: readonly (AiRequest | null)[],
-  automaticCounts: readonly number[],
   catalog: () => Promise<readonly Category[]>,
 ): Promise<void> {
   const eligible: { index: number; kind: AiRequest['kind'] }[] = [];
   document.transactions.forEach((row, index) => {
     const request = requests[index] ?? null;
-    if (row.suggestedCategory !== null || request === null || automaticCounts[index] === 1) return;
+    if (row.suggestedCategory !== null || request === null || row.conciliateWith !== null) return;
     eligible.push({ index, kind: request.kind });
   });
   if (eligible.length === 0) {

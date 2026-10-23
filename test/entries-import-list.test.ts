@@ -63,6 +63,7 @@ function tx(
     suggestedTagIds: [],
     suggestedCategory: null,
     duplicateOf: null,
+    conciliateWith: null,
     candidates: [],
     defaultAction: 'needs-category',
   };
@@ -73,6 +74,7 @@ function tx(
 const LIST_JSON = {
   account: { id: 1001, name: 'Nubank' },
   connection: { id: 501, connectionAccount: 9001 },
+  source: 'statement',
   since: '2026-10-01',
   statement: { start: '2026-10-02', end: '2026-10-18', balance: 42.5 },
   search: { from: '2026-09-30', to: '2026-10-20' },

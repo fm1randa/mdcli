@@ -40,7 +40,7 @@ A movement the bank reported through a Connection that may not be an Entry yet. 
 _Avoid_: "transaction" alone, "entry" (an Entry is what exists in Meu Dinheiro)
 
 **Import**:
-Turning selected Bank Transactions into Entries, each with a Category. As in the web app, an Import is all or nothing: it runs only when every selected Bank Transaction has a Category. A Bank Transaction that matches an existing Entry (same Account and value, date within 2 days) already exists and is not imported again. The web calls this screen "Conciliação bancária", but importing is not the Reconciled Status: an imported Entry dated today or earlier simply starts as Reconciled.
+Turning selected Bank Transactions into Entries, each with a Category. As in the web app, an Import is all or nothing: it runs only when every selected Bank Transaction has a Category. A Bank Transaction that matches an existing Entry (same Account and value, date within 2 days) already exists and is not imported again: as in the web, it is linked to at most one such Entry, and each Entry to at most one Bank Transaction. By default the Import offers only the new Bank Transactions the Connection reports (its summary, the web's import badge); `--since` loads everything since a date, already imported or not. The web calls this screen "Conciliação bancária", but importing is not the Reconciled Status: an imported Entry dated today or earlier simply starts as Reconciled.
 _Avoid_: "conciliação", "reconcile" for the act of importing (Reconciled is a Status)
 
 **Alias**:

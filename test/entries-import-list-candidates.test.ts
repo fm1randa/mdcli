@@ -178,7 +178,7 @@ describe('entries import list candidates', () => {
     expect(body.transactions[0].defaultAction).toBe('import');
   });
 
-  test('conciliates two entries within two days and does not choose one', async () => {
+  test('of two entries within two days, links the one on the bank date and lists both by date', async () => {
     statement([bank()]);
     entries([
       { id: 5101, dataPrevista: '2026-10-07', valor: -12.34, descricao: 'Um', categoria: 10 },
@@ -191,13 +191,14 @@ describe('entries import list candidates', () => {
     expect(result.exitCode).toBe(0);
     const row = JSON.parse(result.stdout).transactions[0];
     expect(row.duplicateOf).toBe(77);
+    expect(row.conciliateWith).toBe(5101);
     expect(row.defaultAction).toBe('conciliate');
     expect(row.candidates).toEqual([
-      { id: 5101, date: '2026-10-07', value: -12.34, description: 'Um', categoryId: 10 },
       { id: 5102, date: '2026-10-06', value: -12.34, description: 'Dois', categoryId: 11 },
+      { id: 5101, date: '2026-10-07', value: -12.34, description: 'Um', categoryId: 10 },
     ]);
     expect(Object.keys(row).sort()).toEqual([
-      'candidates', 'date', 'defaultAction', 'description', 'duplicateOf', 'integrationId',
+      'candidates', 'conciliateWith', 'date', 'defaultAction', 'description', 'duplicateOf', 'integrationId',
       'prefix', 'suggestedCategory', 'suggestedDescription', 'suggestedTagIds', 'value',
     ]);
   });
@@ -213,33 +214,21 @@ describe('entries import list candidates', () => {
     expect(rowOf(result.stdout).defaultAction).toBe('import');
   });
 
-  test('drops a candidate only when both document numbers are non-empty and differ', async () => {
-    const cases = [
-      { bankDoc: 'ABC', entryDoc: 'XYZ', kept: false },
-      { bankDoc: 'abc', entryDoc: 'ABC', kept: false },
-      { bankDoc: 'ABC', entryDoc: undefined, kept: true },
-      { bankDoc: 'ABC', entryDoc: '', kept: true },
-      { bankDoc: 'ABC', entryDoc: 'ABC', kept: true },
-    ];
-    for (const item of cases) {
+  test('a document number never drops an entry: the web only prefers the same number when linking', async () => {
+    for (const [bankDoc, entryDoc] of [['ABC', 'XYZ'], ['abc', 'ABC'], ['ABC', undefined], ['ABC', ''], ['ABC', 'ABC']]) {
       const entry: Record<string, unknown> = {
         id: 4600, dataPrevista: '2026-10-07', valor: -12.34, descricao: 'Doc', categoria: 10,
       };
-      if (item.entryDoc !== undefined) entry.ndocumento = item.entryDoc;
-      statement([bank({ ndocumento: item.bankDoc })]);
+      if (entryDoc !== undefined) entry.ndocumento = entryDoc;
+      statement([bank({ ndocumento: bankDoc })]);
       entries([entry]);
       const result = await list();
       expect(result.exitCode).toBe(0);
       const row = rowOf(result.stdout);
-      if (item.kept) {
-        expect(row.candidates).toEqual([
-          { id: 4600, date: '2026-10-07', value: -12.34, description: 'Doc', categoryId: 10 },
-        ]);
-        expect(row.defaultAction).toBe('conciliate');
-      } else {
-        expect(row.candidates).toEqual([]);
-        expect(row.defaultAction).toBe('import');
-      }
+      expect(row.candidates).toEqual([
+        { id: 4600, date: '2026-10-07', value: -12.34, description: 'Doc', categoryId: 10 },
+      ]);
+      expect(row.defaultAction).toBe('conciliate');
     }
     expect(mutations(api)).toHaveLength(0);
   });

@@ -6,9 +6,9 @@ import { logger } from '../../../utils/logger.js';
 import { promptConfirmation } from '../../../utils/prompt.js';
 import { commitRun } from './commit.js';
 import { editRun } from './edit.js';
-import { fillSuggestions, loadImport, statementRows, type ImportLoadOptions, type LoadedImport } from './list.js';
+import { fillSuggestions, linkableOf, loadImport, nothingNewMessage, statementRows, type ImportLoadOptions, type LoadedImport } from './list.js';
 import type { ImportDocument } from './document.js';
-import { failOnProblems, pickTransactions, planRun, type RunDocument } from './plan.js';
+import { emptyRun, failOnProblems, pickTransactions, planRun, type RunDocument } from './plan.js';
 import { readPlanFile } from './plan-file.js';
 import { printRun } from './run-output.js';
 import { importCategory, planSelection, selectionCategories } from './selection.js';
@@ -38,6 +38,11 @@ export async function runAction(options: ImportRunOptions): Promise<void> {
   }
   const { run, loaded, categories } = planned;
   const { document, account, payload, candidateRows } = loaded;
+  if (document.transactions.length === 0) {
+    if (options.json) console.log(JSON.stringify(run, null, 2));
+    else logger.info(`${nothingNewMessage(document)} Nothing was written.`);
+    return;
+  }
 
   const context = { accountName: document.account.name, categories };
   const writes = run.imported.length + run.conciliated.length + run.rejected.length;
@@ -106,6 +111,7 @@ async function fromFlags(options: ImportRunOptions, today: string): Promise<Plan
 
   const category = options.category === undefined ? null : await importCategory(options.category);
   const loaded = await loadImport(options);
+  if (loaded.document.transactions.length === 0) return nothingNew(loaded, options);
   const { transactions } = loaded.document;
   const picked = pickTransactions(transactions, ids, '--ids');
   const rejected = pickTransactions(transactions, rejects, '--reject');
@@ -130,12 +136,14 @@ async function fromPlan(options: ImportRunOptions, path: string, today: string):
   const { categories, problems } = await selectionCategories(items);
   failOnProblems(problems);
   const loaded = await loadImport(options);
+  if (loaded.document.transactions.length === 0) return nothingNew(loaded, options);
   const run = planSelection(loaded.document, items, {
     categories,
     today,
     dryRun: options.dryRun === true,
     source: '--plan',
     entryHint: () => 'Say which one with "entry".',
+    linkable: linkableOf(loaded),
   });
   return { run, loaded, categories: [...categories.values()] };
 }
@@ -143,10 +151,16 @@ async function fromPlan(options: ImportRunOptions, path: string, today: string):
 /** --edit: the same selection as --plan, written in $EDITOR over the statement with its suggestions. */
 async function fromEdit(options: ImportRunOptions, today: string): Promise<PlannedRun | null> {
   const loaded = await loadImport(options);
+  if (loaded.document.transactions.length === 0) return nothingNew(loaded, options);
   await fillSuggestions(loaded);
   if (options.includeDuplicates) includeDuplicates(loaded.document);
-  const edited = await editRun(loaded.document, { today, dryRun: options.dryRun === true });
+  const edited = await editRun(loaded.document, { today, dryRun: options.dryRun === true, linkable: linkableOf(loaded) });
   return edited === null ? null : { ...edited, loaded };
+}
+
+/** No Bank Transaction to choose from: an empty run, so nothing is selected, prompted, or written. */
+function nothingNew(loaded: LoadedImport, options: ImportRunOptions): PlannedRun {
+  return { run: emptyRun(loaded.document, options.dryRun === true), loaded, categories: [] };
 }
 
 /** A duplicate the listing would skip opens as import (or without a category) instead. A linked one stays linked. */

@@ -174,7 +174,7 @@ describe('entries import run --plan --dry-run', () => {
     ]);
   });
 
-  test('conciliate without entry uses the one automatic candidate', async () => {
+  test('conciliate without entry uses the automatically linked entry', async () => {
     statement([bank(TX1)]);
     entries([{ id: 4242, dataPrevista: '2026-10-08', valor: -12.34, descricao: 'Padaria A' }]);
 
@@ -183,12 +183,13 @@ describe('entries import run --plan --dry-run', () => {
     expect(body.conciliated.map((item: { entryId: number }) => item.entryId)).toEqual([4242]);
   });
 
-  test('candidate rules: import with a candidate, conciliate ambiguous, unknown entry, or no candidate', async () => {
+  test('candidate rules: import of a linked row, conciliate with nothing linked, unknown entry, or no candidate', async () => {
     statement([bank(TX1), bank(TX2, { valor: -7 }), bank(TX3, { valor: -8 }), bank(TX4, { valor: -9 })]);
     entries([
       { id: 4242, dataPrevista: '2026-10-08', valor: -12.34, descricao: 'Padaria A' },
-      { id: 5151, dataPrevista: '2026-10-07', valor: -7, descricao: 'Feira A' },
-      { id: 5252, dataPrevista: '2026-10-08', valor: -7, descricao: 'Feira B' },
+      // Four and five days before the bank date: candidates, neither linked automatically.
+      { id: 5151, dataPrevista: '2026-10-03', valor: -7, descricao: 'Feira A' },
+      { id: 5252, dataPrevista: '2026-10-02', valor: -7, descricao: 'Feira B' },
       { id: 6161, dataPrevista: '2026-10-07', valor: -8, descricao: 'Banca' },
     ]);
 
@@ -201,8 +202,8 @@ describe('entries import run --plan --dry-run', () => {
       ],
     });
 
-    expect(stderr).toContain('aaaa1111: entries 4242 may already record it.');
-    expect(stderr).toContain('bbbb2222: 2 entries may match it (5151, 5252). Say which one with "entry".');
+    expect(stderr).toContain('aaaa1111: entry 4242 already records it (linked automatically). Use conciliate, or skip it.');
+    expect(stderr).toContain('bbbb2222: 2 entries may match it (5252, 5151), none linked automatically. Say which one with "entry".');
     expect(stderr).toContain('cccc3333: entry 4242 is not a candidate (candidates: 6161).');
     expect(stderr).toContain('dddd4444: no entry matches it, so there is nothing to link.');
   });

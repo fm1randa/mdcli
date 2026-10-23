@@ -76,49 +76,7 @@ function startQuery(): string | null {
 }
 
 describe('entries import list --since', () => {
-  test('defaults to dataUltimoExtrato when that date is later than 90 days ago', async () => {
-    const floor = shiftDays(-90);
-    const today = shiftDays(0);
-    expect(floor < '2026-10-01' && '2026-10-01' <= today).toBe(true);
-    api.on('GET /v1/cadastros/contas', accountsWith('2026-10-01'));
-
-    const result = await cli(['entries', 'import', 'list', '-a', '1001', '--json']);
-
-    expect(result.exitCode).toBe(0);
-    expect(result.stderr).toBe('');
-    expect(startQuery()).toBe('2026-10-01');
-    const body = JSON.parse(result.stdout);
-    expect(body.since).toBe('2026-10-01');
-    expect(body.statement.start).toBe('2026-08-01');
-    expect(mutations(api)).toHaveLength(0);
-  });
-
-  test('uses the local day 90 days ago when dataUltimoExtrato is older', async () => {
-    const floor = shiftDays(-90);
-    api.on('GET /v1/cadastros/contas', accountsWith('2020-01-01'));
-
-    const result = await cli(['entries', 'import', 'list', '-a', '1001', '--json']);
-
-    expect(result.exitCode).toBe(0);
-    expect(startQuery()).toBe(floor);
-    expect(JSON.parse(result.stdout).since).toBe(floor);
-    expect(JSON.parse(result.stdout).statement.start).toBe('2026-08-01');
-    expect(mutations(api)).toHaveLength(0);
-  });
-
-  test('uses the local day 90 days ago when the account has no dataUltimoExtrato', async () => {
-    const floor = shiftDays(-90);
-    api.on('GET /v1/cadastros/contas', accountsWith(undefined));
-
-    const result = await cli(['entries', 'import', 'list', '-a', '1001', '--json']);
-
-    expect(result.exitCode).toBe(0);
-    expect(startQuery()).toBe(floor);
-    expect(JSON.parse(result.stdout).since).toBe(floor);
-    expect(mutations(api)).toHaveLength(0);
-  });
-
-  test('an explicit --since replaces the default, even when it is earlier than dataUltimoExtrato', async () => {
+  test('--since is the start date, earlier or later than dataUltimoExtrato', async () => {
     api.on('GET /v1/cadastros/contas', accountsWith('2026-10-01'));
 
     const earlier = await cli(['entries', 'import', 'list', '-a', '1001', '--since', '2026-09-15', '--json']);

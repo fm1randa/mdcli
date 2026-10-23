@@ -3,7 +3,8 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Category } from '../../../types/index.js';
-import type { ImportDocument } from './document.js';
+import type { ImportCandidate } from './candidates.js';
+import type { ImportDocument, ImportTransaction } from './document.js';
 import { parseEditFile, renderEditFile, withErrors } from './edit-file.js';
 import { PlanError, type RunDocument } from './plan.js';
 import { planSelection, selectionCategories, type SelectionItem } from './selection.js';
@@ -19,9 +20,15 @@ export interface EditedRun {
  * An invalid file goes back to the editor with `# error:` lines on top; returned unchanged,
  * it aborts. No command line returns null (cancel). The file is removed however this ends.
  */
+interface EditOptions {
+  today: string;
+  dryRun: boolean;
+  linkable: (row: ImportTransaction) => readonly ImportCandidate[];
+}
+
 export async function editRun(
   document: ImportDocument,
-  options: { today: string; dryRun: boolean },
+  options: EditOptions,
 ): Promise<EditedRun | null> {
   const editor = process.env.EDITOR?.trim() ?? '';
   if (editor === '') throw new Error('--edit needs $EDITOR (e.g. EDITOR=vim). Nothing was written.');
@@ -67,7 +74,7 @@ function openEditor(editor: string, file: string): void {
 async function planItems(
   document: ImportDocument,
   items: readonly SelectionItem[],
-  options: { today: string; dryRun: boolean },
+  options: EditOptions,
 ): Promise<EditedRun | { errors: string[] }> {
   const { categories, problems } = await selectionCategories(items);
   // A refused category is already reported; planning that line again would only add "it has no category".
@@ -79,6 +86,7 @@ async function planItems(
       dryRun: options.dryRun,
       source: '--edit',
       entryHint: (prefix) => `Write the one to link: conciliate ${prefix} <entryId> ...`,
+      linkable: options.linkable,
     });
     return problems.length > 0 ? { errors: problems } : { run, categories: [...categories.values()] };
   } catch (error) {

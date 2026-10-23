@@ -159,7 +159,7 @@ describe('entries import run --edit', () => {
     expect(mutations(api)).toHaveLength(0);
   });
 
-  test('opens each default action: rule, AI, needs-category, duplicate, and several candidates', async () => {
+  test('opens each default action: rule, AI, needs-category, duplicate, and conciliate with the linked entry', async () => {
     statement([
       bank(TX1, { _ca: RULE_10 }),
       bank(TX2, { valor: 3000, data: '2026-10-05', descricao: 'Empresa', _ca: { ait: { r: 'tok-r' } } }),
@@ -181,7 +181,7 @@ describe('entries import run --edit', () => {
     expect(file).toContain('import bbbb2222 2026-10-05 3000.00 Salário | Empresa\n');
     expect(file).toContain('skip cccc3333 2026-10-06 -7.00  | Mercado\n');
     expect(file).toContain('# candidates dddd4444\n# 501 2026-10-08 -40.00 Posto A\n# 502 2026-10-09 -40.00 Posto B\n');
-    expect(file).toContain('conciliate dddd4444 2026-10-08 -40.00  | Posto\n');
+    expect(file).toContain('conciliate dddd4444 501 2026-10-08 -40.00  | Posto\n');
     expect(routes()).toEqual(['POST /v1/smartmatch/ai']);
   });
 
@@ -275,9 +275,10 @@ describe('entries import run --edit', () => {
 
   test('a different absolute value, a missing entry id, and an unknown command are refused', async () => {
     statement([bank(TX1), bank(TX2, { valor: -40, data: '2026-10-08' })]);
+    // Four days away on each side: candidates, neither linked automatically.
     entries([
-      { id: 501, dataPrevista: '2026-10-08', valor: -40 },
-      { id: 502, dataPrevista: '2026-10-09', valor: -40 },
+      { id: 501, dataPrevista: '2026-10-04', valor: -40 },
+      { id: 502, dataPrevista: '2026-10-12', valor: -40 },
     ]);
     const bad = 'import aaaa1111 2026-10-07 -12.35 Alimentação | P\nconciliate bbbb2222 2026-10-08 -40  | Posto\n';
     const editor = fakeEditor([bad, null]);
@@ -286,7 +287,7 @@ describe('entries import run --edit', () => {
 
     expect(result.exitCode).toBe(1);
     expect(seen(2)).toContain('# error: aaaa1111: value -12.35 is not the bank value -12.34. Only the sign can change.');
-    expect(seen(2)).toContain('# error: bbbb2222: 2 entries may match it (501, 502). Write the one to link: conciliate bbbb2222 <entryId> ...');
+    expect(seen(2)).toContain('# error: bbbb2222: 2 entries may match it (501, 502), none linked automatically. Write the one to link: conciliate bbbb2222 <entryId> ...');
     expect(mutations(api)).toHaveLength(0);
   });
 

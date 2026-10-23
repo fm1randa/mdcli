@@ -29,6 +29,8 @@ export interface ImportTransaction {
   suggestedTagIds: number[];
   suggestedCategory: SuggestedCategory | null;
   duplicateOf: number | null;
+  /** The Entry the web links on its own (one per row, one row per Entry); `conciliate` uses it. */
+  conciliateWith: number | null;
   candidates: ImportCandidate[];
   defaultAction: 'import' | 'needs-category' | 'skip' | 'conciliate';
 }
@@ -36,33 +38,33 @@ export interface ImportTransaction {
 export interface ImportDocument {
   account: { id: number; name: string | null };
   connection: { id: number; connectionAccount: number };
-  since: string;
+  /** `summary`: the new Bank Transactions of the connection (no --since). `statement`: everything since `since`. */
+  source: ImportSource;
+  since: string | null;
   statement: { start: string | null; end: string | null; balance: number | null };
   search: { from: string | null; to: string | null };
   ai: 'ok' | 'unavailable' | 'unused';
   transactions: ImportTransaction[];
 }
 
+export type ImportSource = 'summary' | 'statement';
+
 export function toImportDocument(input: {
   accountId: number;
   accountName: string | null;
   connectionId: number;
   connectionAccount: number;
-  since: string;
+  source: ImportSource;
+  since: string | null;
   payload: unknown;
 }): ImportDocument {
+  const origin = input.source === 'summary'
+    ? 'The summary of GET /v1/integracao/connections'
+    : `GET /v1/integracao/account/${input.connectionAccount}/transactions`;
   const record = asRecord(input.payload);
-  if (!record) {
-    throw new Error(
-      `GET /v1/integracao/account/${input.connectionAccount}/transactions did not return a statement`,
-    );
-  }
+  if (!record) throw new Error(`${origin} did not return a statement`);
   const rows = record.lancamentos;
-  if (rows !== undefined && !Array.isArray(rows)) {
-    throw new Error(
-      `GET /v1/integracao/account/${input.connectionAccount}/transactions did not return lancamentos`,
-    );
-  }
+  if (rows !== undefined && !Array.isArray(rows)) throw new Error(`${origin} did not return lancamentos`);
   const items = (Array.isArray(rows) ? rows : []).map(readBankTransaction);
   const prefixes = uniquePrefixes(items.map((item) => item.integrationId));
   const start = textOrNull(record.inicio);
@@ -70,6 +72,7 @@ export function toImportDocument(input: {
   return {
     account: { id: input.accountId, name: input.accountName },
     connection: { id: input.connectionId, connectionAccount: input.connectionAccount },
+    source: input.source,
     since: input.since,
     statement: { start, end, balance: numberOrNull(record.saldo) },
     search: searchWindow(start, end),
@@ -106,6 +109,7 @@ function toTransaction(item: BankTransaction, prefix: string | null): ImportTran
     suggestedTagIds: item.suggestedTagIds,
     suggestedCategory,
     duplicateOf: null,
+    conciliateWith: null,
     candidates: [],
     defaultAction: suggestedCategory === null ? 'needs-category' : 'import',
   };

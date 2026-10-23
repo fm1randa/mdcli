@@ -217,7 +217,7 @@ describe('entries import list candidate query', () => {
     expect(mutations(api)).toHaveLength(0);
   });
 
-  test('prints candidate ids and conciliate, or a dash when there are none', async () => {
+  test('prints candidate ids, marks the linked one, and conciliate, or a dash when there are none', async () => {
     api.on('GET /v1/integracao/account/9001/transactions', {
       inicio: '2026-10-01',
       fim: '2026-10-10',
@@ -246,7 +246,8 @@ describe('entries import list candidate query', () => {
     expect(result.exitCode).toBe(0);
     expect(result.stderr).toBe('');
     expect(result.stdout).toContain('Candidates');
-    expect(result.stdout).toContain('4305, 4309');
+    // Two days before (+2) comes ahead of two days after (-2) in the web's order.
+    expect(result.stdout).toContain('4305 (linked), 4309');
     expect(result.stdout).toContain('conciliate');
     expect(result.stdout).toContain('needs-category');
     expect(result.stdout).not.toContain('"candidates"');

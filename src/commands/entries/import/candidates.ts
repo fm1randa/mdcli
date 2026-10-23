@@ -9,48 +9,97 @@ export interface ImportCandidate {
   categoryId: number | null;
 }
 
+/** An Entry (or invoice item) already in Meu Dinheiro, as the matching reads it. */
+export interface ExistingEntry {
+  candidate: ImportCandidate;
+  /** Status `conciliado`. The web hides it from the candidates and links it only on the same day. */
+  reconciled: boolean;
+  ndocumento: string | null;
+}
+
 interface BankSide {
   date: string | null;
   value: number | null;
   ndocumento: string | null;
 }
 
-/** Same signed value inside the window. `automatic` counts the entries also within 2 calendar days. */
-export function candidatesFor(
-  bank: BankSide,
-  rows: readonly unknown[],
-  window: { from: string; to: string },
-  source: 'entry' | 'invoice',
-): { candidates: ImportCandidate[]; automatic: number } {
-  const candidates: ImportCandidate[] = [];
-  let automatic = 0;
+/**
+ * The rows that carry an id, a value, and a date, in date order (the web's `z`). A checking account
+ * dates an Entry by `dataEfetiva`, then `dataPrevista`; a card dates an invoice item by `dataCompetencia`.
+ */
+export function readExisting(rows: readonly unknown[], source: 'entry' | 'invoice'): ExistingEntry[] {
+  const existing: ExistingEntry[] = [];
   for (const row of rows) {
     const record = asRecord(row);
-    const candidate = record === null ? null : readCandidate(record, source);
-    if (candidate === null || record === null) continue;
-    if (candidate.value !== bank.value) continue;
-    if (candidate.date < window.from || candidate.date > window.to) continue;
-    if (documentsDiffer(bank.ndocumento, record.ndocumento)) continue;
-    candidates.push(candidate);
-    if (bank.date !== null && isCalendarDate(bank.date) && withinTwoDays(bank.date, candidate.date)) {
-      automatic += 1;
-    }
+    if (record === null) continue;
+    const id = idOrNull(record.id);
+    const value = numberOrNull(record.valor);
+    const date = source === 'invoice' ? calendarDay(record.dataCompetencia) : entryDate(record);
+    if (id === null || value === null || date === null) continue;
+    existing.push({
+      candidate: { id, date, value, description: textOrNull(record.descricao), categoryId: idOrNull(record.categoria) },
+      reconciled: record.status === 'conciliado',
+      ndocumento: typeof record.ndocumento === 'string' && record.ndocumento !== '' ? record.ndocumento : null,
+    });
   }
-  return { candidates, automatic };
+  // Stable, like Array.prototype.sort in the web: same-day Entries keep the API order.
+  return existing.sort((a, b) => (a.candidate.date < b.candidate.date ? -1 : a.candidate.date > b.candidate.date ? 1 : 0));
 }
 
-function readCandidate(record: Record<string, unknown>, source: 'entry' | 'invoice'): ImportCandidate | null {
-  const id = idOrNull(record.id);
-  const value = numberOrNull(record.valor);
-  const date = source === 'invoice' ? calendarDay(record.data) : entryDate(record);
-  if (id === null || value === null || date === null) return null;
-  return {
-    id,
-    date,
-    value,
-    description: textOrNull(record.descricao),
-    categoryId: idOrNull(record.categoria),
+/**
+ * Same signed value, Reconciled Entries included. A document number never drops one: the web
+ * only uses it to link the same number first.
+ */
+export function candidatesFor(bank: BankSide, existing: readonly ExistingEntry[]): ExistingEntry[] {
+  return existing.filter((item) => item.candidate.value === bank.value);
+}
+
+/** The web's day shifts (`conciliarAutomaticamente` default: up to 2 days), in its order. */
+const SHIFTS = [0, 1, -1, 2, -2];
+
+/**
+ * The Entry the web links to each Bank Transaction on its own (mdb.js `rt`), row for row with `banks`.
+ * For each shift, each Entry not used yet looks up the Bank Transactions on its date plus the shift
+ * with its value (first also with its document number, then without) and takes the first one not
+ * linked yet. A Reconciled Entry links only with shift 0; on another shift it is used up unlinked.
+ */
+export function automaticLinks(banks: readonly BankSide[], existing: readonly ExistingEntry[]): (number | null)[] {
+  const linked: (number | null)[] = banks.map(() => null);
+  const withDocument = new Map<string, number[]>();
+  const withoutDocument = new Map<string, number[]>();
+  banks.forEach((bank, index) => {
+    if (bank.date === null || bank.value === null) return;
+    const key = `${bank.date}_${bank.value}`;
+    push(withoutDocument, key, index);
+    if (bank.ndocumento !== null) push(withDocument, `${key}_${bank.ndocumento}`, index);
+  });
+
+  let left = [...existing];
+  const pass = (shift: number, byDocument: boolean): void => {
+    left = left.filter((item) => {
+      const day = addInterval(item.candidate.date, shift, 'd');
+      const key = byDocument ? `${day}_${item.candidate.value}_${item.ndocumento}` : `${day}_${item.candidate.value}`;
+      const indexes = (byDocument ? withDocument : withoutDocument).get(key);
+      if (indexes === undefined) return true;
+      if (item.reconciled && shift !== 0) return false;
+      const free = indexes.find((index) => linked[index] === null);
+      if (free === undefined) return true;
+      linked[free] = item.candidate.id;
+      return false;
+    });
   };
+  for (const shift of SHIFTS) {
+    if (left.length === 0) break;
+    pass(shift, true);
+    pass(shift, false);
+  }
+  return linked;
+}
+
+function push(map: Map<string, number[]>, key: string, index: number): void {
+  const list = map.get(key);
+  if (list === undefined) map.set(key, [index]);
+  else list.push(index);
 }
 
 /** Effective date when it is a calendar day; otherwise the planned date. `data` is not a fallback. */
@@ -65,16 +114,4 @@ function calendarDay(value: unknown): string | null {
   if (typeof value !== 'string') return null;
   const day = value.slice(0, 10);
   return isCalendarDate(day) ? day : null;
-}
-
-/** Differing document numbers drop the entry. A missing or empty number on either side does not. */
-function documentsDiffer(bank: string | null, entry: unknown): boolean {
-  if (bank === null || bank === '') return false;
-  if (typeof entry !== 'string' || entry === '') return false;
-  return bank !== entry;
-}
-
-/** A candidate the web links on its own: the Entry date is at most 2 calendar days from the bank date. */
-export function withinTwoDays(bankDate: string, entryDate: string): boolean {
-  return entryDate >= addInterval(bankDate, -2, 'd') && entryDate <= addInterval(bankDate, 2, 'd');
 }

@@ -1,14 +1,15 @@
 import type { Category } from '../../../types/index.js';
 import { exitWithError } from '../../../utils/action.js';
 import { categoryCatalog, checkEntryCategory } from '../category.js';
+import type { ImportCandidate } from './candidates.js';
 import type { ImportDocument, ImportTransaction } from './document.js';
 import {
-  automaticCandidates,
   checkWrittenValue,
   emptyRun,
   failOnProblems,
   ids,
   label,
+  linkedCandidate,
   matchPrefix,
   planConciliate,
   planImport,
@@ -31,7 +32,7 @@ export interface SelectionItem {
   value?: number;
   /** Replaces the suggested description on `import`. */
   description?: string;
-  /** The Entry to link on `conciliate`. Optional when exactly one candidate is automatic. */
+  /** The Entry to link on `conciliate`. Optional when the row has an automatically linked Entry. */
   entry?: number;
 }
 
@@ -123,8 +124,10 @@ export function planSelection(
 interface SelectionOptions {
   categories: ReadonlyMap<string, Category>;
   today: string;
-  /** How to name the Entry when `conciliate` has no single automatic candidate, in the source's syntax. */
+  /** How to name the Entry when `conciliate` has no automatically linked one, in the source's syntax. */
   entryHint: (prefix: string) => string;
+  /** Every Entry `conciliate` may name for the row: its candidates and the Reconciled ones they hide. */
+  linkable: (row: ImportTransaction) => readonly ImportCandidate[];
 }
 
 function planItem(row: ImportTransaction, item: SelectionItem, options: SelectionOptions, run: RunDocument): string | null {
@@ -135,12 +138,12 @@ function planItem(row: ImportTransaction, item: SelectionItem, options: Selectio
     case 'reject':
       return planReject(row, run);
     case 'conciliate':
-      return planLink(row, item.entry, options.entryHint, run);
+      return planLink(row, item.entry, options, run);
     case 'import': {
-      // Only an automatic candidate (within two days) already records it; a farther one is linked by hand or not at all.
-      const automatic = automaticCandidates(row);
-      if (automatic.length > 0) {
-        return `entries ${ids(automatic)} may already record it. Use conciliate, or skip it.`;
+      // Only the automatically linked Entry already records it; another candidate is linked by hand or not at all.
+      const linked = linkedCandidate(row);
+      if (linked !== null) {
+        return `entry ${linked.id} already records it (linked automatically). Use conciliate, or skip it.`;
       }
       const category = item.category === undefined ? null : (options.categories.get(item.category) ?? null);
       return planImport(row, { category, today: options.today, value: item.value, description: item.description }, run);
@@ -151,22 +154,21 @@ function planItem(row: ImportTransaction, item: SelectionItem, options: Selectio
 function planLink(
   row: ImportTransaction,
   entryId: number | undefined,
-  entryHint: (prefix: string) => string,
+  options: SelectionOptions,
   run: RunDocument,
 ): string | null {
   if (entryId !== undefined) {
-    const entry = row.candidates.find((candidate) => candidate.id === entryId);
+    // Like the web with "carregar conciliados": a Reconciled Entry hidden from the candidates may be named.
+    const entry = options.linkable(row).find((candidate) => candidate.id === entryId);
     if (entry === undefined) {
       const known = row.candidates.length === 0 ? 'it has no candidates' : `candidates: ${ids(row.candidates)}`;
       return `entry ${entryId} is not a candidate (${known}).`;
     }
     return planConciliate(row, entry, run);
   }
+  const linked = linkedCandidate(row);
+  if (linked !== null) return planConciliate(row, linked, run);
   if (row.candidates.length === 0) return 'no entry matches it, so there is nothing to link.';
-  const automatic = automaticCandidates(row);
-  if (automatic.length !== 1) {
-    const count = row.candidates.length;
-    return `${count} ${count === 1 ? 'entry' : 'entries'} may match it (${ids(row.candidates)}). ${entryHint(label(row))}`;
-  }
-  return planConciliate(row, automatic[0], run);
+  const count = row.candidates.length;
+  return `${count} ${count === 1 ? 'entry' : 'entries'} may match it (${ids(row.candidates)}), none linked automatically. ${options.entryHint(label(row))}`;
 }

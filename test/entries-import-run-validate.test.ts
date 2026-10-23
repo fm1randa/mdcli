@@ -104,7 +104,7 @@ describe('entries import run category checks', () => {
 });
 
 describe('entries import run actions', () => {
-  test('one automatic candidate is linked, keeping the Entry value and description', async () => {
+  test('the automatically linked Entry is conciliated, keeping its value and description', async () => {
     statement([bank(TX1, { _ca: { c: { d: { descricao: { v: 'Sugerida' } } } } })]);
     entries([{ id: 4242, dataPrevista: '2026-10-09', valor: -12.34, descricao: 'Padaria do bairro', categoria: 40 }]);
 
@@ -136,14 +136,17 @@ describe('entries import run actions', () => {
     expect(mutations(api)).toHaveLength(0);
   });
 
-  test('two automatic candidates fail, since --ids carries no Entry id', async () => {
+  test('of two entries within two days, --ids links the one the web picks: the day before comes first', async () => {
     statement([bank(TX1)]);
     entries([
       { id: 4242, dataPrevista: '2026-10-08', valor: -12.34 },
       { id: 4243, dataPrevista: '2026-10-06', valor: -12.34 },
     ]);
 
-    expect(await refused(['--ids', 'aaaa', '-c', '10'])).toContain('2 entries match it (4242, 4243)');
+    const body = await plan(['--ids', 'aaaa', '-c', '10']);
+
+    expect(body.imported).toEqual([]);
+    expect(body.conciliated.map((item: { entryId: number }) => item.entryId)).toEqual([4243]);
   });
 
   test('a candidate outside the 2 days is not linked, and --ids imports beside it', async () => {
