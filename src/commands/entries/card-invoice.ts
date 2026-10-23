@@ -6,8 +6,8 @@ const MAX_INVOICE_STEPS = 24;
 
 /**
  * The due date (YYYY-MM-DD) the card's invoices are counted from, and the
- * only place that reads proximoVencimento for that (an ESLint rule bans
- * `proximoVencimento ??` elsewhere). A card without one, like a new card,
+ * only place that reads proximoVencimento for that (the ESLint rule
+ * local/no-due-anchor-fallback bans any read of it elsewhere). A card without one, like a new card,
  * takes the API's first invoice date (GET primeiraFatura) instead. Before
  * this, cards invoice --month assumed day 10, cards invoice and entries list
  * asked primeiraFatura, and entries create refused (Jardinagem 2026-10-21).
