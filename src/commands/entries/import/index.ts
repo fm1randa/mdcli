@@ -5,14 +5,17 @@ import { runAction } from './run.js';
 
 const SINCE_HELP =
   'Load the full statement from this date (YYYY-MM-DD, at most 90 days ago), already imported or not. ' +
-  'Default: only the new bank transactions the connection reports, like the web import badge';
+  'Default: the new bank transactions the connection reports; without them, the statement since the ' +
+  'account\'s last statement date (or 90 days ago, if that is earlier), like the web import button';
 
 const SEARCH_FROM_HELP = 'Earliest candidate date (YYYY-MM-DD). Default: two days before the statement starts';
 const SEARCH_TO_HELP = 'Latest candidate date (YYYY-MM-DD). Default: two days after the statement ends';
 
 const IMPORT_NOTES = `
-Without --since, only the new bank transactions are loaded: the summary the connection reports,
-like the web's import badge. No summary means nothing new.
+Without --since, the new bank transactions the connection reports (its summary, the web's import
+badge) are loaded. A connection read without a sync rarely has a summary; without one, the statement
+loads from the web import dialog's default date: the account's last statement date, or 90 days ago
+if that is earlier or missing. --since loads the statement from another date.
 
 Each bank transaction is linked to at most one existing entry (conciliateWith), as the web does:
 same value; an entry on the bank date first, then the day before, the day after, 2 days before,
