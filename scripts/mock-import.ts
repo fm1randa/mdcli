@@ -1,5 +1,5 @@
-// GET /v1/integracao/account/:connectionAccount/transactions (--since) and the
-// connection summary (no --since) for scripts/verify.sh, and the AI category suggestion they trigger. Fictional ids only. 9001 is
+// GET /v1/integracao/account/:connectionAccount/transactions for scripts/verify.sh, and the AI
+// category suggestion it triggers. Fictional ids only. 9001 is
 // Nubank's connection account in mock-connections.ts; 10 is Alimentação (d).
 
 const TRANSACTIONS = /^\/api\/v1\/integracao\/account\/(\d+)\/transactions$/;
@@ -23,13 +23,16 @@ const STATEMENT = {
   lancamentos: [PADARIA],
 };
 
-/** `accounts[].summary` of connection account 9001: the new Bank Transactions, read without --since. */
-export const SUMMARY_9001 = {
-  inicio: '2026-10-07',
-  fim: '2026-10-07',
-  saldo: 10.5,
-  lancamentos: [PADARIA],
-};
+/**
+ * Nubank (1001) with a last statement (dataUltimoExtrato) 3 days ago, local time, with the time the API adds:
+ * inside the 90-day window whatever day verify runs on, so import list without --since loads from it.
+ */
+export function withRecentStatement<T extends { id: number }>(account: T): T {
+  if (account.id !== 1001) return account;
+  const now = new Date();
+  const day = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 3).toLocaleDateString('sv-SE');
+  return { ...account, dataUltimoExtrato: `${day}T00:00:00` };
+}
 
 /**
  * The fictional statement for connection account 9001 and the AI answer, or null for any other request.

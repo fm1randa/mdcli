@@ -15,7 +15,7 @@ import { aiRequest, duplicateId, loadedDateBounds } from './suggest.js';
 import { resolveAccountOrExit } from '../../account-id.js';
 import { accountConnection } from '../../connection.js';
 import { asRecord, nonEmptyTextOrNull } from '../../../lib/payload.js';
-import { calendarDateFlag, explicitSince } from './since.js';
+import { calendarDateFlag, defaultSince, earliestSince, explicitSince } from './since.js';
 
 export interface ImportLoadOptions {
   account: string;
@@ -71,18 +71,19 @@ export async function loadImport(options: ImportLoadOptions): Promise<LoadedImpo
   if (card && (searchFrom !== undefined || searchTo !== undefined)) {
     exitWithError('A search window on a credit card is not specified. Candidates come from the current card invoice.');
   }
-  // Like the web: the import badge shows the connection's summary (what the server has not seen imported);
-  // the manual import dialog loads everything since a date, already imported or not.
-  const payload: unknown = requested === undefined
-    ? summaryStatement(link.summary)
-    : await fetchBankTransactions(connectionAccount, requested);
+  // Like the web: the import badge shows the connection's summary (what the server has not seen imported),
+  // but a GET rarely has one (the web gets it from the sync PUT, which the CLI never sends on its own).
+  // Without it, load what the web's import button loads: everything since a date, already imported or not.
+  const summary = requested === undefined ? summaryStatement(link.summary) : null;
+  const since = summary === null ? (requested ?? defaultSince(account?.dataUltimoExtrato, now)) : null;
+  const payload: unknown = since === null ? summary : await fetchBankTransactions(connectionAccount, since);
   const document = toImportDocument({
     accountId,
     accountName: account?.nome ?? null,
     connectionId: link.connectionId,
     connectionAccount,
-    source: requested === undefined ? 'summary' : 'statement',
-    since: requested ?? null,
+    source: since === null ? 'summary' : 'statement',
+    since,
     payload,
   });
   // A card searches its whole invoice, not a window: `search` must not announce one.
@@ -194,17 +195,19 @@ async function invoiceRows(account: Account): Promise<unknown[]> {
   return invoice.lancamentos;
 }
 
-/** `{inicio, fim, saldo, lancamentos}` from the connection; no summary is an empty one (the web shows no badge). */
-function summaryStatement(summary: unknown): unknown {
-  return asRecord(summary) ?? { lancamentos: [] };
+/** `{inicio, fim, saldo, lancamentos}` from the connection, or null without a Bank Transaction in it (the web shows no badge). */
+function summaryStatement(summary: unknown): Record<string, unknown> | null {
+  const record = asRecord(summary);
+  const rows = record?.lancamentos;
+  return Array.isArray(rows) && rows.length > 0 ? record : null;
 }
 
 /** Why there is nothing to list or import, and how to load more. */
 export function nothingNewMessage(document: ImportDocument): string {
-  if (document.source === 'statement') return `No bank transactions since ${document.since ?? '-'}.`;
-  const name = document.account.name ?? String(document.account.id);
-  return `No new bank transactions for ${name}. ` +
-    'To load the full statement from a date, like the web\'s manual import dialog, use --since <YYYY-MM-DD> (at most 90 days ago).';
+  const none = `No bank transactions since ${document.since ?? '-'}.`;
+  const floor = earliestSince();
+  if (document.since !== null && document.since <= floor) return none;
+  return `${none} To look further back, use --since <YYYY-MM-DD> (${floor} or later).`;
 }
 
 export function statementRows(payload: unknown): unknown[] {

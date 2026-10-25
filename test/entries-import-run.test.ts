@@ -106,6 +106,54 @@ describe('entries import run selection', () => {
     expect(mutations(api)).toHaveLength(0);
   });
 
+  test('--dry-run without a selection points at entries import list, with the same --since', async () => {
+    statement([bank(TX1)]);
+
+    const result = await run(['--dry-run']);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('To see what would be imported, with the suggested categories and actions, use: mdcli entries import list -a 1001 --since 2026-10-01');
+    expect(api.requests.some((r) => r.path.includes('/transactions'))).toBe(false);
+  });
+
+  test('--dry-run without a selection and without --since points at entries import list without it', async () => {
+    const result = await runCli(['entries', 'import', 'run', '-a', 'Nubank', '--dry-run', '--json'], { home, api });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe('');
+    const error = JSON.parse(result.stderr) as { error: string };
+    expect(error.error).toEndWith('use: mdcli entries import list -a Nubank');
+  });
+
+  test('every --ids and --reject prefix that matches nothing is named, in the --json error format, and nothing is written', async () => {
+    statement([bank(TX1), bank(TX2, { valor: -5 })]);
+
+    const result = await run(['--ids', 'aaaa1111,cccc', '-c', '10', '--reject', 'dddd', '--dry-run', '--json']);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe('');
+    const error = JSON.parse(result.stderr) as { error: string };
+    expect(error.error).toContain('--ids cccc does not match any bank transaction.');
+    expect(error.error).toContain('--reject dddd does not match any bank transaction.');
+    expect(mutations(api)).toHaveLength(0);
+  });
+
+  test('--ids and --reject against an empty statement fail, naming each prefix, instead of an empty import', async () => {
+    statement([]);
+
+    const ids = await run(['--ids', 'aaaa1111', '-c', '10', '--dry-run', '--json']);
+    expect(ids.exitCode).toBe(1);
+    expect(ids.stdout).toBe('');
+    const error = JSON.parse(ids.stderr) as { error: string };
+    expect(error.error).toContain('--ids aaaa1111 does not match any bank transaction.');
+    expect(error.error).toContain('No bank transactions since 2026-10-01.');
+
+    const rejects = await run(['--reject', 'bbbb2222', '--yes']);
+    expect(rejects.exitCode).toBe(1);
+    expect(rejects.stderr).toContain('--reject bbbb2222 does not match any bank transaction.');
+    expect(mutations(api)).toHaveLength(0);
+  });
+
   test('--ids without --category fails, and --category without --ids fails', async () => {
     statement([bank(TX1)]);
 

@@ -173,6 +173,21 @@ describe('entries import run --plan file checks', () => {
     ).toContain(`aaaa1111: selected twice (aaaa and ${TX1}).`);
   });
 
+  test('a plan against an empty statement fails, naming each prefix, instead of an empty import', async () => {
+    statement([]);
+
+    const stderr = await refused({
+      transactions: [
+        { id: 'aaaa1111', action: 'import', category: 10 },
+        { id: 'bbbb2222', action: 'reject' },
+      ],
+    });
+
+    expect(stderr).toContain('--plan aaaa1111 does not match any bank transaction.');
+    expect(stderr).toContain('--plan bbbb2222 does not match any bank transaction.');
+    expect(stderr).toContain('No bank transactions since');
+  });
+
   test('unknown and ambiguous prefixes are listed together with every other problem', async () => {
     statement([bank(TX1), bank('aaaa9999-1111-4000-8000-000000000009', { valor: -5 }), bank(TX2, { valor: 30 })]);
 

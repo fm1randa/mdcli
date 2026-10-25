@@ -163,7 +163,9 @@ reads_and_ai_only() {
 }
 # A --since inside the 90-day window whatever day verify runs on.
 IMPORT_SINCE=$(bun -e 'const d = new Date(); d.setDate(d.getDate() - 30); console.log(d.toLocaleDateString("sv-SE"))')
-# Without --since: the connection summary (no full statement), and the AI for the category. No --yes.
+# Without --since and without a connection summary (the mock has none, like a real GET): the statement
+# since the account's last statement date (the mock sets it 3 days ago), and the AI for the category. No --yes.
+LAST_STATEMENT=$(bun -e 'const d = new Date(); d.setDate(d.getDate() - 3); console.log(d.toLocaleDateString("sv-SE"))')
 import_list() {
   local log="$MDCLI_MOCK_LOG"
   local before=0
@@ -176,10 +178,8 @@ import_list() {
   local fresh
   fresh=$(tail -n +"$((before + 1))" "$log")
   [ -n "$fresh" ] || { echo "the mock did not log import list"; return 1; }
-  if grep -Eq '/transactions' <<<"$fresh"; then
-    echo "without --since, import list must not load the full statement: $fresh"
-    return 1
-  fi
+  grep -Fq "\"path\":\"/api/v1/integracao/account/9001/transactions\",\"query\":\"start=$LAST_STATEMENT\"" <<<"$fresh" \
+    || { echo "without --since, import list must load the statement since $LAST_STATEMENT: $fresh"; return 1; }
   grep -Eq '/v2/lancamentos' <<<"$fresh" \
     || { echo "missing GET of candidates: $fresh"; return 1; }
   grep -Eq '/api/v1/smartmatch/ai' <<<"$fresh" \
@@ -205,7 +205,7 @@ import_run_dry() {
   reads_and_ai_only "$fresh" "entries import run --dry-run"
 }
 step "cli entries import run --dry-run (mock)" import_run_dry
-# Rehearses an Import from a --plan file over the new bank transactions (summary). No --yes.
+# Rehearses an Import from a --plan file over the statement since the last statement date (no --since). No --yes.
 import_run_plan_dry() {
   local log="$MDCLI_MOCK_LOG"
   local before=0

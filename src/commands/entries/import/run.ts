@@ -9,7 +9,7 @@ import { commitRun } from './commit.js';
 import { editRun } from './edit.js';
 import { fillSuggestions, linkableOf, loadImport, nothingNewMessage, statementRows, type ImportLoadOptions, type LoadedImport } from './list.js';
 import type { ImportDocument } from './document.js';
-import { emptyRun, failOnProblems, pickBankTransactions, planRun, type RunDocument } from './plan.js';
+import { emptyRun, failOnProblems, pickBankTransactions, planRun, unmatchedPrefix, type RunDocument } from './plan.js';
 import { readPlanFile } from './plan-file.js';
 import { printRun } from './run-output.js';
 import { importCategory, planSelection, selectionCategories } from './selection.js';
@@ -101,7 +101,10 @@ async function fromFlags(options: ImportRunOptions, today: string): Promise<Plan
     exitWithError('--ids needs -c, --category: every Entry the import creates has a category.');
   }
   if (options.ids === undefined && options.reject === undefined) {
-    exitWithError('Nothing selected. Use --ids with --category, --reject, --plan, or --edit. There is no "import everything".');
+    exitWithError(
+      'Nothing selected. Use --ids with --category, --reject, --plan, or --edit. There is no "import everything". ' +
+      `To see what would be imported, with the suggested categories and actions, use: ${listCommand(options)}`,
+    );
   }
   const ids = prefixList(options.ids, '--ids');
   const rejects = prefixList(options.reject, '--reject');
@@ -112,10 +115,11 @@ async function fromFlags(options: ImportRunOptions, today: string): Promise<Plan
 
   const category = options.category === undefined ? null : await importCategory(options.category);
   const loaded = await loadImport(options);
-  if (loaded.document.transactions.length === 0) return nothingNew(loaded, options);
   const { transactions: bankTransactions } = loaded.document;
-  const picked = pickBankTransactions(bankTransactions, ids, '--ids');
-  const rejected = pickBankTransactions(bankTransactions, rejects, '--reject');
+  const problems: string[] = [];
+  const picked = pickBankTransactions(bankTransactions, ids, '--ids', problems);
+  const rejected = pickBankTransactions(bankTransactions, rejects, '--reject', problems);
+  failOnProblems(withNothingNew(problems, loaded.document));
   const both = picked.find((row) => rejected.includes(row));
   if (both !== undefined) {
     exitWithError(`${both.prefix ?? both.integrationId} is selected by both --ids and --reject.`);
@@ -137,7 +141,9 @@ async function fromPlan(options: ImportRunOptions, path: string, today: string):
   const { categories, problems } = await selectionCategories(items);
   failOnProblems(problems);
   const loaded = await loadImport(options);
-  if (loaded.document.transactions.length === 0) return nothingNew(loaded, options);
+  if (loaded.document.transactions.length === 0) {
+    failOnProblems(withNothingNew(items.map((item) => unmatchedPrefix(item.id, '--plan')), loaded.document));
+  }
   const run = planSelection(loaded.document, items, {
     categories,
     today,
@@ -168,6 +174,18 @@ async function fromEdit(options: ImportRunOptions, today: string): Promise<Plann
 /** No Bank Transaction to choose from: an empty run, so nothing is selected, prompted, or written. */
 function nothingNew(loaded: LoadedImport, options: ImportRunOptions): PlannedRun {
   return { run: emptyRun(loaded.document, options.dryRun === true), loaded, categories: [] };
+}
+
+/** Prefixes that match nothing in an empty statement: say why it is empty and how to load more. */
+function withNothingNew(problems: string[], document: ImportDocument): string[] {
+  return problems.length > 0 && document.transactions.length === 0 ? [...problems, nothingNewMessage(document)] : problems;
+}
+
+/** `entries import list` for the same account and statement, as the user would type it. */
+function listCommand(options: ImportRunOptions): string {
+  const args = ['mdcli', 'entries', 'import', 'list', '-a', options.account];
+  if (options.since !== undefined) args.push('--since', options.since);
+  return args.map((arg) => (/^[\w./:@-]+$/.test(arg) ? arg : JSON.stringify(arg))).join(' ');
 }
 
 /** A duplicate the listing would skip opens as import (or without a category) instead. A linked one stays linked. */

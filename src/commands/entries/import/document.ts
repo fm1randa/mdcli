@@ -38,7 +38,10 @@ export interface BankTransactionRow {
 export interface ImportDocument {
   account: { id: number; name: string | null };
   connection: { id: number; connectionAccount: number };
-  /** `summary`: the new Bank Transactions of the connection (no --since). `statement`: everything since `since`. */
+  /**
+   * `summary`: the new Bank Transactions the connection reports (no --since, when it has any).
+   * `statement`: everything since `since`, --since or the web's default start date.
+   */
   source: ImportSource;
   since: string | null;
   statement: { start: string | null; end: string | null; balance: number | null };
