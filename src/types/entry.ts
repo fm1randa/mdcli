@@ -68,6 +68,8 @@ export interface Entry {
   transferencia?: number;
   metaEconomiaDestino?: number;
   projecaoFatura?: number;
+  /** A card purchase on a closed invoice (the web's "ff" filter); its account is locked. */
+  fatura?: number;
 }
 
 export interface EntriesResponse {

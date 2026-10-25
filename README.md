@@ -286,6 +286,18 @@ mdcli entries update 12345 --date 2027-01-25 --scope this
 # Esta ocorrência e as seguintes; as anteriores não são alteradas
 mdcli entries update 12345 --date 2027-01-25 --scope following
 
+# Muda a conta (ID, alias ou nome, como no create); numa série, junto com --scope.
+# Passar a conta atual não é erro: o lançamento é salvo como está, como na web.
+mdcli entries update 12345 --account nubank --scope following
+# Para um cartão de crédito, a compra vai para a fatura da data do lançamento
+# (ou de --date), sem data efetiva; ao sair do cartão, uma compra não conciliada
+# fica pendente na data da compra. Lançamentos de fatura fechada não mudam de
+# conta (a web também bloqueia).
+mdcli entries update 12345 --account <cardId>
+# Transferência: --account muda a origem e --to-account o destino; as duas
+# contas têm de ser diferentes, e cartão de crédito ainda não é suportado
+mdcli entries update 12345 --to-account reserva
+
 # Exclui um lançamento
 mdcli entries delete 12345
 
@@ -457,6 +469,7 @@ Os testes em `test/` executam a CLI real como subprocesso contra um mock local d
 | Compra no cartão de crédito em uma fatura escolhida (`--invoice`) | Pronto |
 | Atualizar | Pronto |
 | Atualizar/excluir uma ocorrência da série (`--scope this\|following`) | Pronto |
+| Mudar a conta (`--account`; transferência: `--account`/`--to-account`) | Pronto |
 | Excluir | Pronto |
 
 ### Cartões

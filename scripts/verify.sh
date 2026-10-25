@@ -351,6 +351,17 @@ step "cli entries update --scope following (mock)" expect_json 'd.status === "ag
 step "cli entries update --scope following texto (mock)" expect_ok 'Status: Scheduled' entries update 80 -D 2027-01-25 --scope following
 step "cli entries update --confirmed confirma (mock)" expect_json 'd.status === "confirmado" && d.conciliado === false' entries update 80 --confirmed --scope this --json
 step "cli entries update --scope fora de série (mock)" expect_fail 'not part of a recurring series' entries update 70 -d X --scope following
+# update --account (#123): the NuCel fixed series moves to another account from
+# this occurrence on; into a card the invoice is picked from the entry's date;
+# a transfer moves origin/destination and refuses cards, as entries create.
+step "cli entries update --account série (mock)" expect_json 'd.conta === 1004 && d.agendaId === 77 && d.parcela === "fixa" && d.scope === "following"' entries update 80 --account 1004 --scope following --json
+step "cli entries update --account texto (mock)" expect_ok 'Account: 1004' entries update 80 --account 1004 --scope following
+step "cli entries update --account cartão (mock)" expect_json 'd.conta === 1002 && d.dataCompetencia === "2026-01-12" && d.dataPrevista === "2026-02-16" && d.dataEfetiva === null' entries update 70 --account 1002 --json
+step "cli entries update --account inexistente (mock)" expect_fail 'Unknown account: Inexistente' entries update 70 --account Inexistente
+step "cli entries update --to-account fora de transferência (mock)" expect_fail 'to-account only applies to transfers' entries update 70 --to-account 1004
+step "cli entries update transferência --account/--to-account (mock)" expect_json 'd.conta === 1004 && d.contaT === 1001' entries update 52 --account 1004 --to-account 1001 --json
+step "cli entries update transferência mesma conta (mock)" expect_fail 'origin and destination would both be account 1004' entries update 52 --account 1004
+step "cli entries update transferência com cartão (mock)" expect_fail 'credit card account are not supported' entries update 50 --to-account 1004
 # entries list: the API refuses end dates past 2031-12-31 (#65), so the CLI
 # checks first; under --json any error is {"error": ...} on stderr, exit 1.
 step "cli entries list --json (mock)" expect_json 'Array.isArray(d) && d.some((e) => e.id === 70 && e.description === "Café")' entries list -a 1001 -f 2026-01-01 -t 2026-01-31 --json

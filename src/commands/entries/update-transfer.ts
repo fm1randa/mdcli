@@ -33,8 +33,24 @@ export interface TransferOverrides {
   categoryId: number | null;
   tagIds?: number[];
   notes?: string;
+  /** --account / --to-account, already checked (see update-account.ts). */
+  originId?: number;
+  destinationId?: number;
   /** From buildEntryStatus; effective covers dataEfetiva, valorEfetivo and valorEfetivoT. */
   status: EntryStatusChoice;
+}
+
+/** The origin and destination accounts of a transfer, whichever half the entry is. */
+export function transferSides(entryId: number, existing: Entry): { origin: number; destination: number } {
+  const outgoing = existing.valor < 0;
+  const origin = outgoing ? existing.conta : existing.contaT;
+  const destination = outgoing ? existing.contaT : existing.conta;
+  if (origin === undefined || destination === undefined) {
+    throw new Error(
+      `Entry ${entryId} is a transfer but only names one account. It cannot be updated by the CLI.`
+    );
+  }
+  return { origin, destination };
 }
 
 // A transfer (tipo "t") is a pair of mirrored entries, and the API rejects the
@@ -49,15 +65,10 @@ export function buildTransferPayload(
   existing: Entry,
   overrides: TransferOverrides
 ): UpdateTransferPayload {
+  const { origin, destination } = transferSides(entryId, existing);
+  const originAccount = overrides.originId ?? origin;
+  const destinationAccount = overrides.destinationId ?? destination;
   const outgoing = existing.valor < 0;
-  const originAccount = outgoing ? existing.conta : existing.contaT;
-  const destinationAccount = outgoing ? existing.contaT : existing.conta;
-
-  if (originAccount === undefined || destinationAccount === undefined) {
-    throw new Error(
-      `Entry ${entryId} is a transfer but only names one account. It cannot be updated by the CLI.`
-    );
-  }
 
   // A value change makes both halves symmetric. Without one, keep whatever the
   // two halves hold today - a transfer between currencies has two magnitudes.
