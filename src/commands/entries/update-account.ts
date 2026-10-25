@@ -125,9 +125,9 @@ async function moveToCard(
  */
 async function holderPlastic(cardId: number): Promise<number | null> {
   const plastics = await fetchPlastics();
-  // The field lists the card's active plastics by name (mdwSelect, S).
+  // The field lists the card's active, visible plastics by name (mdwSelect, S).
   const listed = plastics
-    .filter((p) => p.conta === cardId && p.status !== false)
+    .filter((p) => p.conta === cardId && p.status !== false && (!p.permissoes || p.permissoes.visivel))
     .sort((a, b) => (a.nome.toLowerCase() < b.nome.toLowerCase() ? -1 : 1));
   // default-values is an Angular filter: tipo contains "t", any case. With
   // none, the field clears its model (mdwSelect, M) and null is sent.
@@ -146,11 +146,12 @@ function moveOffCard(payload: UpdateEntryPayload, existing: Entry, { date, flags
   payload.conciliado = conciliado;
   payload.data = formDate;
   // ut for a regular account: a confirmed entry is effective on the form's
-  // date and keeps its planned date (the invoice due date); otherwise the
-  // form's date becomes the planned one.
+  // date and keeps its planned date (the invoice due date), even with -D: the
+  // form's date only feeds dataPrevista on a card (tt). Otherwise the form's
+  // date becomes the planned one.
   if (confirmado) {
     payload.dataEfetiva = formDate;
-    payload.dataPrevista = date ?? existing.dataPrevista;
+    payload.dataPrevista = existing.dataPrevista || formDate;
     payload.valorEfetivo = payload.valor;
   } else {
     payload.dataPrevista = formDate;

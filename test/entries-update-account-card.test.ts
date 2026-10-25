@@ -223,4 +223,36 @@ describe('entries update --account to or from a credit card', () => {
     expect(result.exitCode).toBe(0);
     expect(putBody()).toMatchObject({ status: { confirmado: false, conciliado: false }, automatico: false });
   });
+
+  test('to a card: a holder plastic the user cannot see is skipped, as the web does not list it', async () => {
+    api.on('GET /v1/cadastros/plasticos', [
+      { id: 26, conta: 1002, tipo: 'T', titular: true, nome: 'Ana', status: true, permissoes: { visivel: false } },
+      { id: 24, conta: 1002, tipo: 'T', titular: true, nome: 'Carla', status: true, permissoes: { visivel: true } },
+    ]);
+
+    const result = await runCli(['entries', 'update', '70', '-a', '1002'], { home, api });
+
+    expect(result.exitCode).toBe(0);
+    expect(putBody()).toMatchObject({ plastico: 24 });
+  });
+
+  test('to a card: when the only holder plastic is hidden from the user, no plastic is sent', async () => {
+    api.on('GET /v1/cadastros/plasticos', [
+      { id: 26, conta: 1002, tipo: 'T', titular: true, nome: 'Ana', status: true, permissoes: { visivel: false } },
+    ]);
+
+    const result = await runCli(['entries', 'update', '70', '-a', '1002'], { home, api });
+
+    expect(result.exitCode).toBe(0);
+    expect(putBody()).toMatchObject({ plastico: null });
+  });
+
+  test('off a card: -D on a confirmed purchase sets the effective date and keeps the invoice due date as planned', async () => {
+    api.on('GET /v1/lancamentos/90', { ...CARD_PURCHASE, status: 'conciliado', conciliado: true });
+
+    const result = await runCli(['entries', 'update', '90', '-a', '1001', '-D', '2026-01-20'], { home, api });
+
+    expect(result.exitCode).toBe(0);
+    expect(putBody()).toMatchObject({ data: '2026-01-20', dataEfetiva: '2026-01-20', dataPrevista: '2026-01-16' });
+  });
 });

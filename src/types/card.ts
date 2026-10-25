@@ -160,4 +160,6 @@ export interface CardPlastic {
   nome: string;
   titular?: boolean;
   status?: boolean;
+  /** visivel false: hidden from the user, so the web app does not list it. */
+  permissoes?: { visivel: boolean };
 }

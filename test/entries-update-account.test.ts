@@ -93,7 +93,8 @@ describe('entries update --account between regular accounts, as the web edit for
   });
 
   test('a scheduled entry keeps confirming itself automatically', async () => {
-    api.on('GET /v1/lancamentos/80', { ...FIXED_OCCURRENCE, automatico: true });
+    // Far enough ahead that it stays scheduled whenever the suite runs.
+    api.on('GET /v1/lancamentos/80', { ...FIXED_OCCURRENCE, data: '2099-01-10', dataPrevista: '2099-01-10', automatico: true });
 
     const result = await runCli(['entries', 'update', '80', '-a', '1004', '--scope', 'this'], { home, api });
 
