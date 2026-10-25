@@ -1,4 +1,4 @@
-<!-- traduzido de README.md @ ddb3364 (base: ddb3364e92800a287a2ce58f2b08b731cfb8af86; readme-blob: d1163007402e38669b4dfeac3adce88a67b1b2f3); ao atualizar o README.md, sincronize este arquivo e atualize o SHA e o readme-blob (git hash-object README.md) -->
+<!-- traduzido de README.md @ ddb3364 (base: ddb3364e92800a287a2ce58f2b08b731cfb8af86; readme-blob: e82bc91ad476de37185984df8ad0c73385d043b5); ao atualizar o README.md, sincronize este arquivo e atualize o SHA e o readme-blob (git hash-object README.md) -->
 
 [Português (Brasil)](README.md) · **English**
 
@@ -302,7 +302,8 @@ mdcli entries update 12345 --account nubank --scope following
 # locks them too).
 mdcli entries update 12345 --account <cardId>
 # Transfer: --account changes the origin and --to-account the destination; the
-# two accounts must differ, and credit cards are not supported yet
+# two accounts must differ, and credit cards are not supported yet (so an
+# invoice payment, which always involves a card, only changes account in the web app)
 mdcli entries update 12345 --to-account reserva
 
 # Delete an entry

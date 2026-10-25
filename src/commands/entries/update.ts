@@ -113,6 +113,11 @@ export async function updateAction(id: string, options: UpdateOptions): Promise<
   if ((accountId !== undefined || toAccountId !== undefined) && existing.fatura) {
     exitWithError(`Entry ${entryId} is on a closed invoice, so its account cannot be changed (the web app locks it too).`);
   }
+  // The web app edits an invoice payment as a transfer (mdb.js, tipo == "t" ||
+  // tipo == "p"), and one side of it is always the card being paid.
+  if ((accountId !== undefined || toAccountId !== undefined) && existing.tipo === 'p') {
+    exitWithError(`Entry ${entryId} is an invoice payment, and an invoice payment involves a credit card: change its accounts in the web app.`);
+  }
   if (toAccountId !== undefined && existing.tipo !== 't') {
     exitWithError('--to-account only applies to transfers. Use --account to move the entry to another account.');
   }

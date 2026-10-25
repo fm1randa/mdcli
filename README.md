@@ -298,7 +298,8 @@ mdcli entries update 12345 --account nubank --scope following
 # também bloqueia).
 mdcli entries update 12345 --account <cardId>
 # Transferência: --account muda a origem e --to-account o destino; as duas
-# contas têm de ser diferentes, e cartão de crédito ainda não é suportado
+# contas têm de ser diferentes, e cartão de crédito ainda não é suportado (por
+# isso pagamento de fatura, que sempre envolve um cartão, só muda de conta na web)
 mdcli entries update 12345 --to-account reserva
 
 # Exclui um lançamento

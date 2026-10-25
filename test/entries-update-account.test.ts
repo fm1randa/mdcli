@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { mutations, runCli, type MockApi, type TestHome } from './helpers.js';
-import { CONFIRMED_ENTRY, FIXED_OCCURRENCE, putBody as sentPut, startUpdateAccountApi } from './update-account-harness.js';
+import { CONFIRMED_ENTRY, FIXED_OCCURRENCE, TRANSFER_DESTINATION_HALF, putBody as sentPut, startUpdateAccountApi } from './update-account-harness.js';
 
 let api: MockApi;
 let home: TestHome;
@@ -52,6 +52,20 @@ describe('entries update --account', () => {
     expect(result.stderr).toContain('--to-account only applies to transfers');
     expect(mutations(api)).toEqual([]);
   });
+
+  // An invoice payment pays Cartão Azul (1002) from Nubank (1001). The web
+  // app edits it as a transfer, and transfers involving a card are refused.
+  for (const option of ['--account', '--to-account']) {
+    test(`refuses ${option} on an invoice payment, which always involves a credit card`, async () => {
+      api.on('GET /v1/lancamentos/95', { ...TRANSFER_DESTINATION_HALF, id: 95, tipo: 'p', conta: 1001, contaT: 1002, transferencia: 9 });
+
+      const result = await runCli(['entries', 'update', '95', option, '1006'], { home, api });
+
+      expect(result.exitCode).toBe(1);
+      expect(result.stderr).toContain('invoice payment involves a credit card');
+      expect(mutations(api)).toEqual([]);
+    });
+  }
 });
 
 describe('entries update --account between regular accounts, as the web edit form saves', () => {
