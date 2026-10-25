@@ -1,8 +1,9 @@
 import chalk from 'chalk';
-import { fetchAccounts, isCreditCard } from '../../lib/api.js';
+import { fetchAccounts, fetchPlastics, isCreditCard } from '../../lib/api.js';
 import { exitWithError } from '../../utils/action.js';
+import { toLocalDateString } from '../../lib/dates.js';
 import type { Account, Entry, UpdateEntryPayload } from '../../types/index.js';
-import { resolveCardDueDate } from './card-invoice.js';
+import { formCardDueDate } from './card-invoice.js';
 import { checkTransferAccounts } from './create-transfer.js';
 import { buildEntryStatus, type EntryStatusFlags } from './status.js';
 import { transferSides } from './update-transfer.js';
@@ -53,11 +54,11 @@ const day = (date: string): string => date.slice(0, 10);
 
 /**
  * Points an entry (not a transfer) at another account, on top of the payload
- * update built. Between regular accounts only conta changes. Into or out of a
- * credit card, dates and status follow what the web app's edit form sends on
- * save (mdb.js, controller sf: G/tt/Dt on the account watch, ut and It on
- * save). The same account again is accepted and changes nothing else, like
- * the web, which only recomputes the invoice when the account changes.
+ * update built, with the fields the web app's edit form resets when saving it
+ * there (mdb.js, controller sf: L when the form opens, G/tt/Dt on the account
+ * watch, ut and It on save): the competence date and automatico on a regular
+ * account, the invoice, status and plastic on a card. The same account again
+ * is accepted and changes nothing else (other updates keep echoing the entry).
  */
 export async function moveEntry(payload: UpdateEntryPayload, existing: Entry, accountId: number, context: MoveContext): Promise<void> {
   payload.conta = accountId;
@@ -68,8 +69,16 @@ export async function moveEntry(payload: UpdateEntryPayload, existing: Entry, ac
   const target = get(accountId);
   if (isCreditCard(target)) {
     await moveToCard(payload, existing, target, fromCard, context);
-  } else if (fromCard) {
-    moveOffCard(payload, existing, context);
+    return;
+  }
+  // Opening the edit form sets the competence date to the recognition date
+  // (sf, L); saving to a regular account keeps it, as a calendar day (ut).
+  payload.dataCompetencia = existing.dataReconhecimento && day(existing.dataReconhecimento);
+  if (fromCard) moveOffCard(payload, existing, context);
+  // ut: an unconfirmed entry dated up to today has nothing left to confirm
+  // automatically.
+  if (!payload.status.confirmado && day(payload.dataPrevista) <= toLocalDateString(new Date())) {
+    payload.automatico = false;
   }
 }
 
@@ -98,19 +107,31 @@ async function moveToCard(
   payload.conciliado = conciliado;
   payload.data = purchaseDate;
   payload.dataCompetencia = purchaseDate;
-  // The web walks from the card's next due date (tt/Dt); the CLI uses the
-  // invoice lookup entries create uses, with each invoice's real closing date.
-  payload.dataPrevista = await resolveCardDueDate(card, purchaseDate);
+  payload.dataPrevista = await formCardDueDate(card, purchaseDate, existing.agenda);
   // ut: no effective date on a card, except for a reconciled occurrence of
   // an endless series.
   const endless = existing.agenda?.quantidade === -1;
   payload.dataEfetiva = endless && conciliado ? purchaseDate : null;
   // It: the effective value only on a confirmed or reconciled entry.
   payload.valorEfetivo = conciliado ? payload.valor : null;
-  // plastico is the old card's (or none). The web's Cartão field then picks
-  // the new card's holder plastico; the CLI cannot list plastics and sends
-  // none, as entries create does for a card purchase.
-  delete payload.plastico;
+  payload.plastico = await holderPlastic(card.id);
+}
+
+/**
+ * The plastic the web's Cartão field picks for a card the entry moves to
+ * (editarLancamento.html: mdw-select=plasticos filter="{conta: vm.l.conta}"
+ * default-values="{tipo:'T'}"): the old card's plastic is not in the new
+ * card's list, so the field falls back to the first one matching tipo T.
+ */
+async function holderPlastic(cardId: number): Promise<number | null> {
+  const plastics = await fetchPlastics();
+  // The field lists the card's active plastics by name (mdwSelect, S).
+  const listed = plastics
+    .filter((p) => p.conta === cardId && p.status !== false)
+    .sort((a, b) => (a.nome.toLowerCase() < b.nome.toLowerCase() ? -1 : 1));
+  // default-values is an Angular filter: tipo contains "t", any case. With
+  // none, the field clears its model (mdwSelect, M) and null is sent.
+  return listed.find((p) => p.tipo.toLowerCase().includes('t'))?.id ?? null;
 }
 
 function moveOffCard(payload: UpdateEntryPayload, existing: Entry, { date, flags }: MoveContext): void {

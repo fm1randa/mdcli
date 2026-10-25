@@ -1,6 +1,6 @@
 import { fetchCardInvoice, fetchFirstInvoiceDate } from '../../lib/api.js';
-import { calendarDay, dueDateInMonth, parseInvoiceMonth, shiftDueDate } from '../../lib/dates.js';
-import type { Account } from '../../types/index.js';
+import { addInterval, calendarDay, dueDateInMonth, parseInvoiceMonth, shiftDueDate } from '../../lib/dates.js';
+import type { Account, EntryAgenda } from '../../types/index.js';
 
 const MAX_INVOICE_STEPS = 24;
 
@@ -58,3 +58,29 @@ export async function resolveCardDueDate(account: Account, purchaseDate: string,
   }
   throw new Error(`Could not find the invoice for ${purchaseDate}. Pass it explicitly with --invoice YYYY-MM.`);
 }
+
+/**
+ * Due date of the invoice the web app's entry form puts a purchase on when
+ * the entry moves to a card (mdb.js, controller sf, tt/Dt): from the card's
+ * next due date, step a month at a time (moment's add, so a clamped day
+ * stays clamped) while it is before the date; then the first of that due
+ * date and the next one whose closing (due date minus `fechamento` days) is
+ * after the date. Never an invoice before the next due date. Unlike
+ * resolveCardDueDate, no invoice is read. For an installment series that
+ * starts past installment 1, the date is moved to that installment first.
+ */
+export async function formCardDueDate(card: Account, date: string, agenda?: EntryAgenda): Promise<string> {
+  const from = agenda && agenda.quantidade > 1 && (agenda.inicial ?? 1) > 1 && isInterval(agenda.intervalo)
+    ? addInterval(date, ((agenda.inicial ?? 1) - 1) * agenda.frequencia, agenda.intervalo)
+    : date;
+  let due = await cardDueAnchor(card);
+  while (due < from) due = shiftDueDate(due, 1);
+  const closing = addInterval(due, -(card.fechamento ?? 0), 'd');
+  return from < closing ? due : shiftDueDate(due, 1);
+}
+
+// moment's add ignores a unit it does not know, so the date stays put.
+function isInterval(value: string): value is 'd' | 'w' | 'M' | 'y' {
+  return ['d', 'w', 'M', 'y'].includes(value);
+}
+

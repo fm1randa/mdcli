@@ -1,4 +1,4 @@
-<!-- traduzido de README.md @ ddb3364 (base: ddb3364e92800a287a2ce58f2b08b731cfb8af86; readme-blob: 23799a1c4616af1507d7ba3e594eae5987f0da3a); ao atualizar o README.md, sincronize este arquivo e atualize o SHA e o readme-blob (git hash-object README.md) -->
+<!-- traduzido de README.md @ ddb3364 (base: ddb3364e92800a287a2ce58f2b08b731cfb8af86; readme-blob: 4c4918033c9742c36d43335de1945060a1617bde); ao atualizar o README.md, sincronize este arquivo e atualize o SHA e o readme-blob (git hash-object README.md) -->
 
 [Português (Brasil)](README.md) · **English**
 
@@ -293,10 +293,12 @@ mdcli entries update 12345 --date 2027-01-25 --scope following
 # Change the account (ID, alias, or name, as in create); in a series, with --scope.
 # Passing the current account is not an error: the entry is saved as is, as in the web.
 mdcli entries update 12345 --account nubank --scope following
-# To a credit card, the purchase goes to the invoice of the entry's date (or
-# --date), without an effective date; off a card, an unreconciled purchase
-# becomes pending on its purchase date. Entries on a closed invoice cannot
-# change account (the web locks them too).
+# To a credit card, as in the web: the purchase goes to the invoice of the
+# entry's date (or --date) counted from the card's next due date (an earlier
+# date lands on the next invoice), without an effective date, on the card's
+# holder plastic. Off a card, an unreconciled purchase becomes pending on its
+# purchase date. Entries on a closed invoice cannot change account (the web
+# locks them too).
 mdcli entries update 12345 --account <cardId>
 # Transfer: --account changes the origin and --to-account the destination; the
 # two accounts must differ, and credit cards are not supported yet

@@ -356,7 +356,11 @@ step "cli entries update --scope fora de série (mock)" expect_fail 'not part of
 # a transfer moves origin/destination and refuses cards, as entries create.
 step "cli entries update --account série (mock)" expect_json 'd.conta === 1004 && d.agendaId === 77 && d.parcela === "fixa" && d.scope === "following"' entries update 80 --account 1004 --scope following --json
 step "cli entries update --account texto (mock)" expect_ok 'Account: 1004' entries update 80 --account 1004 --scope following
-step "cli entries update --account cartão (mock)" expect_json 'd.conta === 1002 && d.dataCompetencia === "2026-01-12" && d.dataPrevista === "2026-02-16" && d.dataEfetiva === null' entries update 70 --account 1002 --json
+# Into a card the invoice is the web form's (from proximoVencimento, closing
+# fechamento days before) and the plastic is the new card's holder, or null.
+step "cli entries update --account cartão (mock)" expect_json 'd.conta === 1005 && d.dataCompetencia === "2026-11-10" && d.dataPrevista === "2026-12-16" && d.dataEfetiva === null && d.plastico === 7' entries update 70 --account 1005 -D 2026-11-10 --json
+step "cli entries update --account cartão data passada (mock)" expect_json 'd.conta === 1005 && d.dataCompetencia === "2026-01-12" && d.dataPrevista === "2026-11-16"' entries update 70 --account 1005 --json
+step "cli entries update --account cartão sem plástico (mock)" expect_json 'd.conta === 1002 && d.plastico === null' entries update 70 --account 1002 --json
 step "cli entries update --account inexistente (mock)" expect_fail 'Unknown account: Inexistente' entries update 70 --account Inexistente
 step "cli entries update --to-account fora de transferência (mock)" expect_fail 'to-account only applies to transfers' entries update 70 --to-account 1004
 step "cli entries update transferência --account/--to-account (mock)" expect_json 'd.conta === 1004 && d.contaT === 1001' entries update 52 --account 1004 --to-account 1001 --json

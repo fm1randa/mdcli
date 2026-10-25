@@ -146,3 +146,18 @@ export interface NormalizedInvoiceSummary {
   limit: number | null;
   available: number | null;
 }
+
+/**
+ * A plastic (plastico) of a credit card: a physical card a purchase is made
+ * with, as GET /v1/cadastros/plasticos lists them (the web app's
+ * cadastrosDatasource "plasticos"). tipo T is the holder's (titular).
+ */
+export interface CardPlastic {
+  id: number;
+  /** The credit card Account. */
+  conta: number;
+  tipo: string;
+  nome: string;
+  titular?: boolean;
+  status?: boolean;
+}

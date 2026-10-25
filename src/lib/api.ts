@@ -1,4 +1,4 @@
-import type { ApiHeaders, AuthConfig, AuthMethod, CategoriesResponse, Category, CreateCategoryPayload, UpdateCategoryPayload, AccountsResponse, TagsResponse, EntriesResponse, EntriesParams, CreateEntryPayload, CreateEntryResponse, UpdateEntryPayload, UpdateTransferPayload, Entry, CardInvoiceResponse, CardFutureResponse, Account, CreateAccountPayload, UpdateAccountPayload, CreateTagPayload, CreateTagResponse } from '../types/index.js';
+import type { ApiHeaders, AuthConfig, AuthMethod, CategoriesResponse, Category, CreateCategoryPayload, UpdateCategoryPayload, AccountsResponse, TagsResponse, EntriesResponse, EntriesParams, CreateEntryPayload, CreateEntryResponse, UpdateEntryPayload, UpdateTransferPayload, Entry, CardInvoiceResponse, CardFutureResponse, CardPlastic, Account, CreateAccountPayload, UpdateAccountPayload, CreateTagPayload, CreateTagResponse } from '../types/index.js';
 import { getAuth, getAuthMethod, setAuth, getOpItem, invalidateNameCache } from './config.js';
 import { popStaleNameCacheUse } from './cache-invalidation.js';
 import { captureAuthHeadless } from './browser-auth.js';
@@ -371,8 +371,12 @@ export function isCreditCard(account: Account): boolean {
 }
 
 export async function fetchAccountById(id: number): Promise<Account | undefined> {
-  const response = await fetchAccounts();
-  return response.items.find((a) => a.id === id);
+  return (await fetchAccounts()).items.find((a) => a.id === id);
+}
+
+/** Every plastic of every card (the web app loads them with paginate=false). */
+export async function fetchPlastics(): Promise<CardPlastic[]> {
+  return request<CardPlastic[]>('GET', '/v1/cadastros/plasticos?paginate=false');
 }
 
 export async function createEntry(payload: CreateEntryPayload): Promise<CreateEntryResponse> {

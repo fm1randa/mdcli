@@ -8,6 +8,7 @@ import {
   TAGS_RESPONSE,
   cardInvoice,
 } from '../test/fixtures.js';
+import { plasticsRoute } from './mock-plastics.js';
 import { SEEDED_ENTRIES, checkCreatePayload, checkUpdateAccounts, createCardPurchase, createdEntry, invoiceItems, statusLabel } from './mock-entries.js';
 import { connectionsRoute, recordMockRequest } from './mock-connections.js';
 import { importRoute, withRecentStatement } from './mock-import.js';
@@ -306,6 +307,7 @@ async function entriesRoute(req: Request, path: string): Promise<Response> {
       exibirCp: true,
       exibirCr: true,
       conta: transfer ? body.contaOrigem : merged.conta,
+      plastico: merged.plastico,
       ...(transfer && { contaT: body.contaDestino }),
     });
   }
@@ -354,9 +356,7 @@ const server = Bun.serve({
     if (url.pathname === ENTRIES_PATH || url.pathname.startsWith(`${ENTRIES_PATH}/`)) {
       return entriesRoute(req, url.pathname);
     }
-    const connections = connectionsRoute(req.method, url.pathname);
-    if (connections) return connections;
-    return notFound();
+    return connectionsRoute(req.method, url.pathname) ?? plasticsRoute(req.method, url.pathname) ?? notFound();
   },
 });
 
