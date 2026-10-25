@@ -1,6 +1,6 @@
 {
   "name": "mdcli",
-  "version": "2026.10.25",
+  "version": "2026.10.25-2",
   "description": "Unofficial CLI client for Meu Dinheiro (meudinheiroweb.com.br)",
   "type": "module",
   "packageManager": "bun@1.4.2",
