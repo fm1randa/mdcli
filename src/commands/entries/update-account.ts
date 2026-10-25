@@ -19,6 +19,19 @@ async function accountLookup(): Promise<(id: number) => Account> {
 }
 
 /**
+ * Refuses an inactive account the entry moves to: the web app's account
+ * selectors leave it out (mdwSelect, contas: status !== false).
+ */
+function checkActive(account: Account): void {
+  if (account.status === false) {
+    exitWithError(
+      `Account "${account.nome}" (${account.id}) is inactive, so the web app does not offer it. ` +
+        'Use an active account (see: mdcli accounts list --active) or reactivate it in Meu Dinheiro.'
+    );
+  }
+}
+
+/**
  * The accounts a transfer is saved with after --account (origin) and
  * --to-account (destination). The web app edits contaOrigem/contaDestino and
  * refuses the same account on both sides (mdb.js, validate `M`). Card and
@@ -38,6 +51,8 @@ export async function moveTransfer(
     exitWithError(`A transfer needs two different accounts: origin and destination would both be account ${originId}.`);
   }
   const get = await accountLookup();
+  if (originId !== current.origin) checkActive(get(originId));
+  if (destinationId !== current.destination) checkActive(get(destinationId));
   checkTransferAccounts(get(current.origin), get(current.destination));
   checkTransferAccounts(get(originId), get(destinationId));
   return { originId, destinationId };
@@ -67,6 +82,7 @@ export async function moveEntry(payload: UpdateEntryPayload, existing: Entry, ac
   const get = await accountLookup();
   const fromCard = isCreditCard(get(existing.conta));
   const target = get(accountId);
+  checkActive(target);
   if (isCreditCard(target)) {
     await moveToCard(payload, existing, target, fromCard, context);
     return;
@@ -112,23 +128,24 @@ async function moveToCard(
   // an endless series.
   const endless = existing.agenda?.quantidade === -1;
   payload.dataEfetiva = endless && conciliado ? purchaseDate : null;
-  // It: the effective value only on a confirmed or reconciled entry.
-  payload.valorEfetivo = conciliado ? payload.valor : null;
-  payload.plastico = await holderPlastic(card.id);
+  setValues(payload, conciliado);
+  payload.plastico = await cardPlastic(card.id, existing.plastico);
 }
 
 /**
  * The plastic the web's Cartão field picks for a card the entry moves to
  * (editarLancamento.html: mdw-select=plasticos filter="{conta: vm.l.conta}"
- * default-values="{tipo:'T'}"): the old card's plastic is not in the new
- * card's list, so the field falls back to the first one matching tipo T.
+ * default-values="{tipo:'T'}"): the entry's plastic when the new card lists
+ * it (mdwSelect, f), as for a purchase that left this card and comes back
+ * with its plastic echoed; else the first one matching tipo T.
  */
-async function holderPlastic(cardId: number): Promise<number | null> {
+async function cardPlastic(cardId: number, current: number | undefined): Promise<number | null> {
   const plastics = await fetchPlastics();
   // The field lists the card's active, visible plastics by name (mdwSelect, S).
   const listed = plastics
     .filter((p) => p.conta === cardId && p.status !== false && (!p.permissoes || p.permissoes.visivel))
     .sort((a, b) => (a.nome.toLowerCase() < b.nome.toLowerCase() ? -1 : 1));
+  if (current != null && listed.some((p) => p.id === current)) return current;
   // default-values is an Angular filter: tipo contains "t", any case. With
   // none, the field clears its model (mdwSelect, M) and null is sent.
   return listed.find((p) => p.tipo.toLowerCase().includes('t'))?.id ?? null;
@@ -152,10 +169,25 @@ function moveOffCard(payload: UpdateEntryPayload, existing: Entry, { date, flags
   if (confirmado) {
     payload.dataEfetiva = formDate;
     payload.dataPrevista = existing.dataPrevista || formDate;
-    payload.valorEfetivo = payload.valor;
   } else {
     payload.dataPrevista = formDate;
     payload.dataEfetiva = null;
+  }
+  setValues(payload, confirmado);
+}
+
+/**
+ * The values the web app saves (mdb.js, sf, It): a confirmed or reconciled
+ * entry is effective at its value and keeps its planned value, signed by its
+ * type; otherwise it is planned at its value, with nothing effective.
+ */
+function setValues(payload: UpdateEntryPayload, effective: boolean): void {
+  if (effective) {
+    const sign = payload.tipo !== 'r' ? -1 : 1;
+    payload.valorEfetivo = payload.valor;
+    payload.valorPrevisto = Math.abs(payload.valorPrevisto || payload.valor) * sign;
+  } else {
+    payload.valorPrevisto = payload.valor;
     payload.valorEfetivo = null;
   }
 }

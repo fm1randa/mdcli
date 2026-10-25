@@ -288,11 +288,12 @@ mdcli entries update 12345 --date 2027-01-25 --scope following
 
 # Muda a conta (ID, alias ou nome, como no create); numa série, junto com --scope.
 # Passar a conta atual não é erro: o lançamento é salvo como está, como na web.
+# Conta inativa é recusada (a web não a oferece).
 mdcli entries update 12345 --account nubank --scope following
 # Para um cartão de crédito, como na web: a compra vai para a fatura da data do
 # lançamento (ou de --date) contada a partir do próximo vencimento do cartão
-# (uma data anterior cai na próxima fatura), sem data efetiva, no plástico
-# titular do cartão. Ao sair do cartão, uma compra não conciliada fica pendente
+# (uma data anterior cai na próxima fatura), sem data efetiva, no plástico do
+# lançamento se ele for desse cartão, senão no titular. Ao sair do cartão, uma compra não conciliada fica pendente
 # na data da compra. Lançamentos de fatura fechada não mudam de conta (a web
 # também bloqueia).
 mdcli entries update 12345 --account <cardId>

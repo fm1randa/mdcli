@@ -40,6 +40,8 @@ export const CONFIRMED_ENTRY = {
 };
 
 export const INTER_ACCOUNT = { ...CHECKING_ACCOUNT, id: 1006, nome: 'Inter' };
+// Archived: the web app's account selectors leave it out.
+export const ARCHIVED_ACCOUNT = { ...CHECKING_ACCOUNT, id: 1007, nome: 'Antiga', status: false };
 // fechamento: the invoice closes that many days before it is due.
 export const BLUE_CARD = { ...CREDIT_CARD_ACCOUNT, fechamento: 8 };
 export const GOLD_CARD = { ...CREDIT_CARD_ACCOUNT, id: 1005, nome: 'Cartão Ouro', proximoVencimento: '2026-01-10T00:00:00', fechamento: 8 };
@@ -84,7 +86,7 @@ export const TRANSFER_DESTINATION_HALF = {
 /** A mock API with the accounts and entries above, and a home with the alias reserva -> 1004. */
 export function startUpdateAccountApi(): { api: MockApi; home: TestHome } {
   const api = startMockApi();
-  api.on('GET /v1/cadastros/contas', { ...ACCOUNTS_RESPONSE, items: [CHECKING_ACCOUNT, BLUE_CARD, SAVINGS_ACCOUNT, INTER_ACCOUNT, GOLD_CARD] });
+  api.on('GET /v1/cadastros/contas', { ...ACCOUNTS_RESPONSE, items: [CHECKING_ACCOUNT, BLUE_CARD, SAVINGS_ACCOUNT, INTER_ACCOUNT, GOLD_CARD, ARCHIVED_ACCOUNT] });
   for (const entry of [TRANSFER_DESTINATION_HALF, FIXED_OCCURRENCE, CONFIRMED_ENTRY, CARD_PURCHASE]) {
     api.on(`GET /v1/lancamentos/${entry.id}`, entry);
     api.on(`PUT /v1/lancamentos/${entry.id}`, (req) => ({ ...entry, ...(req.body as object) }));

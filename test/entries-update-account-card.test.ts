@@ -255,4 +255,50 @@ describe('entries update --account to or from a credit card', () => {
     expect(result.exitCode).toBe(0);
     expect(putBody()).toMatchObject({ data: '2026-01-20', dataEfetiva: '2026-01-20', dataPrevista: '2026-01-16' });
   });
+
+  test('to a card: an unreconciled purchase is planned at its value, as the web saves an entry with nothing effective', async () => {
+    api.on('GET /v1/lancamentos/70', { ...CONFIRMED_ENTRY, valor: -95, valorPrevisto: -100, valorEfetivo: -95 });
+
+    const result = await runCli(['entries', 'update', '70', '-a', '1002'], { home, api });
+
+    expect(result.exitCode).toBe(0);
+    expect(putBody()).toMatchObject({ valor: -95, valorPrevisto: -95, valorEfetivo: null });
+  });
+
+  test('off a card: an unconfirmed purchase is planned at its value', async () => {
+    api.on('GET /v1/lancamentos/90', { ...CARD_PURCHASE, valorPrevisto: -100 });
+
+    const result = await runCli(['entries', 'update', '90', '-a', '1001'], { home, api });
+
+    expect(result.exitCode).toBe(0);
+    expect(putBody()).toMatchObject({ valor: -80, valorPrevisto: -80, valorEfetivo: null });
+  });
+
+  test('off a card: a reconciled purchase keeps its planned value', async () => {
+    api.on('GET /v1/lancamentos/90', { ...CARD_PURCHASE, valorPrevisto: -100, status: 'conciliado', conciliado: true });
+
+    const result = await runCli(['entries', 'update', '90', '-a', '1001'], { home, api });
+
+    expect(result.exitCode).toBe(0);
+    expect(putBody()).toMatchObject({ valor: -80, valorPrevisto: -100, valorEfetivo: -80 });
+  });
+
+  test("off a card and back: the purchase keeps its additional plastic, which is still in the card's list", async () => {
+    api.on('GET /v1/cadastros/plasticos', [
+      { id: 31, conta: 1005, tipo: 'T', titular: true, nome: 'Ana', status: true },
+      { id: 32, conta: 1005, tipo: 'A', titular: false, nome: 'Bia', status: true },
+    ]);
+    api.on('GET /v1/lancamentos/90', { ...CARD_PURCHASE, conta: 1005, plastico: 32 });
+
+    const off = await runCli(['entries', 'update', '90', '-a', '1001'], { home, api });
+    expect(off.exitCode).toBe(0);
+    const offCard = putBody();
+    expect(offCard).toMatchObject({ conta: 1001, plastico: 32 });
+
+    api.on('GET /v1/lancamentos/90', { ...CARD_PURCHASE, ...offCard, status: 'pendente' });
+    const back = await runCli(['entries', 'update', '90', '-a', '1005'], { home, api });
+
+    expect(back.exitCode).toBe(0);
+    expect(mutations(api).filter((r) => r.method === 'PUT').at(-1)?.body).toMatchObject({ conta: 1005, plastico: 32 });
+  });
 });

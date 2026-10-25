@@ -92,6 +92,14 @@ describe('entries update --account between regular accounts, as the web edit for
     expect(putBody()).toMatchObject({ status: { confirmado: false, conciliado: false }, automatico: false });
   });
 
+  test('refuses an inactive account, which the web app does not offer', async () => {
+    const result = await runCli(['entries', 'update', '70', '--account', 'Antiga'], { home, api });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('Account "Antiga" (1007) is inactive');
+    expect(mutations(api)).toEqual([]);
+  });
+
   test('a scheduled entry keeps confirming itself automatically', async () => {
     // Far enough ahead that it stays scheduled whenever the suite runs.
     api.on('GET /v1/lancamentos/80', { ...FIXED_OCCURRENCE, data: '2099-01-10', dataPrevista: '2099-01-10', automatico: true });
@@ -142,6 +150,16 @@ describe('entries update --account on a transfer', () => {
 
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toContain('Transfers to or from a credit card account are not supported');
+    expect(mutations(api)).toEqual([]);
+  });
+
+  test('refuses moving either side to an inactive account', async () => {
+    for (const option of ['--account', '--to-account']) {
+      const result = await runCli(['entries', 'update', '51', option, '1007'], { home, api });
+
+      expect(result.exitCode).toBe(1);
+      expect(result.stderr).toContain('Account "Antiga" (1007) is inactive');
+    }
     expect(mutations(api)).toEqual([]);
   });
 });
