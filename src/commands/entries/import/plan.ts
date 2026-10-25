@@ -56,20 +56,25 @@ export interface RunSelection {
 
 /**
  * Each selected prefix to the one Bank Transaction whose integrationId starts with it, ignoring case.
- * A prefix that matches none, or more than one, fails the whole run.
+ * A prefix that matches none, or more than one, is added to `problems`: it fails the whole run.
  */
 export function pickBankTransactions(
   bankTransactions: readonly BankTransactionRow[],
   prefixes: readonly string[],
   flag: string,
+  problems: string[],
 ): BankTransactionRow[] {
   const picked: BankTransactionRow[] = [];
   for (const prefix of prefixes) {
     const match = matchPrefix(bankTransactions, prefix, flag);
-    if (typeof match === 'string') throw new Error(match);
-    if (!picked.includes(match)) picked.push(match);
+    if (typeof match === 'string') problems.push(match);
+    else if (!picked.includes(match)) picked.push(match);
   }
   return picked;
+}
+
+export function unmatchedPrefix(prefix: string, flag: string): string {
+  return `${flag} ${prefix} does not match any bank transaction.`;
 }
 
 /** The one Bank Transaction whose integrationId starts with `prefix` (ignoring case), or why there is not one. */
@@ -80,7 +85,7 @@ export function matchPrefix(
 ): BankTransactionRow | string {
   const head = prefix.toLowerCase();
   const matches = bankTransactions.filter((row) => row.integrationId?.toLowerCase().startsWith(head) === true);
-  if (matches.length === 0) return `${flag} ${prefix} does not match any bank transaction.`;
+  if (matches.length === 0) return unmatchedPrefix(prefix, flag);
   if (matches.length > 1) return `${flag} ${prefix} matches ${matches.length} bank transactions. Use a longer prefix.`;
   return matches[0];
 }
