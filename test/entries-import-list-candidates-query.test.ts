@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type RecordedRequest, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE } from './fixtures.js';
-import { CONNECTIONS } from './import-harness.js';
+import { CONNECTIONS, SINCE } from './import-harness.js';
 
 const TX = '12121212-1111-4000-8000-000000000001';
 const FORBIDDEN = [
@@ -45,7 +45,7 @@ function cli(args: string[]) {
 }
 
 function list(args: string[] = []) {
-  return cli(['entries', 'import', 'list', '-a', '1001', '--since', '2026-10-01', '--json', ...args]);
+  return cli(['entries', 'import', 'list', '-a', '1001', '--since', SINCE, '--json', ...args]);
 }
 
 function expectCandidateQuery(request: RecordedRequest, from: string, to: string, page: number) {
@@ -239,7 +239,7 @@ describe('entries import list candidate query', () => {
       meta: { total: 2, page: 1, pageSize: 500 },
     });
 
-    const result = await cli(['entries', 'import', 'list', '-a', '1001', '--since', '2026-10-01']);
+    const result = await cli(['entries', 'import', 'list', '-a', '1001', '--since', SINCE]);
 
     expect(result.exitCode).toBe(0);
     expect(result.stderr).toBe('');

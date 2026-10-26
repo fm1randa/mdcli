@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, TAGS_RESPONSE } from './fixtures.js';
-import { CONNECTIONS, mockStatement } from './import-harness.js';
+import { CONNECTIONS, mockStatement, SINCE } from './import-harness.js';
 
 // Fictional ids. 1001 is Nubank (connection account 9001); Entry 4242 is linked to TX1 on its own.
 // The web reads the overwrite preference (config "conciliacao": {o, s, sd}) from the session state
@@ -46,7 +46,7 @@ function session(conciliacao?: unknown) {
 }
 
 function run(args: string[]) {
-  return runCli(['entries', 'import', 'run', '-a', '1001', '--since', '2026-10-01', '--ids', 'aaaa1111', '-c', '10', ...args], {
+  return runCli(['entries', 'import', 'run', '-a', '1001', '--since', SINCE, '--ids', 'aaaa1111', '-c', '10', ...args], {
     home,
     api,
   });

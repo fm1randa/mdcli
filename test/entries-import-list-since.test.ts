@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
+import { createHome, localDay, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE } from './fixtures.js';
-import { CONNECTIONS } from './import-harness.js';
+import { CONNECTIONS, SINCE } from './import-harness.js';
 
 const STATEMENT = {
   inicio: '2026-08-01',
@@ -46,16 +46,6 @@ function cli(args: string[]) {
   return runCli(args, { home, api });
 }
 
-/** Local calendar arithmetic, independent of the production date helpers. */
-function shiftDays(days: number): string {
-  const now = new Date();
-  const shifted = new Date(now.getFullYear(), now.getMonth(), now.getDate() + days);
-  const year = String(shifted.getFullYear());
-  const month = String(shifted.getMonth() + 1).padStart(2, '0');
-  const day = String(shifted.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
 function startQuery(): string | null {
   const call = api.requests.find((r) => r.path.endsWith('/transactions'));
   return call?.query.get('start') ?? null;
@@ -63,21 +53,23 @@ function startQuery(): string | null {
 
 describe('entries import list --since', () => {
   test('--since is the start of the statement request and the document since', async () => {
-    const earlier = await cli(['entries', 'import', 'list', '-a', '1001', '--since', '2026-09-15', '--json']);
+    const earlierDay = localDay(-41);
+    const earlier = await cli(['entries', 'import', 'list', '-a', '1001', '--since', earlierDay, '--json']);
     expect(earlier.exitCode).toBe(0);
-    expect(startQuery()).toBe('2026-09-15');
-    expect(JSON.parse(earlier.stdout).since).toBe('2026-09-15');
+    expect(startQuery()).toBe(earlierDay);
+    expect(JSON.parse(earlier.stdout).since).toBe(earlierDay);
 
     api.requests.length = 0;
-    const later = await cli(['entries', 'import', 'list', '-a', '1001', '--since', '2026-10-15', '--json']);
+    const laterDay = localDay(-11);
+    const later = await cli(['entries', 'import', 'list', '-a', '1001', '--since', laterDay, '--json']);
     expect(later.exitCode).toBe(0);
-    expect(startQuery()).toBe('2026-10-15');
-    expect(JSON.parse(later.stdout).since).toBe('2026-10-15');
+    expect(startQuery()).toBe(laterDay);
+    expect(JSON.parse(later.stdout).since).toBe(laterDay);
   });
 
   test('accepts --since on the earliest day and on today', async () => {
-    const floor = shiftDays(-90);
-    const today = shiftDays(0);
+    const floor = localDay(-90);
+    const today = localDay(0);
 
     const earliest = await cli(['entries', 'import', 'list', '-a', '1001', '--since', floor, '--json']);
     expect(earliest.exitCode).toBe(0);
@@ -91,8 +83,8 @@ describe('entries import list --since', () => {
   });
 
   test('rejects --since before the earliest day and does not load transactions', async () => {
-    const floor = shiftDays(-90);
-    const result = await cli(['entries', 'import', 'list', '-a', '1001', '--since', '2020-01-01', '--json']);
+    const floor = localDay(-90);
+    const result = await cli(['entries', 'import', 'list', '-a', '1001', '--since', localDay(-91), '--json']);
 
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toBe('');
@@ -104,8 +96,8 @@ describe('entries import list --since', () => {
   });
 
   test('rejects a future --since and does not load transactions', async () => {
-    const today = shiftDays(0);
-    const tomorrow = shiftDays(1);
+    const today = localDay(0);
+    const tomorrow = localDay(1);
     const result = await cli(['entries', 'import', 'list', '-a', '1001', '--since', tomorrow, '--json']);
 
     expect(result.exitCode).toBe(1);
@@ -132,19 +124,19 @@ describe('entries import list --since', () => {
   test('an empty statement exits 0, names the start, and keeps since in JSON', async () => {
     api.on('GET /v1/integracao/account/9001/transactions', EMPTY);
 
-    const text = await cli(['entries', 'import', 'list', '-a', '1001', '--since', '2026-10-01']);
+    const text = await cli(['entries', 'import', 'list', '-a', '1001', '--since', SINCE]);
     expect(text.exitCode).toBe(0);
     expect(text.stderr).toBe('');
-    expect(text.stdout).toContain('No bank transactions since 2026-10-01.');
+    expect(text.stdout).toContain(`No bank transactions since ${SINCE}.`);
     expect(text.stdout).not.toContain('│');
     expect(text.stdout).not.toContain('Prefix');
 
-    const json = await cli(['entries', 'import', 'list', '-a', '1001', '--since', '2026-10-01', '--json']);
+    const json = await cli(['entries', 'import', 'list', '-a', '1001', '--since', SINCE, '--json']);
     expect(json.exitCode).toBe(0);
     expect(json.stderr).toBe('');
     expect(json.stdout).not.toContain('No bank transactions');
     expect(JSON.parse(json.stdout)).toMatchObject({
-      since: '2026-10-01',
+      since: SINCE,
       statement: { start: '2026-10-02', end: '2026-10-18', balance: 0 },
       search: { from: '2026-09-30', to: '2026-10-20' },
       ai: 'unused',

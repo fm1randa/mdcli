@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE } from './fixtures.js';
-import { mockStatement } from './import-harness.js';
+import { mockStatement, SINCE } from './import-harness.js';
 
 // Fictional ids. 1001 is Nubank (9001), 1002 is Cartão Azul (9002, due 2026-01-16).
 // Categories: 10 Alimentação (d), 20 Salário (r), 30 Transferência (t), 60 Antiga (d, inactive).
@@ -51,7 +51,7 @@ function entries(list: unknown[]) {
 }
 
 function run(args: string[], account = '1001') {
-  return runCli(['entries', 'import', 'run', '-a', account, '--since', '2026-10-01', '--dry-run', ...args], { home, api });
+  return runCli(['entries', 'import', 'run', '-a', account, '--since', SINCE, '--dry-run', ...args], { home, api });
 }
 
 async function plan(args: string[], account?: string) {
@@ -155,7 +155,7 @@ describe('entries import run actions', () => {
     expect(body.imported).toEqual([expect.objectContaining({ integrationId: TX1, categoryId: 10 })]);
     const call = api.requests.find((r) => r.path === '/v2/lancamentos');
     expect(call?.query.get('fim')).toBe('2026-10-20');
-    expect(api.requests.find((r) => r.path.endsWith('/transactions'))?.query.get('start')).toBe('2026-10-01');
+    expect(api.requests.find((r) => r.path.endsWith('/transactions'))?.query.get('start')).toBe(SINCE);
   });
 
   test('a duplicate is skipped unless --include-duplicates, which imports it', async () => {

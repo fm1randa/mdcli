@@ -1,7 +1,7 @@
 import chalk from 'chalk';
 import type { EntryStatus } from '../../types/index.js';
 import { ENTRY_STATUS_LABELS } from '../../lib/normalize.js';
-import { toLocalDateString } from '../../lib/dates.js';
+import { today } from '../../lib/dates.js';
 
 export function formatStatus(status: EntryStatus): string {
   const statusConfig = {
@@ -42,7 +42,7 @@ export function describeStatus(status: unknown, plannedDate?: unknown): string {
     if (confirmado) return formatStatus('confirmed');
     // Unconfirmed is pendente up to today and agendado after it.
     const date = typeof plannedDate === 'string' ? plannedDate.slice(0, 10) : undefined;
-    return formatStatus(date !== undefined && date > toLocalDateString(new Date()) ? 'scheduled' : 'pending');
+    return formatStatus(date !== undefined && date > today() ? 'scheduled' : 'pending');
   }
   return chalk.gray(status === undefined ? '(not returned by the API)' : String(status));
 }

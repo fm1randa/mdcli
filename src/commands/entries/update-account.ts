@@ -1,7 +1,7 @@
 import chalk from 'chalk';
 import { fetchAccounts, fetchPlastics, isCreditCard } from '../../lib/api.js';
 import { exitWithError } from '../../utils/action.js';
-import { toLocalDateString } from '../../lib/dates.js';
+import { today } from '../../lib/dates.js';
 import type { Account, Entry, UpdateEntryPayload } from '../../types/index.js';
 import { formCardDueDate } from './card-invoice.js';
 import { checkTransferAccounts } from './create-transfer.js';
@@ -93,7 +93,7 @@ export async function moveEntry(payload: UpdateEntryPayload, existing: Entry, ac
   if (fromCard) moveOffCard(payload, existing, context);
   // ut: an unconfirmed entry dated up to today has nothing left to confirm
   // automatically.
-  if (!payload.status.confirmado && day(payload.dataPrevista) <= toLocalDateString(new Date())) {
+  if (!payload.status.confirmado && day(payload.dataPrevista) <= today()) {
     payload.automatico = false;
   }
 }

@@ -1,9 +1,10 @@
-import { afterEach, describe, expect, setSystemTime, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, setSystemTime, test } from 'bun:test';
 import {
   addInterval,
   getCurrentMonthRange,
   isCalendarDate,
   shiftDueDate,
+  today,
   toLocalDateString,
 } from '../src/lib/dates.js';
 
@@ -48,10 +49,22 @@ describe('isCalendarDate', () => {
   });
 });
 
-describe('getCurrentMonthRange', () => {
+/** Runs each test of the block with MDCLI_TODAY as given (undefined unsets it), restoring the run's value after. */
+function withPinnedDay(value: string | undefined): void {
+  const saved = process.env.MDCLI_TODAY;
+  beforeEach(() => {
+    if (value === undefined) delete process.env.MDCLI_TODAY;
+    else process.env.MDCLI_TODAY = value;
+  });
   afterEach(() => {
+    if (saved === undefined) delete process.env.MDCLI_TODAY;
+    else process.env.MDCLI_TODAY = saved;
     setSystemTime(); // restore real clock
   });
+}
+
+describe('getCurrentMonthRange', () => {
+  withPinnedDay(undefined);
 
   test('returns first and last day for a mid-month leap February', () => {
     setSystemTime(new Date(2024, 1, 10)); // 2024-02-10 local
@@ -66,6 +79,36 @@ describe('getCurrentMonthRange', () => {
     expect(getCurrentMonthRange()).toEqual({
       startDate: '2026-12-01',
       endDate: '2026-12-31',
+    });
+  });
+});
+
+describe('today', () => {
+  describe('without MDCLI_TODAY', () => {
+    withPinnedDay(undefined);
+
+    test('is the local calendar day of the clock, not the UTC one', () => {
+      // In the suite's zone (Pacific/Kiritimati, UTC+14) 08:00 local is still the day before in UTC.
+      setSystemTime(new Date(2027, 0, 1, 8, 0));
+      expect(today()).toBe('2027-01-01');
+    });
+  });
+
+  describe('with MDCLI_TODAY', () => {
+    withPinnedDay('2027-03-01');
+
+    test('is the pinned day, whatever the clock says', () => {
+      setSystemTime(new Date(2026, 9, 26, 23, 59));
+      expect(today()).toBe('2027-03-01');
+    });
+
+    test('moves getCurrentMonthRange with it', () => {
+      expect(getCurrentMonthRange()).toEqual({ startDate: '2027-03-01', endDate: '2027-03-31' });
+    });
+
+    test('rejects a value that is not a calendar day', () => {
+      process.env.MDCLI_TODAY = '2027-02-30';
+      expect(() => today()).toThrow('MDCLI_TODAY must be a YYYY-MM-DD date, got "2027-02-30"');
     });
   });
 });

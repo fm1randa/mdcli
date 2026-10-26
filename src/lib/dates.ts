@@ -5,11 +5,33 @@ export function toLocalDateString(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
+/**
+ * The current moment, the one clock commands read "today" from. MDCLI_TODAY
+ * (YYYY-MM-DD) moves it to that local day, keeping the time of day: the test
+ * setup pins it so tests do not depend on the day they run.
+ */
+export function now(): Date {
+  const current = new Date();
+  const override = process.env.MDCLI_TODAY;
+  if (override === undefined || override === '') return current;
+  if (!isCalendarDate(override)) {
+    throw new Error(`MDCLI_TODAY must be a YYYY-MM-DD date, got "${override}"`);
+  }
+  const [year, month, day] = override.split('-').map(Number);
+  current.setFullYear(year, month - 1, day);
+  return current;
+}
+
+/** Today's local calendar day (YYYY-MM-DD), from now(). */
+export function today(): string {
+  return toLocalDateString(now());
+}
+
 /** First and last calendar day of the current local month. */
 export function getCurrentMonthRange(): { startDate: string; endDate: string } {
-  const now = new Date();
-  const startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-  const endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  const current = now();
+  const startDate = new Date(current.getFullYear(), current.getMonth(), 1);
+  const endDate = new Date(current.getFullYear(), current.getMonth() + 1, 0);
 
   return {
     startDate: toLocalDateString(startDate),

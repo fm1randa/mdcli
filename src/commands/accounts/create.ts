@@ -6,6 +6,7 @@ import { invalidateNameCache } from '../../lib/config.js';
 import type { AccountMeta, CreateAccountPayload } from '../../types/index.js';
 import { formatCurrency } from '../../utils/currency.js';
 import { parseAmount, parseId } from '../../utils/parse.js';
+import { now } from '../../lib/dates.js';
 
 function normalizeTypeName(input: string): string {
   return input
@@ -57,7 +58,7 @@ export async function createAccountAction(options: CreateAccountOptions): Promis
     nome: options.name,
     tipoNovo: accountType.id,
     saldoInicial: balance,
-    dataSaldoInicial: new Date().toISOString(),
+    dataSaldoInicial: now().toISOString(),
     exibirBP: !options.hideNetWorth,
     moeda: currency,
   };

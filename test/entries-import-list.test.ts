@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE } from './fixtures.js';
-import { CONNECTIONS } from './import-harness.js';
+import { CONNECTIONS, SINCE } from './import-harness.js';
 
 // Fictional ids. 1001 is Nubank and 1002 is Cartão Azul in the account fixture.
 // connection account 9001 is not the Meu Dinheiro account id.
@@ -69,7 +69,7 @@ const LIST_JSON = {
   account: { id: 1001, name: 'Nubank' },
   connection: { id: 501, connectionAccount: 9001 },
   source: 'statement',
-  since: '2026-10-01',
+  since: SINCE,
   statement: { start: '2026-10-02', end: '2026-10-18', balance: 42.5 },
   search: { from: '2026-09-30', to: '2026-10-20' },
   ai: 'unused',
@@ -127,7 +127,7 @@ const READS = [
 
 describe('entries import list', () => {
   test('prints the statement as JSON and only reads connections, accounts, transactions, categories, duplicates, and candidates', async () => {
-    const result = await cli(['entries', 'import', 'list', '-a', '1001', '--since', '2026-10-01', '--json']);
+    const result = await cli(['entries', 'import', 'list', '-a', '1001', '--since', SINCE, '--json']);
 
     expect(result.exitCode).toBe(0);
     expect(result.stderr).toBe('');
@@ -137,7 +137,7 @@ describe('entries import list', () => {
     expect(JSON.parse(result.stdout)).toEqual(LIST_JSON);
     expect(api.requests.map((r) => `${r.method} ${r.path}`).sort()).toEqual(READS);
     const call = api.requests.find((r) => r.path.endsWith('/transactions'));
-    expect(call?.query.get('start')).toBe('2026-10-01');
+    expect(call?.query.get('start')).toBe(SINCE);
     expect([...(call?.query.keys() ?? [])]).toEqual(['start']);
     const duplicates = api.requests.find((r) => r.path === '/v1/lancamentos/duplicidade');
     expect(duplicates?.query.get('inicio')).toBe('2026-10-07');
@@ -154,7 +154,7 @@ describe('entries import list', () => {
   });
 
   test('prints prefix, date, signed value, bank description, suggestion, and the default action', async () => {
-    const result = await cli(['entries', 'import', 'list', '-a', '1001', '--since', '2026-10-01']);
+    const result = await cli(['entries', 'import', 'list', '-a', '1001', '--since', SINCE]);
     const stdout = result.stdout.replace(/\u00a0/g, ' ');
 
     expect(result.exitCode).toBe(0);
@@ -177,7 +177,7 @@ describe('entries import list', () => {
     expect(stdout).toContain('Candidates');
     expect(stdout).toContain('Alimentação');
     expect(stdout).toContain('Descricao Sugerida');
-    expect(stdout).toContain('since 2026-10-01');
+    expect(stdout).toContain(`since ${SINCE}`);
     expect(stdout).toContain('aaaaaaaa-1');
     expect(stdout).toContain('aaaaaaaa-2');
     expect(stdout).toContain('CCCCCCCC-1');
@@ -191,11 +191,11 @@ describe('entries import list', () => {
   });
 
   test('resolves an alias and an exact account name to the same connection account', async () => {
-    const alias = await cli(['entries', 'import', 'list', '-a', 'nu', '--since', '2026-10-01', '--json']);
+    const alias = await cli(['entries', 'import', 'list', '-a', 'nu', '--since', SINCE, '--json']);
     expect(alias.exitCode).toBe(0);
     expect(JSON.parse(alias.stdout).account).toEqual({ id: 1001, name: 'Nubank' });
 
-    const named = await cli(['entries', 'import', 'list', '-a', 'nubank', '--since', '2026-10-01', '--json']);
+    const named = await cli(['entries', 'import', 'list', '-a', 'nubank', '--since', SINCE, '--json']);
     expect(named.exitCode).toBe(0);
     expect(JSON.parse(named.stdout).account).toEqual({ id: 1001, name: 'Nubank' });
     const transactionPaths = api.requests.filter((r) => r.path.includes('/transactions')).map((r) => r.path);
@@ -218,7 +218,7 @@ describe('entries import list', () => {
       valor: 0,
     });
 
-    const linked = await cli(['entries', 'import', 'list', '-a', '1002', '--since', '2026-10-01', '--json']);
+    const linked = await cli(['entries', 'import', 'list', '-a', '1002', '--since', SINCE, '--json']);
     expect(linked.exitCode).toBe(0);
     expect(JSON.parse(linked.stdout).account).toEqual({ id: 1002, name: 'Cartão Azul' });
     expect(JSON.parse(linked.stdout).connection).toEqual({ id: 501, connectionAccount: 1001 });
@@ -233,7 +233,7 @@ describe('entries import list', () => {
 
     api.requests.length = 0;
     const notTheConnectionAccount = await cli([
-      'entries', 'import', 'list', '-a', '1001', '--since', '2026-10-01', '--json',
+      'entries', 'import', 'list', '-a', '1001', '--since', SINCE, '--json',
     ]);
     expect(notTheConnectionAccount.exitCode).toBe(1);
     expect(notTheConnectionAccount.stdout).toBe('');
@@ -250,7 +250,7 @@ describe('entries import list', () => {
       { id: 501, accounts: [{ id: 9001, conta: 1001 }] },
     ]);
 
-    const result = await cli(['entries', 'import', 'list', '-a', '1001', '--since', '2026-10-01', '--json']);
+    const result = await cli(['entries', 'import', 'list', '-a', '1001', '--since', SINCE, '--json']);
     expect(result.exitCode).toBe(0);
     expect(JSON.parse(result.stdout).connection).toEqual({ id: 501, connectionAccount: 9001 });
     expect(api.requests.filter((r) => r.path.includes('/transactions'))).toHaveLength(1);
@@ -271,7 +271,7 @@ describe('entries import list', () => {
 
   test('accepts --search-from and --search-to, and rejects an invalid search date before calling the API', async () => {
     const widened = await cli([
-      'entries', 'import', 'list', '-a', '1001', '--since', '2026-10-01', '--json',
+      'entries', 'import', 'list', '-a', '1001', '--since', SINCE, '--json',
       '--search-from', '2026-09-01', '--search-to', '2026-10-25',
     ]);
     expect(widened.exitCode).toBe(0);
@@ -306,7 +306,7 @@ describe('entries import list', () => {
   });
 
   test('requires --account and does not call the API', async () => {
-    const result = await cli(['entries', 'import', 'list', '--since', '2026-10-01']);
+    const result = await cli(['entries', 'import', 'list', '--since', SINCE]);
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toContain("required option '-a, --account <identifier>'");
     expect(api.requests).toHaveLength(0);

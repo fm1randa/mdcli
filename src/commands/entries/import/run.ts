@@ -1,5 +1,5 @@
 import { isCreditCard } from '../../../lib/api.js';
-import { toLocalDateString } from '../../../lib/dates.js';
+import { today as localToday } from '../../../lib/dates.js';
 import type { Category } from '../../../types/index.js';
 import { exitWithError } from '../../../utils/action.js';
 import { logger } from '../../../utils/logger.js';
@@ -31,7 +31,7 @@ export async function runAction(options: ImportRunOptions): Promise<void> {
   if (options.json && !options.yes && !options.dryRun) {
     exitWithError('entries import run --json requires --yes or --dry-run');
   }
-  const today = toLocalDateString(new Date());
+  const today = localToday();
   const dryRun = options.dryRun === true;
   const planned = await plannedRun(options, today);
   if (planned === null) {

@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, CHECKING_ACCOUNT, CREDIT_CARD_ACCOUNT } from './fixtures.js';
+import { SINCE } from './import-harness.js';
 
 // Cartão Azul is 1002, proximoVencimento 2026-01-16T00:00:00. Connection account 9002 is not that id.
 const CARD_LINK = [
@@ -47,7 +48,7 @@ function cli(args: string[]) {
 }
 
 function list(args: string[] = []) {
-  return cli(['entries', 'import', 'list', '-a', '1002', '--since', '2026-10-01', '--json', ...args]);
+  return cli(['entries', 'import', 'list', '-a', '1002', '--since', SINCE, '--json', ...args]);
 }
 
 function invoice(items: unknown[]) {
@@ -129,7 +130,7 @@ describe('entries import list card candidates', () => {
 
     const plan = join(home.dir, 'plan.json');
     writeFileSync(plan, JSON.stringify({ transactions: [{ id: TX.slice(0, 8), action: 'conciliate', entry: 783 }] }));
-    const result = await cli(['entries', 'import', 'run', '-a', '1002', '--since', '2026-10-01', '--plan', plan, '--dry-run', '--json']);
+    const result = await cli(['entries', 'import', 'run', '-a', '1002', '--since', SINCE, '--plan', plan, '--dry-run', '--json']);
 
     expect(result.stderr).toBe('');
     expect(result.exitCode).toBe(0);

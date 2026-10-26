@@ -24,6 +24,13 @@ if (resolve(process.env.MDCLI_CONFIG_DIR) === realConfigDir) {
 // time. An explicit TZ (e.g. TZ=UTC bun run test) still wins.
 process.env.TZ ??= 'Pacific/Kiritimati';
 
+// "Today" for the whole run, read by the CLI (now()/today() in src/lib/dates.ts)
+// and by the tests (localDay in test/helpers.ts), so a run that crosses
+// midnight does not see two days. It defaults to the machine's local day, so
+// tests stay relative to the calendar; an explicit value replays any day (e.g.
+// MDCLI_TODAY=2027-03-01 bun run test).
+process.env.MDCLI_TODAY ||= new Date().toLocaleDateString('sv-SE');
+
 afterAll(() => {
   rmSync(sandbox, { recursive: true, force: true });
 });
