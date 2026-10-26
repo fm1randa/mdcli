@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test';
+import { readFileSync } from 'node:fs';
 import { ESLint } from 'eslint';
 
 // Lints snippets with the repo's real eslint.config.js. The paths must be
@@ -93,6 +94,25 @@ describe('local/no-due-anchor-fallback', () => {
     expect(await localRules(`${card}\n${reads['||']}`, CARD_INVOICE)).toEqual([]);
     expect(await localRules('export interface A { proximoVencimento?: string }', OTHER_SRC)).toEqual([]);
     expect(await localRules('declare const acc: { proximoFechamento?: string };\nexport const d = acc.proximoFechamento ?? null;', OTHER_SRC)).toEqual([]);
+  });
+
+  // The exemption is per file: a new export of card-invoice.ts reading the field would pass the
+  // rule with a third rule for a card without one. Lint the real file as if it lived elsewhere.
+  test('only cardDueAnchor and ownDueDate read the field in card-invoice.ts', async () => {
+    const source = readFileSync(`${import.meta.dir}/../${CARD_INVOICE}`, 'utf8');
+    const [result] = await eslint.lintText(source, { filePath: OTHER_SRC });
+    const lines = source.split('\n');
+    const readers = result.messages
+      .filter((m) => m.ruleId === 'local/no-due-anchor-fallback')
+      .map((m) => {
+        const declaration = lines
+          .slice(0, m.line)
+          .reverse()
+          .find((line) => /^export (async )?function /.test(line));
+        return declaration?.match(/function (\w+)/)?.[1] ?? `line ${m.line}`;
+      });
+    expect(readers.length).toBeGreaterThan(0);
+    expect(new Set(readers)).toEqual(new Set(['cardDueAnchor', 'ownDueDate']));
   });
 });
 

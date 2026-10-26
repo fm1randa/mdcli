@@ -10,6 +10,9 @@ const CARD_LINK = [
 ];
 const TX = '56565656-1111-4000-8000-000000000001';
 const INVOICE = '/v1/cartoes/1002/fatura/2026-01-16';
+const NO_DUE_DATE =
+  'Card 1002 has no next due date in Meu Dinheiro, so there is no current invoice to find matching entries in. ' +
+  "Set the card's due date in the web app (edit the card), then run the import again.";
 
 let api: MockApi;
 let home: TestHome;
@@ -194,11 +197,24 @@ describe('entries import list card candidates', () => {
       const result = await list();
       expect(result.exitCode).toBe(1);
       expect(result.stdout).toBe('');
-      expect(JSON.parse(result.stderr).error).toContain('proximoVencimento');
+      expect(JSON.parse(result.stderr).error).toBe(NO_DUE_DATE);
       expect(api.requests.some((r) => r.path.includes('primeiraFatura'))).toBe(false);
       expect(api.requests.some((r) => r.path.includes('/fatura'))).toBe(false);
       expect(api.requests.some((r) => r.path === '/v2/lancamentos')).toBe(false);
     }
+    expect(mutations(api)).toHaveLength(0);
+  });
+
+  test('import run on a card without a due date fails with what to do and writes nothing', async () => {
+    const { proximoVencimento: _omit, ...withoutDue } = CREDIT_CARD_ACCOUNT;
+    api.on('GET /v1/cartoes/1002/primeiraFatura', () => '2026-02-21T00:00:00');
+    api.on('GET /v1/cadastros/contas', { ...ACCOUNTS_RESPONSE, items: [CHECKING_ACCOUNT, withoutDue] });
+
+    const result = await cli(['entries', 'import', 'run', '-a', '1002', '--since', '2026-10-01', '--ids', TX.slice(0, 8), '--category', '10', '--yes']);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain(NO_DUE_DATE);
+    expect(api.requests.some((r) => r.path.includes('primeiraFatura') || r.path.includes('/fatura'))).toBe(false);
     expect(mutations(api)).toHaveLength(0);
   });
 

@@ -187,7 +187,13 @@ async function windowRows(document: ImportDocument): Promise<unknown[]> {
 /** A card's candidates are its whole `proximoVencimento` invoice, like the web: no date window. */
 async function invoiceRows(account: Account): Promise<unknown[]> {
   const due = ownDueDate(account);
-  if (due === null) exitWithError(`Account ${account.id} has no proximoVencimento date to load an invoice from.`);
+  if (due === null) {
+    // No primeiraFatura fallback, like the web (see ownDueDate).
+    exitWithError(
+      `Card ${account.id} has no next due date in Meu Dinheiro, so there is no current invoice to find matching entries in. ` +
+        'Set the card\'s due date in the web app (edit the card), then run the import again.',
+    );
+  }
   const invoice = await fetchCardInvoice(account.id, due);
   if (!Array.isArray(invoice.lancamentos)) {
     throw new Error(`GET /v1/cartoes/${account.id}/fatura/${due} did not return lancamentos`);

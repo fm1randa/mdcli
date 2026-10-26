@@ -7,10 +7,15 @@ const MAX_INVOICE_STEPS = 24;
 /**
  * The due date (YYYY-MM-DD) the card's invoices are counted from. This file
  * is the only place that reads proximoVencimento (the ESLint rule
- * local/no-due-anchor-fallback bans any read of it elsewhere). A card without one, like a new card,
- * takes the API's first invoice date (GET primeiraFatura) instead. Before
- * this, cards invoice --month assumed day 10, cards invoice and entries list
- * asked primeiraFatura, and entries create refused (Jardinagem 2026-10-21).
+ * local/no-due-anchor-fallback bans any read of it elsewhere), through two
+ * exports with two rules for a card without one:
+ * - cardDueAnchor (creating and listing card entries) takes the API's first
+ *   invoice date (GET primeiraFatura) instead, like a new card on the web.
+ *   Before this, cards invoice --month assumed day 10, cards invoice and
+ *   entries list asked primeiraFatura, and entries create refused
+ *   (Jardinagem 2026-10-21).
+ * - ownDueDate (the Import) has no fallback, and the Import fails.
+ * test/eslint-local-rules.test.ts pins these two as the only readers.
  */
 export async function cardDueAnchor(account: Account): Promise<string> {
   return (account.proximoVencimento ?? (await fetchFirstInvoiceDate(account.id))).slice(0, 10);
@@ -19,7 +24,8 @@ export async function cardDueAnchor(account: Account): Promise<string> {
 /**
  * The card's own proximoVencimento (YYYY-MM-DD), or null when it has no valid
  * one. No primeiraFatura fallback: the Import reconciles against the current
- * invoice only, like the web (carregarFatura(id, proximoVencimento)).
+ * invoice only, like the web (carregarFatura(id, proximoVencimento)), so a
+ * card without one fails the Import (decision of 2026-10-23, PR #115).
  */
 export function ownDueDate(account: Account): string | null {
   return calendarDay(account.proximoVencimento);

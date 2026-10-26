@@ -22,7 +22,7 @@ same value; an entry on the bank date first, then the day before, the day after,
 2 days after; the same document number first. Reconciled entries are not listed as candidates and are
 linked only on the same day, but --plan ("entry") and --edit (conciliate <prefix> <entryId>)
 may still name one. On a credit card the candidates are the whole invoice of its next due date
-(proximoVencimento), with no date window.
+(proximoVencimento), with no date window; a card without one cannot be imported.
 
 AI suggestions come from the server and may differ between runs; pin the category with
 --category, --plan or --edit.`;
