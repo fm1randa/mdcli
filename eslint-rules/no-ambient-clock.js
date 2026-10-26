@@ -12,7 +12,19 @@ export default {
     schema: [],
   },
   create(context) {
-    const isDate = (node) => node.type === "Identifier" && node.name === "Date";
+    // Date itself, or globalThis.Date, which reads the same clock.
+    const isDate = (node) =>
+      (node.type === "Identifier" && node.name === "Date") ||
+      (node.type === "MemberExpression" &&
+        !node.computed &&
+        node.object.type === "Identifier" &&
+        node.object.name === "globalThis" &&
+        node.property.name === "Date");
+    // .now or ['now'].
+    const isNow = (node) =>
+      node.computed
+        ? node.property.type === "Literal" && node.property.value === "now"
+        : node.property.name === "now";
     return {
       NewExpression(node) {
         if (isDate(node.callee) && node.arguments.length === 0) {
@@ -24,8 +36,7 @@ export default {
         if (
           callee.type === "MemberExpression" &&
           isDate(callee.object) &&
-          !callee.computed &&
-          callee.property.name === "now"
+          isNow(callee)
         ) {
           context.report({ node, messageId: "ambientClock" });
         }

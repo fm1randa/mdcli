@@ -102,6 +102,9 @@ describe('local/no-ambient-clock', () => {
   const reads = {
     'new Date()': "import { toLocalDateString } from '../lib/dates.js';\nexport const d = toLocalDateString(new Date());",
     'Date.now()': 'export const id = Date.now();',
+    "Date['now']()": "export const id = Date['now']();",
+    'globalThis.Date.now()': 'export const id = globalThis.Date.now();',
+    'new globalThis.Date()': 'export const d = new globalThis.Date();',
   };
   for (const [form, code] of Object.entries(reads)) {
     test(`fires on ${form} in src/commands`, async () => {
