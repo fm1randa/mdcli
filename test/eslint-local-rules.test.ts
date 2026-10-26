@@ -86,6 +86,7 @@ describe('local/no-loose-number', () => {
     'Number.parseFloat': "export const n = Number.parseFloat('1.5abc');",
     parseFloat: "export const n = parseFloat('1.5abc');",
     'unary +': "declare const s: string;\nexport const n = +s;",
+    'Number as a value': "export const n = ['1'].map(Number);",
   };
   for (const [form, code] of Object.entries(coercions)) {
     test(`fires on ${form} in src, not in src/utils/parse.ts`, async () => {
@@ -98,6 +99,7 @@ describe('local/no-loose-number', () => {
     expect(await localRules(NUMBER_CALL, PARSE)).toEqual([]);
     expect(await localRules('export const n = +1;', COMMAND)).toEqual([]);
     expect(await localRules('export const ok = Number.isSafeInteger(7);', COMMAND)).toEqual([]);
+    expect(await localRules('declare const x: unknown;\nexport const ok = Number.isSafeInteger(x);', COMMAND)).toEqual([]);
   });
 });
 

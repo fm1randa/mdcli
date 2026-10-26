@@ -1,3 +1,5 @@
+import { parseInteger } from '../utils/parse.js';
+
 export function toLocalDateString(date: Date): string {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -17,9 +19,14 @@ export function getCurrentMonthRange(): { startDate: string; endDate: string } {
   };
 }
 
+/** Year, month and day of a YYYY-MM-DD date; a part that is not plain digits is NaN. */
+function dateParts(date: string): number[] {
+  return date.split('-').map((part) => parseInteger(part) ?? Number.NaN);
+}
+
 /** Shifts a YYYY-MM-DD due date by whole months, clamping the day. */
 export function shiftDueDate(dueDate: string, months: number): string {
-  const [year, month, day] = dueDate.split('-').map(Number);
+  const [year, month, day] = dateParts(dueDate);
   const target = new Date(year, month - 1 + months, 1);
   const lastDay = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
   target.setDate(Math.min(day, lastDay));
@@ -54,7 +61,7 @@ const ISO_DATE = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
 /** True for a real YYYY-MM-DD calendar day (rejects 2026-02-31). */
 export function isCalendarDate(value: string): boolean {
   if (!ISO_DATE.test(value)) return false;
-  const [year, month, day] = value.split('-').map(Number);
+  const [year, month, day] = dateParts(value);
   const date = new Date(year, month - 1, day);
   return date.getMonth() === month - 1 && date.getDate() === day;
 }
@@ -67,7 +74,7 @@ export function isCalendarDate(value: string): boolean {
 export function addInterval(date: string, count: number, interval: 'd' | 'w' | 'M' | 'y'): string {
   if (interval === 'M') return shiftDueDate(date, count);
   if (interval === 'y') return shiftDueDate(date, count * 12);
-  const [year, month, day] = date.split('-').map(Number);
+  const [year, month, day] = dateParts(date);
   const days = interval === 'w' ? count * 7 : count;
   return toLocalDateString(new Date(year, month - 1, day + days));
 }
