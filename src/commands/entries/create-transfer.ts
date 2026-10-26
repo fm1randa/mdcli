@@ -21,6 +21,12 @@ export async function resolveTransferDestination(origin: Account | undefined, or
   if (!origin || !destination) {
     exitWithError(`Account ${origin ? destinationId : originId} was not found in the account list.`);
   }
+  checkTransferAccounts(origin, destination);
+  return destinationId;
+}
+
+/** Transfers the CLI cannot write the way the web app does; shared with update. */
+export function checkTransferAccounts(origin: Account, destination: Account): void {
   // Paying a card invoice (destination card) and card-to-account transfers
   // carry invoice dates and a plastico the CLI does not model yet.
   if (isCreditCard(origin) || isCreditCard(destination)) {
@@ -31,7 +37,6 @@ export async function resolveTransferDestination(origin: Account | undefined, or
   if (origin.moeda !== destination.moeda) {
     exitWithError('Transfers between accounts in different currencies are not supported by the CLI yet. Use the web app.');
   }
-  return destinationId;
 }
 
 /** The category the web app defaults a new transfer to. */

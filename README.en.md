@@ -1,4 +1,4 @@
-<!-- traduzido de README.md @ f35c705 (base: f35c705a3f1832bc72df52866bd7d16e70ce7cf3; readme-blob: 75168bfbd0f405a5d64d329a4bd0edd40bd07ba4); ao atualizar o README.md, sincronize este arquivo e atualize o SHA e o readme-blob (git hash-object README.md) -->
+<!-- traduzido de README.md @ ddb3364 (base: ddb3364e92800a287a2ce58f2b08b731cfb8af86; readme-blob: e82bc91ad476de37185984df8ad0c73385d043b5); ao atualizar o README.md, sincronize este arquivo e atualize o SHA e o readme-blob (git hash-object README.md) -->
 
 [Português (Brasil)](README.md) · **English**
 
@@ -290,6 +290,22 @@ mdcli entries update 12345 --date 2027-01-25 --scope this
 # This occurrence and the following ones; earlier ones are left untouched
 mdcli entries update 12345 --date 2027-01-25 --scope following
 
+# Change the account (ID, alias, or name, as in create); in a series, with --scope.
+# Passing the current account is not an error: the entry is saved as is, as in the web.
+# An inactive account is refused (the web does not offer it).
+mdcli entries update 12345 --account nubank --scope following
+# To a credit card, as in the web: the purchase goes to the invoice of the
+# entry's date (or --date) counted from the card's next due date (an earlier
+# date lands on the next invoice), without an effective date, on the entry's
+# plastic if it belongs to that card, else on the holder's. Off a card, an unreconciled purchase becomes pending on its
+# purchase date. Entries on a closed invoice cannot change account (the web
+# locks them too).
+mdcli entries update 12345 --account <cardId>
+# Transfer: --account changes the origin and --to-account the destination; the
+# two accounts must differ, and credit cards are not supported yet (so an
+# invoice payment, which always involves a card, only changes account in the web app)
+mdcli entries update 12345 --to-account reserva
+
 # Delete an entry
 mdcli entries delete 12345
 
@@ -461,6 +477,7 @@ The tests in `test/` run the real CLI as a subprocess against a local mock of th
 | Credit card purchase on a chosen invoice (`--invoice`) | Done |
 | Update | Done |
 | Update/delete a series occurrence (`--scope this\|following`) | Done |
+| Change the account (`--account`; transfers: `--account`/`--to-account`) | Done |
 | Delete | Done |
 
 ### Cards

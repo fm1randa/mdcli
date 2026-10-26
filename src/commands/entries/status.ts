@@ -6,7 +6,7 @@ import type { Entry } from '../../types/index.js';
  */
 type EffectiveFields = 'set' | 'keep' | 'clear';
 
-interface EntryStatusFlags {
+export interface EntryStatusFlags {
   /** -p/--pending (or its hidden alias --scheduled): Confirmado off. */
   pending?: boolean;
   /** --confirmed: Confirmado on, Conciliado off. */

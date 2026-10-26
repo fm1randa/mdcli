@@ -8,7 +8,8 @@ import {
   TAGS_RESPONSE,
   cardInvoice,
 } from '../test/fixtures.js';
-import { SEEDED_ENTRIES, checkCreatePayload, createCardPurchase, createdEntry, invoiceItems, statusLabel } from './mock-entries.js';
+import { plasticsRoute } from './mock-plastics.js';
+import { SEEDED_ENTRIES, checkCreatePayload, checkUpdateAccounts, createCardPurchase, createdEntry, invoiceItems, statusLabel } from './mock-entries.js';
 import { connectionsRoute, recordMockRequest } from './mock-connections.js';
 import { importRoute, withRecentStatement } from './mock-import.js';
 
@@ -281,6 +282,9 @@ async function entriesRoute(req: Request, path: string): Promise<Response> {
     if (body.todos !== undefined && (typeof body.todos !== 'boolean' || !inSeries)) {
       return badRequest('todos only applies to an occurrence of a series, as a boolean');
     }
+    const invalidAccounts = checkUpdateAccounts(body, (conta) => MOCK_ACCOUNTS.items.find((a) => a.id === Number(conta))?.tipo);
+    if (invalidAccounts) return badRequest(invalidAccounts);
+    const transfer = body.transferencia === true;
     const merged: Record<string, unknown> = { ...existing, ...body, id };
     // Like the real API: without todos: true the occurrence leaves its series.
     const keepsSeries = inSeries && body.todos === true;
@@ -302,6 +306,9 @@ async function entriesRoute(req: Request, path: string): Promise<Response> {
       dataCriacao: new Date().toISOString(),
       exibirCp: true,
       exibirCr: true,
+      conta: transfer ? body.contaOrigem : merged.conta,
+      plastico: merged.plastico,
+      ...(transfer && { contaT: body.contaDestino }),
     });
   }
 
@@ -349,9 +356,7 @@ const server = Bun.serve({
     if (url.pathname === ENTRIES_PATH || url.pathname.startsWith(`${ENTRIES_PATH}/`)) {
       return entriesRoute(req, url.pathname);
     }
-    const connections = connectionsRoute(req.method, url.pathname);
-    if (connections) return connections;
-    return notFound();
+    return connectionsRoute(req.method, url.pathname) ?? plasticsRoute(req.method, url.pathname) ?? notFound();
   },
 });
 

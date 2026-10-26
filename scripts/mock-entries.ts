@@ -63,6 +63,25 @@ export const SEEDED_ENTRIES: Record<number, Record<string, unknown>> = {
     agenda: { frequencia: 1, intervalo: 'M', quantidade: -1, primeiraData: '2026-11-10' },
     tags: [],
   },
+  // A transfer between two regular accounts, Nubank -> Poupança (#123),
+  // dated outside the months the list steps read.
+  52: {
+    id: 52,
+    descricao: 'Reserva',
+    tipo: 't',
+    valor: -300,
+    valorT: 300,
+    data: '2025-06-15',
+    dataPrevista: '2025-06-15',
+    dataEfetiva: '2025-06-15',
+    status: 'conciliado',
+    conciliado: true,
+    conta: 1001,
+    contaT: 1004,
+    categoria: 30,
+    tags: [],
+    observacoes: '',
+  },
   70: {
     id: 70,
     descricao: 'Café',
@@ -132,6 +151,23 @@ export function checkCreatePayload(body: Body): string | null {
     }
     const sum = parcelas.reduce((acc, p) => acc + Math.round(p.valor * 100), 0);
     if (sum !== Math.round(Number(body.valor) * 100)) return 'valor must be the sum of the parcelas';
+  }
+  return null;
+}
+
+/**
+ * The accounts of a PUT /v1/lancamentos/:id (update --account, #123): a
+ * transfer names them as contaOrigem/contaDestino, any other entry as conta;
+ * all must exist, and a card purchase carries its purchase date.
+ * `accountType` is the tipo of an account ID, undefined when there is none.
+ */
+export function checkUpdateAccounts(body: Body, accountType: (conta: unknown) => string | undefined): string | null {
+  const transfer = body.transferencia === true;
+  const accounts = transfer ? [body.contaOrigem, body.contaDestino] : [body.conta];
+  if (accounts.some((conta) => accountType(conta) === undefined)) return 'conta must name an existing account';
+  if (transfer && body.contaOrigem === body.contaDestino) return 'origin and destination must differ';
+  if (!transfer && accountType(body.conta) === 'CARTAOCREDITO' && typeof body.dataCompetencia !== 'string') {
+    return 'dataCompetencia is required for credit card entries';
   }
   return null;
 }

@@ -18,11 +18,13 @@ interface EntryDetail {
   categoria: number;
 }
 
-interface EntryAgenda {
+export interface EntryAgenda {
   frequencia: number;
   intervalo: string;
   quantidade: number;
   primeiraData: string;
+  /** Number of the first installment, as on create (--first-installment). */
+  inicial?: number;
 }
 
 export interface Entry {
@@ -68,6 +70,8 @@ export interface Entry {
   transferencia?: number;
   metaEconomiaDestino?: number;
   projecaoFatura?: number;
+  /** A card purchase on a closed invoice (the web's "ff" filter); its account is locked. */
+  fatura?: number;
 }
 
 export interface EntriesResponse {
@@ -239,7 +243,9 @@ interface UpdateEntryFields {
  * sent is missing (#10), so the whole entry goes back with the changes on
  * top: every Entry field, reshaped where the PUT differs from the GET.
  */
-export interface UpdateEntryPayload extends Omit<Entry, keyof UpdateEntryFields | 'transferencia'>, UpdateEntryFields {
+export interface UpdateEntryPayload extends Omit<Entry, keyof UpdateEntryFields | 'transferencia' | 'plastico'>, UpdateEntryFields {
+  /** null: moved to a card without a holder plastic (update --account). */
+  plastico?: number | null;
   /** The GET sends a number; the web app's PUT, false for a non-transfer. */
   transferencia: number | boolean;
   estorno: boolean;

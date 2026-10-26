@@ -13,8 +13,12 @@ import { buildTransferPayload, clearEffective, keepUnconfirmed } from './update-
 import { parseEntryId } from './entry-id.js';
 import { buildEntryStatus } from './status.js';
 import { parseAmount } from '../../utils/parse.js';
+import { resolveAccountOrExit } from '../account-id.js';
+import { moveEntry, moveTransfer } from './update-account.js';
 
 interface UpdateOptions {
+  account?: string;
+  toAccount?: string;
   description?: string;
   value?: string;
   type?: string;
@@ -31,7 +35,14 @@ interface UpdateOptions {
   json?: boolean;
 }
 
-function reportUpdate(response: CreateEntryResponse, json?: boolean, todos?: boolean): void {
+/** The accounts --account/--to-account set, shown after the save. */
+interface MovedAccounts {
+  origin: number;
+  /** Transfers only. */
+  destination?: number;
+}
+
+function reportUpdate(response: CreateEntryResponse, json?: boolean, todos?: boolean, moved?: MovedAccounts): void {
   if (json) {
     const scope = todos === undefined ? {} : { scope: todos ? 'following' : 'this' };
     console.log(JSON.stringify({ ...response, ...scope }, null, 2));
@@ -43,6 +54,10 @@ function reportUpdate(response: CreateEntryResponse, json?: boolean, todos?: boo
   console.log(`  ${chalk.gray('Description:')} ${response.descricao}`);
   console.log(`  ${chalk.gray('Value:')} ${formatCurrency(response.valor)}`);
   console.log(`  ${chalk.gray('Date:')} ${response.data}`);
+  if (moved) {
+    console.log(`  ${chalk.gray('Account:')} ${moved.origin}`);
+    if (moved.destination !== undefined) console.log(`  ${chalk.gray('To account:')} ${moved.destination}`);
+  }
   console.log(`  ${chalk.gray('Status:')} ${describeStatus(response.status, response.dataPrevista ?? response.data)}`);
   if (todos !== undefined) {
     console.log(`  ${chalk.gray('Scope:')} ${describeScope(todos)}`);
@@ -62,6 +77,8 @@ export async function updateAction(id: string, options: UpdateOptions): Promise<
   const categoryId = options.category !== undefined ? await resolveEntryCategory(options.category) : null;
 
   const tagIds = options.tags !== undefined ? await resolveTags(options.tags) : undefined;
+  const accountId = options.account !== undefined ? await resolveAccountOrExit(options.account) : undefined;
+  const toAccountId = options.toAccount !== undefined ? await resolveAccountOrExit(options.toAccount) : undefined;
 
   let value: number | undefined;
   if (options.value !== undefined) {
@@ -71,7 +88,9 @@ export async function updateAction(id: string, options: UpdateOptions): Promise<
     }
   }
 
-  const hasChanges = options.description !== undefined ||
+  const hasChanges = options.account !== undefined ||
+    options.toAccount !== undefined ||
+    options.description !== undefined ||
     options.value !== undefined ||
     options.type !== undefined ||
     options.category !== undefined ||
@@ -89,6 +108,19 @@ export async function updateAction(id: string, options: UpdateOptions): Promise<
 
   // Fetch existing entry
   const existing = await fetchEntry(entryId);
+  // The web app disables the account selectors of an entry on a closed
+  // invoice (editarLancamento.html, ng-disabled=!!vm.l.fatura).
+  if ((accountId !== undefined || toAccountId !== undefined) && existing.fatura) {
+    exitWithError(`Entry ${entryId} is on a closed invoice, so its account cannot be changed (the web app locks it too).`);
+  }
+  // The web app edits an invoice payment as a transfer (mdb.js, tipo == "t" ||
+  // tipo == "p"), and one side of it is always the card being paid.
+  if ((accountId !== undefined || toAccountId !== undefined) && existing.tipo === 'p') {
+    exitWithError(`Entry ${entryId} is an invoice payment, and an invoice payment involves a credit card: change its accounts in the web app.`);
+  }
+  if (toAccountId !== undefined && existing.tipo !== 't') {
+    exitWithError('--to-account only applies to transfers. Use --account to move the entry to another account.');
+  }
   const todos = resolveSeriesScope(entryId, existing, options.scope, {
     thisOnlyWarning: `Entry ${entryId} is an occurrence of a recurring series (${existing.parcela}): only this occurrence will be changed, and it will leave the series. Use --scope following to change this and the following occurrences, or --scope this to silence this warning.`,
   });
@@ -108,7 +140,11 @@ export async function updateAction(id: string, options: UpdateOptions): Promise<
       }
     }
 
+    const moved = accountId !== undefined || toAccountId !== undefined
+      ? await moveTransfer(entryId, existing, accountId, toAccountId)
+      : undefined;
     const payload = buildTransferPayload(entryId, existing, {
+      ...moved,
       description: options.description,
       value,
       date: options.date,
@@ -120,7 +156,7 @@ export async function updateAction(id: string, options: UpdateOptions): Promise<
     if (todos !== undefined) payload.todos = todos;
 
     const transferResponse = await updateEntry(entryId, payload);
-    reportUpdate(transferResponse, options.json, todos);
+    reportUpdate(transferResponse, options.json, todos, moved && { origin: moved.originId, destination: moved.destinationId });
     return;
   }
 
@@ -174,11 +210,17 @@ export async function updateAction(id: string, options: UpdateOptions): Promise<
       payload.agenda = { ...existing.agenda, primeiraData: options.date };
     }
   }
+  if (accountId !== undefined) {
+    await moveEntry(payload, existing, accountId, {
+      date: options.date,
+      flags: { pending: unconfirm, confirmed: options.confirmed, reconciled: options.reconciled },
+    });
+  }
   // todos: true is the web app's "Neste e em todos na sequência": the server
   // applies the change to this and the following occurrences and splits the
   // series, leaving earlier ones untouched. false is "Apenas neste".
   if (todos !== undefined) payload.todos = todos;
 
   const response = await updateEntry(entryId, payload);
-  reportUpdate(response, options.json, todos);
+  reportUpdate(response, options.json, todos, accountId === undefined ? undefined : { origin: accountId });
 }

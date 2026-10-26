@@ -61,6 +61,8 @@ entriesCommand
 entriesCommand
   .command('update <id>')
   .description('Update an existing entry (partial update - only send fields you want to change)')
+  .option('-a, --account <id>', 'Move the entry to this account: ID, alias, or exact name (case-insensitive); for a transfer, the origin account')
+  .option('--to-account <id>', 'Transfers: move the destination to this account (ID, alias, or exact name)')
   .option('-d, --description <text>', 'Entry description')
   .option('-v, --value <amount>', 'Entry value (e.g. 10.50 or 10,50)')
   .option('-T, --type <type>', 'Entry type: expense, income, transfer')
