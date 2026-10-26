@@ -22,10 +22,24 @@ const SERIES_OCCURRENCE = {
 
 const SINGLE_ENTRY = { ...SERIES_OCCURRENCE, id: 70, descricao: 'Café', parcela: undefined, agendaId: undefined };
 
+// The API returns an occurrence the server no longer links to the rule (the
+// first one, or one already confirmed or reconciled) with `parcela` but no
+// `agendaId` (issue #70). This one is a past occurrence, already reconciled.
+const DETACHED_OCCURRENCE = {
+  ...SERIES_OCCURRENCE,
+  id: 79,
+  data: '2026-09-16',
+  dataPrevista: '2026-09-16',
+  status: 'conciliado',
+  conciliado: true,
+  agendaId: undefined,
+};
+
 beforeEach(() => {
   api = startMockApi();
   api.on('GET /v1/lancamentos/80', SERIES_OCCURRENCE);
   api.on('GET /v1/lancamentos/70', SINGLE_ENTRY);
+  api.on('GET /v1/lancamentos/79', DETACHED_OCCURRENCE);
   api.on('DELETE /v1/lancamentos/80', null);
   api.on('DELETE /v1/lancamentos/70', null);
   home = createHome(MANUAL_AUTH);
@@ -88,6 +102,20 @@ describe('entries delete --scope', () => {
     expect(following.exitCode).toBe(1);
     expect(following.stderr).toContain('Entry 70 is not part of a recurring series, so --scope following does not apply.');
     expect(deletes()).toHaveLength(1);
+  });
+
+  test('--scope following on an occurrence detached from its series explains why and deletes nothing', async () => {
+    const result = await runCli(
+      ['entries', 'delete', '79', '--scope', 'following', '--dangerously-skip-confirmation'],
+      { home, api }
+    );
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain(
+      'Entry 79 belongs to a recurring series (fixa), but the server no longer links it to the series (like the first occurrence, or one already confirmed or reconciled), so it is deleted on its own. To delete the series, use --scope following on a scheduled occurrence.'
+    );
+    expect(result.stderr).not.toContain('is not part of a recurring series');
+    expect(deletes()).toHaveLength(0);
   });
 
   test('--scope all is not offered (the web app only has this/following)', async () => {

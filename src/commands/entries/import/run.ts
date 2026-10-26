@@ -6,12 +6,13 @@ import { logger } from '../../../utils/logger.js';
 import { promptConfirmation } from '../../../utils/prompt.js';
 import { categoryCatalog } from '../category.js';
 import { commitRun } from './commit.js';
+import { applyOverwrite, readOverwrite } from './overwrite.js';
 import { editRun } from './edit.js';
 import { fillSuggestions, linkableOf, loadImport, nothingNewMessage, statementRows, type ImportLoadOptions, type LoadedImport } from './list.js';
 import type { ImportDocument } from './document.js';
 import { emptyRun, failOnProblems, pickBankTransactions, planRun, unmatchedPrefix, type RunDocument } from './plan.js';
 import { readPlanFile } from './plan-file.js';
-import { printRun } from './run-output.js';
+import { overwrittenNames, printRun } from './run-output.js';
 import { importCategory, planSelection, selectionCategories } from './selection.js';
 
 interface ImportRunOptions extends ImportLoadOptions {
@@ -38,14 +39,19 @@ export async function runAction(options: ImportRunOptions): Promise<void> {
     return;
   }
   const { run, loaded, categories } = planned;
-  const { document, account, payload, candidateRows } = loaded;
+  const { document, account, payload } = loaded;
   if (document.transactions.length === 0) {
     if (options.json) console.log(JSON.stringify(run, null, 2));
     else logger.info(`${nothingNewMessage(document)} Nothing was written.`);
     return;
   }
 
-  const context = { accountName: document.account.name, categories };
+  applyOverwrite(run, await readOverwrite(), { document, statementRows: statementRows(payload), existing: loaded.existing });
+  const context = {
+    accountName: document.account.name,
+    categories,
+    names: options.json ? null : await overwrittenNames(run),
+  };
   const writes = run.imported.length + run.conciliated.length + run.rejected.length;
   if (!options.json) printRun(run, context);
   if (!dryRun && writes === 0) {
@@ -62,7 +68,6 @@ export async function runAction(options: ImportRunOptions): Promise<void> {
       run,
       document,
       statementRows: statementRows(payload),
-      candidateRows,
       creditCard: account !== undefined && isCreditCard(account),
     });
     if (!options.json) logger.success(`Import written for ${context.accountName ?? run.accountId}.`);

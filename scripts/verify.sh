@@ -202,6 +202,8 @@ import_run_dry() {
   fresh=$(tail -n +"$((before + 1))" "$log")
   grep -Eq '/api/v1/integracao/account/9001/transactions' <<<"$fresh" \
     || { echo "missing GET of transactions: $fresh"; return 1; }
+  grep -Fq '"path":"/api/v1/frontend/sessao"' <<<"$fresh" \
+    || { echo "missing GET of the session state (overwrite preference): $fresh"; return 1; }
   reads_and_ai_only "$fresh" "entries import run --dry-run"
 }
 step "cli entries import run --dry-run (mock)" import_run_dry

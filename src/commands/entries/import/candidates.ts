@@ -9,12 +9,24 @@ export interface ImportCandidate {
   categoryId: number | null;
 }
 
+/** What the server replaces on a linked Entry with `sobrescrever` on. */
+export interface OverwrittenFields {
+  contactId: number | null;
+  categoryId: number | null;
+  costCenterId: number | null;
+  projectId: number | null;
+  tagIds: number[];
+  documentNumber: string | null;
+}
+
 /** An Entry (or invoice item) already in Meu Dinheiro, as the matching reads it. */
 export interface ExistingEntry {
   candidate: ImportCandidate;
   /** Status `conciliado`. The web hides it from the candidates and links it only on the same day. */
   reconciled: boolean;
   ndocumento: string | null;
+  /** Read once here, so a linked Entry's before needs no other request. */
+  fields: OverwrittenFields;
 }
 
 interface BankSide {
@@ -40,6 +52,7 @@ export function readExisting(rows: readonly unknown[], source: 'entry' | 'invoic
       candidate: { id, date, value, description: textOrNull(record.descricao), categoryId: idOrNull(record.categoria) },
       reconciled: record.status === 'conciliado',
       ndocumento: nonEmptyTextOrNull(record.ndocumento),
+      fields: overwrittenFields(record),
     });
   }
   // Stable, like Array.prototype.sort in the web: same-day Entries keep the API order.
@@ -94,6 +107,29 @@ export function automaticLinks(banks: readonly BankSide[], existing: readonly Ex
     pass(shift, false);
   }
   return linked;
+}
+
+/**
+ * The overwritten fields of an Entry or a statement row (same API names). Without `kept`, a missing
+ * field is null (tags: empty). With `kept`, a field the row does not have keeps that value: null fields
+ * are left out of the request (commit.ts), so the server has nothing to replace them with (inferred).
+ */
+export function overwrittenFields(record: Record<string, unknown> | null, kept?: OverwrittenFields): OverwrittenFields {
+  const take = <T>(value: unknown, read: (value: unknown) => T, old: T): T =>
+    value === null || value === undefined ? old : read(value);
+  return {
+    contactId: take(record?.contato, idOrNull, kept?.contactId ?? null),
+    categoryId: take(record?.categoria, idOrNull, kept?.categoryId ?? null),
+    costCenterId: take(record?.centro, idOrNull, kept?.costCenterId ?? null),
+    projectId: take(record?.projeto, idOrNull, kept?.projectId ?? null),
+    tagIds: take(record?.tags, tagIds, kept?.tagIds ?? []),
+    documentNumber: take(record?.ndocumento, nonEmptyTextOrNull, kept?.documentNumber ?? null),
+  };
+}
+
+function tagIds(value: unknown): number[] {
+  if (!Array.isArray(value)) return [];
+  return value.map(idOrNull).filter((id): id is number => id !== null);
 }
 
 function push(map: Map<string, number[]>, key: string, index: number): void {
