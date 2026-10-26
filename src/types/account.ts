@@ -99,7 +99,8 @@ export interface AccountBalanceSum {
  * An account in accounts list --json. balance and projectedBalance are the
  * web app's (confirmed and projected, at balanceDate); null for an account
  * the web shows no balance for (cards, investment portfolios, inactive and not
- * closed, or in a currency other than the one selected in the web).
+ * closed, in a currency other than the one selected in the web, or restricted
+ * to the user).
  * bankBalance/bankBalanceDate are the last bank statement
  * (saldoUltimoExtrato/dataUltimoExtrato), which can be years old (#67).
  */
