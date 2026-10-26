@@ -1,6 +1,6 @@
 import { isCalendarDate } from '../../../lib/dates.js';
 import type { Category } from '../../../types/index.js';
-import type { ImportCandidate } from './candidates.js';
+import type { ImportCandidate, OverwrittenFields } from './candidates.js';
 import type { ImportDocument, BankTransactionRow } from './document.js';
 
 interface RunReference {
@@ -17,15 +17,15 @@ interface ImportedItem extends RunReference {
   status: 'reconciled' | 'scheduled';
 }
 
-interface ValueAndDescription {
-  value: number;
-  description: string | null;
-}
+/** A linked Entry's side. With `sobrescrever` on (`applyOverwrite`), also the fields it replaces. */
+type LinkedSide = { value: number; description: string | null } & Partial<OverwrittenFields>;
 
 interface ConciliatedItem extends RunReference {
   entryId: number;
-  before: ValueAndDescription;
-  after: ValueAndDescription;
+  /** Set only with `sobrescrever` on: a reconciled Entry keeps its fields. */
+  reconciled?: boolean;
+  before: LinkedSide;
+  after: LinkedSide;
 }
 
 /** What `entries import run` would write (dry run) or wrote. */

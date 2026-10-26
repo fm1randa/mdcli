@@ -1,5 +1,6 @@
 import { fetchSessionState } from '../../../lib/api.js';
 import { asRecord } from '../../../lib/payload.js';
+import { overwrittenFields, type ExistingEntry } from './candidates.js';
 import type { ImportDocument } from './document.js';
 import type { RunDocument } from './plan.js';
 
@@ -28,18 +29,34 @@ export async function readOverwrite(): Promise<Overwrite> {
   return { value: saved.s === true, description: saved.sd === true, source: 'preferences' };
 }
 
+/** What `applyOverwrite` reads besides the run: the statement rows and the Entries it may link. */
+export interface OverwriteSources {
+  document: ImportDocument;
+  /** The raw statement rows, row for row with `document.transactions`: what commit.ts sends. */
+  statementRows: readonly unknown[];
+  existing: ReadonlyMap<number, ExistingEntry>;
+}
+
 /**
  * Sets the preference on the run and what it does to each linked Entry, as the web's confirmation
- * dialog describes it (partials/importacao__v2-importacao-confirmar.html): `sd` fills only an Entry
- * without a description with the bank transaction's; `s` replaces contact, category, cost center,
- * project, tags and document number, never the value.
+ * dialog describes it for a bank import (partials/importacao__v2-importacao-confirmar.html, line 1;
+ * `tipoArquivo` is not "ofx", mdb.js 21369): `sd` fills only an Entry without a description with the
+ * bank transaction's; `s` updates the Entries that are not reconciled, replacing contact, category,
+ * cost center, project, tags and document number with the statement row's, never the value.
  */
-export function applyOverwrite(run: RunDocument, document: ImportDocument, overwrite: Overwrite): void {
+export function applyOverwrite(run: RunDocument, overwrite: Overwrite, sources: OverwriteSources): void {
   run.overwrite = overwrite;
-  if (!overwrite.description) return;
+  const { document } = sources;
   for (const item of run.conciliated) {
-    if (item.before.description !== null && item.before.description !== '') continue;
-    const row = document.transactions.find((transaction) => transaction.integrationId === item.integrationId);
-    item.after.description = row?.description ?? item.before.description;
+    const index = document.transactions.findIndex((transaction) => transaction.integrationId === item.integrationId);
+    if (overwrite.description && (item.before.description === null || item.before.description === '')) {
+      item.after.description = document.transactions[index]?.description ?? item.before.description;
+    }
+    if (!overwrite.value) continue;
+    const entry = sources.existing.get(item.entryId);
+    const before = entry?.fields ?? overwrittenFields(null);
+    item.reconciled = entry?.reconciled === true;
+    Object.assign(item.before, before);
+    Object.assign(item.after, item.reconciled ? before : overwrittenFields(asRecord(sources.statementRows[index]), before));
   }
 }

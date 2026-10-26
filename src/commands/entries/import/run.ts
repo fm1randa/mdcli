@@ -12,7 +12,7 @@ import { fillSuggestions, linkableOf, loadImport, nothingNewMessage, statementRo
 import type { ImportDocument } from './document.js';
 import { emptyRun, failOnProblems, pickBankTransactions, planRun, unmatchedPrefix, type RunDocument } from './plan.js';
 import { readPlanFile } from './plan-file.js';
-import { printRun } from './run-output.js';
+import { overwrittenNames, printRun } from './run-output.js';
 import { importCategory, planSelection, selectionCategories } from './selection.js';
 
 interface ImportRunOptions extends ImportLoadOptions {
@@ -46,8 +46,12 @@ export async function runAction(options: ImportRunOptions): Promise<void> {
     return;
   }
 
-  applyOverwrite(run, document, await readOverwrite());
-  const context = { accountName: document.account.name, categories };
+  applyOverwrite(run, await readOverwrite(), { document, statementRows: statementRows(payload), existing: loaded.existing });
+  const context = {
+    accountName: document.account.name,
+    categories,
+    names: options.json ? null : await overwrittenNames(run),
+  };
   const writes = run.imported.length + run.conciliated.length + run.rejected.length;
   if (!options.json) printRun(run, context);
   if (!dryRun && writes === 0) {
