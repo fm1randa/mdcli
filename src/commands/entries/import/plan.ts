@@ -1,5 +1,6 @@
 import { isCalendarDate } from '../../../lib/dates.js';
 import type { Category } from '../../../types/index.js';
+import { toCents } from '../../../utils/currency.js';
 import type { ImportCandidate, OverwrittenFields } from './candidates.js';
 import type { ImportDocument, BankTransactionRow } from './document.js';
 
@@ -149,7 +150,7 @@ function bankDate(row: BankTransactionRow): string | null {
 /** A written value may only flip the sign of the bank value. */
 export function checkWrittenValue(row: BankTransactionRow, value: number | undefined): string | null {
   if (value === undefined || row.value === null) return null;
-  if (Math.round(Math.abs(value) * 100) === Math.round(Math.abs(row.value) * 100)) return null;
+  if (toCents(value) === toCents(row.value)) return null;
   return `value ${value} is not the bank value ${row.value}. Only the sign can change.`;
 }
 

@@ -103,10 +103,11 @@ export function parseSchedule(options: ScheduleOptions, value: number, date: str
   const intervalo = options.repeat ? parseInterval(options.repeat) : 'M';
   const values = installmentValues(value, installments, Boolean(options.perInstallment));
   const parcelas = values.map((valor, i) => ({ valor, data: addInterval(date, i * frequencia, intervalo) }));
-  const totalCents = values.reduce((sum, v) => sum + Math.round(v * 100), 0);
+  // Every installment has the sign of value.
+  const totalCents = values.reduce((sum, v) => sum + toCents(v), 0);
   return {
     agenda: { repeticao: 'p', intervalo, quantidade: installments, frequencia, inicial: inicial ?? 1 },
     parcelas,
-    total: totalCents / 100,
+    total: ((value < 0 ? -1 : 1) * totalCents) / 100,
   };
 }

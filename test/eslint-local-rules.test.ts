@@ -23,6 +23,7 @@ async function localRules(code: string, filePath: string): Promise<string[]> {
 
 const RAW_CURRENCY = "export const s = (1).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });";
 const NUMBER_CALL = "export const n = Number('1e3');";
+const RAW_CENTS = 'declare const v: number;\nexport const c = Math.round(Math.abs(v) * 100);';
 const DOUBLE_CAST = "export const v = ({} as unknown as { a: number }).a;";
 
 describe('local/no-raw-currency', () => {
@@ -35,6 +36,20 @@ describe('local/no-raw-currency', () => {
   test('does not fire in src/utils/currency.ts or for other styles', async () => {
     expect(await localRules(RAW_CURRENCY, CURRENCY)).toEqual([]);
     expect(await localRules("export const s = (1).toLocaleString('pt-BR', { style: 'percent' });", OTHER_SRC)).toEqual([]);
+  });
+});
+
+describe('local/no-raw-cents', () => {
+  test('fires in src on either operand order', async () => {
+    expect(await localRules(RAW_CENTS, OTHER_SRC)).toEqual(['local/no-raw-cents']);
+    expect(await localRules(RAW_CENTS, COMMAND)).toEqual(['local/no-raw-cents']);
+    expect(await localRules('declare const v: number;\nexport const c = Math.round(100 * v) / 100;', OTHER_SRC)).toEqual(['local/no-raw-cents']);
+  });
+
+  test('does not fire in src/utils/currency.ts or on other rounding', async () => {
+    expect(await localRules(RAW_CENTS, CURRENCY)).toEqual([]);
+    expect(await localRules('declare const v: number;\nexport const c = Math.round(v / 3);', OTHER_SRC)).toEqual([]);
+    expect(await localRules('declare const v: number;\nexport const c = Math.floor(v * 100);', OTHER_SRC)).toEqual([]);
   });
 });
 

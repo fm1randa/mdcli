@@ -1,3 +1,4 @@
+import { roundToCents } from '../utils/currency.js';
 import type { NormalizedEntry } from '../types/index.js';
 
 interface SummaryRow {
@@ -8,8 +9,6 @@ interface SummaryRow {
   expenses: number;
   net: number;
 }
-
-const roundCents = (value: number): number => Math.round(value * 100) / 100;
 
 /**
  * Groups entries and totals them. Values are signed (expenses negative), so
@@ -35,9 +34,9 @@ export function summarize(
 
   return [...groups.values()].map((row) => ({
     ...row,
-    income: roundCents(row.income),
-    expenses: roundCents(row.expenses),
-    net: roundCents(row.income + row.expenses),
+    income: roundToCents(row.income),
+    expenses: roundToCents(row.expenses),
+    net: roundToCents(row.income + row.expenses),
   }));
 }
 
@@ -46,9 +45,9 @@ export function totalRow(rows: SummaryRow[]): SummaryRow {
     (total, row) => ({
       ...total,
       count: total.count + row.count,
-      income: roundCents(total.income + row.income),
-      expenses: roundCents(total.expenses + row.expenses),
-      net: roundCents(total.net + row.net),
+      income: roundToCents(total.income + row.income),
+      expenses: roundToCents(total.expenses + row.expenses),
+      net: roundToCents(total.net + row.net),
     }),
     { key: 'total', label: 'Total', count: 0, income: 0, expenses: 0, net: 0 }
   );

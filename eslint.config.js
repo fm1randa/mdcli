@@ -30,10 +30,10 @@ export default tseslint.config(
   // block scopes one ban without replacing the others' options.
   { plugins: { local } },
   {
-    // Money is formatted in one place, signed by default.
+    // Money is formatted and counted in cents in one place, signed by default.
     files: ["src/**/*.ts"],
     ignores: ["src/utils/currency.ts"],
-    rules: { "local/no-raw-currency": "error" },
+    rules: { "local/no-raw-currency": "error", "local/no-raw-cents": "error" },
   },
   {
     // User input goes through the strict parse helpers; payloads match
