@@ -2,7 +2,7 @@ import { exitWithError } from '../../utils/action.js';
 import { addInterval } from '../../lib/dates.js';
 import type { CreateEntryAgenda, CreateEntryInstallment } from '../../types/index.js';
 import { parseInteger } from '../../utils/parse.js';
-import { toCents } from '../../utils/currency.js';
+import { roundToCents, toCents } from '../../utils/currency.js';
 
 export interface ScheduleOptions {
   repeat?: string;
@@ -103,11 +103,9 @@ export function parseSchedule(options: ScheduleOptions, value: number, date: str
   const intervalo = options.repeat ? parseInterval(options.repeat) : 'M';
   const values = installmentValues(value, installments, Boolean(options.perInstallment));
   const parcelas = values.map((valor, i) => ({ valor, data: addInterval(date, i * frequencia, intervalo) }));
-  // Every installment has the sign of value.
-  const totalCents = values.reduce((sum, v) => sum + toCents(v), 0);
   return {
     agenda: { repeticao: 'p', intervalo, quantidade: installments, frequencia, inicial: inicial ?? 1 },
     parcelas,
-    total: ((value < 0 ? -1 : 1) * totalCents) / 100,
+    total: roundToCents(values.reduce((sum, v) => sum + v, 0)),
   };
 }
