@@ -1,8 +1,10 @@
 // Cents are computed in one place: checkWrittenValue in the import plan had
 // its own Math.round(Math.abs(value) * 100) next to toCents (Jardinagem
-// 2026-10-26). Bans Math.round(... * 100), either operand order.
-function isHundred(node) {
-  return node.type === "Literal" && node.value === 100;
+// 2026-10-26). Bans Math.round(... * 100) with 100 anywhere in the product:
+// v * 100, 100 * v and v * 100 * n, which parses as (v * 100) * n.
+function hasHundredFactor(node) {
+  if (node.type === "Literal") return node.value === 100;
+  return node.type === "BinaryExpression" && node.operator === "*" && (hasHundredFactor(node.left) || hasHundredFactor(node.right));
 }
 
 export default {
@@ -22,7 +24,7 @@ export default {
         if (callee.object.type !== "Identifier" || callee.object.name !== "Math") return;
         if (callee.property.type !== "Identifier" || callee.property.name !== "round") return;
         const [arg] = args;
-        if (arg?.type === "BinaryExpression" && arg.operator === "*" && (isHundred(arg.left) || isHundred(arg.right))) {
+        if (arg?.type === "BinaryExpression" && hasHundredFactor(arg)) {
           context.report({ node, messageId: "rawCents" });
         }
       },
