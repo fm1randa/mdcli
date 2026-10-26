@@ -42,6 +42,12 @@ export default tseslint.config(
     rules: { "local/no-number-call": "error", "local/no-double-cast": "error" },
   },
   {
+    // An empty table cell is written by cell() alone.
+    files: ["src/**/*.ts"],
+    ignores: ["src/utils/text.ts"],
+    rules: { "local/no-raw-dash": "error" },
+  },
+  {
     // A card's due date is read only in card-invoice.ts (cardDueAnchor, ownDueDate).
     files: ["src/**/*.ts"],
     ignores: ["src/commands/entries/card-invoice.ts"],

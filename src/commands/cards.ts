@@ -6,7 +6,7 @@ import { action, exitWithError } from '../utils/action.js';
 import { fetchAccounts, fetchAccountById, normalizeCards, isCreditCard, fetchCardInvoice, normalizeCardEntries, fetchCardFuture, normalizeCardInstallments } from '../lib/api.js';
 import { resolveAccountOrExit } from './account-id.js';
 import { formatCurrency } from '../utils/currency.js';
-import { truncate } from '../utils/text.js';
+import { cell, truncate } from '../utils/text.js';
 import { cardDueAnchor } from './entries/card-invoice.js';
 import { dueDateInMonth, parseInvoiceMonth } from '../lib/dates.js';
 import { normalizeInvoiceSummary } from '../lib/invoice-summary.js';
@@ -42,10 +42,10 @@ async function listAction(options: { json?: boolean; active?: boolean }): Promis
     table.push([
       card.id.toString(),
       card.nome,
-      card.banco?.nome ?? chalk.gray('-'),
-      card.limite ? formatCurrency(card.limite) : chalk.gray('-'),
+      cell(card.banco?.nome),
+      cell(card.limite || null, formatCurrency),
       // eslint-disable-next-line local/no-due-anchor-fallback -- display only (Next Due column), not an invoice anchor (see cardDueAnchor)
-      card.proximoVencimento ?? chalk.gray('-'),
+      cell(card.proximoVencimento),
       formatStatus(card.status, card.encerrada),
     ]);
   }
@@ -153,7 +153,7 @@ async function invoiceAction(options: { account: string; month?: string; json?: 
       entry.purchaseDate,
       truncate(entry.description, INVOICE_COL_WIDTHS[1]),
       formatCurrency(entry.value),
-      entry.categoryId?.toString() ?? chalk.gray('-'),
+      cell(entry.categoryId),
     ]);
   }
 

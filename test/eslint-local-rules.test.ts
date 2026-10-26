@@ -13,6 +13,7 @@ const OTHER_SRC = 'src/lib/normalize.ts';
 const CARD_INVOICE = 'src/commands/entries/card-invoice.ts';
 const CURRENCY = 'src/utils/currency.ts';
 const PARSE = 'src/utils/parse.ts';
+const TEXT = 'src/utils/text.ts';
 
 async function localRules(code: string, filePath: string): Promise<string[]> {
   const [result] = await eslint.lintText(`${code}\n`, { filePath });
@@ -50,6 +51,21 @@ describe('local/no-raw-cents', () => {
     expect(await localRules(RAW_CENTS, CURRENCY)).toEqual([]);
     expect(await localRules('declare const v: number;\nexport const c = Math.round(v / 3);', OTHER_SRC)).toEqual([]);
     expect(await localRules('declare const v: number;\nexport const c = Math.floor(v * 100);', OTHER_SRC)).toEqual([]);
+  });
+});
+
+describe('local/no-raw-dash', () => {
+  const dash = "import chalk from 'chalk';\nexport const s = chalk.gray('-');";
+
+  test('fires in src outside text.ts', async () => {
+    expect(await localRules(dash, OTHER_SRC)).toEqual(['local/no-raw-dash']);
+    expect(await localRules(dash, COMMAND)).toEqual(['local/no-raw-dash']);
+  });
+
+  test('does not fire in src/utils/text.ts or on other gray text', async () => {
+    expect(await localRules(dash, TEXT)).toEqual([]);
+    expect(await localRules("import chalk from 'chalk';\nexport const s = chalk.gray('Inactive');", OTHER_SRC)).toEqual([]);
+    expect(await localRules("import chalk from 'chalk';\nexport const s = chalk.red('-');", OTHER_SRC)).toEqual([]);
   });
 });
 

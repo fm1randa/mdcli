@@ -6,6 +6,7 @@ import { formatStatus, formatType } from './format.js';
 import { formatCurrency } from '../../utils/currency.js';
 import { loadNames, nameOf, tagNames } from './names.js';
 import { parseEntryId } from './entry-id.js';
+import { cell } from '../../utils/text.js';
 
 interface ShowOptions {
   json?: boolean;
@@ -32,7 +33,6 @@ export async function showAction(id: string, options: ShowOptions): Promise<void
   }
 
   const names = await loadNames({ tags: entry.tagIds.length > 0 });
-  const none = chalk.gray('-');
   const rows: [string, string | number][] = [
     ['ID', entry.id],
     ['Description', entry.description],
@@ -40,16 +40,16 @@ export async function showAction(id: string, options: ShowOptions): Promise<void
     ['Type', formatType(entry.type)],
     ['Status', formatStatus(entry.status)],
     ['Planned date', entry.date],
-    ['Effective date', entry.effectiveDate ?? none],
-    ['Competence date', entry.competenceDate ?? none],
+    ['Effective date', cell(entry.effectiveDate)],
+    ['Competence date', cell(entry.competenceDate)],
     ['Account', nameOf(names.accounts, entry.accountId)],
-    ['Transfer account', entry.transferAccountId === null ? none : nameOf(names.accounts, entry.transferAccountId)],
-    ['Category', entry.categoryId === null ? none : nameOf(names.categories, entry.categoryId)],
-    ['Tags', entry.tagIds.length > 0 ? tagNames(names, entry.tagIds).join(', ') : none],
+    ['Transfer account', cell(entry.transferAccountId, (id) => String(nameOf(names.accounts, id)))],
+    ['Category', cell(entry.categoryId, (id) => String(nameOf(names.categories, id)))],
+    ['Tags', cell(entry.tagIds.length > 0 ? tagNames(names, entry.tagIds).join(', ') : null)],
     ['Repetition', REPETITION_LABELS[entry.repetition] + (entry.installment && entry.repetition === 'installment' ? ` (${entry.installment})` : '')],
-    ['Series', entry.seriesId ?? none],
-    ['Document number', entry.documentNumber ?? none],
-    ['Notes', entry.notes || none],
+    ['Series', cell(entry.seriesId)],
+    ['Document number', cell(entry.documentNumber)],
+    ['Notes', cell(entry.notes || null)],
   ];
   for (const [label, value] of rows) {
     console.log(`  ${chalk.gray(`${label}:`)} ${value}`);

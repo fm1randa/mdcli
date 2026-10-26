@@ -10,7 +10,7 @@ import { type FilterOptions, resolveEntryFilters, resolveExcludedCategories } fr
 import { formatStatus, formatType } from './format.js';
 import { formatCurrency, formatMagnitude } from '../../utils/currency.js';
 import { loadNames, nameOf, tagNames } from './names.js';
-import { truncate } from '../../utils/text.js';
+import { cell, truncate } from '../../utils/text.js';
 
 const LIST_COL_WIDTHS = [12, 12, 36, 15, 12, 12, 13];
 
@@ -87,7 +87,7 @@ export async function listAction(options: ListOptions): Promise<void> {
       formatCurrency(entry.value),
       formatType(entry.type),
       formatStatus(entry.status),
-      entry.installment ?? chalk.gray('-'),
+      cell(entry.installment),
     ]);
   }
 

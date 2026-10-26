@@ -1,5 +1,4 @@
 import Table from 'cli-table3';
-import chalk from 'chalk';
 import { fetchAccountById, fetchBankTransactions, fetchCardInvoice, fetchImportCandidates, fetchImportDuplicates, isCreditCard } from '../../../lib/api.js';
 import type { Account } from '../../../types/index.js';
 import { exitWithError } from '../../../utils/action.js';
@@ -250,17 +249,19 @@ function printStatement(document: ImportDocument): void {
     table.push([
       cell(bankTransaction.prefix),
       cell(bankTransaction.date),
-      bankTransaction.value === null ? chalk.gray('-') : formatCurrency(bankTransaction.value),
+      cell(bankTransaction.value, formatCurrency),
       cell(bankTransaction.description),
       cell(categoryLabel(bankTransaction.suggestedCategory)),
       cell(bankTransaction.suggestedDescription),
-      bankTransaction.suggestedTagIds.length === 0 ? chalk.gray('-') : bankTransaction.suggestedTagIds.join(', '),
+      cell(bankTransaction.suggestedTagIds.length === 0 ? null : bankTransaction.suggestedTagIds.join(', ')),
       cell(bankTransaction.duplicateOf),
-      bankTransaction.candidates.length === 0
-        ? chalk.gray('-')
-        : bankTransaction.candidates
-          .map((item) => (item.id === bankTransaction.conciliateWith ? `${item.id} (linked)` : String(item.id)))
-          .join(', '),
+      cell(
+        bankTransaction.candidates.length === 0
+          ? null
+          : bankTransaction.candidates
+            .map((item) => (item.id === bankTransaction.conciliateWith ? `${item.id} (linked)` : String(item.id)))
+            .join(', '),
+      ),
       bankTransaction.defaultAction,
     ]);
   }

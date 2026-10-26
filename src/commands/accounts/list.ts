@@ -7,9 +7,10 @@ import { calendarDay, getCurrentMonthRange, isCalendarDate } from '../../lib/dat
 import type { AccountWithBalance } from '../../types/index.js';
 import { formatStatus } from './format.js';
 import { formatCurrency } from '../../utils/currency.js';
+import { cell } from '../../utils/text.js';
 
 function formatBalance(value: number | null): string {
-  return value === null ? chalk.gray('-') : formatCurrency(value);
+  return cell(value, formatCurrency);
 }
 
 export async function listAction(options: { json?: boolean; active?: boolean; at?: string }): Promise<void> {
@@ -55,12 +56,10 @@ export async function listAction(options: { json?: boolean; active?: boolean; at
       acc.id.toString(),
       acc.name,
       acc.type,
-      acc.bank ?? chalk.gray('-'),
+      cell(acc.bank),
       formatBalance(acc.balance),
       formatBalance(acc.projectedBalance),
-      acc.bankBalance === null
-        ? chalk.gray('-')
-        : `${formatCurrency(acc.bankBalance)}${acc.bankBalanceDate ? chalk.gray(` (${acc.bankBalanceDate})`) : ''}`,
+      cell(acc.bankBalance, (balance) => `${formatCurrency(balance)}${acc.bankBalanceDate ? chalk.gray(` (${acc.bankBalanceDate})`) : ''}`),
       formatStatus(acc.active, acc.closed),
     ]);
   }
