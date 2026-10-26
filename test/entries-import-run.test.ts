@@ -54,7 +54,7 @@ describe('entries import run --dry-run', () => {
       accountId: 1001,
       connectionAccount: 9001,
       statement: { start: '2026-10-01', end: '2026-10-10', balance: 250.5 },
-      overwrite: { value: false, description: false, source: 'default' },
+      overwrite: { value: false, description: false, source: 'preferences' }, // test/helpers.ts serves the logged-in session, with no conciliacao saved.
       imported: [
         {
           integrationId: TX1,

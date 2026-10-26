@@ -1,6 +1,7 @@
 import type { Account } from '../types/index.js';
+import type { WebConfig } from './web-session.js';
 
-/** The user as GET /frontend/sessao reports it (the web's window.mdconfig.usuario). */
+/** The user as window.mdconfig.usuario has it. */
 interface SessionUser {
   conta?: { config?: { pendentesPresente?: boolean; metasRD?: boolean; moeda?: number } };
   config?: { mdweb?: { moeda?: { m?: number } } };
@@ -36,20 +37,14 @@ function resolveEntriesPreferences(user: SessionUser, accounts: Account[]): Entr
 }
 
 /**
- * The logged-in user's preferences, from the endpoint the web boots from:
- * session.js loads GET /frontend/sessao?uid= and keeps payload.ngInit as
- * window.mdconfig, whose usuario becomes usuariosService.usuario (mdb.js
- * 52085). `get` is the authenticated API GET; `accounts`, every account.
+ * The logged-in user's preferences: window.mdconfig.usuario becomes
+ * usuariosService.usuario (mdb.js 52085); without the config (src/lib/web-session.ts)
+ * the user has none and every preference is the web's default.
+ * `accounts`, every account.
  */
-export async function loadEntriesPreferences(
-  get: (endpoint: string) => Promise<unknown>,
-  uid: string,
-  accounts: Promise<Account[]>
-): Promise<EntriesPreferences> {
-  const query = new URLSearchParams({ uid });
-  const [session, list] = await Promise.all([get(`/v1/frontend/sessao?${query.toString()}`), accounts]);
-  const user = (session as { payload?: { ngInit?: { usuario?: SessionUser } } }).payload?.ngInit?.usuario ?? {};
-  return resolveEntriesPreferences(user, list);
+export async function loadEntriesPreferences(config: Promise<WebConfig | null>, accounts: Promise<Account[]>): Promise<EntriesPreferences> {
+  const [mdconfig, list] = await Promise.all([config, accounts]);
+  return resolveEntriesPreferences((mdconfig?.usuario ?? {}) as SessionUser, list);
 }
 
 /** Like the web's $http params, an undefined preference is left out. */

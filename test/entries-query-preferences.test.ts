@@ -7,7 +7,7 @@ import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, CHECKING_ACCOUNT, EMPTY_ENTRIES
 // preferences: pendentesPresente and apenasMetasDefinidas from c.utilizacao
 // (usuario.conta.config, mdb.js 49687-49689) and moeda from moedaService
 // (mdb.js 17400-17402). The web loads the user from GET /frontend/sessao
-// (ngInit, session.js).
+// (ngInit, session.js); without it the web's defaults apply.
 
 let api: MockApi;
 let home: TestHome;
@@ -111,6 +111,28 @@ describe('GET /v2/lancamentos sends the user preferences, as the web does', () =
 
   test('preferences the account does not have are not sent, as the web leaves them undefined', async () => {
     api.on('GET /v1/frontend/sessao', session({ config: { moeda: 1 } }));
+
+    const result = await runCli(['accounts', 'list', '--json', '--at', '2026-09-30'], { home, api });
+
+    expect(result.exitCode).toBe(0);
+    expect(sentPreferences('sum')).toEqual({ pendentesPresente: null, apenasMetasDefinidas: null, moeda: '1' });
+  });
+
+  test('a session state that cannot be read: the list still runs, with the web defaults', async () => {
+    api.on('GET /v1/frontend/sessao', { message: 'no' }, 500);
+
+    const result = await runCli(['entries', 'list', '-a', '1001', '-f', '2026-01-01', '-t', '2026-01-31', '--json'], { home, api });
+
+    expect(result.exitCode).toBe(0);
+    expect(sentPreferences('list')).toEqual({ pendentesPresente: null, apenasMetasDefinidas: null, moeda: '1' });
+  });
+
+  test('a session state that is not the logged-in app is not read as preferences', async () => {
+    // Every preference set: only the branch check can turn them into the defaults.
+    api.on('GET /v1/frontend/sessao', {
+      ...session({ config: { pendentesPresente: true, metasRD: true, moeda: 1 }, mdwebMoeda: 2 }),
+      branch: 'signin',
+    });
 
     const result = await runCli(['accounts', 'list', '--json', '--at', '2026-09-30'], { home, api });
 

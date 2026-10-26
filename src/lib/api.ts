@@ -5,6 +5,7 @@ import { captureAuthHeadless } from './browser-auth.js';
 import { extractSessionFromBrowser } from './browser-session/index.js';
 import { fetchWebBalances } from './account-balances.js';
 import { loadEntriesPreferences, setEntriesPreferences, type EntriesPreferences } from './entries-preferences.js';
+import { loadWebConfig, type WebConfig } from './web-session.js';
 
 
 export { normalizeCategories, normalizeAccounts, normalizeCards, normalizeTags, normalizeEntries, normalizeCardEntries, normalizeCardInstallments } from './normalize.js';
@@ -211,9 +212,12 @@ export async function fetchImportCandidates(accountId: number, start: string, en
   );
 }
 
-/** The web's session state (`payload.ngInit` is window.mdconfig). It carries credentials: read one field, never print it. */
-export async function fetchSessionState(): Promise<unknown> {
-  return request<unknown>('GET', '/v1/frontend/sessao');
+// Read once per run: the entries preferences and the import overwrite preference share it.
+let webConfig: Promise<WebConfig | null> | null = null;
+
+/** The web's window.mdconfig, or null when the session state cannot give it (src/lib/web-session.ts). */
+export function fetchWebConfig(): Promise<WebConfig | null> {
+  return (webConfig ??= loadWebConfig((endpoint) => request('GET', endpoint), getAuth()?.uid));
 }
 
 /** The web app's AI category suggestion. The answer is aligned with `tokens`: a Category id or null. */
@@ -314,7 +318,7 @@ export async function fetchAllEntries(params: Omit<EntriesParams, 'page' | 'page
 }
 
 /** The user's preferences every list and sum carries (src/lib/entries-preferences.ts). */
-const loadPreferences = (accounts: Promise<Account[]>) => loadEntriesPreferences((endpoint) => request('GET', endpoint), getAuth()?.uid ?? '', accounts);
+const loadPreferences = (accounts: Promise<Account[]>) => loadEntriesPreferences(fetchWebConfig(), accounts);
 // Loaded once per run: fetchAllEntries asks for many pages.
 let entriesPreferences: Promise<EntriesPreferences> | null = null;
 

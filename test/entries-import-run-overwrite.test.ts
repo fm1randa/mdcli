@@ -149,6 +149,19 @@ describe('entries import run overwrite preference', () => {
     expect(conciliationBody()).toMatchObject({ sobrescrever: false, sobrescreverDescr: false });
   });
 
+  test('the preference comes from one GET of the session state, with the uid like the web', async () => {
+    session({ o: 'd', s: true, sd: false });
+    linkedEntry();
+
+    const result = await run(['--dry-run', '--json']);
+
+    expect(result.exitCode).toBe(0);
+    expect(JSON.parse(result.stdout).overwrite).toEqual({ value: true, description: false, source: 'preferences' });
+    const sessao = api.requests.filter((request) => request.path === '/v1/frontend/sessao');
+    expect(sessao).toHaveLength(1);
+    expect(sessao[0].query.get('uid')).toBe('42');
+  });
+
   test('when the session state cannot be read, the web default applies and the summary says why', async () => {
     api.on('GET /v1/frontend/sessao', { message: 'no' }, 500);
     linkedEntry();

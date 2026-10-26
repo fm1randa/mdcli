@@ -1,4 +1,4 @@
-import { fetchSessionState } from '../../../lib/api.js';
+import { fetchWebConfig } from '../../../lib/api.js';
 import { asRecord } from '../../../lib/payload.js';
 import { overwrittenFields, type ExistingEntry } from './candidates.js';
 import type { ImportDocument } from './document.js';
@@ -10,21 +10,15 @@ export type Overwrite = RunDocument['overwrite'];
 const DEFAULT_OVERWRITE: Overwrite = { value: false, description: false, source: 'default' };
 
 /**
- * The user's `conciliacao` preference, read like the web: the session state's `payload.ngInit` is
- * window.mdconfig (session.js), configuracoesService takes `usuario.config.mdweb` from it
- * (mdb.js 49687-49689), and getConfig fills what was never saved with the defaults (mdb.js 49696-49701,
- * 20900-20903). A failed request or a state that is not the logged-in app gives the web default.
+ * The user's `conciliacao` preference, read like the web: configuracoesService takes
+ * `usuario.config.mdweb` from window.mdconfig (mdb.js 49687-49689), and getConfig fills what was
+ * never saved with the defaults (mdb.js 49696-49701, 20900-20903). Without the config
+ * (src/lib/web-session.ts: a failed request or a state that is not the logged-in app) it is the web default.
  */
 export async function readOverwrite(): Promise<Overwrite> {
-  let state: Record<string, unknown> | null;
-  try {
-    state = asRecord(await fetchSessionState());
-  } catch {
-    return DEFAULT_OVERWRITE;
-  }
-  const ngInit = asRecord(asRecord(state?.payload)?.ngInit);
-  if (state?.branch !== 'app' || ngInit === null) return DEFAULT_OVERWRITE;
-  const mdweb = asRecord(asRecord(asRecord(ngInit.usuario)?.config)?.mdweb);
+  const mdconfig = await fetchWebConfig();
+  if (mdconfig === null) return DEFAULT_OVERWRITE;
+  const mdweb = asRecord(asRecord(asRecord(mdconfig.usuario)?.config)?.mdweb);
   const saved = asRecord(mdweb?.conciliacao) ?? {};
   return { value: saved.s === true, description: saved.sd === true, source: 'preferences' };
 }
