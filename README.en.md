@@ -1,4 +1,4 @@
-<!-- traduzido de README.md @ f79e40e (base: f79e40e215aa719dacc150ab163a80c126f9c22d; readme-blob: f5d48b2842f359afdcd755c3196f648db59fadcd); ao atualizar o README.md, sincronize este arquivo e atualize o SHA e o readme-blob (git hash-object README.md) -->
+<!-- traduzido de README.md @ f79e40e (base: f79e40e215aa719dacc150ab163a80c126f9c22d; readme-blob: 1d3c971ef57c924d460259d34571d43c87d762b5); ao atualizar o README.md, sincronize este arquivo e atualize o SHA e o readme-blob (git hash-object README.md) -->
 
 [Português (Brasil)](README.md) · **English**
 
@@ -178,8 +178,8 @@ mdcli auth login --item "My Meu Dinheiro"
 # List the accounts with the web's balances: confirmed and projected on the last
 # day of the current month, like the "Saldos de caixa" and "Saldos das contas"
 # panels. The "Bank statement" column is the balance of the bank's last
-# statement, which can be out of date. Cards and inactive (not closed) accounts
-# have no balance.
+# statement, which can be out of date. Cards, inactive (not closed) accounts and
+# accounts in a currency other than the one picked in the web have no balance.
 mdcli accounts list --active
 
 # Balances at the end of another day

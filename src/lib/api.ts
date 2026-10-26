@@ -3,6 +3,7 @@ import { getAuth, getAuthMethod, setAuth, getOpItem, invalidateNameCache } from 
 import { popStaleNameCacheUse } from './cache-invalidation.js';
 import { captureAuthHeadless } from './browser-auth.js';
 import { extractSessionFromBrowser } from './browser-session/index.js';
+import { fetchWebBalances } from './account-balances.js';
 import { loadEntriesPreferences, setEntriesPreferences, type EntriesPreferences } from './entries-preferences.js';
 
 
@@ -362,19 +363,9 @@ async function fetchEntries(params: EntriesParams): Promise<EntriesResponse> {
   return request<EntriesResponse>('GET', `/v2/lancamentos?${queryParams.toString()}`);
 }
 
-/**
- * The web app's account balances (the Saldos de caixa / Saldos das contas
- * panels and the Lançamentos screen, mdb.js): the server sums every Entry of
- * each account up to `end`, with no start date, grouped by account.
- * `accounts`: every account of the user, already fetched by the caller.
- */
-export async function fetchAccountBalances(accountIds: number[], end: string, accounts: Account[]): Promise<AccountBalanceSum[]> {
-  const query = new URLSearchParams({ type: 'sum', finalidade: '1', fim: end });
-  setEntriesPreferences(query, await loadPreferences(Promise.resolve(accounts)));
-  query.set('contas', JSON.stringify({ ids: accountIds, faturas: true, residuo: false }));
-  query.set('sum', JSON.stringify({ groupBy: 'conta' }));
-  return (await request<{ sum: AccountBalanceSum[] }>('GET', `/v2/lancamentos?${query.toString()}`)).sum;
-}
+/** The web's account balances (src/lib/account-balances.ts); `accounts`: every account of the user. */
+export const fetchAccountBalances = (accounts: Account[], end: string): Promise<AccountBalanceSum[]> =>
+  fetchWebBalances((endpoint) => request('GET', endpoint), accounts, end, () => (entriesPreferences ??= loadPreferences(Promise.resolve(accounts))));
 
 export function isCreditCard(account: Account): boolean {
   return account.tipo === 'CARTAOCREDITO';

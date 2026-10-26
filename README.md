@@ -174,7 +174,8 @@ mdcli auth login --item "My Meu Dinheiro"
 # Lista as contas com os saldos da web: confirmado e previsto no último dia do
 # mês atual, como os painéis "Saldos de caixa" e "Saldos das contas". A coluna
 # "Bank statement" é o saldo do último extrato do banco, que pode estar
-# desatualizado. Cartões e contas inativas (não encerradas) ficam sem saldo.
+# desatualizado. Cartões, contas inativas (não encerradas) e contas em outra
+# moeda que não a selecionada na web ficam sem saldo.
 mdcli accounts list --active
 
 # Saldos ao fim de outro dia

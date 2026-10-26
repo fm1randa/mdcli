@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createHome, MANUAL_AUTH, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
-import { ACCOUNTS_RESPONSE, CHECKING_ACCOUNT, CREDIT_CARD_ACCOUNT } from './fixtures.js';
+import { ACCOUNTS_RESPONSE, CHECKING_ACCOUNT, CREDIT_CARD_ACCOUNT, SESSION_RESPONSE } from './fixtures.js';
 import { getCurrentMonthRange } from '../src/lib/dates.js';
 
 // Issue #67: accounts list showed saldoUltimoExtrato (Reserva de Emergência:
@@ -109,6 +109,42 @@ describe('accounts list balances', () => {
     const card = row(result.stdout, 'Cartão Azul');
     expect(card.slice(4, 6)).toEqual(['-', '-']);
     expect(row(result.stdout, 'Nubank').slice(4, 7)).toEqual(['R$ 622,52', 'R$ 577,52', 'R$ 250,50 (2026-01-10)']);
+  });
+
+  // Review of #128 round 2: the web asks a balance only of the accounts in the
+  // currency moedaService picked (carregarContasPR, mdb.js 4392-4399).
+  test('only the accounts in the currency picked in the web get a balance', async () => {
+    const dollar = { ...CHECKING_ACCOUNT, id: 1007, nome: 'Wise USD', moeda: 2 };
+    api.on('GET /v1/cadastros/contas', { ...ACCOUNTS_RESPONSE, items: [...ACCOUNTS_RESPONSE.items, dollar] });
+    const usuario = SESSION_RESPONSE.payload.ngInit.usuario;
+    api.on('GET /v1/frontend/sessao', {
+      ...SESSION_RESPONSE,
+      payload: { ngInit: { ...SESSION_RESPONSE.payload.ngInit, usuario: { ...usuario, config: { mdweb: { moeda: { m: 2 } } } } } },
+    });
+    api.on('GET /v2/lancamentos', { sum: [{ conta: 1007, projetado: 80, confirmado: 100 }] });
+
+    const result = await runCli(['accounts', 'list', '--json', '--at', '2026-10-16'], { home, api });
+
+    expect(result.exitCode).toBe(0);
+    const [sum] = sumRequests();
+    expect(sum.query.get('moeda')).toBe('2');
+    expect(JSON.parse(sum.query.get('contas') ?? '').ids).toEqual([1007]);
+    expect(api.requests.filter((r) => r.path === '/v1/frontend/sessao')).toHaveLength(1);
+    const accounts = JSON.parse(result.stdout) as Array<Record<string, unknown>>;
+    expect(accounts.find((a) => a.id === 1001)).toMatchObject({ balance: null, projectedBalance: null, bankBalance: 250.5 });
+    expect(accounts.find((a) => a.id === 1007)).toMatchObject({ balance: 100, projectedBalance: 80 });
+  });
+
+  test('when every account is in the picked currency, all of them are asked for', async () => {
+    const savings = { ...CHECKING_ACCOUNT, id: 1008, nome: 'Poupança' };
+    api.on('GET /v1/cadastros/contas', { ...ACCOUNTS_RESPONSE, items: [...ACCOUNTS_RESPONSE.items, savings] });
+
+    const result = await runCli(['accounts', 'list', '--json'], { home, api });
+
+    expect(result.exitCode).toBe(0);
+    const [sum] = sumRequests();
+    expect(sum.query.get('moeda')).toBe('1');
+    expect(JSON.parse(sum.query.get('contas') ?? '').ids).toEqual([1001, 1008]);
   });
 
   test('refuses an invalid --at before calling the API', async () => {

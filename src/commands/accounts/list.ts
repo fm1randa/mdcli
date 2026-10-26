@@ -4,18 +4,9 @@ import { logger } from '../../utils/logger.js';
 import { exitWithError } from '../../utils/action.js';
 import { fetchAccountBalances, fetchAccounts, normalizeAccounts } from '../../lib/api.js';
 import { calendarDay, getCurrentMonthRange, isCalendarDate } from '../../lib/dates.js';
-import type { Account, AccountWithBalance } from '../../types/index.js';
+import type { AccountWithBalance } from '../../types/index.js';
 import { formatStatus } from './format.js';
 import { formatCurrency } from '../../utils/currency.js';
-
-/**
- * The accounts the web app's Saldos das contas panel asks a balance for
- * (contasService.carregarContasPR, mdb.js): active or closed, neither a card
- * nor an investment portfolio. The server returns nothing for the others.
- */
-function hasWebBalance(account: Account): boolean {
-  return (account.status || account.encerrada) && account.tipo !== 'CARTAOCREDITO' && account.tipo !== 'CARTEIRA_INVEST';
-}
 
 function formatBalance(value: number | null): string {
   return value === null ? chalk.gray('-') : formatCurrency(value);
@@ -29,8 +20,7 @@ export async function listAction(options: { json?: boolean; active?: boolean; at
   const balanceDate = options.at ?? getCurrentMonthRange().endDate;
 
   const response = await fetchAccounts();
-  const ids = response.items.filter(hasWebBalance).map((a) => a.id);
-  const sums = ids.length > 0 ? await fetchAccountBalances(ids, balanceDate, response.items) : [];
+  const sums = await fetchAccountBalances(response.items, balanceDate);
   const byAccount = new Map(sums.map((s) => [s.conta, s]));
 
   let accounts: AccountWithBalance[] = normalizeAccounts(response).map((acc, i) => {
