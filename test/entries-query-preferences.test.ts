@@ -122,13 +122,16 @@ describe('GET /v2/lancamentos sends the user preferences, as the web does', () =
     expect(sentPreferences('sum').moeda).toBe('2');
   });
 
+  // The web sorts the active accounts' currencies default first, then
+  // ascending (mdb.js 17331-17344): with a default that is not the smallest
+  // currency, falling back to the smallest one would send 1.
   test('a picked currency no active account uses falls back to the default currency', async () => {
-    api.on('GET /v1/frontend/sessao', session({ config: { pendentesPresente: true, metasRD: false, moeda: 1 }, mdwebMoeda: 5 }));
+    api.on('GET /v1/frontend/sessao', session({ config: { pendentesPresente: true, metasRD: false, moeda: 2 }, mdwebMoeda: 5 }));
 
     const result = await runCli(['accounts', 'list', '--json', '--at', '2026-09-30'], { home, api });
 
     expect(result.exitCode).toBe(0);
-    expect(sentPreferences('sum').moeda).toBe('1');
+    expect(sentPreferences('sum').moeda).toBe('2');
   });
 
   test('preferences the account does not have are not sent, as the web leaves them undefined', async () => {
