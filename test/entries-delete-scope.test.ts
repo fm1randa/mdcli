@@ -22,15 +22,24 @@ const SERIES_OCCURRENCE = {
 
 const SINGLE_ENTRY = { ...SERIES_OCCURRENCE, id: 70, descricao: 'Café', parcela: undefined, agendaId: undefined };
 
-// The API returns a series' first occurrence with `parcela` but no `agendaId`:
-// the server has already detached it from the rule (issue #70).
-const FIRST_OCCURRENCE = { ...SERIES_OCCURRENCE, id: 79, agendaId: undefined };
+// The API returns an occurrence the server no longer links to the rule (the
+// first one, or one already confirmed or reconciled) with `parcela` but no
+// `agendaId` (issue #70). This one is a past occurrence, already reconciled.
+const DETACHED_OCCURRENCE = {
+  ...SERIES_OCCURRENCE,
+  id: 79,
+  data: '2026-09-16',
+  dataPrevista: '2026-09-16',
+  status: 'conciliado',
+  conciliado: true,
+  agendaId: undefined,
+};
 
 beforeEach(() => {
   api = startMockApi();
   api.on('GET /v1/lancamentos/80', SERIES_OCCURRENCE);
   api.on('GET /v1/lancamentos/70', SINGLE_ENTRY);
-  api.on('GET /v1/lancamentos/79', FIRST_OCCURRENCE);
+  api.on('GET /v1/lancamentos/79', DETACHED_OCCURRENCE);
   api.on('DELETE /v1/lancamentos/80', null);
   api.on('DELETE /v1/lancamentos/70', null);
   home = createHome(MANUAL_AUTH);
@@ -95,7 +104,7 @@ describe('entries delete --scope', () => {
     expect(deletes()).toHaveLength(1);
   });
 
-  test("--scope following on a series' first occurrence explains why and deletes nothing", async () => {
+  test('--scope following on an occurrence detached from its series explains why and deletes nothing', async () => {
     const result = await runCli(
       ['entries', 'delete', '79', '--scope', 'following', '--dangerously-skip-confirmation'],
       { home, api }
@@ -103,7 +112,7 @@ describe('entries delete --scope', () => {
 
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toContain(
-      'Entry 79 is the first occurrence of a recurring series (fixa), and the server has already detached it from the series, so it is deleted on its own. To delete the series, use --scope following on the next occurrence.'
+      'Entry 79 belongs to a recurring series (fixa), but the server no longer links it to the series (like the first occurrence, or one already confirmed or reconciled), so it is deleted on its own. To delete the series, use --scope following on a scheduled occurrence.'
     );
     expect(result.stderr).not.toContain('is not part of a recurring series');
     expect(deletes()).toHaveLength(0);

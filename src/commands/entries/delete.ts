@@ -19,7 +19,7 @@ export async function deleteAction(id: string, options: DeleteOptions): Promise<
   const entry = await fetchEntry(entryId);
   const todos = resolveSeriesScope(entryId, entry, options.scope, {
     thisOnlyWarning: `Entry ${entryId} is an occurrence of a recurring series (${entry.parcela}): only this occurrence will be deleted. Use --scope following to delete this and the following occurrences, or --scope this to silence this warning.`,
-    detachedFirstOccurrence: `Entry ${entryId} is the first occurrence of a recurring series (${entry.parcela}), and the server has already detached it from the series, so it is deleted on its own. To delete the series, use --scope following on the next occurrence.`,
+    detachedOccurrence: `Entry ${entryId} belongs to a recurring series (${entry.parcela}), but the server no longer links it to the series (like the first occurrence, or one already confirmed or reconciled), so it is deleted on its own. To delete the series, use --scope following on a scheduled occurrence.`,
   });
 
   if (!options.dangerouslySkipConfirmation) {
