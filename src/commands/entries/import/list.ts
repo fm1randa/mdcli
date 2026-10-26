@@ -9,7 +9,7 @@ import { logger } from '../../../utils/logger.js';
 import { cell } from '../../../utils/text.js';
 import { categoryCatalog, type CategoryCatalog } from '../category.js';
 import { fillAiCategories } from './ai.js';
-import { automaticLinks, candidatesFor, readExisting, type ImportCandidate } from './candidates.js';
+import { automaticLinks, candidatesFor, readExisting, type ExistingEntry, type ImportCandidate } from './candidates.js';
 import { toImportDocument, type ImportDocument, type BankTransactionRow, type SuggestedCategory } from './document.js';
 import { aiRequest, duplicateId, loadedDateBounds } from './suggest.js';
 import { resolveAccountOrExit } from '../../account-id.js';
@@ -46,8 +46,8 @@ export interface LoadedImport {
   payload: unknown;
   /** Row for row, every Entry a plan may link: the candidates plus the Reconciled ones they hide. */
   linkable: ImportCandidate[][];
-  /** The raw Entries (or invoice items) the candidates were read from. */
-  candidateRows: unknown[];
+  /** Every Entry the run may link, by id, with the fields `sobrescrever` replaces. */
+  existing: ReadonlyMap<number, ExistingEntry>;
 }
 
 /**
@@ -97,8 +97,8 @@ export async function loadImport(options: ImportLoadOptions): Promise<LoadedImpo
     exitWithError(`Search start ${from} is after search end ${to}.`);
   }
   await fillDuplicates(document, accountId);
-  const { linkable, rows: candidateRows } = await fillCandidates(document, account, payload);
-  return { document, account, payload, linkable, candidateRows };
+  const { linkable, existing } = await fillCandidates(document, account, payload);
+  return { document, account, payload, linkable, existing };
 }
 
 /** `LoadedImport.linkable` looked up by row, for `planSelection`. */
@@ -152,9 +152,9 @@ async function fillCandidates(
   document: ImportDocument,
   account: Account | undefined,
   payload: unknown,
-): Promise<{ linkable: ImportCandidate[][]; rows: unknown[] }> {
+): Promise<Pick<LoadedImport, 'linkable' | 'existing'>> {
   const linkable = document.transactions.map((): ImportCandidate[] => []);
-  if (document.transactions.length === 0) return { linkable, rows: [] };
+  if (document.transactions.length === 0) return { linkable, existing: new Map() };
   const card = account !== undefined && isCreditCard(account);
   const rows = card ? await invoiceRows(account) : await windowRows(document);
   const { from, to } = document.search;
@@ -174,7 +174,7 @@ async function fillCandidates(
     bankTransaction.conciliateWith = id;
     if (id !== null) bankTransaction.defaultAction = 'conciliate';
   });
-  return { linkable, rows };
+  return { linkable, existing: new Map(existing.map((item) => [item.candidate.id, item])) };
 }
 
 /** A checking account searches the statement period ±2 days; no period means nothing to search. */

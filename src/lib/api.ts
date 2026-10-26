@@ -217,6 +217,11 @@ export async function fetchImportCandidates(accountId: number, start: string, en
   );
 }
 
+/** The web's session state (`payload.ngInit` is window.mdconfig). It carries credentials: read one field, never print it. */
+export async function fetchSessionState(): Promise<unknown> {
+  return request<unknown>('GET', '/v1/frontend/sessao');
+}
+
 /** The web app's AI category suggestion. The answer is aligned with `tokens`: a Category id or null. */
 export async function suggestCategoriesWithAi(tokens: unknown[]): Promise<unknown> {
   return request<unknown>('POST', '/v1/smartmatch/ai', { t: tokens });
@@ -315,10 +320,7 @@ export async function fetchAllEntries(params: Omit<EntriesParams, 'page' | 'page
 }
 
 async function fetchEntries(params: EntriesParams): Promise<EntriesResponse> {
-  const contas = JSON.stringify({
-    faturas: params.includeFaturas ?? true,
-    ids: params.accountIds,
-  });
+  const contas = JSON.stringify({ faturas: params.includeFaturas ?? true, ids: params.accountIds });
 
   const list = JSON.stringify({
     sumPrevPages: true,

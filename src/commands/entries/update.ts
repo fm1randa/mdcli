@@ -123,6 +123,7 @@ export async function updateAction(id: string, options: UpdateOptions): Promise<
   }
   const todos = resolveSeriesScope(entryId, existing, options.scope, {
     thisOnlyWarning: `Entry ${entryId} is an occurrence of a recurring series (${existing.parcela}): only this occurrence will be changed, and it will leave the series. Use --scope following to change this and the following occurrences, or --scope this to silence this warning.`,
+    detachedOccurrence: `Entry ${entryId} belongs to a recurring series (${existing.parcela}), but the server no longer links it to the series (like the first occurrence, or one already confirmed or reconciled), so it changes on its own. To change the series, use --scope following on a scheduled occurrence.`,
   });
   const choice = buildEntryStatus(
     { pending: unconfirm, confirmed: options.confirmed, reconciled: options.reconciled },
