@@ -34,7 +34,8 @@ export interface RunDocument {
   accountId: number;
   connectionAccount: number;
   statement: ImportDocument['statement'];
-  overwrite: { value: boolean; description: boolean; source: 'default' };
+  /** The web's `conciliacao` preference: `value` is `s` (sobrescrever), `description` is `sd`. */
+  overwrite: { value: boolean; description: boolean; source: 'preferences' | 'default' };
   imported: ImportedItem[];
   conciliated: ConciliatedItem[];
   rejected: RunReference[];
@@ -109,7 +110,7 @@ export function planRun(document: ImportDocument, selection: RunSelection): RunD
   return run;
 }
 
-/** A run with nothing in it yet. Overwrite preferences are not read: the web default applies. */
+/** A run with nothing in it yet, with the web default overwrite until `applyOverwrite` reads the preference. */
 export function emptyRun(document: ImportDocument, dryRun: boolean): RunDocument {
   return {
     dryRun,
@@ -164,7 +165,7 @@ export function linkedCandidate(row: BankTransactionRow): ImportCandidate | null
   return row.candidates.find((candidate) => candidate.id === row.conciliateWith) ?? null;
 }
 
-/** Links the row to `entry`, keeping the Entry's value and description (overwrite is off). */
+/** Links the row to `entry`. `after` keeps the Entry's value and description until `applyOverwrite`. */
 export function planConciliate(row: BankTransactionRow, entry: ImportCandidate, run: RunDocument): string | null {
   if (bankDate(row) === null) return NO_BANK_DATE;
   if (row.value === 0) return ZERO_VALUE;

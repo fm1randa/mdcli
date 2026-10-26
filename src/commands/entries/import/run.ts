@@ -6,6 +6,7 @@ import { logger } from '../../../utils/logger.js';
 import { promptConfirmation } from '../../../utils/prompt.js';
 import { categoryCatalog } from '../category.js';
 import { commitRun } from './commit.js';
+import { applyOverwrite, readOverwrite } from './overwrite.js';
 import { editRun } from './edit.js';
 import { fillSuggestions, linkableOf, loadImport, nothingNewMessage, statementRows, type ImportLoadOptions, type LoadedImport } from './list.js';
 import type { ImportDocument } from './document.js';
@@ -45,6 +46,7 @@ export async function runAction(options: ImportRunOptions): Promise<void> {
     return;
   }
 
+  applyOverwrite(run, document, await readOverwrite());
   const context = { accountName: document.account.name, categories };
   const writes = run.imported.length + run.conciliated.length + run.rejected.length;
   if (!options.json) printRun(run, context);

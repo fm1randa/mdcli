@@ -56,7 +56,7 @@ export function printRun(run: RunDocument, context: { accountName: string | null
     }
     logger.header('Linked entries');
     console.log(table.toString());
-    logger.info('Linked entries keep their value and description (web default; overwrite preferences are not read).');
+    for (const note of overwriteNotes(run.overwrite)) logger.info(note);
   }
 
   if (run.rejected.length > 0) {
@@ -68,4 +68,21 @@ export function printRun(run: RunDocument, context: { accountName: string | null
     for (const item of run.skipped) console.log(`  ${item.prefix} (${item.reason})`);
   }
   if (run.dryRun) logger.info('Dry run: nothing was written.');
+}
+
+const OVERWRITTEN = 'contact, category, cost center, project, tags and document number';
+
+/** What the overwrite preference does to the linked Entries, in the web dialog's terms. */
+function overwriteNotes(overwrite: RunDocument['overwrite']): string[] {
+  if (overwrite.source === 'default') {
+    return ['The overwrite preferences could not be read, so the web default applies: linked entries keep their fields.'];
+  }
+  return [
+    overwrite.value
+      ? `Overwrite on (your web preference): linked entries take the bank transaction's ${OVERWRITTEN}.`
+      : `Overwrite off (your web preference): linked entries keep their ${OVERWRITTEN}.`,
+    overwrite.description
+      ? "Fill empty descriptions on (your web preference): a linked entry without a description takes the bank transaction's."
+      : 'Fill empty descriptions off (your web preference): linked entries keep their description.',
+  ];
 }
