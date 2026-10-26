@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { asRecord } from '../../../lib/payload.js';
+import { isPositiveSafeInteger } from '../../../utils/parse.js';
 import { readEntryId, SELECTION_ACTIONS, type SelectionAction, type SelectionItem } from './selection.js';
 
 /** Keys each action accepts besides `id` and `action`. Anything else fails the file. */
@@ -74,7 +75,7 @@ function readItem(input: unknown, report: (problem: string) => void): SelectionI
   const { category, value, description, entry } = row;
   if (category !== undefined) {
     if (typeof category === 'string' && category.trim() !== '') item.category = category.trim();
-    else if (isPositiveInteger(category)) item.category = String(category);
+    else if (isPositiveSafeInteger(category)) item.category = String(category);
     else counted('"category" must be a category ID, alias, or name.');
   }
   if (value !== undefined) {
@@ -101,10 +102,6 @@ function invalid(problems: readonly string[]): Error {
 
 function isAction(value: string): value is SelectionAction {
   return (SELECTION_ACTIONS as readonly string[]).includes(value);
-}
-
-function isPositiveInteger(value: unknown): value is number {
-  return typeof value === 'number' && Number.isSafeInteger(value) && value > 0;
 }
 
 function quote(key: string): string {

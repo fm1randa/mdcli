@@ -1,6 +1,6 @@
 import type { Category } from '../../../types/index.js';
 import { exitWithError } from '../../../utils/action.js';
-import { parseId } from '../../../utils/parse.js';
+import { isPositiveSafeInteger, parseId } from '../../../utils/parse.js';
 import { categoryCatalog, checkEntryCategory, type CategoryCatalog } from '../category.js';
 import type { ImportCandidate } from './candidates.js';
 import type { ImportDocument, BankTransactionRow } from './document.js';
@@ -45,7 +45,7 @@ type EntryIdRead = { entry: number } | { error: string };
  * Both files check it here, so 0 or an id past 2^53 is refused instead of read as "no entry".
  */
 export function readEntryId(input: number | string): EntryIdRead {
-  const entry = typeof input === 'number' ? (Number.isSafeInteger(input) && input > 0 ? input : undefined) : parseId(input);
+  const entry = typeof input === 'number' ? (isPositiveSafeInteger(input) ? input : undefined) : parseId(input);
   if (entry !== undefined) return { entry };
   return { error: `entry ${input} is not an Entry id (a whole number from 1 to ${Number.MAX_SAFE_INTEGER}).` };
 }

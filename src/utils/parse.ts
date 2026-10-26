@@ -15,6 +15,11 @@ export function parseInteger(input: string, min = 0): number | undefined {
   return Number.isSafeInteger(value) && value >= min ? value : undefined;
 }
 
+/** An API ID already in a number, as a JSON file gives it: a positive safe integer. */
+export function isPositiveSafeInteger(value: unknown): value is number {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value > 0;
+}
+
 /** An API ID: a positive integer in plain decimal digits. */
 export function parseId(input: string): number | undefined {
   return parseInteger(input, 1);
