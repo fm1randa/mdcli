@@ -89,6 +89,10 @@ describe('local/no-loose-number', () => {
     parseFloat: "export const n = parseFloat('1.5abc');",
     'unary +': "declare const s: string;\nexport const n = +s;",
     'Number as a value': "export const n = ['1'].map(Number);",
+    'parseInt as a value': "export const n = ['1'].map(parseInt);",
+    'parseFloat as a value': "export const n = ['1.5'].map(parseFloat);",
+    'Number.parseInt as a value': "export const n = ['1'].map(Number.parseInt);",
+    'new Number()': "export const n = new Number('1');",
   };
   for (const [form, code] of Object.entries(coercions)) {
     test(`fires on ${form} in src, not in src/utils/parse.ts`, async () => {
