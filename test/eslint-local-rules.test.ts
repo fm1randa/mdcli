@@ -123,10 +123,21 @@ describe('local/no-literal-since', () => {
     expect(await localRules('export const args = [`--since`, `2026-09-15`, `--json`];', TEST)).toEqual(['local/no-literal-since']);
   });
 
+  test('fires on the inline --since=YYYY-MM-DD form', async () => {
+    expect(await localRules("export const args = ['entries', 'import', 'list', '--since=2026-10-01'];", TEST)).toEqual(['local/no-literal-since']);
+    expect(await localRules('export const arg = `--since=2026-10-01`;', TEST)).toEqual(['local/no-literal-since']);
+  });
+
+  test('fires on --since and a fixed date as adjacent call arguments', async () => {
+    expect(await localRules("export const args: string[] = [];\nargs.push('--since', '2026-10-01');", TEST)).toEqual(['local/no-literal-since']);
+  });
+
   test('does not fire on a computed date, an invalid input, or another flag', async () => {
     expect(await localRules("declare const SINCE: string;\nexport const args = ['--since', SINCE];", TEST)).toEqual([]);
     expect(await localRules("export const args = ['--since', 'not-a-date', '--since', '22/10/2026'];", TEST)).toEqual([]);
     expect(await localRules("export const args = ['--search-from', '2026-10-01'];", TEST)).toEqual([]);
+    expect(await localRules("declare const SINCE: string;\nexport const args = [`--since=${SINCE}`];\nargs.push('--since', SINCE);", TEST)).toEqual([]);
+    expect(await localRules("export const args = ['--since=yesterday'];\nargs.push('--json', '2026-10-01');", TEST)).toEqual([]);
   });
 });
 

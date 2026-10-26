@@ -2,6 +2,7 @@
 // of the 90-day window the CLI accepts (Jardineiro 2026-10-26). Tests build
 // the date relative to today instead.
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
+const INLINE_SINCE = /^--since=\d{4}-\d{2}-\d{2}$/;
 
 /** The text of a string literal or of a template literal with no expressions, else null. */
 function staticText(node) {
@@ -13,24 +14,36 @@ function staticText(node) {
 export default {
   meta: {
     type: "problem",
-    docs: { description: "Ban a literal YYYY-MM-DD right after '--since' in tests; use localDay(offset)" },
+    docs: { description: "Ban a literal YYYY-MM-DD passed to '--since' in tests; use localDay(offset)" },
     messages: {
       literalSince: "--since only accepts the last 90 days, so a fixed date expires. Use localDay(offset) from test/helpers.ts.",
     },
     schema: [],
   },
   create(context) {
+    /** Reports a literal date right after a '--since' in an argument list: ['--since', '2026-10-01'] or args.push('--since', '2026-10-01'). */
+    function checkAdjacent(nodes) {
+      nodes.forEach((node, index) => {
+        if (staticText(node) !== "--since") return;
+        const next = nodes[index + 1];
+        const text = staticText(next);
+        if (text !== null && ISO_DAY.test(text)) {
+          context.report({ node: next, messageId: "literalSince" });
+        }
+      });
+    }
+    /** Reports '--since=2026-10-01', the inline form commander also accepts. */
+    function checkInline(node) {
+      const text = staticText(node);
+      if (text !== null && INLINE_SINCE.test(text)) {
+        context.report({ node, messageId: "literalSince" });
+      }
+    }
     return {
-      ArrayExpression(node) {
-        node.elements.forEach((element, index) => {
-          if (staticText(element) !== "--since") return;
-          const next = node.elements[index + 1];
-          const text = staticText(next);
-          if (text !== null && ISO_DAY.test(text)) {
-            context.report({ node: next, messageId: "literalSince" });
-          }
-        });
-      },
+      ArrayExpression: (node) => checkAdjacent(node.elements),
+      CallExpression: (node) => checkAdjacent(node.arguments),
+      Literal: checkInline,
+      TemplateLiteral: checkInline,
     };
   },
 };
