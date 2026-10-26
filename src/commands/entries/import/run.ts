@@ -1,5 +1,5 @@
 import { isCreditCard } from '../../../lib/api.js';
-import { today as localToday } from '../../../lib/dates.js';
+import { today } from '../../../lib/dates.js';
 import type { Category } from '../../../types/index.js';
 import { exitWithError } from '../../../utils/action.js';
 import { logger } from '../../../utils/logger.js';
@@ -31,9 +31,8 @@ export async function runAction(options: ImportRunOptions): Promise<void> {
   if (options.json && !options.yes && !options.dryRun) {
     exitWithError('entries import run --json requires --yes or --dry-run');
   }
-  const today = localToday();
   const dryRun = options.dryRun === true;
-  const planned = await plannedRun(options, today);
+  const planned = await plannedRun(options, today());
   if (planned === null) {
     if (!options.json) logger.info('Nothing to do: the file has no command lines. Nothing was written.');
     return;

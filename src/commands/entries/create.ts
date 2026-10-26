@@ -8,7 +8,7 @@ import { resolveEntryCategory } from './category.js';
 import type { CreateEntryPayload, CreateEntryResponse } from '../../types/index.js';
 import { describeStatus } from './format.js';
 import { formatCurrency } from '../../utils/currency.js';
-import { getCurrentMonthRange, isCalendarDate, now as currentTime, toLocalDateString } from '../../lib/dates.js';
+import { getCurrentMonthRange, isCalendarDate, now, toLocalDateString } from '../../lib/dates.js';
 import { resolveCardDueDate } from './card-invoice.js';
 import { withCardEntryId } from './card-entries.js';
 import { defaultTransferCategory, resolveTransferDestination } from './create-transfer.js';
@@ -78,8 +78,8 @@ export async function createAction(options: CreateOptions): Promise<void> {
   const tipo = mapTypeToApi(options.type ?? 'expense');
   checkOptions(options, tipo);
 
-  const now = currentTime();
-  const dateStr = options.date ?? toLocalDateString(now);
+  const createdAt = now();
+  const dateStr = options.date ?? toLocalDateString(createdAt);
   if (!isCalendarDate(dateStr)) {
     exitWithError('Invalid date. Use YYYY-MM-DD (e.g., 2026-10-03).');
   }
@@ -160,7 +160,7 @@ export async function createAction(options: CreateOptions): Promise<void> {
     fim: monthEnd,
     i: 'm',
     valor: total,
-    data: now.toISOString(),
+    data: createdAt.toISOString(),
     base: null,
     categoria: categoryId,
     metaEconomia: null,
