@@ -47,6 +47,7 @@ describe('local/no-raw-cents', () => {
     expect(await localRules(RAW_CENTS, COMMAND)).toEqual(['local/no-raw-cents']);
     expect(await localRules('declare const v: number;\nexport const c = Math.round(100 * v) / 100;', OTHER_SRC)).toEqual(['local/no-raw-cents']);
     expect(await localRules('declare const v: number, n: number;\nexport const c = Math.round(v * 100 * n);', OTHER_SRC)).toEqual(['local/no-raw-cents']);
+    expect(await localRules('declare const v: number, n: number;\nexport const c = Math.round(v * 100 / n);', OTHER_SRC)).toEqual(['local/no-raw-cents']);
   });
 
   test('does not fire in src/utils/currency.ts or on other rounding', async () => {
