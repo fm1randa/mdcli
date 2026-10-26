@@ -158,7 +158,11 @@ describe('entries import run overwrite preference', () => {
   });
 
   test('a session state that is not the logged-in app is not read as preferences', async () => {
-    api.on('GET /v1/frontend/sessao', { branch: 'signin', payload: {} });
+    // Full preferences with both on: only the branch check can turn them into the default.
+    api.on('GET /v1/frontend/sessao', {
+      branch: 'signin',
+      payload: { ngInit: { usuario: { config: { mdweb: { conciliacao: { o: 'd', s: true, sd: true } } } } } },
+    });
     linkedEntry();
 
     const result = await run(['--dry-run', '--json']);
