@@ -1,9 +1,9 @@
 import { sameName } from '../../../lib/name-cache.js';
 import type { Category } from '../../../types/index.js';
-import { parseAmount, parseId } from '../../../utils/parse.js';
+import { parseAmount } from '../../../utils/parse.js';
 import type { ImportDocument, BankTransactionRow } from './document.js';
 import { matchPrefix } from './plan.js';
-import { SELECTION_ACTIONS, type SelectionItem } from './selection.js';
+import { readEntryId, SELECTION_ACTIONS, type SelectionItem } from './selection.js';
 
 const ERROR_MARK = '# error: ';
 
@@ -146,6 +146,10 @@ function parseLine(
     const category = categoryText.trim();
     if (category !== '') item.category = keptSuggestion(row, category) ?? category;
   }
-  if (action === 'conciliate' && entryText !== undefined) item.entry = parseId(entryText);
+  if (action === 'conciliate' && entryText !== undefined) {
+    const read = readEntryId(entryText);
+    if ('error' in read) return `${id}: ${read.error}`;
+    item.entry = read.entry;
+  }
   return { row, item };
 }

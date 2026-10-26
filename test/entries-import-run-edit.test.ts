@@ -228,6 +228,28 @@ describe('entries import run --edit', () => {
     ]);
   });
 
+  test('an entry id of 0 or past 2^53 reopens the editor instead of linking the automatic candidate', async () => {
+    statement([bank(TX1)]);
+    // On the bank date and value: linked automatically, so an unread id would silently link it.
+    entries([{ id: 4242, dataPrevista: '2026-10-07', valor: -12.34, descricao: 'Padaria prevista', categoria: 10 }]);
+    const editor = fake.script([
+      'conciliate aaaa1111 0 2026-10-07 -12.34  | Padaria\n',
+      'conciliate aaaa1111 9007199254740993 2026-10-07 -12.34  | Padaria\n',
+      'conciliate aaaa1111 4242 2026-10-07 -12.34  | Padaria\n',
+    ]);
+
+    const result = await run(['--yes'], editor);
+
+    expect(result.exitCode).toBe(0);
+    expect(fake.calls()).toBe(3);
+    expect(fake.seen(2)).toStartWith('# error: aaaa1111: entry 0 is not an Entry id (a whole number from 1 to 9007199254740991).\n');
+    expect(fake.seen(3)).toStartWith(
+      '# error: aaaa1111: entry 9007199254740993 is not an Entry id (a whole number from 1 to 9007199254740991).\n',
+    );
+    expect(routes()).toEqual(COMMIT.slice(1));
+    expect(lancamentos(0)).toEqual([expect.objectContaining({ ids: [4242] })]);
+  });
+
   test('a different absolute value, a missing entry id, and an unknown command are refused', async () => {
     statement([bank(TX1), bank(TX2, { valor: -40, data: '2026-10-08' })]);
     // Four days away on each side: candidates, neither linked automatically.
