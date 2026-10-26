@@ -25,7 +25,6 @@ export function normalizeAccounts(response: AccountsResponse): NormalizedAccount
     name: acc.nome,
     type: acc.tipo,
     bank: acc.banco?.nome ?? null,
-    balance: acc.saldoUltimoExtrato ?? acc.saldoInicial ?? 0,
     active: acc.status,
     closed: acc.encerrada,
   }));
@@ -38,7 +37,7 @@ export function normalizeAccounts(response: AccountsResponse): NormalizedAccount
  * Finance statement figure (saldoUltimoExtrato), not what is owed.
  */
 export function normalizeCards(response: AccountsResponse): NormalizedCard[] {
-  return normalizeAccounts(response).map(({ balance: _balance, ...normalized }, i) => {
+  return normalizeAccounts(response).map((normalized, i) => {
     const card = response.items[i];
     // eslint-disable-next-line local/no-due-anchor-fallback -- display only (cards list --json nextDueDate), not an invoice anchor (see cardDueAnchor)
     const nextDueDate = card.proximoVencimento?.slice(0, 10) ?? null;

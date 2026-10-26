@@ -84,6 +84,21 @@ export const CATEGORIES_RESPONSE = {
 
 export const EMPTY_ENTRIES_RESPONSE = { list: [], meta: { total: 0, page: 1, pageSize: 200 } };
 
+/** GET /frontend/sessao trimmed to what the CLI reads: the user's preferences
+ * as the real account had them (2026-10-26). */
+export const SESSION_RESPONSE = {
+  branch: 'app',
+  payload: {
+    ngInit: {
+      mdUid: 42,
+      usuario: {
+        conta: { config: { pendentesPresente: true, metasRD: false, moeda: 1 } },
+        config: { mdweb: { moeda: { m: 1 } } },
+      },
+    },
+  },
+};
+
 function entry(id: number, conta: number, categoria: number | undefined, tipo: 'd' | 'r' | 't', valor: number, data: string, descricao = `Entry ${id}`) {
   return { id, descricao, conta, categoria, tipo, valor, data, dataPrevista: data, status: 'conciliado' };
 }

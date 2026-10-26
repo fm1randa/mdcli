@@ -1,19 +1,14 @@
-import type { ApiHeaders, AuthConfig, AuthMethod, CategoriesResponse, Category, CreateCategoryPayload, UpdateCategoryPayload, AccountsResponse, TagsResponse, EntriesResponse, EntriesParams, CreateEntryPayload, CreateEntryResponse, UpdateEntryPayload, UpdateTransferPayload, Entry, CardInvoiceResponse, CardFutureResponse, CardPlastic, Account, CreateAccountPayload, UpdateAccountPayload, CreateTagPayload, CreateTagResponse } from '../types/index.js';
+import type { ApiHeaders, AuthConfig, AuthMethod, CategoriesResponse, Category, CreateCategoryPayload, UpdateCategoryPayload, AccountsResponse, AccountBalanceSum, TagsResponse, EntriesResponse, EntriesParams, CreateEntryPayload, CreateEntryResponse, UpdateEntryPayload, UpdateTransferPayload, Entry, CardInvoiceResponse, CardFutureResponse, CardPlastic, Account, CreateAccountPayload, UpdateAccountPayload, CreateTagPayload, CreateTagResponse } from '../types/index.js';
 import { getAuth, getAuthMethod, setAuth, getOpItem, invalidateNameCache } from './config.js';
 import { popStaleNameCacheUse } from './cache-invalidation.js';
 import { captureAuthHeadless } from './browser-auth.js';
 import { extractSessionFromBrowser } from './browser-session/index.js';
+import { fetchWebBalances } from './account-balances.js';
+import { loadEntriesPreferences, setEntriesPreferences, type EntriesPreferences } from './entries-preferences.js';
+import { loadWebConfig, type WebConfig } from './web-session.js';
 
 
-export {
-  normalizeCategories,
-  normalizeAccounts,
-  normalizeCards,
-  normalizeTags,
-  normalizeEntries,
-  normalizeCardEntries,
-  normalizeCardInstallments,
-} from './normalize.js';
+export { normalizeCategories, normalizeAccounts, normalizeCards, normalizeTags, normalizeEntries, normalizeCardEntries, normalizeCardInstallments } from './normalize.js';
 
 const BASE_URL = process.env.MDCLI_API_URL ?? 'https://app.meudinheiroweb.com.br/api';
 
@@ -217,9 +212,12 @@ export async function fetchImportCandidates(accountId: number, start: string, en
   );
 }
 
-/** The web's session state (`payload.ngInit` is window.mdconfig). It carries credentials: read one field, never print it. */
-export async function fetchSessionState(): Promise<unknown> {
-  return request<unknown>('GET', '/v1/frontend/sessao');
+// Read once per run: the entries preferences, the account restrictions and the import overwrite preference share it.
+let webConfig: Promise<WebConfig | null> | null = null;
+
+/** The web's window.mdconfig, or null when the session state cannot give it (src/lib/web-session.ts). */
+export function fetchWebConfig(): Promise<WebConfig | null> {
+  return (webConfig ??= loadWebConfig((endpoint) => request('GET', endpoint), getAuth()?.uid));
 }
 
 /** The web app's AI category suggestion. The answer is aligned with `tokens`: a Category id or null. */
@@ -319,6 +317,11 @@ export async function fetchAllEntries(params: Omit<EntriesParams, 'page' | 'page
   );
 }
 
+/** The user's preferences every list and sum carries (src/lib/entries-preferences.ts). */
+const loadPreferences = (accounts: Promise<Account[]>) => loadEntriesPreferences(fetchWebConfig(), accounts);
+// Loaded once per run: fetchAllEntries asks for many pages.
+let entriesPreferences: Promise<EntriesPreferences> | null = null;
+
 async function fetchEntries(params: EntriesParams): Promise<EntriesResponse> {
   const contas = JSON.stringify({ faturas: params.includeFaturas ?? true, ids: params.accountIds });
 
@@ -330,19 +333,17 @@ async function fetchEntries(params: EntriesParams): Promise<EntriesResponse> {
   });
 
   const queryParams = new URLSearchParams({
-    apenasMetasDefinidas: 'false',
     contas,
     fim: params.endDate,
     finalidade: '1',
     inicio: params.startDate,
     list,
-    moeda: '1',
     ordenarMesmaData: '4',
-    pendentesPresente: 'true',
     status: (params.status ?? 15).toString(),
     tipoLancamento: (params.entryType ?? 15).toString(),
     type: 'list',
   });
+  setEntriesPreferences(queryParams, await (entriesPreferences ??= loadPreferences(fetchAccounts().then((r) => r.items))));
 
   if (params.categoryIds?.length) {
     queryParams.set('categorias', JSON.stringify({ ids: params.categoryIds.map(String) }));
@@ -367,6 +368,10 @@ async function fetchEntries(params: EntriesParams): Promise<EntriesResponse> {
 
   return request<EntriesResponse>('GET', `/v2/lancamentos?${queryParams.toString()}`);
 }
+
+/** The web's account balances (src/lib/account-balances.ts); `accounts`: every account of the user. */
+export const fetchAccountBalances = (accounts: Account[], end: string): Promise<AccountBalanceSum[]> =>
+  fetchWebBalances((endpoint) => request('GET', endpoint), accounts, end, () => (entriesPreferences ??= loadPreferences(Promise.resolve(accounts))), fetchWebConfig);
 
 export function isCreditCard(account: Account): boolean {
   return account.tipo === 'CARTAOCREDITO';

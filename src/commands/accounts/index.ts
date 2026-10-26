@@ -14,9 +14,10 @@ export const accountsCommand = new Command('accounts')
 
 accountsCommand
   .command('list')
-  .description('List all accounts')
+  .description('List all accounts with their balances (confirmed and projected, as in the web)')
   .option('--json', 'Output as JSON')
   .option('--active', 'Show only active accounts')
+  .option('--at <date>', 'Balances at the end of this day (YYYY-MM-DD), defaults to the last day of the current month, like the web')
   .action(action(listAction));
 
 accountsCommand

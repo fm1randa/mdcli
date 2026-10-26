@@ -1,17 +1,12 @@
 // Local HTTP server that mimics the Meu Dinheiro API for scripts/verify.sh.
 // Uses the same fixtures as the unit tests; never touches the real API.
-import {
-  ACCOUNTS_RESPONSE,
-  CATEGORIES_RESPONSE,
-  CREDIT_CARD_ACCOUNT,
-  SAVINGS_ACCOUNT,
-  TAGS_RESPONSE,
-  cardInvoice,
-} from '../test/fixtures.js';
+import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, CREDIT_CARD_ACCOUNT, SAVINGS_ACCOUNT, TAGS_RESPONSE, cardInvoice } from '../test/fixtures.js';
 import { plasticsRoute } from './mock-plastics.js';
 import { SEEDED_ENTRIES, checkCreatePayload, checkUpdateAccounts, createCardPurchase, createdEntry, invoiceItems, statusLabel } from './mock-entries.js';
 import { connectionsRoute, recordMockRequest } from './mock-connections.js';
 import { importRoute, withRecentStatement } from './mock-import.js';
+import { balancesRoute } from './mock-balances.js';
+import { sessionRoute } from './mock-session.js';
 
 // GitHub "latest release" endpoint used by the self-updater (no auth).
 const MOCK_LATEST_TAG = 'v2099.1.1';
@@ -348,7 +343,7 @@ const server = Bun.serve({
       return cardsRoute(req, url.pathname);
     }
     if (url.pathname === '/api/v2/lancamentos' && req.method === 'GET') {
-      return entriesListRoute(url);
+      return url.searchParams.get('type') === 'sum' ? balancesRoute(url, isCreditCardId) : entriesListRoute(url);
     }
     // duplicidade lives under /lancamentos, so it has to be claimed before that prefix.
     const imported = importRoute(req.method, url);
@@ -356,7 +351,7 @@ const server = Bun.serve({
     if (url.pathname === ENTRIES_PATH || url.pathname.startsWith(`${ENTRIES_PATH}/`)) {
       return entriesRoute(req, url.pathname);
     }
-    return connectionsRoute(req.method, url.pathname) ?? plasticsRoute(req.method, url.pathname) ?? notFound();
+    return connectionsRoute(req.method, url.pathname) ?? plasticsRoute(req.method, url.pathname) ?? sessionRoute(req.method, url.pathname) ?? notFound();
   },
 });
 

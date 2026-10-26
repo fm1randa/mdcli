@@ -202,8 +202,10 @@ import_run_dry() {
   fresh=$(tail -n +"$((before + 1))" "$log")
   grep -Eq '/api/v1/integracao/account/9001/transactions' <<<"$fresh" \
     || { echo "missing GET of transactions: $fresh"; return 1; }
-  grep -Fq '"path":"/api/v1/frontend/sessao"' <<<"$fresh" \
-    || { echo "missing GET of the session state (overwrite preference): $fresh"; return 1; }
+  # One read of the session state, with the uid like the web, for every preference the run needs.
+  [ "$(grep -Fc '"path":"/api/v1/frontend/sessao","query":"uid=verify-uid"' <<<"$fresh")" = 1 ] \
+    && [ "$(grep -Fc '/api/v1/frontend/sessao' <<<"$fresh")" = 1 ] \
+    || { echo "expected one GET of the session state with uid=verify-uid: $fresh"; return 1; }
   reads_and_ai_only "$fresh" "entries import run --dry-run"
 }
 step "cli entries import run --dry-run (mock)" import_run_dry
@@ -253,6 +255,10 @@ SH
   reads_and_ai_only "$fresh" "entries import run --edit --dry-run"
 }
 step "cli entries import run --edit --dry-run (mock)" import_run_edit_dry
+# The web's balances (#67): the mock sums Nubank's seeded entries up to --at
+# (the -45 scheduled for 2027-01-10 only in the projected one); the stale
+# bank statement (250.50) is only bankBalance.
+step "cli accounts list --at balances (mock)" expect_json 'd.find((a) => a.id === 1001).balance === -1562.5 && d.find((a) => a.id === 1001).projectedBalance === -1607.5 && d.find((a) => a.id === 1001).bankBalance === 250.5 && d.find((a) => a.id === 1002).balance === null' accounts list --json --at 2027-01-31
 step "cli accounts list --json (mock)" bash -c '"$@" accounts list --json </dev/null | bun -e "const d=JSON.parse(await Bun.stdin.text()); if(!JSON.stringify(d).includes(\"Nubank\")) process.exit(1)"' _ "${CLI[@]}"
 # Writes (POST/PUT/DELETE) go through the same request() path as reads; the
 # mock checks the JSON payload, echoes it back and answers DELETE with 204.

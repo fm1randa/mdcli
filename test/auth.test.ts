@@ -7,6 +7,8 @@ let home: TestHome;
 
 beforeEach(() => {
   api = startMockApi();
+  // accounts list also asks for the balances (#67).
+  api.on('GET /v2/lancamentos', { sum: [] });
 });
 
 afterEach(() => {

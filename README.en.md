@@ -1,4 +1,4 @@
-<!-- traduzido de README.md @ ddb3364 (base: ddb3364e92800a287a2ce58f2b08b731cfb8af86; readme-blob: e82bc91ad476de37185984df8ad0c73385d043b5); ao atualizar o README.md, sincronize este arquivo e atualize o SHA e o readme-blob (git hash-object README.md) -->
+<!-- traduzido de README.md @ f79e40e (base: f79e40e215aa719dacc150ab163a80c126f9c22d; readme-blob: df3e371d8297319c2511b9e6a825e6c06f03dbf3); ao atualizar o README.md, sincronize este arquivo e atualize o SHA e o readme-blob (git hash-object README.md) -->
 
 [Português (Brasil)](README.md) · **English**
 
@@ -175,8 +175,21 @@ mdcli auth login
 # Or use 1Password
 mdcli auth login --item "My Meu Dinheiro"
 
-# List accounts
+# List the accounts with the web's balances: confirmed and projected on the last
+# day of the current month, like the "Saldos de caixa" and "Saldos das contas"
+# panels. The "Bank statement" column is the balance of the bank's last
+# statement, which can be out of date. Cards, investment portfolios, inactive
+# (not closed) accounts, accounts in a currency other than the one picked in the
+# web and accounts restricted to the user have no balance.
 mdcli accounts list --active
+
+# Balances at the end of another day
+mdcli accounts list --at 2026-10-16
+
+# --json: balance (confirmed), projectedBalance, balanceDate, bankBalance and
+# bankBalanceDate (last statement); balance is null without a web balance.
+# Up to v2026.10.25-2, balance was the last statement's balance.
+mdcli accounts list --json
 
 # List the account types accepted by --type
 mdcli accounts types
