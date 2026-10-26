@@ -3,6 +3,7 @@ import { getAuth, getAuthMethod, setAuth, getOpItem, invalidateNameCache } from 
 import { popStaleNameCacheUse } from './cache-invalidation.js';
 import { captureAuthHeadless } from './browser-auth.js';
 import { extractSessionFromBrowser } from './browser-session/index.js';
+import { loadEntriesPreferences, setEntriesPreferences, type EntriesPreferences } from './entries-preferences.js';
 
 
 export { normalizeCategories, normalizeAccounts, normalizeCards, normalizeTags, normalizeEntries, normalizeCardEntries, normalizeCardInstallments } from './normalize.js';
@@ -306,6 +307,11 @@ export async function fetchAllEntries(params: Omit<EntriesParams, 'page' | 'page
   );
 }
 
+/** The user's preferences every list and sum carries (src/lib/entries-preferences.ts). */
+const loadPreferences = (accounts: Promise<Account[]>) => loadEntriesPreferences((endpoint) => request('GET', endpoint), getAuth()?.uid ?? '', accounts);
+// Loaded once per run: fetchAllEntries asks for many pages.
+let entriesPreferences: Promise<EntriesPreferences> | null = null;
+
 async function fetchEntries(params: EntriesParams): Promise<EntriesResponse> {
   const contas = JSON.stringify({
     faturas: params.includeFaturas ?? true,
@@ -320,19 +326,17 @@ async function fetchEntries(params: EntriesParams): Promise<EntriesResponse> {
   });
 
   const queryParams = new URLSearchParams({
-    apenasMetasDefinidas: 'false',
     contas,
     fim: params.endDate,
     finalidade: '1',
     inicio: params.startDate,
     list,
-    moeda: '1',
     ordenarMesmaData: '4',
-    pendentesPresente: 'true',
     status: (params.status ?? 15).toString(),
     tipoLancamento: (params.entryType ?? 15).toString(),
     type: 'list',
   });
+  setEntriesPreferences(queryParams, await (entriesPreferences ??= loadPreferences(fetchAccounts().then((r) => r.items))));
 
   if (params.categoryIds?.length) {
     queryParams.set('categorias', JSON.stringify({ ids: params.categoryIds.map(String) }));
@@ -362,9 +366,11 @@ async function fetchEntries(params: EntriesParams): Promise<EntriesResponse> {
  * The web app's account balances (the Saldos de caixa / Saldos das contas
  * panels and the Lançamentos screen, mdb.js): the server sums every Entry of
  * each account up to `end`, with no start date, grouped by account.
+ * `accounts`: every account of the user, already fetched by the caller.
  */
-export async function fetchAccountBalances(accountIds: number[], end: string): Promise<AccountBalanceSum[]> {
-  const query = new URLSearchParams({ type: 'sum', finalidade: '1', fim: end, moeda: '1', apenasMetasDefinidas: 'false', pendentesPresente: 'true' });
+export async function fetchAccountBalances(accountIds: number[], end: string, accounts: Account[]): Promise<AccountBalanceSum[]> {
+  const query = new URLSearchParams({ type: 'sum', finalidade: '1', fim: end });
+  setEntriesPreferences(query, await loadPreferences(Promise.resolve(accounts)));
   query.set('contas', JSON.stringify({ ids: accountIds, faturas: true, residuo: false }));
   query.set('sum', JSON.stringify({ groupBy: 'conta' }));
   return (await request<{ sum: AccountBalanceSum[] }>('GET', `/v2/lancamentos?${query.toString()}`)).sum;

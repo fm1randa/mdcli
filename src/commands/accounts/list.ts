@@ -30,7 +30,7 @@ export async function listAction(options: { json?: boolean; active?: boolean; at
 
   const response = await fetchAccounts();
   const ids = response.items.filter(hasWebBalance).map((a) => a.id);
-  const sums = ids.length > 0 ? await fetchAccountBalances(ids, balanceDate) : [];
+  const sums = ids.length > 0 ? await fetchAccountBalances(ids, balanceDate, response.items) : [];
   const byAccount = new Map(sums.map((s) => [s.conta, s]));
 
   let accounts: AccountWithBalance[] = normalizeAccounts(response).map((acc, i) => {

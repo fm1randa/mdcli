@@ -2,6 +2,7 @@ import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { MdcliConfig } from '../src/types/index.js';
+import { SESSION_RESPONSE } from './fixtures.js';
 
 const REPO_ROOT = join(import.meta.dir, '..');
 
@@ -26,6 +27,8 @@ export interface MockApi {
 export function startMockApi(): MockApi {
   const routes = new Map<string, { handler: Handler | object | null; status: number }>();
   const requests: RecordedRequest[] = [];
+  // Every entries list or sum first reads the user's preferences (GET /frontend/sessao).
+  routes.set('GET /v1/frontend/sessao', { handler: SESSION_RESPONSE, status: 200 });
 
   const server = Bun.serve({
     port: 0,

@@ -12,7 +12,7 @@ import { plasticsRoute } from './mock-plastics.js';
 import { SEEDED_ENTRIES, checkCreatePayload, checkUpdateAccounts, createCardPurchase, createdEntry, invoiceItems, statusLabel } from './mock-entries.js';
 import { connectionsRoute, recordMockRequest } from './mock-connections.js';
 import { importRoute, withRecentStatement } from './mock-import.js';
-import { balancesRoute } from './mock-balances.js';
+import { balancesRoute, sessionRoute } from './mock-balances.js';
 
 // GitHub "latest release" endpoint used by the self-updater (no auth).
 const MOCK_LATEST_TAG = 'v2099.1.1';
@@ -357,7 +357,7 @@ const server = Bun.serve({
     if (url.pathname === ENTRIES_PATH || url.pathname.startsWith(`${ENTRIES_PATH}/`)) {
       return entriesRoute(req, url.pathname);
     }
-    return connectionsRoute(req.method, url.pathname) ?? plasticsRoute(req.method, url.pathname) ?? notFound();
+    return connectionsRoute(req.method, url.pathname) ?? plasticsRoute(req.method, url.pathname) ?? sessionRoute(req.method, url.pathname) ?? notFound();
   },
 });
 
