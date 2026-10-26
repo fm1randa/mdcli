@@ -205,6 +205,17 @@ describe('entries import list card candidates', () => {
     expect(mutations(api)).toHaveLength(0);
   });
 
+  test('an invoice without lancamentos fails instead of listing no candidates', async () => {
+    api.on(`GET ${INVOICE}`, { vencimento: '2026-01-16', fechamento: '2026-01-08', valor: -12.34 });
+
+    const result = await list();
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe('');
+    expect(JSON.parse(result.stderr).error).toBe(`GET ${INVOICE} did not return lancamentos`);
+    expect(mutations(api)).toHaveLength(0);
+  });
+
   test('import run on a card without a due date fails with what to do and writes nothing', async () => {
     const { proximoVencimento: _omit, ...withoutDue } = CREDIT_CARD_ACCOUNT;
     api.on('GET /v1/cartoes/1002/primeiraFatura', () => '2026-02-21T00:00:00');
