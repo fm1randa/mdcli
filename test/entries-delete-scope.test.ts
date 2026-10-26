@@ -22,10 +22,15 @@ const SERIES_OCCURRENCE = {
 
 const SINGLE_ENTRY = { ...SERIES_OCCURRENCE, id: 70, descricao: 'Café', parcela: undefined, agendaId: undefined };
 
+// The API returns a series' first occurrence with `parcela` but no `agendaId`:
+// the server has already detached it from the rule (issue #70).
+const FIRST_OCCURRENCE = { ...SERIES_OCCURRENCE, id: 79, agendaId: undefined };
+
 beforeEach(() => {
   api = startMockApi();
   api.on('GET /v1/lancamentos/80', SERIES_OCCURRENCE);
   api.on('GET /v1/lancamentos/70', SINGLE_ENTRY);
+  api.on('GET /v1/lancamentos/79', FIRST_OCCURRENCE);
   api.on('DELETE /v1/lancamentos/80', null);
   api.on('DELETE /v1/lancamentos/70', null);
   home = createHome(MANUAL_AUTH);
@@ -88,6 +93,20 @@ describe('entries delete --scope', () => {
     expect(following.exitCode).toBe(1);
     expect(following.stderr).toContain('Entry 70 is not part of a recurring series, so --scope following does not apply.');
     expect(deletes()).toHaveLength(1);
+  });
+
+  test("--scope following on a series' first occurrence explains why and deletes nothing", async () => {
+    const result = await runCli(
+      ['entries', 'delete', '79', '--scope', 'following', '--dangerously-skip-confirmation'],
+      { home, api }
+    );
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain(
+      'Entry 79 is the first occurrence of a recurring series (fixa), and the server has already detached it from the series, so it is deleted on its own. To delete the series, use --scope following on the next occurrence.'
+    );
+    expect(result.stderr).not.toContain('is not part of a recurring series');
+    expect(deletes()).toHaveLength(0);
   });
 
   test('--scope all is not offered (the web app only has this/following)', async () => {

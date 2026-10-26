@@ -200,6 +200,20 @@ describe('entries update on a recurring series', () => {
     expect(mutations(api)).toHaveLength(1);
   });
 
+  test("--scope following on a series' first occurrence explains why and sends nothing", async () => {
+    // The API returns a series' first occurrence with `parcela` but no
+    // `agendaId`: the server has already detached it from the rule (#70).
+    api.on('GET /v1/lancamentos/79', { ...SCHEDULED_OCCURRENCE, id: 79, agendaId: undefined });
+
+    const result = await runCli(['entries', 'update', '79', '-d', 'X', '--scope', 'following'], { home, api });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain(
+      'Entry 79 is the first occurrence of a recurring series (fixa), and the server has already detached it from the series, so it changes on its own. To change the series, use --scope following on the next occurrence.'
+    );
+    expect(mutations(api)).toHaveLength(0);
+  });
+
   test('rejects an unknown --scope before touching the API', async () => {
     const result = await runCli(['entries', 'update', '80', '-d', 'X', '--scope', 'all'], { home, api });
 

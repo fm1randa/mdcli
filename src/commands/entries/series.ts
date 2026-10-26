@@ -26,6 +26,12 @@ function isSeriesOccurrence(entry: Entry): boolean {
 interface ScopeMessages {
   /** Printed to stderr when a series occurrence is touched without --scope. */
   thisOnlyWarning: string;
+  /**
+   * Why --scope following is refused on a series' first occurrence: the API
+   * returns it with `parcela` but no `agendaId`, since the server has already
+   * detached it from the rule (`DELETE ?todos=true` on it deletes only it).
+   */
+  detachedFirstOccurrence: string;
 }
 
 /**
@@ -42,6 +48,7 @@ export function resolveSeriesScope(
 ): boolean | undefined {
   if (!isSeriesOccurrence(entry)) {
     if (scope === 'following') {
+      if (entry.parcela) exitWithError(messages.detachedFirstOccurrence);
       exitWithError(`Entry ${entryId} is not part of a recurring series, so --scope following does not apply.`);
     }
     return undefined;
