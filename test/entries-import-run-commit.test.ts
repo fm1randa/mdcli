@@ -156,8 +156,8 @@ describe('entries import run confirmation', () => {
 });
 
 describe('entries import run linking and status', () => {
-  test('a linked Bank Transaction repeats the Entry fields, keeps out of markImported, and imports nothing', async () => {
-    statement([bank(TX1)]);
+  test('a linked Bank Transaction sends its own fields like the web, keeps out of markImported, and imports nothing', async () => {
+    statement([bank(TX1, { ndocumento: 'NSU 998', centro: null })]);
     entries([
       {
         id: 4242,
@@ -179,7 +179,7 @@ describe('entries import run linking and status', () => {
     expect(routes()).toEqual(COMMIT.slice(1));
     const [conciliation, importing] = mutations(api);
     expect((conciliation.body as { lancamentos: unknown }).lancamentos).toEqual([
-      { data: '2026-10-07', valor: -12.34, descricao: 'Padaria do bairro', categoria: 11, tags: [3], contato: 5, ids: [4242] },
+      { data: '2026-10-07', valor: -12.34, descricao: 'Padaria Ficticia', ndocumento: 'NSU 998', ids: [4242] },
     ]);
     expect((conciliation.body as { maxDate: string }).maxDate).toBe('2026-10-07');
     expect((importing.body as { lancamentos: unknown }).lancamentos).toEqual([]);

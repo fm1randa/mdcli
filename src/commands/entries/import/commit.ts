@@ -6,13 +6,18 @@ import {
 import { compareDates } from '../../../lib/dates.js';
 import type { ImportDocument } from './document.js';
 import type { RunDocument } from './plan.js';
-import { asRecord, idOrNull, textOrNull } from '../../../lib/payload.js';
+import { asRecord, textOrNull } from '../../../lib/payload.js';
 
 /** The web app's source label for an automatic bank import. */
 const SOURCE = 'Importado via Integração bancária automática';
 /** The web app commits 200 items per page. */
 const PAGE_SIZE = 200;
-/** Candidate Entry fields the web repeats when it links a Bank Transaction (`ids`, never `agrupar`). */
+/**
+ * Statement row fields the web sends when it links a Bank Transaction (`g()`, mdb.js 21108-21119):
+ * the row's own, not the linked Entry's nor the edited copy (`E.e`). The server applies them to the
+ * Entry only when `sobrescrever`/`sobrescreverDescr` are on. `observacoes` needs config importArq.obs,
+ * which is not read (`considerarObservacoes: false`); `agrupar` (N Entries) is never sent.
+ */
 const LINKED_FIELDS = ['valor', 'centro', 'contato', 'projeto', 'categoria', 'ndocumento', 'descricao', 'tags'];
 
 export interface CommitInput {
@@ -20,8 +25,6 @@ export interface CommitInput {
   document: ImportDocument;
   /** The raw statement rows, row for row with `document.transactions`. */
   statementRows: readonly unknown[];
-  /** The raw Entries (or invoice items) the candidates came from. */
-  candidateRows: readonly unknown[];
   creditCard: boolean;
 }
 
@@ -95,10 +98,13 @@ function commitItems(input: CommitInput): CommitItem[] {
     if (row?.date == null) throw new Error(`Bank transaction ${integrationId} has no date.`);
     return row.date;
   };
+  const statementRow = (integrationId: string): Record<string, unknown> | null => {
+    const index = document.transactions.findIndex((row) => row.integrationId === integrationId);
+    return asRecord(input.statementRows[index]);
+  };
   const items: CommitItem[] = [];
   for (const item of run.imported) {
-    const index = document.transactions.findIndex((row) => row.integrationId === item.integrationId);
-    const raw = asRecord(input.statementRows[index]);
+    const raw = statementRow(item.integrationId);
     const reconciled = item.status === 'reconciled';
     const entry: Record<string, unknown> = {
       integrationId: item.integrationId,
@@ -131,9 +137,9 @@ function commitItems(input: CommitInput): CommitItem[] {
   }
   for (const item of run.conciliated) {
     const date = bankDate(item.integrationId);
-    const entry = input.candidateRows.map(asRecord).find((row) => idOrNull(row?.id) === item.entryId) ?? null;
+    const raw = statementRow(item.integrationId);
     const linked: Record<string, unknown> = { data: date };
-    for (const field of LINKED_FIELDS) linked[field] = entry?.[field];
+    for (const field of LINKED_FIELDS) linked[field] = raw?.[field];
     linked.ids = [item.entryId];
     items.push({ action: 'conciliate', integrationId: item.integrationId, date, payload: webPayload(linked) });
   }

@@ -38,7 +38,7 @@ export async function runAction(options: ImportRunOptions): Promise<void> {
     return;
   }
   const { run, loaded, categories } = planned;
-  const { document, account, payload, candidateRows } = loaded;
+  const { document, account, payload } = loaded;
   if (document.transactions.length === 0) {
     if (options.json) console.log(JSON.stringify(run, null, 2));
     else logger.info(`${nothingNewMessage(document)} Nothing was written.`);
@@ -62,7 +62,6 @@ export async function runAction(options: ImportRunOptions): Promise<void> {
       run,
       document,
       statementRows: statementRows(payload),
-      candidateRows,
       creditCard: account !== undefined && isCreditCard(account),
     });
     if (!options.json) logger.success(`Import written for ${context.accountName ?? run.accountId}.`);

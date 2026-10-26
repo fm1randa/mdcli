@@ -46,8 +46,6 @@ export interface LoadedImport {
   payload: unknown;
   /** Row for row, every Entry a plan may link: the candidates plus the Reconciled ones they hide. */
   linkable: ImportCandidate[][];
-  /** The raw Entries (or invoice items) the candidates were read from. */
-  candidateRows: unknown[];
 }
 
 /**
@@ -97,8 +95,8 @@ export async function loadImport(options: ImportLoadOptions): Promise<LoadedImpo
     exitWithError(`Search start ${from} is after search end ${to}.`);
   }
   await fillDuplicates(document, accountId);
-  const { linkable, rows: candidateRows } = await fillCandidates(document, account, payload);
-  return { document, account, payload, linkable, candidateRows };
+  const linkable = await fillCandidates(document, account, payload);
+  return { document, account, payload, linkable };
 }
 
 /** `LoadedImport.linkable` looked up by row, for `planSelection`. */
@@ -152,9 +150,9 @@ async function fillCandidates(
   document: ImportDocument,
   account: Account | undefined,
   payload: unknown,
-): Promise<{ linkable: ImportCandidate[][]; rows: unknown[] }> {
+): Promise<ImportCandidate[][]> {
   const linkable = document.transactions.map((): ImportCandidate[] => []);
-  if (document.transactions.length === 0) return { linkable, rows: [] };
+  if (document.transactions.length === 0) return linkable;
   const card = account !== undefined && isCreditCard(account);
   const rows = card ? await invoiceRows(account) : await windowRows(document);
   const { from, to } = document.search;
@@ -174,7 +172,7 @@ async function fillCandidates(
     bankTransaction.conciliateWith = id;
     if (id !== null) bankTransaction.defaultAction = 'conciliate';
   });
-  return { linkable, rows };
+  return linkable;
 }
 
 /** A checking account searches the statement period ±2 days; no period means nothing to search. */
