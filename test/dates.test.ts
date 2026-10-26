@@ -49,8 +49,12 @@ describe('isCalendarDate', () => {
   });
 });
 
-/** Runs each test of the block with MDCLI_TODAY as given (undefined unsets it), restoring the run's value after. */
-function withPinnedDay(value: string | undefined): void {
+/**
+ * Runs each test of the block with MDCLI_TODAY as given (undefined unsets it)
+ * and a clock the test may pin with setSystemTime, restoring the run's
+ * MDCLI_TODAY and the real clock after each test.
+ */
+function withClockAndPinnedDay(value: string | undefined): void {
   const saved = process.env.MDCLI_TODAY;
   beforeEach(() => {
     if (value === undefined) delete process.env.MDCLI_TODAY;
@@ -64,7 +68,7 @@ function withPinnedDay(value: string | undefined): void {
 }
 
 describe('getCurrentMonthRange', () => {
-  withPinnedDay(undefined);
+  withClockAndPinnedDay(undefined);
 
   test('returns first and last day for a mid-month leap February', () => {
     setSystemTime(new Date(2024, 1, 10)); // 2024-02-10 local
@@ -85,7 +89,7 @@ describe('getCurrentMonthRange', () => {
 
 describe('today', () => {
   describe('without MDCLI_TODAY', () => {
-    withPinnedDay(undefined);
+    withClockAndPinnedDay(undefined);
 
     test('is the local calendar day of the clock, not the UTC one', () => {
       // In the suite's zone (Pacific/Kiritimati, UTC+14) 08:00 local is still the day before in UTC.
@@ -95,7 +99,7 @@ describe('today', () => {
   });
 
   describe('with MDCLI_TODAY', () => {
-    withPinnedDay('2027-03-01');
+    withClockAndPinnedDay('2027-03-01');
 
     test('is the pinned day, whatever the clock says', () => {
       setSystemTime(new Date(2026, 9, 26, 23, 59));

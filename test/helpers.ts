@@ -17,6 +17,11 @@ const REPO_ROOT = join(import.meta.dir, '..');
 export function localDay(offset = 0): string {
   const pinned = process.env.MDCLI_TODAY;
   const base = pinned ? new Date(`${pinned}T12:00:00`) : new Date();
+  // Date rolls 2027-02-30 over to March and turns 2027-3-1 into Invalid Date:
+  // either way the day does not read back as the value that was set.
+  if (pinned && (!/^\d{4}-\d{2}-\d{2}$/.test(pinned) || base.toLocaleDateString('sv-SE') !== pinned)) {
+    throw new Error(`MDCLI_TODAY must be a YYYY-MM-DD calendar day, got "${pinned}"`);
+  }
   base.setDate(base.getDate() + offset);
   return base.toLocaleDateString('sv-SE');
 }

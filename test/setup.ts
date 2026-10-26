@@ -2,6 +2,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterAll } from 'bun:test';
+import { localDay } from './helpers.js';
 
 // Preloaded before every test file (see bunfig.toml). Any code path that reaches
 // src/lib/config.ts in-process writes here instead of the real
@@ -28,8 +29,9 @@ process.env.TZ ??= 'Pacific/Kiritimati';
 // and by the tests (localDay in test/helpers.ts), so a run that crosses
 // midnight does not see two days. It defaults to the machine's local day, so
 // tests stay relative to the calendar; an explicit value replays any day (e.g.
-// MDCLI_TODAY=2027-03-01 bun run test).
-process.env.MDCLI_TODAY ||= new Date().toLocaleDateString('sv-SE');
+// MDCLI_TODAY=2027-03-01 bun run test). localDay reads TZ, set above, and
+// rejects a malformed MDCLI_TODAY here, before any test runs.
+process.env.MDCLI_TODAY = localDay(0);
 
 afterAll(() => {
   rmSync(sandbox, { recursive: true, force: true });
