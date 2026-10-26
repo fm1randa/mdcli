@@ -76,10 +76,26 @@ describe('local/no-number-call', () => {
     expect(await localRules(NUMBER_CALL, ALIASES)).toEqual(['local/no-number-call']);
   });
 
-  test('does not fire outside its scope or for Number.parseInt', async () => {
+  // Each one coerces loosely like Number(): '12abc' is 12, +'' is 0.
+  const coercions = {
+    'Number.parseInt': "export const n = Number.parseInt('12abc', 10);",
+    parseInt: "export const n = parseInt('12abc', 10);",
+    'Number.parseFloat': "export const n = Number.parseFloat('1.5abc');",
+    parseFloat: "export const n = parseFloat('1.5abc');",
+    'unary +': "declare const s: string;\nexport const n = +s;",
+  };
+  for (const [form, code] of Object.entries(coercions)) {
+    test(`fires on ${form} in src/commands, not in src/utils/parse.ts`, async () => {
+      expect(await localRules(code, COMMAND)).toEqual(['local/no-number-call']);
+      expect(await localRules(code, PARSE)).toEqual([]);
+    });
+  }
+
+  test('does not fire outside its scope, on a numeric literal or on other Number members', async () => {
     expect(await localRules(NUMBER_CALL, PARSE)).toEqual([]);
     expect(await localRules(NUMBER_CALL, OTHER_SRC)).toEqual([]);
-    expect(await localRules("export const n = Number.parseInt('7', 10);", COMMAND)).toEqual([]);
+    expect(await localRules('export const n = +1;', COMMAND)).toEqual([]);
+    expect(await localRules('export const ok = Number.isSafeInteger(7);', COMMAND)).toEqual([]);
   });
 });
 

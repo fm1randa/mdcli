@@ -5,6 +5,7 @@ import { isEntryId } from './entry-id.js';
 import { cardDueAnchor } from './card-invoice.js';
 import { statusBit, typeBit } from './filters.js';
 import { toCents } from '../../utils/currency.js';
+import { parseInteger } from '../../utils/parse.js';
 import { mapConcurrent } from '../../utils/concurrency.js';
 
 // Invoice requests in flight at once for entries list/summary: enough to cut
@@ -119,7 +120,10 @@ export async function withCardEntryId(
   const invoice = await fetchCardInvoice(card.id, card.dueDate);
   const ids = (invoice.lancamentos ?? [])
     .filter((e) => e.descricao === card.description && toCents(e.valor) === toCents(card.value) && isEntryId(e.id))
-    .map((e) => (typeof e.id === 'number' ? e.id : Number.parseInt(e.id, 10)));
+    .flatMap((e) => {
+      const id = typeof e.id === 'number' ? e.id : parseInteger(e.id);
+      return id === undefined ? [] : [id];
+    });
   if (ids.length === 0) {
     // stderr: stdout stays machine-readable under --json.
     console.error(
