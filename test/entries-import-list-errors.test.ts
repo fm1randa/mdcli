@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE } from './fixtures.js';
+import { SINCE } from './import-harness.js';
 
 const ONE_LINK = [
   {
@@ -47,13 +48,13 @@ describe('entries import list errors', () => {
       { id: 501, accounts: [{ id: 9002, type: 'CARTAOCREDITO', conta: 1002 }] },
     ]);
 
-    const text = await cli(['entries', 'import', 'list', '-a', '1001', '--since', '2026-10-01']);
+    const text = await cli(['entries', 'import', 'list', '-a', '1001', '--since', SINCE]);
     expect(text.exitCode).toBe(1);
     expect(text.stdout).toBe('');
     expect(text.stderr).toContain('Account 1001 is not linked to any connection.');
     expect(calledTransactions()).toBe(false);
 
-    const json = await cli(['entries', 'import', 'list', '-a', '1001', '--since', '2026-10-01', '--json']);
+    const json = await cli(['entries', 'import', 'list', '-a', '1001', '--since', SINCE, '--json']);
     expect(json.exitCode).toBe(1);
     expect(json.stdout).toBe('');
     expect(JSON.parse(json.stderr)).toEqual({ error: 'Account 1001 is not linked to any connection.' });
@@ -67,7 +68,7 @@ describe('entries import list errors', () => {
       { id: 502, accounts: [{ id: 9009, conta: 1001 }] },
     ]);
 
-    const result = await cli(['entries', 'import', 'list', '-a', '1001', '--since', '2026-10-01', '--json']);
+    const result = await cli(['entries', 'import', 'list', '-a', '1001', '--since', SINCE, '--json']);
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toBe('');
     expect(JSON.parse(result.stderr)).toEqual({
@@ -79,7 +80,7 @@ describe('entries import list errors', () => {
   });
 
   test('an unknown account fails before transactions', async () => {
-    const result = await cli(['entries', 'import', 'list', '-a', 'nope', '--since', '2026-10-01', '--json']);
+    const result = await cli(['entries', 'import', 'list', '-a', 'nope', '--since', SINCE, '--json']);
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toBe('');
     expect(JSON.parse(result.stderr)).toEqual({ error: 'Unknown account: nope' });
@@ -90,7 +91,7 @@ describe('entries import list errors', () => {
   test('without login, fails with the same message as the other commands and calls nothing', async () => {
     const loggedOut = createHome({});
     try {
-      const text = await runCli(['entries', 'import', 'list', '-a', '1001', '--since', '2026-10-01'], {
+      const text = await runCli(['entries', 'import', 'list', '-a', '1001', '--since', SINCE], {
         home: loggedOut,
         api,
       });
@@ -116,11 +117,11 @@ describe('entries import list errors', () => {
   test('an API error names the method and path and does not write', async () => {
     api.on('GET /v1/integracao/account/9001/transactions', { message: 'boom' }, 500);
 
-    const result = await cli(['entries', 'import', 'list', '-a', '1001', '--since', '2026-10-01', '--json']);
+    const result = await cli(['entries', 'import', 'list', '-a', '1001', '--since', SINCE, '--json']);
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toBe('');
     const body = JSON.parse(result.stderr) as { error: string };
-    expect(body.error).toContain('API request failed (GET /v1/integracao/account/9001/transactions?start=2026-10-01)');
+    expect(body.error).toContain(`API request failed (GET /v1/integracao/account/9001/transactions?start=${SINCE})`);
     expect(body.error).toContain('500');
     expect(mutations(api)).toHaveLength(0);
   });

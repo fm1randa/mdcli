@@ -1,3 +1,5 @@
+import { localDay } from '../test/helpers.js';
+
 // Seeded entries for GET/PUT/DELETE /v1/lancamentos/:id (parity with unit fixtures).
 export const SEEDED_ENTRIES: Record<number, Record<string, unknown>> = {
   50: {
@@ -115,8 +117,7 @@ export function statusLabel(payload: Body, stored: Body = payload): string | und
   if (conciliado === true) return 'conciliado';
   if (stored.dataEfetiva != null || confirmado === true) return 'confirmado';
   const planned = String(stored.dataPrevista ?? stored.data ?? '').slice(0, 10);
-  const today = new Date().toLocaleDateString('en-CA');
-  return planned > today ? 'agendado' : 'pendente';
+  return planned > localDay(0) ? 'agendado' : 'pendente';
 }
 
 /**

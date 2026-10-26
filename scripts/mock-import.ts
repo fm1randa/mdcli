@@ -1,3 +1,5 @@
+import { localDay } from '../test/helpers.js';
+
 // GET /v1/integracao/account/:connectionAccount/transactions for scripts/verify.sh, and the AI
 // category suggestion it triggers. Fictional ids only. 9001 is
 // Nubank's connection account in mock-connections.ts; 10 is Alimentação (d).
@@ -29,9 +31,7 @@ const STATEMENT = {
  */
 export function withRecentStatement<T extends { id: number }>(account: T): T {
   if (account.id !== 1001) return account;
-  const now = new Date();
-  const day = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 3).toLocaleDateString('sv-SE');
-  return { ...account, dataUltimoExtrato: `${day}T00:00:00` };
+  return { ...account, dataUltimoExtrato: `${localDay(-3)}T00:00:00` };
 }
 
 /**

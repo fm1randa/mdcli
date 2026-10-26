@@ -1,4 +1,7 @@
-import type { MockApi } from './helpers.js';
+import { localDay, type MockApi } from './helpers.js';
+
+/** A --since inside the 90-day window the CLI accepts, whatever day the suite runs on. */
+export const SINCE = localDay(-30);
 
 // Fictional ids. Connection 501 links connection account 9001 to Account 1001 (Nubank in the account fixture).
 export const CONNECTIONS = [

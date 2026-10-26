@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
+import { createHome, localDay, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE } from './fixtures.js';
+import { SINCE } from './import-harness.js';
 
 // Fictional ids. 1001 is Nubank in the account fixture; 9001 is its connection account.
 // Without --since the new Bank Transactions come from accounts[].summary of GET /integracao/connections,
@@ -67,16 +68,6 @@ function accountsWith(extra: Record<string, unknown>): void {
   api.on('GET /v1/cadastros/contas', { ...ACCOUNTS_RESPONSE, items });
 }
 
-/** Local calendar arithmetic, independent of the production date helpers. */
-function shiftDays(days: number): string {
-  const now = new Date();
-  const shifted = new Date(now.getFullYear(), now.getMonth(), now.getDate() + days);
-  const year = String(shifted.getFullYear());
-  const month = String(shifted.getMonth() + 1).padStart(2, '0');
-  const day = String(shifted.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
 function loadedStatement(): boolean {
   return api.requests.some((r) => r.path.endsWith('/transactions'));
 }
@@ -99,15 +90,15 @@ describe('entries import list without --since: the new bank transactions', () =>
   });
 
   test('--since loads the full statement from that date, as the web manual import dialog does', async () => {
-    const result = await cli(['entries', 'import', 'list', '-a', '1001', '--since', '2026-10-01', '--json']);
+    const result = await cli(['entries', 'import', 'list', '-a', '1001', '--since', SINCE, '--json']);
 
     expect(result.exitCode).toBe(0);
     const document = JSON.parse(result.stdout);
     expect(document.source).toBe('statement');
-    expect(document.since).toBe('2026-10-01');
+    expect(document.since).toBe(SINCE);
     expect(document.transactions.map((row: { integrationId: string }) => row.integrationId)).toEqual([OLD_ID, NEW_ID]);
     const call = api.requests.find((r) => r.path.endsWith('/transactions'));
-    expect(call?.query.get('start')).toBe('2026-10-01');
+    expect(call?.query.get('start')).toBe(SINCE);
   });
 
   for (const [name, summary] of [
@@ -116,7 +107,7 @@ describe('entries import list without --since: the new bank transactions', () =>
   ] as const) {
     test(`${name}: loads the statement since the account's last statement date, like the web's import button`, async () => {
       api.on('GET /v1/integracao/connections', connections(summary));
-      const lastStatement = shiftDays(-3);
+      const lastStatement = localDay(-3);
       accountsWith({ dataUltimoExtrato: `${lastStatement}T00:00:00` });
 
       const result = await cli(['entries', 'import', 'list', '-a', '1001', '--json']);
@@ -143,16 +134,16 @@ describe('entries import list without --since: the new bank transactions', () =>
       const result = await cli(['entries', 'import', 'list', '-a', '1001', '--json']);
 
       expect(result.exitCode).toBe(0);
-      expect(JSON.parse(result.stdout).since).toBe(shiftDays(-90));
-      expect(startQueries()).toEqual([shiftDays(-90)]);
+      expect(JSON.parse(result.stdout).since).toBe(localDay(-90));
+      expect(startQueries()).toEqual([localDay(-90)]);
     });
   }
 
   test('no summary and an empty statement: nothing new since that date, pointing at an earlier --since', async () => {
     api.on('GET /v1/integracao/connections', connections(undefined));
-    const lastStatement = shiftDays(-3);
+    const lastStatement = localDay(-3);
     accountsWith({ dataUltimoExtrato: lastStatement });
-    api.on('GET /v1/integracao/account/9001/transactions', { inicio: lastStatement, fim: shiftDays(0), saldo: 1, lancamentos: [] });
+    api.on('GET /v1/integracao/account/9001/transactions', { inicio: lastStatement, fim: localDay(0), saldo: 1, lancamentos: [] });
 
     const json = await cli(['entries', 'import', 'list', '-a', '1001', '--json']);
     expect(json.exitCode).toBe(0);
@@ -164,7 +155,7 @@ describe('entries import list without --since: the new bank transactions', () =>
     const text = await cli(['entries', 'import', 'list', '-a', '1001']);
     expect(text.exitCode).toBe(0);
     expect(text.stdout).toContain(`No bank transactions since ${lastStatement}.`);
-    expect(text.stdout).toContain(`--since <YYYY-MM-DD> (${shiftDays(-90)} or later)`);
+    expect(text.stdout).toContain(`--since <YYYY-MM-DD> (${localDay(-90)} or later)`);
     expect(api.requests.some((r) => r.path === '/v1/smartmatch/ai')).toBe(false);
     expect(mutations(api)).toHaveLength(0);
   });
@@ -176,7 +167,7 @@ describe('entries import list without --since: the new bank transactions', () =>
     const text = await cli(['entries', 'import', 'list', '-a', '1001']);
 
     expect(text.exitCode).toBe(0);
-    expect(text.stdout).toContain(`No bank transactions since ${shiftDays(-90)}.`);
+    expect(text.stdout).toContain(`No bank transactions since ${localDay(-90)}.`);
     expect(text.stdout).not.toContain('--since');
   });
 
@@ -195,7 +186,7 @@ describe('entries import list without --since: the new bank transactions', () =>
 
   test('import run without --since and without a summary imports from the statement since the last statement date', async () => {
     api.on('GET /v1/integracao/connections', connections(undefined));
-    const lastStatement = shiftDays(-3);
+    const lastStatement = localDay(-3);
     accountsWith({ dataUltimoExtrato: lastStatement });
 
     const result = await cli(['entries', 'import', 'run', '-a', '1001', '--ids', 'ffffffff', '-c', '10', '--dry-run', '--json']);
