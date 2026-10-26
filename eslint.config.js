@@ -10,6 +10,9 @@ export default tseslint.config(
       parserOptions: {
         projectService: {
           allowDefaultProject: ["eslint.config.js", "eslint-rules/*.js"],
+          // The default of 8 counts this config and every rule file; they are
+          // small, so the cost of linting them outside a tsconfig is too.
+          maximumDefaultProjectFileMatchCount_THIS_WILL_SLOW_DOWN_LINTING: 32,
         },
         tsconfigRootDir: import.meta.dirname,
       },

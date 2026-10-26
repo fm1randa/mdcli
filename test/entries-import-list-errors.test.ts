@@ -106,7 +106,7 @@ describe('entries import list errors', () => {
     test(`${name} fails without loading transactions or writing`, async () => {
       api.on('GET /v1/integracao/connections', connections);
 
-      const result = await cli(['entries', 'import', 'list', '-a', '1001', '--since', '2026-10-01', '--json']);
+      const result = await cli(['entries', 'import', 'list', '-a', '1001', '--since', SINCE, '--json']);
 
       expect(result.exitCode).toBe(1);
       expect(result.stdout).toBe('');

@@ -222,7 +222,7 @@ describe('entries import list card candidates', () => {
     api.on('GET /v1/cartoes/1002/primeiraFatura', () => '2026-02-21T00:00:00');
     api.on('GET /v1/cadastros/contas', { ...ACCOUNTS_RESPONSE, items: [CHECKING_ACCOUNT, withoutDue] });
 
-    const result = await cli(['entries', 'import', 'run', '-a', '1002', '--since', '2026-10-01', '--ids', TX.slice(0, 8), '--category', '10', '--yes']);
+    const result = await cli(['entries', 'import', 'run', '-a', '1002', '--since', SINCE, '--ids', TX.slice(0, 8), '--category', '10', '--yes']);
 
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toContain(NO_DUE_DATE);
