@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE } from './fixtures.js';
-import { CONNECTIONS, mockStatement } from './import-harness.js';
+import { CONNECTIONS, mockStatement, SINCE } from './import-harness.js';
 
 // Fictional ids. 1001 is Nubank, 9001 its connection account. Category 10 is Alimentação (d), 20 Salário (r).
 
@@ -35,7 +35,7 @@ function statement(rows: unknown[]) {
 }
 
 function run(args: string[], stdin?: string) {
-  return runCli(['entries', 'import', 'run', '-a', '1001', '--since', '2026-10-01', ...args], { home, api, stdin });
+  return runCli(['entries', 'import', 'run', '-a', '1001', '--since', SINCE, ...args], { home, api, stdin });
 }
 
 describe('entries import run --dry-run', () => {
@@ -112,7 +112,7 @@ describe('entries import run selection', () => {
     const result = await run(['--dry-run']);
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain('To see what would be imported, with the suggested categories and actions, use: mdcli entries import list -a 1001 --since 2026-10-01');
+    expect(result.stderr).toContain(`To see what would be imported, with the suggested categories and actions, use: mdcli entries import list -a 1001 --since ${SINCE}`);
     expect(api.requests.some((r) => r.path.includes('/transactions'))).toBe(false);
   });
 
@@ -146,7 +146,7 @@ describe('entries import run selection', () => {
     expect(ids.stdout).toBe('');
     const error = JSON.parse(ids.stderr) as { error: string };
     expect(error.error).toContain('--ids aaaa1111 does not match any bank transaction.');
-    expect(error.error).toContain('No bank transactions since 2026-10-01.');
+    expect(error.error).toContain(`No bank transactions since ${SINCE}.`);
 
     const rejects = await run(['--reject', 'bbbb2222', '--yes']);
     expect(rejects.exitCode).toBe(1);

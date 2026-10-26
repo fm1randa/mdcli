@@ -1,8 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type RecordedRequest, type TestHome } from './helpers.js';
+import { createHome, localDay, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type RecordedRequest, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, cardInvoice } from './fixtures.js';
 import { statusLabel } from '../scripts/mock-entries.js';
-import { toLocalDateString } from '../src/lib/dates.js';
 
 // Finanças 2026-10-19: `entries create -p` on checking account 1167419 (date
 // today) came back as id 363895476, "Status: Confirmed". In the web app
@@ -14,7 +13,7 @@ import { toLocalDateString } from '../src/lib/dates.js';
 let api: MockApi;
 let home: TestHome;
 
-const today = toLocalDateString(new Date());
+const today = localDay(0);
 
 /** Answers the POST/PUT the way the real API labels the payload it got. */
 function answer(req: RecordedRequest): Record<string, unknown> {

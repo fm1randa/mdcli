@@ -162,10 +162,10 @@ reads_and_ai_only() {
   fi
 }
 # A --since inside the 90-day window whatever day verify runs on.
-IMPORT_SINCE=$(bun -e 'const d = new Date(); d.setDate(d.getDate() - 30); console.log(d.toLocaleDateString("sv-SE"))')
+IMPORT_SINCE=$(bun -e 'import { localDay } from "./test/helpers.ts"; console.log(localDay(-30))')
 # Without --since and without a connection summary (the mock has none, like a real GET): the statement
 # since the account's last statement date (the mock sets it 3 days ago), and the AI for the category. No --yes.
-LAST_STATEMENT=$(bun -e 'const d = new Date(); d.setDate(d.getDate() - 3); console.log(d.toLocaleDateString("sv-SE"))')
+LAST_STATEMENT=$(bun -e 'import { localDay } from "./test/helpers.ts"; console.log(localDay(-3))')
 import_list() {
   local log="$MDCLI_MOCK_LOG"
   local before=0

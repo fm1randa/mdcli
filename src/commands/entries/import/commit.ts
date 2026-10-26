@@ -80,6 +80,7 @@ export async function commitRun(input: CommitInput): Promise<void> {
         connectionAccount: run.connectionAccount,
         maxDate,
         fonte: SOURCE,
+        // eslint-disable-next-line local/no-ambient-clock -- unique id in ms, as the web stamps it, not a calendar day
         importId: Date.now(),
       });
     } catch (error) {

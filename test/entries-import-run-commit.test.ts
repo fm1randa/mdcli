@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE } from './fixtures.js';
-import { CONNECTIONS, mockStatement } from './import-harness.js';
+import { CONNECTIONS, mockStatement, SINCE } from './import-harness.js';
 
 // Fictional ids. 1001 is Nubank (connection account 9001). Category 10 is Alimentação (d).
 const FONTE = 'Importado via Integração bancária automática';
@@ -43,7 +43,7 @@ function entries(list: unknown[]) {
 }
 
 function run(args: string[], stdin?: string) {
-  return runCli(['entries', 'import', 'run', '-a', '1001', '--since', '2026-10-01', ...args], { home, api, stdin });
+  return runCli(['entries', 'import', 'run', '-a', '1001', '--since', SINCE, ...args], { home, api, stdin });
 }
 
 function routes(): string[] {

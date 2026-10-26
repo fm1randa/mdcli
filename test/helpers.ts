@@ -6,6 +6,26 @@ import { SESSION_RESPONSE } from './fixtures.js';
 
 const REPO_ROOT = join(import.meta.dir, '..');
 
+/**
+ * The local calendar day `offset` days from today (YYYY-MM-DD), where today is
+ * MDCLI_TODAY when set (test/setup.ts pins it) and the machine's day otherwise
+ * (the mocks under scripts/verify.sh): the same day the CLI under test reads.
+ * The one "today" of tests, mocks and verify.sh. Written apart from
+ * src/lib/dates.ts so a bug there makes the CLI and the expectation disagree
+ * instead of agree.
+ */
+export function localDay(offset = 0): string {
+  const pinned = process.env.MDCLI_TODAY;
+  const base = pinned ? new Date(`${pinned}T12:00:00`) : new Date();
+  // Date rolls 2027-02-30 over to March and turns 2027-3-1 into Invalid Date:
+  // either way the day does not read back as the value that was set.
+  if (pinned && (!/^\d{4}-\d{2}-\d{2}$/.test(pinned) || base.toLocaleDateString('sv-SE') !== pinned)) {
+    throw new Error(`MDCLI_TODAY must be a YYYY-MM-DD calendar day, got "${pinned}"`);
+  }
+  base.setDate(base.getDate() + offset);
+  return base.toLocaleDateString('sv-SE');
+}
+
 export interface RecordedRequest {
   method: string;
   path: string;

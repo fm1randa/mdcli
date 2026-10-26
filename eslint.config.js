@@ -59,6 +59,16 @@ export default tseslint.config(
     rules: { "local/no-due-anchor-fallback": "error" },
   },
   {
+    // "Today" comes from now()/today() in src/lib/dates.ts, which tests pin.
+    files: ["src/commands/**/*.ts"],
+    rules: { "local/no-ambient-clock": "error" },
+  },
+  {
+    // --since accepts only the last 90 days: tests pass a date relative to today.
+    files: ["test/**/*.ts"],
+    rules: { "local/no-literal-since": "error" },
+  },
+  {
     ignores: ["node_modules", "dist"],
   }
 );

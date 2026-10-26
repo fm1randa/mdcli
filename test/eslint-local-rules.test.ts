@@ -15,6 +15,7 @@ const CARD_INVOICE = 'src/commands/entries/card-invoice.ts';
 const CURRENCY = 'src/utils/currency.ts';
 const PARSE = 'src/utils/parse.ts';
 const TEXT = 'src/utils/text.ts';
+const TEST = 'test/import-harness.ts';
 
 async function localRules(code: string, filePath: string): Promise<string[]> {
   const [result] = await eslint.lintText(`${code}\n`, { filePath });
@@ -185,6 +186,53 @@ function declarationName(statement: AST.Program['body'][number]): string | undef
   }
   return undefined;
 }
+
+describe('local/no-ambient-clock', () => {
+  // The forms the commands used before now()/today() existed.
+  const reads = {
+    'new Date()': "import { toLocalDateString } from '../lib/dates.js';\nexport const d = toLocalDateString(new Date());",
+    'Date.now()': 'export const id = Date.now();',
+    "Date['now']()": "export const id = Date['now']();",
+    'globalThis.Date.now()': 'export const id = globalThis.Date.now();',
+    'new globalThis.Date()': 'export const d = new globalThis.Date();',
+  };
+  for (const [form, code] of Object.entries(reads)) {
+    test(`fires on ${form} in src/commands`, async () => {
+      expect(await localRules(code, COMMAND)).toEqual(['local/no-ambient-clock']);
+      expect(await localRules(code, CARD_INVOICE)).toEqual(['local/no-ambient-clock']);
+    });
+  }
+
+  test('does not fire on a Date built from a value or outside src/commands', async () => {
+    expect(await localRules("export const d = new Date('2026-10-26T00:00:00');", COMMAND)).toEqual([]);
+    expect(await localRules('export const d = new Date(2026, 9, 26);', COMMAND)).toEqual([]);
+    expect(await localRules(reads['new Date()'].replace('../lib/', './'), OTHER_SRC)).toEqual([]);
+  });
+});
+
+describe('local/no-literal-since', () => {
+  test('fires on a fixed YYYY-MM-DD right after --since in tests', async () => {
+    expect(await localRules("export const args = ['entries', 'import', 'list', '--since', '2026-10-01'];", TEST)).toEqual(['local/no-literal-since']);
+    expect(await localRules('export const args = [`--since`, `2026-09-15`, `--json`];', TEST)).toEqual(['local/no-literal-since']);
+  });
+
+  test('fires on the inline --since=YYYY-MM-DD form', async () => {
+    expect(await localRules("export const args = ['entries', 'import', 'list', '--since=2026-10-01'];", TEST)).toEqual(['local/no-literal-since']);
+    expect(await localRules('export const arg = `--since=2026-10-01`;', TEST)).toEqual(['local/no-literal-since']);
+  });
+
+  test('fires on --since and a fixed date as adjacent call arguments', async () => {
+    expect(await localRules("export const args: string[] = [];\nargs.push('--since', '2026-10-01');", TEST)).toEqual(['local/no-literal-since']);
+  });
+
+  test('does not fire on a computed date, an invalid input, or another flag', async () => {
+    expect(await localRules("declare const SINCE: string;\nexport const args = ['--since', SINCE];", TEST)).toEqual([]);
+    expect(await localRules("export const args = ['--since', 'not-a-date', '--since', '22/10/2026'];", TEST)).toEqual([]);
+    expect(await localRules("export const args = ['--search-from', '2026-10-01'];", TEST)).toEqual([]);
+    expect(await localRules("declare const SINCE: string;\nexport const args = [`--since=${SINCE}`];\nargs.push('--since', SINCE);", TEST)).toEqual([]);
+    expect(await localRules("export const args = ['--since=yesterday'];\nargs.push('--json', '2026-10-01');", TEST)).toEqual([]);
+  });
+});
 
 test('clean code gets no local rule messages', async () => {
   const code = "import { parseId } from '../utils/parse.js';\nexport const id = parseId('7');";

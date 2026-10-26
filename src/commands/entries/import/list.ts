@@ -15,6 +15,7 @@ import { resolveAccountOrExit } from '../../account-id.js';
 import { accountConnection } from '../../connection.js';
 import { asRecord, nonEmptyTextOrNull } from '../../../lib/payload.js';
 import { calendarDateFlag, defaultSince, earliestSince, explicitSince } from './since.js';
+import { today } from '../../../lib/dates.js';
 
 export interface ImportLoadOptions {
   account: string;
@@ -57,8 +58,8 @@ export async function loadImport(options: ImportLoadOptions): Promise<LoadedImpo
   const searchFrom = calendarDateFlag(options.searchFrom);
   const searchTo = calendarDateFlag(options.searchTo);
 
-  const now = new Date();
-  const requested = explicitSince(options.since, now);
+  const day = today();
+  const requested = explicitSince(options.since, day);
   const accountId = await resolveAccountOrExit(options.account);
   const link = await accountConnection(accountId);
   const { connectionAccount } = link;
@@ -74,7 +75,7 @@ export async function loadImport(options: ImportLoadOptions): Promise<LoadedImpo
   // but a GET rarely has one (the web gets it from the sync PUT, which the CLI never sends on its own).
   // Without it, load what the web's import button loads: everything since a date, already imported or not.
   const summary = requested === undefined ? summaryStatement(link.summary) : null;
-  const since = summary === null ? (requested ?? defaultSince(account?.dataUltimoExtrato, now)) : null;
+  const since = summary === null ? (requested ?? defaultSince(account?.dataUltimoExtrato, day)) : null;
   const payload: unknown = since === null ? summary : await fetchBankTransactions(connectionAccount, since);
   const document = toImportDocument({
     accountId,

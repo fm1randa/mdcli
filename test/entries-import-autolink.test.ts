@@ -3,6 +3,7 @@ import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE } from './fixtures.js';
+import { SINCE } from './import-harness.js';
 
 // Fictional ids. 1001 is Nubank (connection account 9001); 1002 is Cartão Azul (connection
 // account 9002, proximoVencimento 2026-01-16). Statement 2026-10-01 to 2026-10-28, so the
@@ -108,7 +109,7 @@ interface Row {
 }
 
 async function listed(): Promise<Map<string, Row>> {
-  const result = await cli(['entries', 'import', 'list', '-a', '1001', '--since', '2026-10-01', '--json']);
+  const result = await cli(['entries', 'import', 'list', '-a', '1001', '--since', SINCE, '--json']);
   expect(result.exitCode).toBe(0);
   const rows = JSON.parse(result.stdout).transactions as Row[];
   return new Map(rows.map((row) => [row.integrationId, row]));
@@ -159,7 +160,7 @@ describe('entries import: one Entry linked automatically, like the web', () => {
 
   test('run --ids conciliates each row with its linked Entry', async () => {
     const result = await cli([
-      'entries', 'import', 'run', '-a', '1001', '--since', '2026-10-01',
+      'entries', 'import', 'run', '-a', '1001', '--since', SINCE,
       '--ids', '10000000,20000000,30000000', '-c', '40', '--yes', '--json',
     ]);
 
@@ -182,7 +183,7 @@ describe('entries import: one Entry linked automatically, like the web', () => {
     writeFileSync(editor, `cp "$1" "${seen}"\n`);
 
     const result = await cli(
-      ['entries', 'import', 'run', '-a', '1001', '--since', '2026-10-01', '--edit', '--dry-run', '--json'],
+      ['entries', 'import', 'run', '-a', '1001', '--since', SINCE, '--edit', '--dry-run', '--json'],
       { EDITOR: `sh ${editor}` },
     );
     const file = await Bun.file(seen).text();
@@ -206,7 +207,7 @@ describe('entries import: one Entry linked automatically, like the web', () => {
     writeFileSync(plan, JSON.stringify({ transactions: [{ id: '50000000', action: 'conciliate', entry: 708 }] }));
 
     const result = await cli([
-      'entries', 'import', 'run', '-a', '1001', '--since', '2026-10-01', '--plan', plan, '--dry-run', '--json',
+      'entries', 'import', 'run', '-a', '1001', '--since', SINCE, '--plan', plan, '--dry-run', '--json',
     ]);
 
     expect(result.exitCode).toBe(0);
@@ -230,7 +231,7 @@ describe('entries import: one Entry linked automatically, like the web', () => {
       ],
     });
 
-    const result = await cli(['entries', 'import', 'list', '-a', '1002', '--since', '2026-10-01', '--json']);
+    const result = await cli(['entries', 'import', 'list', '-a', '1002', '--since', SINCE, '--json']);
 
     expect(result.exitCode).toBe(0);
     const row = JSON.parse(result.stdout).transactions[0];
