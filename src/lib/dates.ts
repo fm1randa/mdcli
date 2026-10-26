@@ -15,7 +15,7 @@ export function now(): Date {
   const override = process.env.MDCLI_TODAY;
   if (override === undefined || override === '') return current;
   if (!isCalendarDate(override)) {
-    throw new Error(`MDCLI_TODAY must be a YYYY-MM-DD date, got "${override}"`);
+    throw new Error(`MDCLI_TODAY must be a YYYY-MM-DD calendar day, got "${override}"`);
   }
   const [year, month, day] = override.split('-').map(Number);
   current.setFullYear(year, month - 1, day);
