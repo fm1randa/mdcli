@@ -14,6 +14,16 @@ if (resolve(process.env.MDCLI_CONFIG_DIR) === realConfigDir) {
   throw new Error('MDCLI_CONFIG_DIR points at the real config; refusing to run tests');
 }
 
+// bun test runs in UTC unless TZ is set, but it does not export TZ, so a CLI
+// spawned by runCli read the machine's zone instead: on a box in
+// America/Sao_Paulo, between 21:00 and midnight the test's "today" was already
+// tomorrow. Setting TZ here pins both this process and every subprocess (they
+// inherit process.env) to one zone. The default is UTC+14, where the local day
+// differs from the UTC day for 14 hours of every day, so a test or mock that
+// takes "today" from UTC instead of the local calendar fails in CI most of the
+// time. An explicit TZ (e.g. TZ=UTC bun run test) still wins.
+process.env.TZ ??= 'Pacific/Kiritimati';
+
 afterAll(() => {
   rmSync(sandbox, { recursive: true, force: true });
 });
