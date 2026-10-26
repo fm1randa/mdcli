@@ -134,6 +134,19 @@ describe('GET /v2/lancamentos sends the user preferences, as the web does', () =
     expect(sentPreferences('sum').moeda).toBe('2');
   });
 
+  // Review of #128 round 6 (S1): moedaService skips investment portfolios
+  // (mdb.js 17336): one in the picked currency does not make it usable.
+  test('an investment portfolio in the picked currency does not make it the moeda sent', async () => {
+    const portfolio = { ...CHECKING_ACCOUNT, id: 1009, nome: 'Carteira EUR', tipo: 'CARTEIRA_INVEST', moeda: 3 };
+    api.on('GET /v1/cadastros/contas', { ...ACCOUNTS_RESPONSE, items: [...ACCOUNTS_RESPONSE.items, portfolio] });
+    api.on('GET /v1/frontend/sessao', session({ config: { pendentesPresente: true, metasRD: false, moeda: 1 }, mdwebMoeda: 3 }));
+
+    const result = await runCli(['accounts', 'list', '--json', '--at', '2026-09-30'], { home, api });
+
+    expect(result.exitCode).toBe(0);
+    expect(sentPreferences('sum').moeda).toBe('1');
+  });
+
   test('preferences the account does not have are not sent, as the web leaves them undefined', async () => {
     api.on('GET /v1/frontend/sessao', session({ config: { moeda: 1 } }));
 

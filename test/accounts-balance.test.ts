@@ -147,6 +147,33 @@ describe('accounts list balances', () => {
     expect(JSON.parse(sum.query.get('contas') ?? '').ids).toEqual([1001, 1008]);
   });
 
+  // Review of #128 round 6 (S1): the web leaves investment portfolios out
+  // and keeps closed accounts (carregarContasPR, mdb.js 4392-4399).
+  test('an active investment portfolio has no balance and is not asked for', async () => {
+    const portfolio = { ...CHECKING_ACCOUNT, id: 1009, nome: 'Carteira XP', tipo: 'CARTEIRA_INVEST' };
+    api.on('GET /v1/cadastros/contas', { ...ACCOUNTS_RESPONSE, items: [...ACCOUNTS_RESPONSE.items, portfolio] });
+
+    const result = await runCli(['accounts', 'list', '--json', '--at', '2026-10-16'], { home, api });
+
+    expect(result.exitCode).toBe(0);
+    expect(JSON.parse(sumRequests()[0].query.get('contas') ?? '').ids).toEqual([1001]);
+    const accounts = JSON.parse(result.stdout) as Array<Record<string, unknown>>;
+    expect(accounts.find((a) => a.id === 1009)).toMatchObject({ balance: null, projectedBalance: null });
+  });
+
+  test('an inactive account that is closed still gets its balance', async () => {
+    const closed = { ...CHECKING_ACCOUNT, id: 1010, nome: 'Conta Antiga', status: false, encerrada: true };
+    api.on('GET /v1/cadastros/contas', { ...ACCOUNTS_RESPONSE, items: [...ACCOUNTS_RESPONSE.items, closed] });
+    api.on('GET /v2/lancamentos', { sum: [{ conta: 1010, projetado: 12.5, confirmado: 10 }] });
+
+    const result = await runCli(['accounts', 'list', '--json', '--at', '2026-10-16'], { home, api });
+
+    expect(result.exitCode).toBe(0);
+    expect(JSON.parse(sumRequests()[0].query.get('contas') ?? '').ids).toEqual([1001, 1010]);
+    const accounts = JSON.parse(result.stdout) as Array<Record<string, unknown>>;
+    expect(accounts.find((a) => a.id === 1010)).toMatchObject({ balance: 10, projectedBalance: 12.5 });
+  });
+
   test('refuses an invalid --at before calling the API', async () => {
     const result = await runCli(['accounts', 'list', '--at', '2026-02-31'], { home, api });
 
