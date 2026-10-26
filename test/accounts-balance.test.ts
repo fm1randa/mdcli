@@ -174,6 +174,56 @@ describe('accounts list balances', () => {
     expect(accounts.find((a) => a.id === 1010)).toMatchObject({ balance: 10, projectedBalance: 12.5 });
   });
 
+  // Review of #128 round 6 (P1): the panel calls carregarContasPR(!0)
+  // (mdb.js 63450), which also drops the accounts hasRest("contas", id)
+  // restricts to the user: the ids in usuario.permissoes.restricoes.contas
+  // (mdb.js 60168-60188).
+  describe('accounts restricted to the user', () => {
+    const savings = { ...CHECKING_ACCOUNT, id: 1008, nome: 'Poupança' };
+    const usuario = SESSION_RESPONSE.payload.ngInit.usuario;
+    const withRestrictions = (restricoes: unknown) => ({
+      ...SESSION_RESPONSE,
+      payload: { ngInit: { ...SESSION_RESPONSE.payload.ngInit, usuario: { ...usuario, permissoes: { restricoes } } } },
+    });
+
+    beforeEach(() => {
+      api.on('GET /v1/cadastros/contas', { ...ACCOUNTS_RESPONSE, items: [...ACCOUNTS_RESPONSE.items, savings] });
+      api.on('GET /v2/lancamentos', { sum: [{ conta: 1001, projetado: 577.52, confirmado: 622.52 }] });
+    });
+
+    test('a restricted account gets no balance and is not asked for; the others still are', async () => {
+      // The web compares with ==, so a string id restricts too.
+      api.on('GET /v1/frontend/sessao', withRestrictions({ contas: ['1008'] }));
+
+      const result = await runCli(['accounts', 'list', '--json', '--at', '2026-10-16'], { home, api });
+
+      expect(result.exitCode).toBe(0);
+      expect(JSON.parse(sumRequests()[0].query.get('contas') ?? '').ids).toEqual([1001]);
+      expect(api.requests.filter((r) => r.path === '/v1/frontend/sessao')).toHaveLength(1);
+      const accounts = JSON.parse(result.stdout) as Array<Record<string, unknown>>;
+      expect(accounts.find((a) => a.id === 1008)).toMatchObject({ balance: null, projectedBalance: null });
+      expect(accounts.find((a) => a.id === 1001)).toMatchObject({ balance: 622.52, projectedBalance: 577.52 });
+    });
+
+    test('restrictions on other things than accounts restrict no account', async () => {
+      api.on('GET /v1/frontend/sessao', withRestrictions({ categorias: [1001, 1008] }));
+
+      const result = await runCli(['accounts', 'list', '--json', '--at', '2026-10-16'], { home, api });
+
+      expect(result.exitCode).toBe(0);
+      expect(JSON.parse(sumRequests()[0].query.get('contas') ?? '').ids).toEqual([1001, 1008]);
+    });
+
+    test('a user without restrictions gets every balance', async () => {
+      api.on('GET /v1/frontend/sessao', SESSION_RESPONSE);
+
+      const result = await runCli(['accounts', 'list', '--json', '--at', '2026-10-16'], { home, api });
+
+      expect(result.exitCode).toBe(0);
+      expect(JSON.parse(sumRequests()[0].query.get('contas') ?? '').ids).toEqual([1001, 1008]);
+    });
+  });
+
   test('refuses an invalid --at before calling the API', async () => {
     const result = await runCli(['accounts', 'list', '--at', '2026-02-31'], { home, api });
 

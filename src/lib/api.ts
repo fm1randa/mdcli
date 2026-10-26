@@ -212,7 +212,7 @@ export async function fetchImportCandidates(accountId: number, start: string, en
   );
 }
 
-// Read once per run: the entries preferences and the import overwrite preference share it.
+// Read once per run: the entries preferences, the account restrictions and the import overwrite preference share it.
 let webConfig: Promise<WebConfig | null> | null = null;
 
 /** The web's window.mdconfig, or null when the session state cannot give it (src/lib/web-session.ts). */
@@ -371,7 +371,7 @@ async function fetchEntries(params: EntriesParams): Promise<EntriesResponse> {
 
 /** The web's account balances (src/lib/account-balances.ts); `accounts`: every account of the user. */
 export const fetchAccountBalances = (accounts: Account[], end: string): Promise<AccountBalanceSum[]> =>
-  fetchWebBalances((endpoint) => request('GET', endpoint), accounts, end, () => (entriesPreferences ??= loadPreferences(Promise.resolve(accounts))));
+  fetchWebBalances((endpoint) => request('GET', endpoint), accounts, end, () => (entriesPreferences ??= loadPreferences(Promise.resolve(accounts))), fetchWebConfig);
 
 export function isCreditCard(account: Account): boolean {
   return account.tipo === 'CARTAOCREDITO';
