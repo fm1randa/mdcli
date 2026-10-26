@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
-import { ESLint } from 'eslint';
+import { ESLint, type AST } from 'eslint';
+import tseslint from 'typescript-eslint';
 
 // Lints snippets with the repo's real eslint.config.js. The paths must be
 // existing files: typed linting (projectService) rejects files outside the
@@ -144,24 +145,42 @@ describe('local/no-due-anchor-fallback', () => {
   });
 
   // The exemption is per file: a new export of card-invoice.ts reading the field would pass the
-  // rule with a third rule for a card without one. Lint the real file as if it lived elsewhere.
-  test('only cardDueAnchor and ownDueDate read the field in card-invoice.ts', async () => {
-    const source = readFileSync(`${import.meta.dir}/../${CARD_INVOICE}`, 'utf8');
+  // rule with a third rule for a card without one. Lint the real file as if it lived elsewhere and
+  // name the top-level declaration around each read, exported or not.
+  async function readers(source: string): Promise<Set<string>> {
     const [result] = await eslint.lintText(source, { filePath: OTHER_SRC });
-    const lines = source.split('\n');
-    const readers = result.messages
+    // The parser eslint.config.js lints with; its AST is ESTree plus TS nodes.
+    const program = tseslint.parser.parseForESLint(source).ast as AST.Program;
+    const names = result.messages
       .filter((m) => m.ruleId === 'local/no-due-anchor-fallback')
       .map((m) => {
-        const declaration = lines
-          .slice(0, m.line)
-          .reverse()
-          .find((line) => /^export (async )?function /.test(line));
-        return declaration?.match(/function (\w+)/)?.[1] ?? `line ${m.line}`;
+        const statement = program.body.find((s) => s.loc && s.loc.start.line <= m.line && m.line <= s.loc.end.line);
+        return (statement && declarationName(statement)) ?? `line ${m.line}`;
       });
-    expect(readers.length).toBeGreaterThan(0);
-    expect(new Set(readers)).toEqual(new Set(['cardDueAnchor', 'ownDueDate']));
+    return new Set(names);
+  }
+
+  const source = readFileSync(`${import.meta.dir}/../${CARD_INVOICE}`, 'utf8');
+
+  test('only cardDueAnchor and ownDueDate read the field in card-invoice.ts', async () => {
+    expect(await readers(source)).toEqual(new Set(['cardDueAnchor', 'ownDueDate']));
+  });
+
+  test('names a const or a non-exported helper that reads the field', async () => {
+    const extra = 'export const reader = (a: Account) => a.proximoVencimento;\nfunction helper(a: Account) { return a.proximoVencimento; }';
+    expect(await readers(`${source}\n${extra}\n`)).toEqual(new Set(['cardDueAnchor', 'ownDueDate', 'reader', 'helper']));
   });
 });
+
+function declarationName(statement: AST.Program['body'][number]): string | undefined {
+  const node =
+    statement.type === 'ExportNamedDeclaration' || statement.type === 'ExportDefaultDeclaration' ? statement.declaration : statement;
+  if (node?.type === 'FunctionDeclaration') return node.id?.name;
+  if (node?.type === 'VariableDeclaration') {
+    return node.declarations.map((d) => (d.id.type === 'Identifier' ? d.id.name : '?')).join(', ');
+  }
+  return undefined;
+}
 
 test('clean code gets no local rule messages', async () => {
   const code = "import { parseId } from '../utils/parse.js';\nexport const id = parseId('7');";
