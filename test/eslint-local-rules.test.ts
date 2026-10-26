@@ -71,11 +71,12 @@ describe('local/no-raw-dash', () => {
   });
 });
 
-describe('local/no-number-call', () => {
-  test('fires in src/commands (including card-invoice.ts) and src/lib/aliases.ts', async () => {
-    expect(await localRules(NUMBER_CALL, COMMAND)).toEqual(['local/no-number-call']);
-    expect(await localRules(NUMBER_CALL, CARD_INVOICE)).toEqual(['local/no-number-call']);
-    expect(await localRules(NUMBER_CALL, ALIASES)).toEqual(['local/no-number-call']);
+describe('local/no-loose-number', () => {
+  test('fires anywhere in src (including card-invoice.ts and src/lib)', async () => {
+    expect(await localRules(NUMBER_CALL, COMMAND)).toEqual(['local/no-loose-number']);
+    expect(await localRules(NUMBER_CALL, OTHER_SRC)).toEqual(['local/no-loose-number']);
+    expect(await localRules(NUMBER_CALL, CARD_INVOICE)).toEqual(['local/no-loose-number']);
+    expect(await localRules(NUMBER_CALL, ALIASES)).toEqual(['local/no-loose-number']);
   });
 
   // Each one coerces loosely like Number(): '12abc' is 12, +'' is 0.
@@ -87,15 +88,14 @@ describe('local/no-number-call', () => {
     'unary +': "declare const s: string;\nexport const n = +s;",
   };
   for (const [form, code] of Object.entries(coercions)) {
-    test(`fires on ${form} in src/commands, not in src/utils/parse.ts`, async () => {
-      expect(await localRules(code, COMMAND)).toEqual(['local/no-number-call']);
+    test(`fires on ${form} in src, not in src/utils/parse.ts`, async () => {
+      expect(await localRules(code, COMMAND)).toEqual(['local/no-loose-number']);
       expect(await localRules(code, PARSE)).toEqual([]);
     });
   }
 
-  test('does not fire outside its scope, on a numeric literal or on other Number members', async () => {
+  test('does not fire in src/utils/parse.ts, on a numeric literal or on other Number members', async () => {
     expect(await localRules(NUMBER_CALL, PARSE)).toEqual([]);
-    expect(await localRules(NUMBER_CALL, OTHER_SRC)).toEqual([]);
     expect(await localRules('export const n = +1;', COMMAND)).toEqual([]);
     expect(await localRules('export const ok = Number.isSafeInteger(7);', COMMAND)).toEqual([]);
   });

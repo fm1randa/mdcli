@@ -36,10 +36,15 @@ export default tseslint.config(
     rules: { "local/no-raw-currency": "error", "local/no-raw-cents": "error" },
   },
   {
-    // User input goes through the strict parse helpers; payloads match
-    // their types instead of being cast.
+    // Strings become numbers only through the strict parse helpers.
+    files: ["src/**/*.ts"],
+    ignores: ["src/utils/parse.ts"],
+    rules: { "local/no-loose-number": "error" },
+  },
+  {
+    // User input payloads match their types instead of being cast.
     files: ["src/commands/**/*.ts", "src/lib/aliases.ts"],
-    rules: { "local/no-number-call": "error", "local/no-double-cast": "error" },
+    rules: { "local/no-double-cast": "error" },
   },
   {
     // An empty table cell is written by cell() alone.
