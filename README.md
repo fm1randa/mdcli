@@ -206,6 +206,21 @@ mdcli accounts delete 1167419
 # Cria um alias para acesso rápido
 mdcli accounts alias add --id 1167419 --name mp
 
+# Lista, troca ou remove aliases (salvos só neste computador)
+mdcli accounts alias list
+mdcli accounts alias update --id 1167419 --name mercadopago
+mdcli accounts alias rm --name mercadopago
+
+# Categorias e tags têm os mesmos comandos de alias
+mdcli categories alias add --id 12345 --name food
+mdcli categories alias list --json
+mdcli categories alias update --id 12345 --name comida
+mdcli categories alias rm --id 12345
+mdcli tags alias add --id 678 --name viagem
+mdcli tags alias list
+mdcli tags alias update --id 678 --name trip
+mdcli tags alias rm --name trip
+
 # Lista lançamentos usando o alias
 mdcli entries list --account mp --from 2024-01-01 --to 2024-01-31
 
@@ -322,6 +337,44 @@ mdcli entries delete 12345
 # (o "Neste e em todos na sequência" do app web); o padrão é --scope this
 mdcli entries delete 12345 --scope following
 
+# Importação do banco (Open Finance), como o botão Importar da web: lista as
+# transações bancárias de uma conta conectada com a categoria sugerida pelo
+# servidor (regras aprendidas e, no plano pago, IA), os duplicados e os
+# lançamentos que podem ser conciliados. Só lê. Sem --since, carrega o que a
+# conexão informa como novo; sem isso, o extrato desde a data do último extrato
+# da conta (no máximo 90 dias atrás). O prefixo identifica cada transação nos
+# comandos seguintes, como o de um commit no git
+mdcli entries import list --account mp
+mdcli entries import list --account mp --since 2026-10-01 --json
+
+# Amplia a busca de lançamentos para conciliar (o "Alterar busca" da web; o
+# padrão é o período do extrato ±2 dias). Num cartão, os candidatos são a fatura
+# inteira do próximo vencimento; um cartão sem próximo vencimento não importa
+mdcli entries import list --account mp --search-to 2026-10-20
+
+# Importa transações escolhidas pelo prefixo, todas na mesma categoria;
+# --reject marca outras como não importadas. Pede confirmação (y/N), e
+# --dry-run mostra o que seria feito sem gravar nada
+mdcli entries import run --account mp --ids 1a2b3c4d,5e6f7a8b --category food --dry-run
+mdcli entries import run --account mp --ids 1a2b3c4d --category food --reject 9c0d1e2f --yes
+
+# Uma ação por transação (import, conciliate, skip, reject) num arquivo JSON:
+# {"transactions": [{"id": "1a2b3c4d", "action": "conciliate", "entry": 12345}]}
+mdcli entries import run --account mp --plan plan.json --yes
+
+# Ou no $EDITOR, no estilo do git rebase -i: uma linha por transação
+# (<comando> <prefixo> <data> <valor> <categoria> | <descrição>). Um erro reabre
+# o editor com a mensagem; apagar todas as linhas cancela
+mdcli entries import run --account mp --edit
+
+# Lista as conexões bancárias e as contas ligadas a cada uma
+mdcli sync list
+
+# Pede a atualização (sync) da conexão de uma conta, ou de todas. Cada conector
+# aceita no máximo 3 por dia, por isso pede confirmação
+mdcli sync run mp
+mdcli sync run all --yes
+
 # Lista os cartões de crédito (o --json tem limit, dueDay, nextDueDate, nextClosingDate,
 # closingDaysBeforeDue e paymentAccountId; sem saldo, que não significa nada
 # para um cartão). dueDay/nextDueDate/nextClosingDate null: a API não tem o próximo
@@ -370,6 +423,9 @@ mdcli categories update 12345 --inactive
 # Exclui uma categoria; seus lançamentos vão para --move-to (precisa ser do mesmo tipo).
 # Categorias com subcategorias precisam ter essas removidas antes.
 mdcli categories delete 12345 --move-to "Outros"
+
+# Lista só as tags ativas
+mdcli tags list --active
 
 # Cria uma tag (a cor é opcional; o padrão é cinza)
 mdcli tags create --name "Travel" --color "#FF6600"
@@ -500,3 +556,14 @@ Os testes em `test/` executam a CLI real como subprocesso contra um mock local d
 | Resumo da fatura (fechamento, fatura anterior, pago, a pagar, conciliado, limite, disponível) | Pronto (texto; `--summary`; `--json --summary`) |
 | Configurações do cartão no `cards list --json` (limite, datas de vencimento/fechamento, conta de pagamento) | Pronto |
 | Parcelas futuras | Pronto |
+
+### Importação e sincronização
+| Funcionalidade | Status |
+|---------|--------|
+| Listar as transações bancárias de uma conta conectada (`entries import list`) | Pronto |
+| Sugestões de categoria, descrição e tags do servidor (regras e IA) | Pronto |
+| Duplicados e candidatos à conciliação, como a web | Pronto |
+| Importar, conciliar ou rejeitar (`--ids`, `--plan`, `--edit`) | Pronto |
+| Simulação sem gravar (`--dry-run`) | Pronto |
+| Listar conexões (`sync list`) | Pronto |
+| Atualizar conexões (`sync run <conta\|all>`) | Pronto |
