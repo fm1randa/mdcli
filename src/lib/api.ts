@@ -1,19 +1,11 @@
-import type { ApiHeaders, AuthConfig, AuthMethod, CategoriesResponse, Category, CreateCategoryPayload, UpdateCategoryPayload, AccountsResponse, TagsResponse, EntriesResponse, EntriesParams, CreateEntryPayload, CreateEntryResponse, UpdateEntryPayload, UpdateTransferPayload, Entry, CardInvoiceResponse, CardFutureResponse, CardPlastic, Account, CreateAccountPayload, UpdateAccountPayload, CreateTagPayload, CreateTagResponse } from '../types/index.js';
+import type { ApiHeaders, AuthConfig, AuthMethod, CategoriesResponse, Category, CreateCategoryPayload, UpdateCategoryPayload, AccountsResponse, AccountBalanceSum, TagsResponse, EntriesResponse, EntriesParams, CreateEntryPayload, CreateEntryResponse, UpdateEntryPayload, UpdateTransferPayload, Entry, CardInvoiceResponse, CardFutureResponse, CardPlastic, Account, CreateAccountPayload, UpdateAccountPayload, CreateTagPayload, CreateTagResponse } from '../types/index.js';
 import { getAuth, getAuthMethod, setAuth, getOpItem, invalidateNameCache } from './config.js';
 import { popStaleNameCacheUse } from './cache-invalidation.js';
 import { captureAuthHeadless } from './browser-auth.js';
 import { extractSessionFromBrowser } from './browser-session/index.js';
 
 
-export {
-  normalizeCategories,
-  normalizeAccounts,
-  normalizeCards,
-  normalizeTags,
-  normalizeEntries,
-  normalizeCardEntries,
-  normalizeCardInstallments,
-} from './normalize.js';
+export { normalizeCategories, normalizeAccounts, normalizeCards, normalizeTags, normalizeEntries, normalizeCardEntries, normalizeCardInstallments } from './normalize.js';
 
 const BASE_URL = process.env.MDCLI_API_URL ?? 'https://app.meudinheiroweb.com.br/api';
 
@@ -364,6 +356,18 @@ async function fetchEntries(params: EntriesParams): Promise<EntriesResponse> {
   }
 
   return request<EntriesResponse>('GET', `/v2/lancamentos?${queryParams.toString()}`);
+}
+
+/**
+ * The web app's account balances (the Saldos de caixa / Saldos das contas
+ * panels and the Lançamentos screen, mdb.js): the server sums every Entry of
+ * each account up to `end`, with no start date, grouped by account.
+ */
+export async function fetchAccountBalances(accountIds: number[], end: string): Promise<AccountBalanceSum[]> {
+  const query = new URLSearchParams({ type: 'sum', finalidade: '1', fim: end, moeda: '1', apenasMetasDefinidas: 'false', pendentesPresente: 'true' });
+  query.set('contas', JSON.stringify({ ids: accountIds, faturas: true, residuo: false }));
+  query.set('sum', JSON.stringify({ groupBy: 'conta' }));
+  return (await request<{ sum: AccountBalanceSum[] }>('GET', `/v2/lancamentos?${query.toString()}`)).sum;
 }
 
 export function isCreditCard(account: Account): boolean {

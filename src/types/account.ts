@@ -83,14 +83,36 @@ export interface NormalizedAccount {
   name: string;
   type: string;
   bank: string | null;
-  balance: number;
   active: boolean;
   closed: boolean;
 }
 
+/** One account's balance as the server sums it (GET /v2/lancamentos type=sum):
+ * every Entry up to the day (projetado) or only the confirmed ones (confirmado). */
+export interface AccountBalanceSum {
+  conta: number;
+  projetado: number;
+  confirmado: number;
+}
+
+/**
+ * An account in accounts list --json. balance and projectedBalance are the
+ * web app's (confirmed and projected, at balanceDate); null for an account
+ * the web shows no balance for (cards, investment portfolios, inactive and not
+ * closed). bankBalance/bankBalanceDate are the last bank statement
+ * (saldoUltimoExtrato/dataUltimoExtrato), which can be years old (#67).
+ */
+export interface AccountWithBalance extends NormalizedAccount {
+  balance: number | null;
+  projectedBalance: number | null;
+  balanceDate: string;
+  bankBalance: number | null;
+  bankBalanceDate: string | null;
+}
+
 /** No balance: saldoUltimoExtrato is an Open Finance statement figure that
  * means nothing as a card balance (Filipe, dogfood 2026-10-19). */
-export interface NormalizedCard extends Omit<NormalizedAccount, 'balance'> {
+export interface NormalizedCard extends NormalizedAccount {
   limit: number | null;
   /** Day of the month the invoice is due. */
   dueDay: number | null;

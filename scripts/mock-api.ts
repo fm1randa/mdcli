@@ -12,6 +12,7 @@ import { plasticsRoute } from './mock-plastics.js';
 import { SEEDED_ENTRIES, checkCreatePayload, checkUpdateAccounts, createCardPurchase, createdEntry, invoiceItems, statusLabel } from './mock-entries.js';
 import { connectionsRoute, recordMockRequest } from './mock-connections.js';
 import { importRoute, withRecentStatement } from './mock-import.js';
+import { balancesRoute } from './mock-balances.js';
 
 // GitHub "latest release" endpoint used by the self-updater (no auth).
 const MOCK_LATEST_TAG = 'v2099.1.1';
@@ -348,7 +349,7 @@ const server = Bun.serve({
       return cardsRoute(req, url.pathname);
     }
     if (url.pathname === '/api/v2/lancamentos' && req.method === 'GET') {
-      return entriesListRoute(url);
+      return url.searchParams.get('type') === 'sum' ? balancesRoute(url, isCreditCardId) : entriesListRoute(url);
     }
     // duplicidade lives under /lancamentos, so it has to be claimed before that prefix.
     const imported = importRoute(req.method, url);

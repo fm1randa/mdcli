@@ -171,8 +171,19 @@ mdcli auth login
 # Ou use o 1Password
 mdcli auth login --item "My Meu Dinheiro"
 
-# Lista as contas
+# Lista as contas com os saldos da web: confirmado e previsto no último dia do
+# mês atual, como os painéis "Saldos de caixa" e "Saldos das contas". A coluna
+# "Bank statement" é o saldo do último extrato do banco, que pode estar
+# desatualizado. Cartões e contas inativas (não encerradas) ficam sem saldo.
 mdcli accounts list --active
+
+# Saldos ao fim de outro dia
+mdcli accounts list --at 2026-10-16
+
+# --json: balance (confirmado), projectedBalance (previsto), balanceDate,
+# bankBalance e bankBalanceDate (último extrato); balance é null sem saldo na
+# web. Até a v2026.10.25-2, balance era o saldo do último extrato.
+mdcli accounts list --json
 
 # Lista os tipos de conta aceitos por --type
 mdcli accounts types
