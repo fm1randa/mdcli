@@ -3,7 +3,7 @@ import { fetchCategories, fetchTags } from '../../../lib/api.js';
 import type { Category } from '../../../types/index.js';
 import { formatCurrency } from '../../../utils/currency.js';
 import { logger } from '../../../utils/logger.js';
-import { cell } from '../../../utils/text.js';
+import { cell, listCell } from '../../../utils/text.js';
 import type { OverwrittenFields } from './candidates.js';
 import type { RunDocument } from './plan.js';
 
@@ -43,7 +43,7 @@ export function printRun(
         formatCurrency(item.value),
         cell(item.description),
         context.categories.find((category) => category.id === item.categoryId)?.nome ?? String(item.categoryId),
-        cell(item.tagIds.length === 0 ? null : item.tagIds.join(', ')),
+        listCell(item.tagIds),
         item.status === 'reconciled' ? 'Reconciled' : 'Scheduled',
       ]);
     }
@@ -136,8 +136,8 @@ function printOverwritten(items: readonly ConciliatedItem[], names: OverwrittenN
 }
 
 function fieldText(key: keyof OverwrittenFields, value: OverwrittenFields[keyof OverwrittenFields] | undefined, names: OverwrittenNames | null): string {
-  if (value === null || value === undefined || (Array.isArray(value) && value.length === 0)) return cell(null);
-  if (Array.isArray(value)) return value.map((id) => names?.tags.get(id) ?? String(id)).join(', ');
+  if (value === null || value === undefined) return cell(null);
+  if (Array.isArray(value)) return listCell(value, (id) => names?.tags.get(id) ?? String(id));
   if (key === 'categoryId' && typeof value === 'number') return names?.categories.get(value) ?? String(value);
   return cell(String(value));
 }

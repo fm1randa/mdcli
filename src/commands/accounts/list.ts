@@ -9,10 +9,6 @@ import { formatStatus } from './format.js';
 import { formatCurrency } from '../../utils/currency.js';
 import { cell } from '../../utils/text.js';
 
-function formatBalance(value: number | null): string {
-  return cell(value, formatCurrency);
-}
-
 export async function listAction(options: { json?: boolean; active?: boolean; at?: string }): Promise<void> {
   if (options.at !== undefined && !isCalendarDate(options.at)) {
     exitWithError(`Invalid date "${options.at}". Use YYYY-MM-DD (e.g., 2026-10-16).`);
@@ -57,8 +53,8 @@ export async function listAction(options: { json?: boolean; active?: boolean; at
       acc.name,
       acc.type,
       cell(acc.bank),
-      formatBalance(acc.balance),
-      formatBalance(acc.projectedBalance),
+      cell(acc.balance, formatCurrency),
+      cell(acc.projectedBalance, formatCurrency),
       cell(acc.bankBalance, (balance) => `${formatCurrency(balance)}${acc.bankBalanceDate ? chalk.gray(` (${acc.bankBalanceDate})`) : ''}`),
       formatStatus(acc.active, acc.closed),
     ]);

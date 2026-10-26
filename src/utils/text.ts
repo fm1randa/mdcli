@@ -23,3 +23,8 @@ export function cell<T>(value: T | null | undefined, format?: (value: T) => stri
   if (value === null || value === undefined) return chalk.gray('-');
   return format ? format(value) : String(value);
 }
+
+/** A table cell listing the items (through `format`) separated by commas, or the dash when empty. */
+export function listCell<T>(items: readonly T[], format: (item: T) => string = String): string {
+  return cell(items.length === 0 ? null : items.map((item) => format(item)).join(', '));
+}

@@ -5,7 +5,7 @@ import { exitWithError } from '../../../utils/action.js';
 import { ownDueDate } from '../card-invoice.js';
 import { formatCurrency } from '../../../utils/currency.js';
 import { logger } from '../../../utils/logger.js';
-import { cell } from '../../../utils/text.js';
+import { cell, listCell } from '../../../utils/text.js';
 import { categoryCatalog, type CategoryCatalog } from '../category.js';
 import { fillAiCategories } from './ai.js';
 import { automaticLinks, candidatesFor, readExisting, type ExistingEntry, type ImportCandidate } from './candidates.js';
@@ -253,15 +253,9 @@ function printStatement(document: ImportDocument): void {
       cell(bankTransaction.description),
       cell(categoryLabel(bankTransaction.suggestedCategory)),
       cell(bankTransaction.suggestedDescription),
-      cell(bankTransaction.suggestedTagIds.length === 0 ? null : bankTransaction.suggestedTagIds.join(', ')),
+      listCell(bankTransaction.suggestedTagIds),
       cell(bankTransaction.duplicateOf),
-      cell(
-        bankTransaction.candidates.length === 0
-          ? null
-          : bankTransaction.candidates
-            .map((item) => (item.id === bankTransaction.conciliateWith ? `${item.id} (linked)` : String(item.id)))
-            .join(', '),
-      ),
+      listCell(bankTransaction.candidates, (item) => (item.id === bankTransaction.conciliateWith ? `${item.id} (linked)` : String(item.id))),
       bankTransaction.defaultAction,
     ]);
   }

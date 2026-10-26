@@ -6,7 +6,7 @@ import { formatStatus, formatType } from './format.js';
 import { formatCurrency } from '../../utils/currency.js';
 import { loadNames, nameOf, tagNames } from './names.js';
 import { parseEntryId } from './entry-id.js';
-import { cell } from '../../utils/text.js';
+import { cell, listCell } from '../../utils/text.js';
 
 interface ShowOptions {
   json?: boolean;
@@ -45,7 +45,7 @@ export async function showAction(id: string, options: ShowOptions): Promise<void
     ['Account', nameOf(names.accounts, entry.accountId)],
     ['Transfer account', cell(entry.transferAccountId, (id) => String(nameOf(names.accounts, id)))],
     ['Category', cell(entry.categoryId, (id) => String(nameOf(names.categories, id)))],
-    ['Tags', cell(entry.tagIds.length > 0 ? tagNames(names, entry.tagIds).join(', ') : null)],
+    ['Tags', listCell(tagNames(names, entry.tagIds))],
     ['Repetition', REPETITION_LABELS[entry.repetition] + (entry.installment && entry.repetition === 'installment' ? ` (${entry.installment})` : '')],
     ['Series', cell(entry.seriesId)],
     ['Document number', cell(entry.documentNumber)],
