@@ -1,4 +1,4 @@
-<!-- traduzido de README.md @ 29d8d0e (base: 29d8d0e; readme-blob: 8fec85a957a9c279249b1d36cf7e468c41985303); ao atualizar o README.md, sincronize este arquivo e atualize o SHA e o readme-blob (git hash-object README.md) -->
+<!-- traduzido de README.md @ a3a9566 (base: a3a9566; readme-blob: a0ab7b882a3e539bfce48585c35b2c44fc7cbeff); ao atualizar o README.md, sincronize este arquivo e atualize o SHA e o readme-blob (git hash-object README.md) -->
 [Português (Brasil)](README.md) · **English**
 
 > The Portuguese [README.md](README.md) is the reference version; this English translation may lag behind it.
@@ -6,6 +6,10 @@
 # mdcli
 
 Unofficial CLI client for [Meu Dinheiro](https://meudinheiroweb.com.br) - a Brazilian personal finance app.
+
+### Language
+
+The default language is **pt-BR** (Brazilian Portuguese). To use English, pass `--lang en` or set `MDCLI_LANG=en`. The `MDCLI_LANG` variable accepts `pt`, `pt-BR`, `pt_BR`, `en`, and `en-US` (case-insensitive). `--lang` takes precedence over the environment variable. Invalid values produce a clear error with the list of accepted values.
 
 ## Installation
 

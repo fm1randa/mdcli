@@ -73,7 +73,7 @@ cleanup() {
   rm -rf "$SANDBOX"
 }
 trap cleanup EXIT
-CLI=(bun bin/cli.ts)
+CLI=(bun bin/cli.ts --lang en)
 
 expect_ok() {   # expect_ok <regex> <args...>
   local re="$1"; shift
