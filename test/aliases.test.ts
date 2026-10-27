@@ -38,11 +38,11 @@ describe('getAliases / addAlias / updateAlias / removeAlias', () => {
   test('addAlias refuses a duplicate name or id', () => {
     expect(addAlias('accounts', 1002, 'nu')).toEqual({
       success: false,
-      error: 'Alias "nu" already exists',
+      error: 'O alias "nu" já existe',
     });
     expect(addAlias('accounts', 1001, 'other')).toEqual({
       success: false,
-      error: 'ID 1001 already has alias "nu"',
+      error: 'O ID 1001 já tem o alias "nu"',
     });
   });
 
@@ -54,12 +54,12 @@ describe('getAliases / addAlias / updateAlias / removeAlias', () => {
   test('updateAlias fails when the id is missing or the name conflicts', () => {
     expect(updateAlias('accounts', 999, 'x')).toEqual({
       success: false,
-      error: 'No alias found for ID 999',
+      error: 'Nenhum alias encontrado para o ID 999',
     });
     addAlias('accounts', 1002, 'itau');
     expect(updateAlias('accounts', 1001, 'itau')).toEqual({
       success: false,
-      error: 'Alias "itau" already exists',
+      error: 'O alias "itau" já existe',
     });
   });
 
@@ -71,7 +71,7 @@ describe('getAliases / addAlias / updateAlias / removeAlias', () => {
     expect(removeAlias('accounts', 'nu')).toEqual({ success: true });
     expect(removeAlias('accounts', 'missing')).toEqual({
       success: false,
-      error: 'No alias found for "missing"',
+      error: 'Nenhum alias encontrado para "missing"',
     });
   });
 });

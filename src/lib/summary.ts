@@ -1,4 +1,5 @@
 import { roundToCents } from '../utils/currency.js';
+import { t } from './i18n/index.js';
 import type { NormalizedEntry } from '../types/index.js';
 
 interface SummaryRow {
@@ -49,6 +50,6 @@ export function totalRow(rows: SummaryRow[]): SummaryRow {
       expenses: roundToCents(total.expenses + row.expenses),
       net: roundToCents(total.net + row.net),
     }),
-    { key: 'total', label: 'Total', count: 0, income: 0, expenses: 0, net: 0 }
+    { key: 'total', label: t('labelTotal'), count: 0, income: 0, expenses: 0, net: 0 }
   );
 }

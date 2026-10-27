@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { ensurePrivateDir, writePrivateFile } from './config.js';
 import { parseInteger } from '../utils/parse.js';
+import { t } from './i18n/index.js';
 import { homedir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
 
@@ -142,7 +143,7 @@ export async function checkForUpdate(opts: Options): Promise<CheckResult> {
     if (!installed) return 'offline';
     const state = readState(env);
     if (state.seenVersion !== installed) {
-      if (state.seenVersion) notify(`mdcli atualizado de ${state.seenVersion} para ${installed}`);
+      if (state.seenVersion) notify(t('updateInstalled', state.seenVersion, installed));
       writeState(env, { seenVersion: installed });
     }
     if (env.MDCLI_NO_AUTO_UPDATE === '1' || env.CI || disabledInConfig(env)) return 'disabled';
@@ -165,32 +166,32 @@ export async function runManualUpdate(opts: Options): Promise<number> {
   const env = opts.env ?? process.env;
   const notify = opts.notify ?? ((m: string) => console.error(m));
   if (!isGlobalInstall(opts.packageRoot)) {
-    notify('✗ mdcli não está instalado globalmente (bun install -g github:fm1randa/mdcli); num checkout, use git pull.');
+    notify(t('updateNotGlobal'));
     return 1;
   }
   const installed = installedVersion(opts.packageRoot) ?? '0';
   const tag = await fetchLatestTag(env, MANUAL_TIMEOUT_MS);
   if (!tag) {
-    notify('✗ Não foi possível consultar a última release no GitHub.');
+    notify(t('updateCheckFailed'));
     return 1;
   }
   writeState(env, { checkedAt: opts.now ?? Date.now() });
   const latest = tag.slice(1);
   if (compareVersions(latest, installed) <= 0) {
-    notify(`mdcli já está na versão mais recente (${installed}).`);
+    notify(t('updateAlreadyLatest', installed));
     return 0;
   }
-  notify(`Atualizando mdcli de ${installed} para ${latest}...`);
+  notify(t('updateUpdating', installed, latest));
   const code = await new Promise<number>((resolve) => {
     const child = spawn(bunBinary(env), installArgs(tag), { stdio: ['ignore', 'inherit', 'inherit'] });
     child.on('error', () => resolve(1));
     child.on('exit', (c) => resolve(c ?? 1));
   });
   if (code !== 0) {
-    notify(`✗ Falha ao instalar ${tag} (bun saiu com código ${code}).`);
+    notify(t('updateInstallFailed', tag, code));
     return 1;
   }
   writeState(env, { seenVersion: latest });
-  notify(`mdcli atualizado de ${installed} para ${latest}`);
+  notify(t('updateInstalled', installed, latest));
   return 0;
 }

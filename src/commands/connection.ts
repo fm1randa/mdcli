@@ -1,6 +1,7 @@
 import { fetchConnections } from '../lib/api.js';
 import { asRecord, integerOrNull } from '../lib/payload.js';
 import { exitWithError } from '../utils/action.js';
+import { t } from '../lib/i18n/index.js';
 
 /** Where an Account sits on the bank side: its Connection and, there, its connection account. */
 export interface AccountConnection {
@@ -14,7 +15,7 @@ export interface AccountConnection {
 /** Each Connection object of GET /v1/integracao/connections. Anything else in the list is left out. */
 export function connectionList(payload: unknown): Record<string, unknown>[] {
   if (!Array.isArray(payload)) {
-    throw new Error('GET /v1/integracao/connections did not return a list of connections');
+    throw new Error(t('errorConnectionsPayload'));
   }
   return payload.flatMap((item) => {
     const connection = asRecord(item);
@@ -36,7 +37,7 @@ export async function accountConnection(accountId: number): Promise<AccountConne
       if (integerOrNull(record?.conta) !== accountId) continue;
       const connectionId = integerOrNull(connection.id);
       if (connectionId === null) {
-        exitWithError(`Account ${accountId} is linked to a connection that did not include its id.`);
+        exitWithError(t('errorConnectionMissingId', accountId));
       }
       const accounts = found.get(connectionId) ?? new Set<number | null>();
       accounts.add(integerOrNull(record?.id));
@@ -46,15 +47,15 @@ export async function accountConnection(accountId: number): Promise<AccountConne
   }
   const ids = [...found.keys()];
   if (ids.length === 0) {
-    exitWithError(`Account ${accountId} is not linked to any connection.`);
+    exitWithError(t('errorAccountWithoutConnection', accountId));
   }
   if (ids.length > 1) {
-    exitWithError(`Account ${accountId} is linked to more than one connection (${ids.join(', ')}).`);
+    exitWithError(t('errorAccountMultipleConnections', accountId, ids.join(', ')));
   }
   const [connectionId] = ids;
   const accounts = [...(found.get(connectionId) ?? [])];
   if (accounts.length > 1) {
-    exitWithError(`Account ${accountId} is linked twice on connection ${connectionId} (${accounts.join(', ')}).`);
+    exitWithError(t('errorAccountLinkedTwice', accountId, connectionId, accounts.join(', ')));
   }
   return { connectionId, connectionAccount: accounts[0] ?? null, summary };
 }

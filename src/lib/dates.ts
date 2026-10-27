@@ -1,3 +1,4 @@
+import { t } from './i18n/index.js';
 import { parseInteger } from '../utils/parse.js';
 
 export function toLocalDateString(date: Date): string {
@@ -59,7 +60,7 @@ const INVOICE_MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
 /** Validates a YYYY-MM invoice month (month 01-12); throws a message for the user otherwise. */
 export function parseInvoiceMonth(value: string): string {
   if (!INVOICE_MONTH.test(value)) {
-    throw new Error(`Invalid invoice month "${value}". Use YYYY-MM with a month from 01 to 12 (e.g., 2026-10)`);
+    throw new Error(t('errorInvalidInvoiceMonth', value));
   }
   return value;
 }

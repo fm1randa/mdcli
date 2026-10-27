@@ -2,6 +2,7 @@ import { isCreditCard } from '../../../lib/api.js';
 import { today } from '../../../lib/dates.js';
 import type { Category } from '../../../types/index.js';
 import { exitWithError } from '../../../utils/action.js';
+import { t } from '../../../lib/i18n/index.js';
 import { logger } from '../../../utils/logger.js';
 import { promptConfirmation } from '../../../utils/prompt.js';
 import { categoryCatalog } from '../category.js';
@@ -29,19 +30,19 @@ interface ImportRunOptions extends ImportLoadOptions {
 
 export async function runAction(options: ImportRunOptions): Promise<void> {
   if (options.json && !options.yes && !options.dryRun) {
-    exitWithError('entries import run --json requires --yes or --dry-run');
+    exitWithError(t('errorImportJsonRequires'));
   }
   const dryRun = options.dryRun === true;
   const planned = await plannedRun(options, today());
   if (planned === null) {
-    if (!options.json) logger.info('Nothing to do: the file has no command lines. Nothing was written.');
+    if (!options.json) logger.info(t('importNothingToDo'));
     return;
   }
   const { run, loaded, categories } = planned;
   const { document, account, payload } = loaded;
   if (document.transactions.length === 0) {
     if (options.json) console.log(JSON.stringify(run, null, 2));
-    else logger.info(`${nothingNewMessage(document)} Nothing was written.`);
+    else logger.info(t('importNothingNewWritten', nothingNewMessage(document)));
     return;
   }
 
@@ -54,12 +55,12 @@ export async function runAction(options: ImportRunOptions): Promise<void> {
   const writes = run.imported.length + run.conciliated.length + run.rejected.length;
   if (!options.json) printRun(run, context);
   if (!dryRun && writes === 0) {
-    if (!options.json) logger.info('Nothing to write: every selected bank transaction is skipped.');
+    if (!options.json) logger.info(t('importNothingToWrite'));
   } else if (!dryRun) {
     if (!options.yes && !options.json) {
-      const confirmed = await promptConfirmation(`Write this import to Meu Dinheiro? (y/N) `);
+      const confirmed = await promptConfirmation(t('confirmImport'));
       if (!confirmed) {
-        logger.info('Import cancelled. Nothing was written.');
+        logger.info(t('importCancelled'));
         process.exit(0);
       }
     }
@@ -69,7 +70,7 @@ export async function runAction(options: ImportRunOptions): Promise<void> {
       statementRows: statementRows(payload),
       creditCard: account !== undefined && isCreditCard(account),
     });
-    if (!options.json) logger.success(`Import written for ${context.accountName ?? run.accountId}.`);
+    if (!options.json) logger.success(t('importWritten', String(context.accountName ?? run.accountId)));
   }
   if (options.json) console.log(JSON.stringify(run, null, 2));
 }
@@ -83,7 +84,7 @@ interface PlannedRun {
 
 /** The run from one of the three ways to select: flags, --plan, or --edit. Null when --edit is cancelled. */
 async function plannedRun(options: ImportRunOptions, today: string): Promise<PlannedRun | null> {
-  if (options.plan !== undefined && options.edit) exitWithError('--plan does not combine with --edit.');
+  if (options.plan !== undefined && options.edit) exitWithError(t('errorPlanDoesNotCombineWithEdit'));
   const source = options.plan !== undefined ? '--plan' : options.edit ? '--edit' : null;
   if (source === null) return fromFlags(options, today);
   // --include-duplicates is a common flag: with --edit it opens duplicates as import; in a --plan file each action rules.
@@ -91,7 +92,7 @@ async function plannedRun(options: ImportRunOptions, today: string): Promise<Pla
     (key) => options[key] !== undefined,
   );
   if (conflicting !== undefined) {
-    exitWithError(`${FLAG_NAMES[conflicting]} does not combine with ${source}. Every choice goes in the ${source} file.`);
+    exitWithError(t('errorFlagDoesNotCombine', FLAG_NAMES[conflicting], source));
   }
   return options.plan === undefined ? fromEdit(options, today) : fromPlan(options, options.plan, today);
 }
@@ -99,22 +100,19 @@ async function plannedRun(options: ImportRunOptions, today: string): Promise<Pla
 /** --ids with --category, and --reject. */
 async function fromFlags(options: ImportRunOptions, today: string): Promise<PlannedRun> {
   if (options.category !== undefined && options.ids === undefined) {
-    exitWithError('--category only applies to --ids.');
+    exitWithError(t('errorCategoryOnlyIds'));
   }
   if (options.ids !== undefined && options.category === undefined) {
-    exitWithError('--ids needs -c, --category: every Entry the import creates has a category.');
+    exitWithError(t('errorIdsNeedsCategory'));
   }
   if (options.ids === undefined && options.reject === undefined) {
-    exitWithError(
-      'Nothing selected. Use --ids with --category, --reject, --plan, or --edit. There is no "import everything". ' +
-      `To see what would be imported, with the suggested categories and actions, use: ${listCommand(options)}`,
-    );
+    exitWithError(t('errorNothingSelected', listCommand(options)));
   }
   const ids = prefixList(options.ids, '--ids');
   const rejects = prefixList(options.reject, '--reject');
   const repeated = ids.find((id) => rejects.some((other) => other.toLowerCase() === id.toLowerCase()));
   if (repeated !== undefined) {
-    exitWithError(`${repeated} is in both --ids and --reject.`);
+    exitWithError(t('errorPrefixInBoth', repeated));
   }
 
   const category = options.category === undefined ? null : await importCategory(options.category);
@@ -126,7 +124,7 @@ async function fromFlags(options: ImportRunOptions, today: string): Promise<Plan
   failOnProblems(withNothingNew(problems, loaded.document));
   const both = picked.find((row) => rejected.includes(row));
   if (both !== undefined) {
-    exitWithError(`${both.prefix ?? both.integrationId} is selected by both --ids and --reject.`);
+    exitWithError(t('errorSelectedByBoth', String(both.prefix ?? both.integrationId)));
   }
   const run = planRun(loaded.document, {
     toImport: picked,
@@ -153,7 +151,7 @@ async function fromPlan(options: ImportRunOptions, path: string, today: string):
     today,
     dryRun: options.dryRun === true,
     source: '--plan',
-    entryHint: () => 'Say which one with "entry".',
+    entryHint: () => t('importEntryHintPlan'),
     linkable: linkableOf(loaded),
   });
   return { run, loaded, categories: [...categories.values()] };
@@ -211,7 +209,7 @@ function prefixList(input: string | undefined, flag: string): string[] {
   if (input === undefined) return [];
   const prefixes = input.split(',').map((part) => part.trim()).filter((part) => part !== '');
   if (prefixes.length === 0) {
-    exitWithError(`${flag} needs at least one prefix.`);
+    exitWithError(t('errorPrefixNeedsOne', flag));
   }
   return prefixes;
 }

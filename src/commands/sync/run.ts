@@ -3,6 +3,7 @@ import { fetchAccounts, fetchConnections, requestSync } from '../../lib/api.js';
 import { integerOrNull } from '../../lib/payload.js';
 import { exitWithError } from '../../utils/action.js';
 import { logger } from '../../utils/logger.js';
+import { t } from '../../lib/i18n/index.js';
 import { promptConfirmation } from '../../utils/prompt.js';
 import { resolveAccountOrExit } from '../account-id.js';
 import { accountConnection, connectionList } from '../connection.js';
@@ -30,8 +31,8 @@ async function accountConnectionIds(target: string): Promise<number[]> {
 }
 
 function confirmation(ids: number[]): string {
-  const listed = ids.length === 1 ? `connection ${ids[0]}` : `connections ${ids.join(', ')}`;
-  return chalk.yellow(`Request a Sync for ${listed}? Each connector accepts at most 3 Syncs per day. (y/N) `);
+  const message = ids.length === 1 ? t('syncConfirmationOne', ids[0]) : t('syncConfirmationMany', ids.join(', '));
+  return chalk.yellow(message);
 }
 
 function reportUpdating(statuses: { id: number | null; status: string | null }[], json: boolean): void {
@@ -39,16 +40,16 @@ function reportUpdating(statuses: { id: number | null; status: string | null }[]
     connection.status === 'UPDATING' && connection.id !== null ? [connection.id] : [],
   );
   if (updating.length === 0) return;
-  const noun = updating.length === 1 ? 'Connection' : 'Connections';
-  const verb = updating.length === 1 ? 'is' : 'are';
-  const message = `${noun} ${updating.join(', ')} ${verb} UPDATING. Run sync list again to see the result.`;
+  const message = updating.length === 1
+    ? t('syncUpdatingOne', String(updating[0]))
+    : t('syncUpdatingMany', updating.join(', '));
   if (json) console.error(message);
   else logger.warning(message);
 }
 
 export async function runAction(target: string, options: RunOptions): Promise<void> {
   if (options.json && !options.yes) {
-    exitWithError('sync run --json requires --yes');
+    exitWithError(t('errorSyncRequiresYes'));
   }
 
   // "all" is the set of Connection ids. It is not an Account name or alias.
@@ -57,7 +58,7 @@ export async function runAction(target: string, options: RunOptions): Promise<vo
     if (options.json) {
       console.log(JSON.stringify({ requested: true, connections: [] }, null, 2));
     } else {
-      logger.info('No connections to sync.');
+      logger.info(t('syncNoConnections'));
     }
     return;
   }
@@ -65,7 +66,7 @@ export async function runAction(target: string, options: RunOptions): Promise<vo
   if (!options.yes) {
     const confirmed = await promptConfirmation(confirmation(ids));
     if (!confirmed) {
-      logger.info('Sync cancelled.');
+      logger.info(t('syncCancelled'));
       process.exit(0);
     }
   }
@@ -78,9 +79,9 @@ export async function runAction(target: string, options: RunOptions): Promise<vo
     }
   } catch (error) {
     if (target !== 'all') throw error;
-    const reason = error instanceof Error ? error.message : 'Unknown error';
-    const done = updated.length === 0 ? 'none' : updated.join(', ');
-    throw new Error(`${reason} Already updated: ${done}.`, { cause: error });
+    const reason = error instanceof Error ? error.message : t('unknownError');
+    const done = updated.length === 0 ? t('syncNone') : updated.join(', ');
+    throw new Error(t('syncAlreadyUpdated', reason, done), { cause: error });
   }
 
   const after: unknown = await fetchConnections();

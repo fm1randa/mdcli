@@ -1,3 +1,4 @@
+import { t } from '../i18n/index.js';
 import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -81,11 +82,11 @@ function getChromiumProfilePath(paths: Record<string, string>, label: string): s
   const profilePath = paths[platform];
 
   if (!profilePath) {
-    throw new Error(`Unsupported platform: ${platform}. Only macOS, Windows, and Linux are supported.`);
+    throw new Error(t('errorUnsupportedPlatform', platform));
   }
 
   if (!existsSync(profilePath)) {
-    throw new Error(`${label} not found. Expected profile at: ${profilePath}\nTry: mdcli auth login --session firefox or --browser`);
+    throw new Error(t('errorBrowserProfileNotFound', label, profilePath));
   }
 
   return profilePath;

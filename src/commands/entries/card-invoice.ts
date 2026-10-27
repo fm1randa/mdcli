@@ -1,4 +1,5 @@
 import { fetchCardInvoice, fetchFirstInvoiceDate } from '../../lib/api.js';
+import { t } from '../../lib/i18n/index.js';
 import { addInterval, calendarDay, dueDateInMonth, parseInvoiceMonth, shiftDueDate } from '../../lib/dates.js';
 import type { Account, EntryAgenda } from '../../types/index.js';
 
@@ -62,7 +63,7 @@ export async function resolveCardDueDate(account: Account, purchaseDate: string,
     }
     return shiftDueDate(anchor, offset);
   }
-  throw new Error(`Could not find the invoice for ${purchaseDate}. Pass it explicitly with --invoice YYYY-MM.`);
+  throw new Error(t('errorInvoiceNotFound', purchaseDate));
 }
 
 /**

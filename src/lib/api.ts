@@ -6,6 +6,7 @@ import { extractSessionFromBrowser } from './browser-session/index.js';
 import { fetchWebBalances } from './account-balances.js';
 import { loadEntriesPreferences, setEntriesPreferences, type EntriesPreferences } from './entries-preferences.js';
 import { loadWebConfig, type WebConfig } from './web-session.js';
+import { t } from './i18n/index.js';
 
 
 export { normalizeCategories, normalizeAccounts, normalizeCards, normalizeTags, normalizeEntries, normalizeCardEntries, normalizeCardInstallments } from './normalize.js';
@@ -46,7 +47,7 @@ async function reacquireAuth(): Promise<{ auth: AuthConfig; method: AuthMethod }
   }
 
   // manual and browser-manual need a human in the loop, so there's nothing to retry automatically.
-  throw new Error('The API rejected the saved credentials (401). Run "mdcli auth login" to re-authenticate.');
+  throw new Error(t('errorReauth'));
 }
 
 /** Refreshes auth once and shares the result: concurrent 401s (e.g. the
@@ -57,10 +58,10 @@ async function getRefreshedAuth(): Promise<AuthConfig> {
     refreshPromise = (async () => {
       // stderr: a refresh can fire inside --json/--csv commands, where
       // stdout must stay machine-readable.
-      console.error('🔄 Credentials rejected, refreshing with the last login method...');
+      console.error(t('refreshingCredentials'));
       const { auth: newAuth, method } = await reacquireAuth();
       setAuth(newAuth, method);
-      console.error('✓ Credentials refreshed');
+      console.error(t('credentialsRefreshed'));
       return newAuth;
     })().finally(() => {
       refreshPromise = null;
@@ -78,7 +79,7 @@ async function readResponse<T>(response: Response, context: string): Promise<T> 
     const cachedType = popStaleNameCacheUse();
     if (cachedType) invalidateNameCache(cachedType);
     const errorText = await response.text();
-    throw new Error(`API request failed (${context}): ${response.status} ${response.statusText} - ${errorText}`);
+    throw new Error(t('errorApiRequestFailed', context, response.status, response.statusText, errorText));
   }
 
   const text = await response.text();
@@ -87,7 +88,7 @@ async function readResponse<T>(response: Response, context: string): Promise<T> 
     return JSON.parse(text) as T;
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
-    throw new Error(`API returned invalid JSON (${context}): ${reason}`, { cause: error });
+    throw new Error(t('errorApiInvalidJson', context, reason), { cause: error });
   }
 }
 
@@ -107,7 +108,7 @@ type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE';
 async function request<T>(method: HttpMethod, endpoint: string, body?: unknown): Promise<T> {
   const auth = getAuth();
   if (!auth) {
-    throw new Error('Not authenticated. Run "mdcli auth login" first.');
+    throw new Error(t('errorNotAuthenticated'));
   }
 
   const url = `${BASE_URL}${endpoint}`;
@@ -129,7 +130,7 @@ async function request<T>(method: HttpMethod, endpoint: string, body?: unknown):
   if (response.status === 401) {
     // Refresh once (shared with concurrent 401s) and retry with the new credentials.
     const retried = await doFetch(await getRefreshedAuth());
-    return readResponse<T>(retried, `${context}, after refresh`);
+    return readResponse<T>(retried, t('contextAfterRefresh', context));
   }
 
   return readResponse<T>(response, context);
@@ -206,10 +207,7 @@ export async function fetchImportCandidates(accountId: number, start: string, en
     const total = response?.meta?.total;
     if (typeof total === 'number' && collected.length >= total) return collected;
   }
-  throw new Error(
-    `GET /v2/lancamentos still had candidates after ${MAX_CANDIDATE_PAGES} pages (${collected.length} entries). ` +
-      'Narrow the search with --search-from and --search-to.',
-  );
+  throw new Error(t('errorTooManyCandidates', MAX_CANDIDATE_PAGES, collected.length));
 }
 
 // Read once per run: the entries preferences, the account restrictions and the import overwrite preference share it.

@@ -2,6 +2,7 @@ import { spawnSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { t } from '../../../lib/i18n/index.js';
 import type { Category } from '../../../types/index.js';
 import type { CategoryCatalog } from '../category.js';
 import type { ImportCandidate } from './candidates.js';
@@ -34,7 +35,7 @@ export async function editRun(
   options: EditOptions,
 ): Promise<EditedRun | null> {
   const editor = process.env.EDITOR?.trim() ?? '';
-  if (editor === '') throw new Error('--edit needs $EDITOR (e.g. EDITOR=vim). Nothing was written.');
+  if (editor === '') throw new Error(t('errorEditorRequired'));
   const dir = mkdtempSync(join(tmpdir(), 'mdcli-import-'));
   const file = join(dir, 'import.txt');
   try {
@@ -45,7 +46,7 @@ export async function editRun(
       openEditor(editor, file);
       const edited = readFileSync(file, 'utf-8');
       if (shownErrors.length > 0 && edited === text) {
-        throw new Error(`The file is unchanged and still invalid. Nothing was written.\n${shownErrors.join('\n')}`);
+        throw new Error(t('errorEditUnchangedInvalid', shownErrors.join('\n')));
       }
       const { items, errors } = parseEditFile(edited, document.transactions);
       if (items.length === 0 && errors.length === 0) return null;
@@ -63,11 +64,13 @@ function openEditor(editor: string, file: string): void {
   // Through the shell, like git: $EDITOR may carry arguments (e.g. "code --wait").
   const result = spawnSync(`${editor} "${file}"`, { shell: true, stdio: 'inherit' });
   if (result.error !== undefined) {
-    throw new Error(`Could not run $EDITOR (${editor}): ${result.error.message}. Nothing was written.`);
+    throw new Error(t('errorCouldNotRunEditor', editor, result.error.message));
   }
   if (result.status !== 0) {
-    const how = result.status === null ? `was stopped by ${result.signal ?? 'a signal'}` : `exited with code ${result.status}`;
-    throw new Error(`$EDITOR (${editor}) ${how}. Nothing was written.`);
+    const how = result.status === null
+      ? t('editorStoppedBySignal', result.signal ?? 'a signal')
+      : t('editorExitedWithCode', result.status);
+    throw new Error(t('errorEditorStopped', editor, how));
   }
 }
 
@@ -88,7 +91,7 @@ async function planItems(
       today: options.today,
       dryRun: options.dryRun,
       source: '--edit',
-      entryHint: (prefix) => `Write the one to link: conciliate ${prefix} <entryId> ...`,
+      entryHint: (prefix) => t('importEntryHintEdit', prefix),
       linkable: options.linkable,
     });
     return problems.length > 0 ? { errors: problems } : { run, categories: [...categories.values()] };

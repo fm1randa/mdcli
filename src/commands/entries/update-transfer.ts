@@ -1,3 +1,4 @@
+import { t } from '../../lib/i18n/index.js';
 import type { Entry, UpdateTransferPayload } from '../../types/index.js';
 import type { EntryStatusChoice } from './status.js';
 
@@ -46,9 +47,7 @@ export function transferSides(entryId: number, existing: Entry): { origin: numbe
   const origin = outgoing ? existing.conta : existing.contaT;
   const destination = outgoing ? existing.contaT : existing.conta;
   if (origin === undefined || destination === undefined) {
-    throw new Error(
-      `Entry ${entryId} is a transfer but only names one account. It cannot be updated by the CLI.`
-    );
+    throw new Error(t('errorTransferSingleAccount', entryId));
   }
   return { origin, destination };
 }

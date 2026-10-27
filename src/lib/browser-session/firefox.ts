@@ -1,3 +1,4 @@
+import { t } from '../i18n/index.js';
 import { existsSync, readFileSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
 import { homedir } from 'node:os';
@@ -118,16 +119,16 @@ export function getFirefoxProfilePath(): string {
   const firefoxDir = FIREFOX_PROFILE_PARENT_PATHS[platform];
 
   if (!firefoxDir) {
-    throw new Error(`Unsupported platform: ${platform}. Only macOS, Windows, and Linux are supported.`);
+    throw new Error(t('errorUnsupportedPlatform', platform));
   }
 
   if (!existsSync(firefoxDir)) {
-    throw new Error(`Firefox not found. Expected at: ${firefoxDir}\nTry: mdcli auth login --session chrome or --browser`);
+    throw new Error(t('errorFirefoxNotFound', firefoxDir));
   }
 
   const profilesIniPath = join(firefoxDir, 'profiles.ini');
   if (!existsSync(profilesIniPath)) {
-    throw new Error(`Firefox profiles.ini not found at: ${profilesIniPath}\nTry: mdcli auth login --session chrome or --browser`);
+    throw new Error(t('errorFirefoxProfilesIniNotFound', profilesIniPath));
   }
 
   let profiles: FirefoxProfile[];
@@ -150,7 +151,7 @@ export function getFirefoxProfilePath(): string {
   }
 
   if (profiles.length === 0) {
-    throw new Error(`No Firefox profiles found in: ${profilesIniPath}\nTry: mdcli auth login --session chrome or --browser`);
+    throw new Error(t('errorNoFirefoxProfiles', profilesIniPath));
   }
 
   // Prefer the install-section default (the profile actually in use) over the
@@ -173,7 +174,7 @@ export function getFirefoxProfilePath(): string {
     : defaultProfile.path;
 
   if (!existsSync(profilePath)) {
-    throw new Error(`Firefox profile not found at: ${profilePath}\nTry: mdcli auth login --session chrome or --browser`);
+    throw new Error(t('errorFirefoxProfileNotFound', profilePath));
   }
 
   return profilePath;

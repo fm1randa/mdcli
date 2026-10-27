@@ -3,6 +3,7 @@
  * (EditarContaController) that create and update share.
  */
 import { exitWithError } from '../../utils/action.js';
+import { t } from '../../lib/i18n/index.js';
 import { parseAmount } from '../../utils/parse.js';
 import { addInterval, isCalendarDate, today } from '../../lib/dates.js';
 
@@ -31,29 +32,29 @@ export interface AccountForm {
 /** Validates the form flags that need no stored account or type. */
 export function parseAccountForm(options: AccountFormOptions): AccountForm {
   if (options.debtor && options.creditor) {
-    exitWithError('Cannot use --debtor and --creditor together.');
+    exitWithError(t('errorDebtorCreditorTogether'));
   }
 
   let balance: number | undefined;
   if (options.balance !== undefined) {
     balance = parseAmount(options.balance);
     if (balance === undefined) {
-      exitWithError('Invalid balance. Must be a number.');
+      exitWithError(t('errorInvalidBalance'));
     }
     if (balance < 0 && options.creditor) {
-      exitWithError('A negative --balance cannot be used with --creditor.');
+      exitWithError(t('errorNegativeBalanceCreditor'));
     }
   }
 
   if (options.balanceDate !== undefined && !isCalendarDate(options.balanceDate)) {
-    exitWithError(`Invalid balance date "${options.balanceDate}". Use YYYY-MM-DD.`);
+    exitWithError(t('errorInvalidBalanceDate', options.balanceDate));
   }
 
   let liquidity: number | undefined;
   if (options.liquidity !== undefined) {
     liquidity = LIQUIDITY.get(options.liquidity);
     if (liquidity === undefined) {
-      exitWithError(`Invalid liquidity "${options.liquidity}". Use available (1), future (2) or fixed (0).`);
+      exitWithError(t('errorInvalidLiquidity', options.liquidity));
     }
   }
 
@@ -72,7 +73,7 @@ export function parseAccountForm(options: AccountFormOptions): AccountForm {
  */
 export function liquidityFor(form: AccountForm, isCard: boolean, typeName: string): number | undefined {
   if (form.liquidity !== undefined && isCard) {
-    exitWithError(`--liquidity does not apply to the account type "${typeName}" (the web has no "Considerar saldo" field for it).`);
+    exitWithError(t('errorLiquidityNotApplicable', typeName));
   }
   return form.liquidity;
 }
@@ -94,7 +95,7 @@ export function signedBalance(form: AccountForm, stored: number): number {
   // --debtor on a zero balance would claim a sign 0 cannot carry. An explicit
   // --balance 0 is not that case: zeroing the balance is the change asked for.
   if (form.debtor && form.balance === undefined && balance === 0) {
-    exitWithError('--debtor has no effect on a zero balance. Pass a nonzero --balance.');
+    exitWithError(t('errorDebtorZeroBalance'));
   }
   let sign = balance < 0 || stored < 0 ? -1 : 1;
   if (form.debtor) sign = -1;

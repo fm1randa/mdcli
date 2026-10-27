@@ -1,3 +1,4 @@
+import { t } from '../i18n/index.js';
 import { chromium, firefox } from 'playwright';
 import type { AuthConfig } from '../../types/index.js';
 import { getChromeCookieValue, getChromeProfilePath, getEdgeProfilePath } from './chromium.js';
@@ -159,7 +160,7 @@ export async function extractSessionFromBrowser(
 
       if (!apiKey) {
         if (!loginConfig && !capturedApiHeaders && !token) {
-          throw new Error('User is not logged into MeuDinheiro. Try: mdcli auth login --browser');
+          throw new Error(t('errorNotLoggedIn'));
         }
         throw new Error(
           'Failed to extract authentication config from page. The site structure may have changed.\nTry: mdcli auth login --browser'
@@ -190,7 +191,7 @@ export async function extractSessionFromBrowser(
       }
 
       if (!uid) {
-        throw new Error('Could not determine user ID. Try: mdcli auth login --browser');
+        throw new Error(t('errorUserIdUnknown'));
       }
 
       return {

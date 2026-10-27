@@ -1,5 +1,6 @@
 import chalk from 'chalk';
 import { exitWithError } from '../../utils/action.js';
+import { t } from '../../lib/i18n/index.js';
 import { fetchEntry } from '../../lib/api.js';
 import { normalizeEntry } from '../../lib/normalize.js';
 import { formatStatus, formatType } from './format.js';
@@ -13,12 +14,12 @@ interface ShowOptions {
   raw?: boolean;
 }
 
-const REPETITION_LABELS = { single: 'Single', installment: 'Installment', fixed: 'Fixed' } as const;
+const REPETITION_LABELS = { single: 'repetitionSingle', installment: 'repetitionInstallment', fixed: 'repetitionFixed' } as const;
 
 export async function showAction(id: string, options: ShowOptions): Promise<void> {
   const entryId = parseEntryId(id);
   if (options.json && options.raw) {
-    exitWithError('Use either --json or --raw, not both.');
+    exitWithError(t('errorJsonOrRaw'));
   }
 
   const raw = await fetchEntry(entryId);
@@ -34,22 +35,22 @@ export async function showAction(id: string, options: ShowOptions): Promise<void
 
   const names = await loadNames({ tags: entry.tagIds.length > 0 });
   const rows: [string, string | number][] = [
-    ['ID', entry.id],
-    ['Description', entry.description],
-    ['Value', formatCurrency(entry.value)],
-    ['Type', formatType(entry.type)],
-    ['Status', formatStatus(entry.status)],
-    ['Planned date', entry.date],
-    ['Effective date', cell(entry.effectiveDate)],
-    ['Competence date', cell(entry.competenceDate)],
-    ['Account', nameOf(names.accounts, entry.accountId)],
-    ['Transfer account', cell(entry.transferAccountId, (id) => String(nameOf(names.accounts, id)))],
-    ['Category', cell(entry.categoryId, (id) => String(nameOf(names.categories, id)))],
-    ['Tags', listCell(tagNames(names, entry.tagIds))],
-    ['Repetition', REPETITION_LABELS[entry.repetition] + (entry.installment && entry.repetition === 'installment' ? ` (${entry.installment})` : '')],
-    ['Series', cell(entry.seriesId)],
-    ['Document number', cell(entry.documentNumber)],
-    ['Notes', cell(entry.notes || null)],
+    [t('labelId'), entry.id],
+    [t('labelDescription'), entry.description],
+    [t('labelValue'), formatCurrency(entry.value)],
+    [t('labelType'), formatType(entry.type)],
+    [t('labelStatus'), formatStatus(entry.status)],
+    [t('labelPlannedDate'), entry.date],
+    [t('labelEffectiveDate'), cell(entry.effectiveDate)],
+    [t('labelCompetenceDate'), cell(entry.competenceDate)],
+    [t('labelAccount'), nameOf(names.accounts, entry.accountId)],
+    [t('labelTransferAccount'), cell(entry.transferAccountId, (id) => String(nameOf(names.accounts, id)))],
+    [t('labelCategory'), cell(entry.categoryId, (id) => String(nameOf(names.categories, id)))],
+    [t('labelTags'), listCell(tagNames(names, entry.tagIds))],
+    [t('labelRepetition'), t(REPETITION_LABELS[entry.repetition]) + (entry.installment && entry.repetition === 'installment' ? ` (${entry.installment})` : '')],
+    [t('labelSeries'), cell(entry.seriesId)],
+    [t('labelDocumentNumber'), cell(entry.documentNumber)],
+    [t('labelNotes'), cell(entry.notes || null)],
   ];
   for (const [label, value] of rows) {
     console.log(`  ${chalk.gray(`${label}:`)} ${value}`);

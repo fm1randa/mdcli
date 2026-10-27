@@ -1,3 +1,4 @@
+import { t } from './i18n/index.js';
 import { $ } from 'bun';
 
 interface OnePasswordCredentials {
@@ -31,7 +32,7 @@ export async function getCredentialsFromOnePassword(itemName: string): Promise<O
     if (!username) missing.push('username');
     if (!password) missing.push('password');
     if (!otp) missing.push('otp');
-    throw new Error(`Missing credentials from 1Password: ${missing.join(', ')}`);
+    throw new Error(t('errorMissingOnePasswordCredentials', missing.join(', ')));
   }
 
   return { username, password, otp };

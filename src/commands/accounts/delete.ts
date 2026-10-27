@@ -1,6 +1,7 @@
 import chalk from 'chalk';
 import { logger } from '../../utils/logger.js';
 import { exitWithError } from '../../utils/action.js';
+import { t } from '../../lib/i18n/index.js';
 import { promptConfirmation } from '../../utils/prompt.js';
 import { fetchAccounts, normalizeAccounts, deleteAccount } from '../../lib/api.js';
 import { invalidateNameCache } from '../../lib/config.js';
@@ -15,21 +16,21 @@ interface DeleteAccountOptions {
 export async function deleteAccountAction(id: string, options: DeleteAccountOptions): Promise<void> {
   const accountId = parseId(id);
   if (accountId === undefined) {
-    exitWithError('Invalid account ID. Must be a number.');
+    exitWithError(t('errorInvalidAccountId'));
   }
 
   if (!options.dangerouslySkipConfirmation) {
     const account = normalizeAccounts(await fetchAccounts()).find((a) => a.id === accountId);
     if (!account) {
-      exitWithError(`Account ${accountId} not found.`);
+      exitWithError(t('errorAccountNotFound', accountId));
     }
 
     const confirmed = await promptConfirmation(
-      chalk.red(`Are you sure you want to delete account "${account.name}" (${accountId})? (y/N) `)
+      chalk.red(t('confirmDeleteAccount', account.name, accountId))
     );
 
     if (!confirmed) {
-      logger.info('Deletion cancelled.');
+      logger.info(t('deletionCancelled'));
       process.exit(0);
     }
   }
@@ -42,5 +43,5 @@ export async function deleteAccountAction(id: string, options: DeleteAccountOpti
     return;
   }
 
-  logger.success(`Account ${accountId} deleted successfully!`);
+  logger.success(t('accountDeleted', accountId));
 }

@@ -1,6 +1,7 @@
 import { isCalendarDate } from '../../../lib/dates.js';
 import type { Category } from '../../../types/index.js';
 import { toCents } from '../../../utils/currency.js';
+import { t } from '../../../lib/i18n/index.js';
 import type { ImportCandidate, OverwrittenFields } from './candidates.js';
 import type { ImportDocument, BankTransactionRow } from './document.js';
 
@@ -76,7 +77,7 @@ export function pickBankTransactions(
 }
 
 export function unmatchedPrefix(prefix: string, flag: string): string {
-  return `${flag} ${prefix} does not match any bank transaction.`;
+  return t('importPrefixNoMatch', flag, prefix);
 }
 
 /** The one Bank Transaction whose integrationId starts with `prefix` (ignoring case), or why there is not one. */
@@ -88,7 +89,7 @@ export function matchPrefix(
   const head = prefix.toLowerCase();
   const matches = bankTransactions.filter((row) => row.integrationId?.toLowerCase().startsWith(head) === true);
   if (matches.length === 0) return unmatchedPrefix(prefix, flag);
-  if (matches.length > 1) return `${flag} ${prefix} matches ${matches.length} bank transactions. Use a longer prefix.`;
+  if (matches.length > 1) return t('importPrefixManyMatches', flag, prefix, matches.length);
   return matches[0];
 }
 
@@ -130,7 +131,7 @@ export function emptyRun(document: ImportDocument, dryRun: boolean): RunDocument
 /** The batch is invalid. `problems` has one line per item, each starting with its prefix. */
 export class PlanError extends Error {
   constructor(readonly problems: readonly string[]) {
-    super(`Nothing was imported. Fix the selection:\n${problems.join('\n')}`);
+    super(t('errorNothingImported', problems.join('\n')));
   }
 }
 
@@ -139,8 +140,8 @@ export function failOnProblems(problems: readonly string[]): void {
   if (problems.length > 0) throw new PlanError(problems);
 }
 
-const NO_BANK_DATE = 'the bank did not send a date.';
-const ZERO_VALUE = 'the value is zero.';
+const noBankDate = (): string => t('importNoBankDate');
+const zeroValue = (): string => t('importZeroValue');
 
 /** The row's bank date when it is a calendar day; otherwise null. */
 function bankDate(row: BankTransactionRow): string | null {
@@ -151,12 +152,12 @@ function bankDate(row: BankTransactionRow): string | null {
 export function checkWrittenValue(row: BankTransactionRow, value: number | undefined): string | null {
   if (value === undefined || row.value === null) return null;
   if (toCents(value) === toCents(row.value)) return null;
-  return `value ${value} is not the bank value ${row.value}. Only the sign can change.`;
+  return t('errorWrittenValue', value, row.value);
 }
 
 export function planReject(row: BankTransactionRow, run: RunDocument): string | null {
   // The commit dates each page by its latest bank date, rejects included.
-  if (bankDate(row) === null) return NO_BANK_DATE;
+  if (bankDate(row) === null) return noBankDate();
   run.rejected.push(reference(row));
   return null;
 }
@@ -168,8 +169,8 @@ export function linkedCandidate(row: BankTransactionRow): ImportCandidate | null
 
 /** Links the row to `entry`. `after` keeps the Entry's value and description until `applyOverwrite`. */
 export function planConciliate(row: BankTransactionRow, entry: ImportCandidate, run: RunDocument): string | null {
-  if (bankDate(row) === null) return NO_BANK_DATE;
-  if (row.value === 0) return ZERO_VALUE;
+  if (bankDate(row) === null) return noBankDate();
+  if (row.value === 0) return zeroValue();
   const kept = { value: entry.value, description: entry.description };
   run.conciliated.push({ ...reference(row), entryId: entry.id, before: kept, after: { ...kept } });
   return null;
@@ -200,19 +201,19 @@ export interface ImportChoice {
 /** Adds a new Entry for the row to `run`, or returns why it cannot be created. */
 export function planImport(row: BankTransactionRow, choice: ImportChoice, run: RunDocument): string | null {
   const category = choice.category;
-  if (category === null) return 'it has no category.';
+  if (category === null) return t('importNoCategory');
   const date = bankDate(row);
-  if (date === null) return NO_BANK_DATE;
-  if (row.value === null) return 'the bank did not send a value.';
-  if (row.value === 0) return ZERO_VALUE;
+  if (date === null) return noBankDate();
+  if (row.value === null) return t('importNoBankValue');
+  if (row.value === 0) return zeroValue();
   const value = choice.value ?? row.value;
   if (category.tipo === 'd' && value > 0) {
-    return `category "${category.nome}" is an expense, so the value must be negative.`;
+    return t('errorCategoryExpenseNegative', category.nome);
   }
   if (category.tipo === 'r' && value < 0) {
-    return `category "${category.nome}" is income, so the value must be positive.`;
+    return t('errorCategoryIncomePositive', category.nome);
   }
-  if (category.tipo === 't') return `category "${category.nome}" is a transfer.`;
+  if (category.tipo === 't') return t('errorCategoryIsTransfer', category.nome);
   run.imported.push({
     ...reference(row),
     date,

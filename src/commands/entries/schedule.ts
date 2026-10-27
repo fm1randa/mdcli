@@ -1,4 +1,5 @@
 import { exitWithError } from '../../utils/action.js';
+import { t } from '../../lib/i18n/index.js';
 import { addInterval } from '../../lib/dates.js';
 import type { CreateEntryAgenda, CreateEntryInstallment } from '../../types/index.js';
 import { parseInteger } from '../../utils/parse.js';
@@ -34,12 +35,22 @@ const INTERVAL_MAP: Record<string, Interval> = {
   y: 'y',
 };
 
-export const INTERVAL_LABELS: Record<Interval, string> = { d: 'daily', w: 'weekly', M: 'monthly', y: 'yearly' };
+const INTERVAL_LABELS: Record<Interval, () => string> = {
+  d: () => t('intervalDaily'),
+  w: () => t('intervalWeekly'),
+  M: () => t('intervalMonthly'),
+  y: () => t('intervalYearly'),
+};
+
+/** The localized name of an agenda interval. */
+export function intervalLabel(interval: Interval): string {
+  return INTERVAL_LABELS[interval]();
+}
 
 function parseInterval(repeat: string): Interval {
   const interval = INTERVAL_MAP[repeat.toLowerCase()];
   if (!interval) {
-    exitWithError(`Invalid repeat interval: ${repeat}. Valid: daily, weekly, monthly, yearly (or d, w, m, y)`);
+    exitWithError(t('errorInvalidRepeatInterval', repeat));
   }
   return interval;
 }
@@ -48,7 +59,7 @@ function parseCount(flag: string, value: string | undefined, min = 1): number | 
   if (value === undefined) return undefined;
   const count = parseInteger(value, min);
   if (count === undefined) {
-    exitWithError(`Invalid ${flag}: ${value}. Use a whole number of at least ${min}.`);
+    exitWithError(t('errorInvalidCount', flag, value, min));
   }
   return count;
 }
@@ -80,11 +91,11 @@ export function parseSchedule(options: ScheduleOptions, value: number, date: str
 
   if (installments === undefined) {
     if (inicial !== undefined || options.perInstallment) {
-      exitWithError('--first-installment and --per-installment only apply with --installments <n>.');
+      exitWithError(t('errorFirstInstallmentNeedsInstallments'));
     }
     if (!options.repeat) {
       if (options.frequency !== undefined || times !== undefined) {
-        exitWithError('--frequency and --times need --repeat <interval> (or --installments <n>).');
+        exitWithError(t('errorFrequencyNeedsRepeat'));
       }
       return undefined;
     }
@@ -95,10 +106,10 @@ export function parseSchedule(options: ScheduleOptions, value: number, date: str
   }
 
   if (times !== undefined) {
-    exitWithError('--times is for a fixed series; --installments <n> already sets how many installments there are.');
+    exitWithError(t('errorTimesWithInstallments'));
   }
   if (inicial !== undefined && inicial > installments) {
-    exitWithError(`--first-installment ${inicial} is past the last installment (${installments}).`);
+    exitWithError(t('errorFirstInstallmentPastLast', inicial, installments));
   }
   const intervalo = options.repeat ? parseInterval(options.repeat) : 'M';
   const values = installmentValues(value, installments, Boolean(options.perInstallment));

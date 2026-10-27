@@ -1,6 +1,7 @@
 import chalk from 'chalk';
 import { logger } from '../../utils/logger.js';
 import { exitWithError } from '../../utils/action.js';
+import { t } from '../../lib/i18n/index.js';
 import { fetchAccounts, createAccount } from '../../lib/api.js';
 import { invalidateNameCache } from '../../lib/config.js';
 import type { AccountMeta, CreateAccountPayload } from '../../types/index.js';
@@ -47,13 +48,13 @@ export async function createAccountAction(options: CreateAccountOptions): Promis
   const saldoInicial = signedBalance(form, 0);
   const currency = options.currency !== undefined ? parseId(options.currency) : 1;
   if (currency === undefined) {
-    exitWithError('Invalid currency. Must be a number.');
+    exitWithError(t('errorInvalidCurrency'));
   }
 
   const response = await fetchAccounts();
   const accountType = resolveAccountType(response.meta.tipos, options.type);
   if (!accountType) {
-    exitWithError(`Unknown account type "${options.type}". Run "mdcli accounts types" to see valid options.`);
+    exitWithError(t('errorUnknownAccountType', options.type));
   }
 
   // The web form starts at 1 and takes the type's liquidez when the type has one.
@@ -81,11 +82,11 @@ export async function createAccountAction(options: CreateAccountOptions): Promis
     return;
   }
 
-  logger.success(`Account "${account.nome}" created successfully!`);
-  console.log(`  ${chalk.gray('ID:')} ${account.id}`);
-  console.log(`  ${chalk.gray('Type:')} ${account.tipo}`);
+  logger.success(t('accountCreated', account.nome));
+  console.log(`  ${chalk.gray(`${t('labelId')}:`)} ${account.id}`);
+  console.log(`  ${chalk.gray(`${t('labelType')}:`)} ${account.tipo}`);
   if (account.banco) {
-    console.log(`  ${chalk.gray('Bank:')} ${account.banco.nome}`);
+    console.log(`  ${chalk.gray(`${t('labelBank')}:`)} ${account.banco.nome}`);
   }
-  console.log(`  ${chalk.gray('Balance:')} ${formatCurrency(account.saldoInicial)}`);
+  console.log(`  ${chalk.gray(`${t('labelBalance')}:`)} ${formatCurrency(account.saldoInicial)}`);
 }

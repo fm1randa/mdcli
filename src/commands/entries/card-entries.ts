@@ -1,4 +1,5 @@
 import { fetchAccounts, fetchAllEntries, fetchCardInvoice, isCreditCard } from '../../lib/api.js';
+import { t } from '../../lib/i18n/index.js';
 import { shiftDueDate } from '../../lib/dates.js';
 import type { Account, CardInvoiceEntry, CreateEntryResponse, EntriesParams, Entry } from '../../types/index.js';
 import { isEntryId } from './entry-id.js';
@@ -127,8 +128,7 @@ export async function withCardEntryId(
   if (ids.length === 0) {
     // stderr: stdout stays machine-readable under --json.
     console.error(
-      `⚠ The API answered with "${response.id}", which is not an entry ID, and the purchase was not found in the ` +
-        `${card.dueDate} invoice. Find its ID with: mdcli cards invoice -a ${card.id} --month ${card.dueDate.slice(0, 7)} --json`
+      t('warningCardEntryIdNotFound', String(response.id), card.dueDate, card.id, card.dueDate.slice(0, 7))
     );
     return response;
   }

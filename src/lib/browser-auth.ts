@@ -1,6 +1,7 @@
 import { chromium, type Page, type Browser, type BrowserContext } from 'playwright';
 import type { AuthConfig } from '../types/index.js';
 import { getCredentialsFromOnePassword } from './onepassword.js';
+import { t } from './i18n/index.js';
 import { detectRecaptchaChallenge, solveRecaptcha } from './captcha.js';
 
 const LOGIN_URL = 'https://app.meudinheiroweb.com.br/';
@@ -92,17 +93,16 @@ export async function captureAuthFromBrowser(): Promise<AuthConfig> {
   setupAuthCapture(context, (headers) => {
     if (capturedHeaders) return;
     capturedHeaders = headers;
-    console.log('✓ Authentication headers captured successfully.');
+    console.log(t('authHeadersCaptured'));
   });
 
   await page.goto(LOGIN_URL);
 
-  console.log('\n📱 Browser opened. Please log in to Meu Dinheiro.');
-  console.log('   The browser will close automatically after capturing all credentials.\n');
+  console.log(t('authBrowserOpened'));
 
   while (!capturedHeaders) {
     if (browserDisconnected) {
-      throw new Error('Browser was closed before all credentials were captured.');
+      throw new Error(t('errorBrowserClosedEarly'));
     }
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
@@ -119,7 +119,7 @@ export async function captureAuthFromBrowser(): Promise<AuthConfig> {
 
   const missingFields = validateCapturedAuth(auth);
   if (missingFields.length > 0) {
-    throw new Error(`Authentication incomplete. Missing: ${missingFields.join(', ')}`);
+    throw new Error(t('errorAuthIncomplete', missingFields.join(', ')));
   }
 
   return auth;
@@ -200,7 +200,7 @@ async function fillLoginForm(page: Page, username: string, password: string): Pr
   if (hasCaptcha) {
     const solved = await solveRecaptcha(page);
     if (!solved) {
-      throw new Error('Failed to solve reCAPTCHA challenge');
+      throw new Error(t('errorCaptchaNotSolved'));
     }
   }
 }
@@ -236,10 +236,10 @@ async function retryOtpIfInvalid(page: Page, opItemName: string, maxRetries = 3)
     }
 
     if (attempt === maxRetries) {
-      throw new Error('OTP validation failed after maximum retries');
+      throw new Error(t('errorOtpMaxRetries'));
     }
 
-    console.log(`OTP invalid, fetching fresh code (attempt ${attempt + 1}/${maxRetries})...`);
+    console.log(t('otpInvalidRetry', attempt + 1, maxRetries));
 
     const freshCredentials = await getCredentialsFromOnePassword(opItemName);
 
@@ -260,7 +260,7 @@ async function waitForAuthCapture(
   }
 
   if (!capturedRef.headers) {
-    throw new Error('Failed to capture authentication headers after login');
+    throw new Error(t('errorAuthCaptureFailed'));
   }
 
   return capturedRef.headers;
@@ -289,7 +289,7 @@ async function performHeadlessLogin(
 
   const missingFields = validateCapturedAuth(auth);
   if (missingFields.length > 0) {
-    throw new Error(`Authentication incomplete. Missing: ${missingFields.join(', ')}`);
+    throw new Error(t('errorAuthIncomplete', missingFields.join(', ')));
   }
 
   return auth;

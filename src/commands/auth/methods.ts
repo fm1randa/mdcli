@@ -1,26 +1,27 @@
 import { input, password, select } from '@inquirer/prompts';
 import { logger } from '../../utils/logger.js';
+import { t } from '../../lib/i18n/index.js';
 import { getOpItem, setOpItem } from '../../lib/config.js';
 import { captureAuthFromBrowser, captureAuthHeadless } from '../../lib/browser-auth.js';
 import { extractSessionFromBrowser } from '../../lib/browser-session/index.js';
 import type { AuthConfig, AuthMethod } from '../../types/index.js';
 
 async function promptManualAuth(): Promise<AuthConfig> {
-  logger.info('Enter the authentication headers from your browser dev tools (Network tab, any request to /api/):');
+  logger.info(t('authManualIntro'));
   logger.blank();
 
   const apiKey = await input({
-    message: 'Mdapikey:',
-    validate: (value) => (value.trim() !== '' ? true : 'Mdapikey is required'),
+    message: t('authApiKeyPrompt'),
+    validate: (value) => (value.trim() !== '' ? true : t('authApiKeyRequired')),
   });
 
   const uid = await input({
-    message: 'Mduid:',
-    validate: (value) => (value.trim() !== '' ? true : 'Mduid is required'),
+    message: t('authUidPrompt'),
+    validate: (value) => (value.trim() !== '' ? true : t('authUidRequired')),
   });
 
   const token = await password({
-    message: 'Bearer Token (Authorization header value without "Bearer ", leave blank if not present):',
+    message: t('authBearerTokenPrompt'),
     mask: '*',
   });
 
@@ -38,7 +39,7 @@ async function resolveOpItemName(providedItem?: string): Promise<string> {
   }
 
   return input({
-    message: '1Password item name for Meu Dinheiro credentials:',
+    message: t('authOpItemPrompt'),
     default: 'MeuDinheiroWeb',
   });
 }
@@ -49,19 +50,19 @@ export interface LoginAttempt {
 }
 
 export async function runChromeSession(): Promise<LoginAttempt> {
-  logger.info('Extracting session from Chrome...');
+  logger.info(t('authExtractingChrome'));
   const auth = await extractSessionFromBrowser({ browser: 'chrome' });
   return { auth, method: 'browser-chrome' };
 }
 
 export async function runEdgeSession(): Promise<LoginAttempt> {
-  logger.info('Extracting session from Edge...');
+  logger.info(t('authExtractingEdge'));
   const auth = await extractSessionFromBrowser({ browser: 'edge' });
   return { auth, method: 'browser-edge' };
 }
 
 export async function runFirefoxSession(): Promise<LoginAttempt> {
-  logger.info('Extracting session from Firefox...');
+  logger.info(t('authExtractingFirefox'));
   const auth = await extractSessionFromBrowser({ browser: 'firefox' });
   return { auth, method: 'browser-firefox' };
 }
@@ -70,20 +71,20 @@ export async function runOnePassword(itemOverride?: string): Promise<LoginAttemp
   const itemName = await resolveOpItemName(itemOverride);
   const isNewItem = getOpItem() !== itemName;
 
-  logger.info(`Starting automatic authentication via 1Password (${itemName})...`);
+  logger.info(t('authStartingOnePassword', itemName));
   const auth = await captureAuthHeadless(itemName);
 
   if (isNewItem) {
     setOpItem(itemName);
-    logger.info(`1Password item "${itemName}" saved to config.`);
-    logger.info('To change it, run: mdcli auth login --item <new-name>');
+    logger.info(t('authOpItemSaved', itemName));
+    logger.info(t('authOpItemChangeHint'));
   }
 
   return { auth, method: '1password' };
 }
 
 export async function runBrowserManual(): Promise<LoginAttempt> {
-  logger.info('Starting browser authentication...');
+  logger.info(t('authStartingBrowser'));
   const auth = await captureAuthFromBrowser();
   return { auth, method: 'browser-manual' };
 }
@@ -116,19 +117,19 @@ export function isInteractiveTerminal(): boolean {
 
 export async function runFallbackPrompt(excludeMethod: AuthMethod): Promise<LoginAttempt | null> {
   const allChoices: { value: string; name: string; method: AuthMethod }[] = [
-    { value: 'chrome', name: 'Try Chrome session again', method: 'browser-chrome' },
-    { value: 'edge', name: 'Try Edge session instead', method: 'browser-edge' },
-    { value: 'firefox', name: 'Try Firefox session instead', method: 'browser-firefox' },
-    { value: '1password', name: '1Password (automatic login)', method: '1password' },
-    { value: 'browser', name: 'Open browser for manual login', method: 'browser-manual' },
-    { value: 'manual', name: 'Enter credentials manually', method: 'manual' },
+    { value: 'chrome', name: t('authFallbackChrome'), method: 'browser-chrome' },
+    { value: 'edge', name: t('authFallbackEdge'), method: 'browser-edge' },
+    { value: 'firefox', name: t('authFallbackFirefox'), method: 'browser-firefox' },
+    { value: '1password', name: t('authFallbackOnePassword'), method: '1password' },
+    { value: 'browser', name: t('authFallbackBrowser'), method: 'browser-manual' },
+    { value: 'manual', name: t('authFallbackManual'), method: 'manual' },
   ];
 
   const choices = allChoices.filter((c) => c.method !== excludeMethod);
 
   const fallbackChoice = await select({
-    message: 'How would you like to authenticate?',
-    choices: [...choices.map(({ value, name }) => ({ value, name })), { value: 'abort', name: 'Cancel' }],
+    message: t('authChooseMethod'),
+    choices: [...choices.map(({ value, name }) => ({ value, name })), { value: 'abort', name: t('authCancel') }],
   });
 
   switch (fallbackChoice) {

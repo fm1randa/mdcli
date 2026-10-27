@@ -1,4 +1,5 @@
 import { exitWithError } from '../../utils/action.js';
+import { t } from '../../lib/i18n/index.js';
 import { parseId } from '../../utils/parse.js';
 
 /**
@@ -17,10 +18,7 @@ export function parseEntryId(id: string): number {
   const entryId = parseId(id);
   if (entryId !== undefined) return entryId;
   if (OCCURRENCE_ID.test(id)) {
-    exitWithError(
-      `"${id}" is a series occurrence ID, not an entry ID. ` +
-        'For a card purchase, find the entry ID with: mdcli entries list -a <card> --json (or mdcli cards invoice -a <card> --json)'
-    );
+    exitWithError(t('errorSeriesOccurrenceId', id));
   }
-  exitWithError('Invalid entry ID. Must be a number.');
+  exitWithError(t('errorInvalidEntryId'));
 }

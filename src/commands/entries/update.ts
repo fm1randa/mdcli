@@ -1,6 +1,7 @@
 import chalk from 'chalk';
 import { logger } from '../../utils/logger.js';
 import { exitWithError } from '../../utils/action.js';
+import { t } from '../../lib/i18n/index.js';
 import { updateEntry, fetchEntry } from '../../lib/api.js';
 import { resolveTags } from './tags.js';
 import { describeCategoryTypeMismatch, findCategory, resolveEntryCategory } from './category.js';
@@ -46,26 +47,20 @@ async function resolveEntryType(
   // Invoice payments (tipo p) are locked: cannot change type, only transfer category.
   if (existing.tipo === 'p') {
     if (requestedType !== undefined) {
-      exitWithError('An invoice payment cannot be turned into an expense, income, or transfer. Change it in the web app.');
+      exitWithError(t('errorInvoicePaymentTypeChange'));
     }
     if (newCategory !== null && newCategory.tipo !== 't') {
-      exitWithError(`Invoice payment ${entryId} needs a transfer category. Change it in the web app.`);
+      exitWithError(t('errorInvoicePaymentCategory', entryId));
     }
   }
 
   // An ordinary entry cannot become a transfer: it would carry tipo t with no
   // destination account, and update refuses such an entry ever after.
   if (requestedType === 't') {
-    exitWithError(
-      `Entry ${entryId} is not a transfer. A transfer needs two accounts and is saved as a pair, so an entry cannot become one: ` +
-      'delete it and create the transfer with: mdcli entries create -T transfer --to-account <id>.'
-    );
+    exitWithError(t('errorEntryNotTransfer', entryId));
   }
   if (newCategory?.tipo === 't' && existing.tipo !== 'p') {
-    exitWithError(
-      `Category "${newCategory.nome}" (${newCategory.id}) only classifies transfers, and entry ${entryId} is not a transfer. ` +
-      "Use -c with a category of the entry's type (see: mdcli categories list --active)."
-    );
+    exitWithError(t('errorCategoryOnlyTransfers', newCategory.nome, newCategory.id, entryId));
   }
 
   // Final type: -T > new category's type > current type (p is handled above).
@@ -128,18 +123,18 @@ function reportUpdate(response: CreateEntryResponse, json?: boolean, todos?: boo
     return;
   }
 
-  logger.success(`Entry updated successfully!`);
-  console.log(`  ${chalk.gray('ID:')} ${response.id}`);
-  console.log(`  ${chalk.gray('Description:')} ${response.descricao}`);
-  console.log(`  ${chalk.gray('Value:')} ${formatCurrency(response.valor)}`);
-  console.log(`  ${chalk.gray('Date:')} ${response.data}`);
+  logger.success(t('entryUpdated'));
+  console.log(`  ${chalk.gray(`${t('labelId')}:`)} ${response.id}`);
+  console.log(`  ${chalk.gray(`${t('labelDescription')}:`)} ${response.descricao}`);
+  console.log(`  ${chalk.gray(`${t('labelValue')}:`)} ${formatCurrency(response.valor)}`);
+  console.log(`  ${chalk.gray(`${t('labelDate')}:`)} ${response.data}`);
   if (moved) {
-    console.log(`  ${chalk.gray('Account:')} ${moved.origin}`);
-    if (moved.destination !== undefined) console.log(`  ${chalk.gray('To account:')} ${moved.destination}`);
+    console.log(`  ${chalk.gray(`${t('labelAccount')}:`)} ${moved.origin}`);
+    if (moved.destination !== undefined) console.log(`  ${chalk.gray(`${t('labelToAccount')}:`)} ${moved.destination}`);
   }
-  console.log(`  ${chalk.gray('Status:')} ${describeStatus(response.status, response.dataPrevista ?? response.data)}`);
+  console.log(`  ${chalk.gray(`${t('labelStatus')}:`)} ${describeStatus(response.status, response.dataPrevista ?? response.data)}`);
   if (todos !== undefined) {
-    console.log(`  ${chalk.gray('Scope:')} ${describeScope(todos)}`);
+    console.log(`  ${chalk.gray(`${t('labelScope')}:`)} ${describeScope(todos)}`);
   }
 }
 
@@ -148,7 +143,7 @@ export async function updateAction(id: string, options: UpdateOptions): Promise<
 
   const unconfirm = Boolean(options.pending || options.scheduled);
   if ([unconfirm, options.confirmed, options.reconciled].filter(Boolean).length > 1) {
-    exitWithError('Use only one of --pending, --confirmed and --reconciled.');
+    exitWithError(t('errorOnlyOneStatus'));
   }
   if (options.scheduled) warnScheduledAlias();
 
@@ -167,7 +162,7 @@ export async function updateAction(id: string, options: UpdateOptions): Promise<
   if (options.value !== undefined) {
     value = parseAmount(options.value);
     if (value === undefined) {
-      exitWithError(`Invalid value "${options.value}". Use a number like 10, 10.50 or 10,50.`);
+      exitWithError(t('errorInvalidValue', options.value));
     }
   }
 
@@ -186,7 +181,7 @@ export async function updateAction(id: string, options: UpdateOptions): Promise<
     options.scheduled;
 
   if (!hasChanges) {
-    exitWithError('No changes specified. Use options like --description, --value, --date, etc.');
+    exitWithError(t('errorNoEntryChanges'));
   }
 
   // Fetch existing entry
@@ -194,19 +189,19 @@ export async function updateAction(id: string, options: UpdateOptions): Promise<
   // The web app disables the account selectors of an entry on a closed
   // invoice (editarLancamento.html, ng-disabled=!!vm.l.fatura).
   if ((accountId !== undefined || toAccountId !== undefined) && existing.fatura) {
-    exitWithError(`Entry ${entryId} is on a closed invoice, so its account cannot be changed (the web app locks it too).`);
+    exitWithError(t('errorClosedInvoiceAccount', entryId));
   }
   // The web app edits an invoice payment as a transfer (mdb.js, tipo == "t" ||
   // tipo == "p"), and one side of it is always the card being paid.
   if ((accountId !== undefined || toAccountId !== undefined) && existing.tipo === 'p') {
-    exitWithError(`Entry ${entryId} is an invoice payment, and an invoice payment involves a credit card: change its accounts in the web app.`);
+    exitWithError(t('errorInvoicePaymentAccounts', entryId));
   }
   if (toAccountId !== undefined && existing.tipo !== 't') {
-    exitWithError('--to-account only applies to transfers. Use --account to move the entry to another account.');
+    exitWithError(t('errorToAccountOnlyTransfersUpdate'));
   }
   const todos = resolveSeriesScope(entryId, existing, options.scope, {
-    thisOnlyWarning: `Entry ${entryId} is an occurrence of a recurring series (${existing.parcela}): only this occurrence will be changed, and it will leave the series. Use --scope following to change this and the following occurrences, or --scope this to silence this warning.`,
-    detachedOccurrence: `Entry ${entryId} belongs to a recurring series (${existing.parcela}), but the server no longer links it to the series (like the first occurrence, or one already confirmed or reconciled), so it changes on its own. To change the series, use --scope following on a scheduled occurrence.`,
+    thisOnlyWarning: t('warningSeriesThisOnlyUpdate', entryId, String(existing.parcela)),
+    detachedOccurrence: t('errorDetachedSeriesUpdate', entryId, String(existing.parcela)),
   });
   const choice = buildEntryStatus(
     { pending: unconfirm, confirmed: options.confirmed, reconciled: options.reconciled },
@@ -215,7 +210,7 @@ export async function updateAction(id: string, options: UpdateOptions): Promise<
 
   if (existing.tipo === 't') {
     if (requestedType !== undefined && requestedType !== 't') {
-      exitWithError('A transfer cannot be turned into an expense or an income. Delete it and create the entry you want.');
+      exitWithError(t('errorTransferToOrdinary'));
     }
 
     const moved = accountId !== undefined || toAccountId !== undefined

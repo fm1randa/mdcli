@@ -118,8 +118,8 @@ describe('concurrent refresh after 401', () => {
       console.error = origError;
     }
 
-    expect(stdout.join('\n')).not.toContain('Credentials rejected');
-    expect(stderr.join('\n')).toContain('Credentials rejected');
+    expect(stdout.join('\n')).not.toContain('Credenciais rejeitadas');
+    expect(stderr.join('\n')).toContain('Credenciais rejeitadas');
   });
 
   test('a failure after refresh keeps the API error body in the message', async () => {
@@ -145,7 +145,7 @@ describe('response handling', () => {
     const { fetchAccounts } = await import('../src/lib/api.js');
 
     await expect(fetchAccounts()).rejects.toThrow(
-      'API returned invalid JSON (GET /v1/cadastros/contas?meta=true&paginate=false)'
+      'A API retornou um JSON inválido (GET /v1/cadastros/contas?meta=true&paginate=false)'
     );
   });
 
@@ -157,7 +157,7 @@ describe('response handling', () => {
     const { updateAccount } = await import('../src/lib/api.js');
 
     await expect(updateAccount(1001, { nome: 'X' } as never)).rejects.toThrow(
-      /API request failed \(PUT \/v1\/cadastros\/contas\/1001\): 409 .*name taken/
+      /A requisição à API falhou \(PUT \/v1\/cadastros\/contas\/1001\): 409 .*name taken/
     );
   });
 
@@ -172,6 +172,6 @@ describe('response handling', () => {
 
     const { deleteAccount } = await import('../src/lib/api.js');
 
-    await expect(deleteAccount(1001)).rejects.toThrow('(DELETE /v1/cadastros/contas/1001, after refresh): 403');
+    await expect(deleteAccount(1001)).rejects.toThrow('(DELETE /v1/cadastros/contas/1001, após renovar as credenciais): 403');
   });
 });
