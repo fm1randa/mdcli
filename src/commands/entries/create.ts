@@ -43,12 +43,15 @@ const TYPE_MAP: Record<string, 'd' | 'r' | 't'> = {
   t: 't',
 };
 
-export function parseTypeOption(type: string): 'd' | 'r' | 't' | undefined {
+function parseTypeOption(type: string): 'd' | 'r' | 't' | undefined {
   return TYPE_MAP[type.toLowerCase()];
 }
 
-function mapTypeToApi(type: string): 'd' | 'r' | 't' {
-  return parseTypeOption(type) ?? 'd';
+/** The entry type -T names, expense by default. A typo is refused, never guessed. */
+export function parseEntryType(input: string): 'd' | 'r' | 't' {
+  const tipo = parseTypeOption(input);
+  if (tipo === undefined) exitWithError(`Unknown type: ${input}. Valid: expense, income, transfer`);
+  return tipo;
 }
 
 /** Checks that need no API call, so a bad command never reaches the network. */
@@ -75,7 +78,7 @@ export async function createAction(options: CreateOptions): Promise<void> {
     exitWithError(`Invalid value "${options.value}". Use a number like 10, 10.50 or 10,50.`);
   }
 
-  const tipo = mapTypeToApi(options.type ?? 'expense');
+  const tipo = parseEntryType(options.type ?? 'expense');
   checkOptions(options, tipo);
 
   const createdAt = now();
@@ -99,11 +102,7 @@ export async function createAction(options: CreateOptions): Promise<void> {
     // mismatched pair never reaches the API there. An ID the catalog does not
     // list has no type to compare, so it still goes to the API.
     if (tipo !== 't' && category.category !== null && category.category.tipo !== tipo) {
-      exitWithError(
-        `${describeCategoryTypeMismatch(category.category, tipo)} ` +
-        "The web app only offers categories that match the entry's type: use -c with a category of that type " +
-        '(see: mdcli categories list --active), or change -T.'
-      );
+      exitWithError(describeCategoryTypeMismatch(category.category, tipo));
     }
   }
   const tagIds = options.tags ? await resolveTags(options.tags) : [];

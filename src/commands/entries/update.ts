@@ -5,7 +5,7 @@ import { updateEntry, fetchEntry } from '../../lib/api.js';
 import { resolveTags } from './tags.js';
 import { describeCategoryTypeMismatch, findCategory, resolveEntryCategory } from './category.js';
 import type { CreateEntryResponse, UpdateEntryPayload } from '../../types/index.js';
-import { parseTypeOption, warnScheduledAlias } from './create.js';
+import { parseEntryType, warnScheduledAlias } from './create.js';
 import { describeStatus } from './format.js';
 import { formatCurrency } from '../../utils/currency.js';
 import { describeScope, resolveSeriesScope, type SeriesScope } from './series.js';
@@ -77,10 +77,7 @@ export async function updateAction(id: string, options: UpdateOptions): Promise<
   const category = options.category !== undefined ? await resolveEntryCategory(options.category) : null;
   const categoryId = category?.id ?? null;
 
-  const requestedType = options.type === undefined ? undefined : parseTypeOption(options.type);
-  if (options.type !== undefined && requestedType === undefined) {
-    exitWithError(`Unknown type: ${options.type}. Valid: expense, income, transfer`);
-  }
+  const requestedType = options.type === undefined ? undefined : parseEntryType(options.type);
 
   const tagIds = options.tags !== undefined ? await resolveTags(options.tags) : undefined;
   const accountId = options.account !== undefined ? await resolveAccountOrExit(options.account) : undefined;
@@ -167,13 +164,27 @@ export async function updateAction(id: string, options: UpdateOptions): Promise<
   // (changeTipo), so a category of another type is refused here too. An ID the
   // catalog does not list has no type to compare and still goes to the API.
   const newCategory = category?.category ?? null;
+
+  // A transfer is a pair of mirrored entries with two accounts, saved through
+  // its own payload (buildTransferPayload, update-transfer.ts). An entry that
+  // is not a transfer cannot become one here: it would carry tipo t with no
+  // destination account, and update refuses such an entry ever after.
+  if (requestedType === 't') {
+    exitWithError(
+      `Entry ${entryId} is not a transfer. A transfer needs two accounts and is saved as a pair, so an entry cannot become one: ` +
+      'delete it and create the transfer with: mdcli entries create -T transfer --to-account <id>.'
+    );
+  }
+  if (newCategory?.tipo === 't') {
+    exitWithError(
+      `Category "${newCategory.nome}" (${newCategory.id}) only classifies transfers, and entry ${entryId} is not a transfer. ` +
+      "Use -c with a category of the entry's type (see: mdcli categories list --active)."
+    );
+  }
+
   const finalType = requestedType ?? newCategory?.tipo ?? existing.tipo;
   if ((finalType === 'd' || finalType === 'r') && newCategory !== null && newCategory.tipo !== finalType) {
-    exitWithError(
-      `${describeCategoryTypeMismatch(newCategory, finalType)} ` +
-      "The web app only offers categories that match the entry's type: use -c with a category of that type " +
-      '(see: mdcli categories list --active), or change -T.'
-    );
+    exitWithError(describeCategoryTypeMismatch(newCategory, finalType));
   }
   // -T alone has to agree with the category the entry already has, the rule the
   // web app enforces by listing only categories of the type it picked.
@@ -184,11 +195,7 @@ export async function updateAction(id: string, options: UpdateOptions): Promise<
   ) {
     const current = await findCategory(existing.categoria);
     if (current !== null && current.tipo !== requestedType) {
-      exitWithError(
-        `${describeCategoryTypeMismatch(current, requestedType)} ` +
-        "The web app only offers categories that match the entry's type: pass -c with a category of that type too " +
-        '(see: mdcli categories list --active).'
-      );
+      exitWithError(describeCategoryTypeMismatch(current, requestedType));
     }
   }
 

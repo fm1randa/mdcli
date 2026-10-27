@@ -104,7 +104,7 @@ describe('entries update sets the sign and estorno from the type', () => {
   });
 
   test('-v alone signs every value field from the entry type and keeps estorno', async () => {
-    const result = await runCli(['entries', 'update', '70', '-v', '1700'], { home, api });
+    const result = await runCli(['entries', 'update', '70', '-v', '-1700'], { home, api });
 
     expect(result.exitCode).toBe(0);
     expect(sentBody()).toMatchObject({
@@ -170,5 +170,45 @@ describe('entries update refuses a type and a category that disagree', () => {
 
     expect(result.exitCode).toBe(0);
     expect(sentBody()).toMatchObject({ tipo: 'd', categoria: 10, valor: -1700 });
+  });
+});
+
+describe('entries refuse a type it does not know', () => {
+  test('create exits before the POST', async () => {
+    const result = await runCli([...CREATE, '-T', 'bogus', '-c', '10'], { home, api });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain('Unknown type: bogus. Valid: expense, income, transfer');
+    expect(mutations(api)).toHaveLength(0);
+  });
+
+  test('update exits before the PUT', async () => {
+    const result = await runCli(['entries', 'update', '70', '-T', 'bogus'], { home, api });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain('Unknown type: bogus. Valid: expense, income, transfer');
+    expect(mutations(api)).toHaveLength(0);
+  });
+});
+
+describe('entries update does not turn an entry into a transfer', () => {
+  // A transfer is a pair of entries with two accounts, saved through its own
+  // payload: once an entry carries tipo t without one, update refuses to touch
+  // it again (update-transfer.ts, transferSides), so the command must not get
+  // there in the first place.
+  test('-T transfer exits before the PUT', async () => {
+    const result = await runCli(['entries', 'update', '70', '-T', 'transfer'], { home, api });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain('is not a transfer');
+    expect(mutations(api)).toHaveLength(0);
+  });
+
+  test('a transfer category exits before the PUT', async () => {
+    const result = await runCli(['entries', 'update', '70', '-c', '30'], { home, api });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain('Category "Transferência" (30) only classifies transfers');
+    expect(mutations(api)).toHaveLength(0);
   });
 });

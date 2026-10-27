@@ -81,11 +81,14 @@ export async function checkEntryCategory(
 const TYPE_WORDS: Record<Category['tipo'], string> = { d: 'an expense', r: 'income', t: 'a transfer' };
 
 /**
- * `Category "Alimentação" (10) is an expense, but the entry type is income.`
- * The web app's picker only lists categories of the entry's type (md.js,
- * filterCats), and changing the type clears the category (changeTipo), so a
- * mismatched pair never reaches the API there.
+ * The refusal for a category of another type:
+ * `Category "Alimentação" (10) is an expense, but the entry type is income. The
+ * web app only offers categories …` The web app's picker lists only categories
+ * of the entry's type (md.js, filterCats) and changing the type clears the
+ * category (changeTipo), so a mismatched pair never reaches the API there.
  */
 export function describeCategoryTypeMismatch(category: Category, tipo: Category['tipo']): string {
-  return `Category "${category.nome}" (${category.id}) is ${TYPE_WORDS[category.tipo]}, but the entry type is ${TYPE_WORDS[tipo]}.`;
+  return `Category "${category.nome}" (${category.id}) is ${TYPE_WORDS[category.tipo]}, but the entry type is ${TYPE_WORDS[tipo]}. ` +
+    "The web app only offers categories that match the entry's type: use -c with a category of that type " +
+    '(see: mdcli categories list --active), or change -T.';
 }
