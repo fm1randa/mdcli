@@ -5,6 +5,13 @@
 set -uo pipefail
 cd "$(dirname "$0")/.."
 
+# Same result on any terminal: the caller's environment must not change what
+# the CLI prints. In GitHub CI TERM is unset; claude.ai containers set
+# TERM=linux (which makes @inquirer/prompts draw ">" instead of "❯") and may
+# force colour, which puts ANSI codes in the output the checks below grep.
+unset FORCE_COLOR CLICOLOR_FORCE COLORTERM
+export NO_COLOR=1 TERM=dumb
+
 FAILED=()
 step() {
   local name="$1"; shift

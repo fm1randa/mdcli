@@ -33,6 +33,17 @@ process.env.TZ ??= 'Pacific/Kiritimati';
 // rejects a malformed MDCLI_TODAY here, before any test runs.
 process.env.MDCLI_TODAY = localDay(0);
 
+// The suite prints and asserts the same text on any terminal. Without this,
+// a claude.ai container (TERM=linux, sometimes FORCE_COLOR) got ANSI codes in
+// in-process output and ">" instead of "❯" from @inquirer/prompts, while
+// GitHub CI (no TERM) did not. Set before any test file imports chalk, which
+// reads the environment once at import.
+for (const name of ['FORCE_COLOR', 'CLICOLOR_FORCE', 'COLORTERM']) {
+  delete process.env[name];
+}
+process.env.NO_COLOR = '1';
+process.env.TERM = 'dumb';
+
 afterAll(() => {
   rmSync(sandbox, { recursive: true, force: true });
 });
