@@ -1,5 +1,4 @@
 import Table from 'cli-table3';
-import chalk from 'chalk';
 import { logger } from '../../utils/logger.js';
 import { cell } from '../../utils/text.js';
 import { fetchAccounts, fetchConnections } from '../../lib/api.js';
@@ -91,7 +90,6 @@ export function printSyncList(connections: SyncListConnection[]): void {
 
 /** Name from the registry, or that the bank account has no Account. Never a guessed name. */
 function accountLabel(account: SyncListAccount): string {
-  if (account.accountName !== null) return account.accountName;
-  if (account.accountId === null) return 'No account';
-  return chalk.gray('-');
+  if (account.accountId === null && account.accountName === null) return 'No account';
+  return cell(account.accountName);
 }

@@ -79,6 +79,43 @@ describe('entries import list errors', () => {
     expect(api.requests.some((r) => r.path.includes('/regras') || r.path.includes('smartmatch'))).toBe(false);
   });
 
+  // Each connection answer the CLI cannot place the account in fails before reading the statement.
+  const unplaceable: [string, object, string][] = [
+    [
+      'a connections answer that is not a list',
+      { items: ONE_LINK },
+      'GET /v1/integracao/connections did not return a list of connections',
+    ],
+    [
+      'a connection without an id',
+      [{ status: 'UPDATED', accounts: [{ id: 9001, conta: 1001 }] }],
+      'Account 1001 is linked to a connection that did not include its id.',
+    ],
+    [
+      'an account linked twice on one connection',
+      [{ id: 501, accounts: [{ id: 9001, conta: 1001 }, { id: 9003, conta: 1001 }] }],
+      'Account 1001 is linked twice on connection 501 (9001, 9003).',
+    ],
+    [
+      'a link without the connection account id',
+      [{ id: 501, accounts: [{ type: 'CONTA CORRENTE', conta: 1001 }] }],
+      'Account 1001 is linked to connection 501, which did not include its connection account id.',
+    ],
+  ];
+  for (const [name, connections, error] of unplaceable) {
+    test(`${name} fails without loading transactions or writing`, async () => {
+      api.on('GET /v1/integracao/connections', connections);
+
+      const result = await cli(['entries', 'import', 'list', '-a', '1001', '--since', SINCE, '--json']);
+
+      expect(result.exitCode).toBe(1);
+      expect(result.stdout).toBe('');
+      expect(JSON.parse(result.stderr)).toEqual({ error });
+      expect(calledTransactions()).toBe(false);
+      expect(mutations(api)).toHaveLength(0);
+    });
+  }
+
   test('an unknown account fails before transactions', async () => {
     const result = await cli(['entries', 'import', 'list', '-a', 'nope', '--since', SINCE, '--json']);
     expect(result.exitCode).toBe(1);

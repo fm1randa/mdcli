@@ -1,5 +1,7 @@
 import { describe, expect, test } from 'bun:test';
-import { ESLint } from 'eslint';
+import { readFileSync } from 'node:fs';
+import { ESLint, type AST } from 'eslint';
+import tseslint from 'typescript-eslint';
 
 // Lints snippets with the repo's real eslint.config.js. The paths must be
 // existing files: typed linting (projectService) rejects files outside the
@@ -12,6 +14,7 @@ const OTHER_SRC = 'src/lib/normalize.ts';
 const CARD_INVOICE = 'src/commands/entries/card-invoice.ts';
 const CURRENCY = 'src/utils/currency.ts';
 const PARSE = 'src/utils/parse.ts';
+const TEXT = 'src/utils/text.ts';
 const TEST = 'test/import-harness.ts';
 
 async function localRules(code: string, filePath: string): Promise<string[]> {
@@ -23,6 +26,7 @@ async function localRules(code: string, filePath: string): Promise<string[]> {
 
 const RAW_CURRENCY = "export const s = (1).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });";
 const NUMBER_CALL = "export const n = Number('1e3');";
+const RAW_CENTS = 'declare const v: number;\nexport const c = Math.round(Math.abs(v) * 100);';
 const DOUBLE_CAST = "export const v = ({} as unknown as { a: number }).a;";
 
 describe('local/no-raw-currency', () => {
@@ -38,17 +42,86 @@ describe('local/no-raw-currency', () => {
   });
 });
 
-describe('local/no-number-call', () => {
-  test('fires in src/commands (including card-invoice.ts) and src/lib/aliases.ts', async () => {
-    expect(await localRules(NUMBER_CALL, COMMAND)).toEqual(['local/no-number-call']);
-    expect(await localRules(NUMBER_CALL, CARD_INVOICE)).toEqual(['local/no-number-call']);
-    expect(await localRules(NUMBER_CALL, ALIASES)).toEqual(['local/no-number-call']);
+describe('local/no-raw-cents', () => {
+  test('fires in src on either operand order and anywhere in a product', async () => {
+    expect(await localRules(RAW_CENTS, OTHER_SRC)).toEqual(['local/no-raw-cents']);
+    expect(await localRules(RAW_CENTS, COMMAND)).toEqual(['local/no-raw-cents']);
+    expect(await localRules('declare const v: number;\nexport const c = Math.round(100 * v) / 100;', OTHER_SRC)).toEqual(['local/no-raw-cents']);
+    expect(await localRules('declare const v: number, n: number;\nexport const c = Math.round(v * 100 * n);', OTHER_SRC)).toEqual(['local/no-raw-cents']);
+    expect(await localRules('declare const v: number, n: number;\nexport const c = Math.round(v * 100 / n);', OTHER_SRC)).toEqual(['local/no-raw-cents']);
   });
 
-  test('does not fire outside its scope or for Number.parseInt', async () => {
+  test('does not fire in src/utils/currency.ts or on other rounding', async () => {
+    expect(await localRules(RAW_CENTS, CURRENCY)).toEqual([]);
+    expect(await localRules('declare const v: number;\nexport const c = Math.round(v / 3);', OTHER_SRC)).toEqual([]);
+    expect(await localRules('declare const v: number;\nexport const c = Math.floor(v * 100);', OTHER_SRC)).toEqual([]);
+  });
+});
+
+describe('local/no-raw-dash', () => {
+  const dash = "import chalk from 'chalk';\nexport const s = chalk.gray('-');";
+
+  test('fires in src outside text.ts', async () => {
+    expect(await localRules(dash, OTHER_SRC)).toEqual(['local/no-raw-dash']);
+    expect(await localRules(dash, COMMAND)).toEqual(['local/no-raw-dash']);
+  });
+
+  test('does not fire in src/utils/text.ts or on other gray text', async () => {
+    expect(await localRules(dash, TEXT)).toEqual([]);
+    expect(await localRules("import chalk from 'chalk';\nexport const s = chalk.gray('Inactive');", OTHER_SRC)).toEqual([]);
+    expect(await localRules("import chalk from 'chalk';\nexport const s = chalk.red('-');", OTHER_SRC)).toEqual([]);
+  });
+});
+
+describe('local/no-loose-number', () => {
+  test('fires anywhere in src (including card-invoice.ts and src/lib)', async () => {
+    expect(await localRules(NUMBER_CALL, COMMAND)).toEqual(['local/no-loose-number']);
+    expect(await localRules(NUMBER_CALL, OTHER_SRC)).toEqual(['local/no-loose-number']);
+    expect(await localRules(NUMBER_CALL, CARD_INVOICE)).toEqual(['local/no-loose-number']);
+    expect(await localRules(NUMBER_CALL, ALIASES)).toEqual(['local/no-loose-number']);
+  });
+
+  // Each one coerces loosely like Number(): '12abc' is 12, +'' is 0.
+  const coercions = {
+    'Number.parseInt': "export const n = Number.parseInt('12abc', 10);",
+    parseInt: "export const n = parseInt('12abc', 10);",
+    'Number.parseFloat': "export const n = Number.parseFloat('1.5abc');",
+    parseFloat: "export const n = parseFloat('1.5abc');",
+    'unary +': "declare const s: string;\nexport const n = +s;",
+    'Number as a value': "export const n = ['1'].map(Number);",
+    'parseInt as a value': "export const n = ['1'].map(parseInt);",
+    'parseFloat as a value': "export const n = ['1.5'].map(parseFloat);",
+    'Number.parseInt as a value': "export const n = ['1'].map(Number.parseInt);",
+    'new Number()': "export const n = new Number('1');",
+    'parseInt.call': "export const n = parseInt.call(null, '12abc', 10);",
+    'Number.call': "export const n = Number.call(null, '1e3');",
+    'parseFloat.bind': "export const f = parseFloat.bind(null);",
+  };
+  for (const [form, code] of Object.entries(coercions)) {
+    test(`fires on ${form} in src, not in src/utils/parse.ts`, async () => {
+      expect(await localRules(code, COMMAND)).toEqual(['local/no-loose-number']);
+      expect(await localRules(code, PARSE)).toEqual([]);
+    });
+  }
+
+  // .call/.apply run the function once: the .map(...) "on each item" message would mislead.
+  test('reports .call on Number and the parsers as a call, .map as a value', async () => {
+    const messages = async (code: string) => {
+      const [result] = await eslint.lintText(`${code}\n`, { filePath: COMMAND });
+      return result.messages.filter((m) => m.ruleId === 'local/no-loose-number').map((m) => m.messageId);
+    };
+    expect(await messages("export const n = Number.call(null, '1e3');")).toEqual(['numberCall']);
+    expect(await messages("export const n = parseInt.call(null, '12abc', 10);")).toEqual(['parseCall']);
+    expect(await messages("export const n = Number.parseInt.apply(null, ['12abc', 10]);")).toEqual(['parseCall']);
+    expect(await messages("export const n = ['1'].map(Number);")).toEqual(['numberValue']);
+    expect(await messages("export const n = ['1'].map(Number.parseInt);")).toEqual(['parserValue']);
+  });
+
+  test('does not fire in src/utils/parse.ts, on a numeric literal or on other Number members', async () => {
     expect(await localRules(NUMBER_CALL, PARSE)).toEqual([]);
-    expect(await localRules(NUMBER_CALL, OTHER_SRC)).toEqual([]);
-    expect(await localRules("export const n = Number.parseInt('7', 10);", COMMAND)).toEqual([]);
+    expect(await localRules('export const n = +1;', COMMAND)).toEqual([]);
+    expect(await localRules('export const ok = Number.isSafeInteger(7);', COMMAND)).toEqual([]);
+    expect(await localRules('declare const x: unknown;\nexport const ok = Number.isSafeInteger(x);', COMMAND)).toEqual([]);
   });
 });
 
@@ -95,7 +168,44 @@ describe('local/no-due-anchor-fallback', () => {
     expect(await localRules('export interface A { proximoVencimento?: string }', OTHER_SRC)).toEqual([]);
     expect(await localRules('declare const acc: { proximoFechamento?: string };\nexport const d = acc.proximoFechamento ?? null;', OTHER_SRC)).toEqual([]);
   });
+
+  // The exemption is per file: a new export of card-invoice.ts reading the field would pass the
+  // rule with a third rule for a card without one. Lint the real file as if it lived elsewhere and
+  // name the top-level declaration around each read, exported or not.
+  async function readers(source: string): Promise<Set<string>> {
+    const [result] = await eslint.lintText(source, { filePath: OTHER_SRC });
+    // The parser eslint.config.js lints with; its AST is ESTree plus TS nodes.
+    const program = tseslint.parser.parseForESLint(source).ast as AST.Program;
+    const names = result.messages
+      .filter((m) => m.ruleId === 'local/no-due-anchor-fallback')
+      .map((m) => {
+        const statement = program.body.find((s) => s.loc && s.loc.start.line <= m.line && m.line <= s.loc.end.line);
+        return (statement && declarationName(statement)) ?? `line ${m.line}`;
+      });
+    return new Set(names);
+  }
+
+  const source = readFileSync(`${import.meta.dir}/../${CARD_INVOICE}`, 'utf8');
+
+  test('only cardDueAnchor and ownDueDate read the field in card-invoice.ts', async () => {
+    expect(await readers(source)).toEqual(new Set(['cardDueAnchor', 'ownDueDate']));
+  });
+
+  test('names a const or a non-exported helper that reads the field', async () => {
+    const extra = 'export const reader = (a: Account) => a.proximoVencimento;\nfunction helper(a: Account) { return a.proximoVencimento; }';
+    expect(await readers(`${source}\n${extra}\n`)).toEqual(new Set(['cardDueAnchor', 'ownDueDate', 'reader', 'helper']));
+  });
 });
+
+function declarationName(statement: AST.Program['body'][number]): string | undefined {
+  const node =
+    statement.type === 'ExportNamedDeclaration' || statement.type === 'ExportDefaultDeclaration' ? statement.declaration : statement;
+  if (node?.type === 'FunctionDeclaration') return node.id?.name;
+  if (node?.type === 'VariableDeclaration') {
+    return node.declarations.map((d) => (d.id.type === 'Identifier' ? d.id.name : '?')).join(', ');
+  }
+  return undefined;
+}
 
 describe('local/no-ambient-clock', () => {
   // The forms the commands used before now()/today() existed.

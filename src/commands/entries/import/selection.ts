@@ -1,5 +1,6 @@
 import type { Category } from '../../../types/index.js';
 import { exitWithError } from '../../../utils/action.js';
+import { isPositiveSafeInteger, parseId } from '../../../utils/parse.js';
 import { categoryCatalog, checkEntryCategory, type CategoryCatalog } from '../category.js';
 import type { ImportCandidate } from './candidates.js';
 import type { ImportDocument, BankTransactionRow } from './document.js';
@@ -34,6 +35,19 @@ export interface SelectionItem {
   description?: string;
   /** The Entry to link on `conciliate`. Optional when the row has an automatically linked Entry. */
   entry?: number;
+}
+
+/** An Entry id read for `conciliate`, or why it is not one: the caller has to handle both. */
+type EntryIdRead = { entry: number } | { error: string };
+
+/**
+ * The Entry id a `--plan` (JSON number) or `--edit` (digits) file names for `conciliate`.
+ * Both files check it here, so 0 or an id past 2^53 is refused instead of read as "no entry".
+ */
+export function readEntryId(input: number | string): EntryIdRead {
+  const entry = typeof input === 'number' ? (isPositiveSafeInteger(input) ? input : undefined) : parseId(input);
+  if (entry !== undefined) return { entry };
+  return { error: `entry ${input} is not an Entry id (a whole number from 1 to ${Number.MAX_SAFE_INTEGER}).` };
 }
 
 /**

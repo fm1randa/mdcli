@@ -1,12 +1,11 @@
 import Table from 'cli-table3';
-import chalk from 'chalk';
 import { fetchAccountById, fetchBankTransactions, fetchCardInvoice, fetchImportCandidates, fetchImportDuplicates, isCreditCard } from '../../../lib/api.js';
 import type { Account } from '../../../types/index.js';
 import { exitWithError } from '../../../utils/action.js';
 import { ownDueDate } from '../card-invoice.js';
 import { formatCurrency } from '../../../utils/currency.js';
 import { logger } from '../../../utils/logger.js';
-import { cell } from '../../../utils/text.js';
+import { cell, listCell } from '../../../utils/text.js';
 import { categoryCatalog, type CategoryCatalog } from '../category.js';
 import { fillAiCategories } from './ai.js';
 import { automaticLinks, candidatesFor, readExisting, type ExistingEntry, type ImportCandidate } from './candidates.js';
@@ -188,7 +187,13 @@ async function windowRows(document: ImportDocument): Promise<unknown[]> {
 /** A card's candidates are its whole `proximoVencimento` invoice, like the web: no date window. */
 async function invoiceRows(account: Account): Promise<unknown[]> {
   const due = ownDueDate(account);
-  if (due === null) exitWithError(`Account ${account.id} has no proximoVencimento date to load an invoice from.`);
+  if (due === null) {
+    // No primeiraFatura fallback, like the web (see ownDueDate).
+    exitWithError(
+      `Card ${account.id} has no next due date in Meu Dinheiro, so there is no current invoice to find matching entries in. ` +
+        'Set the card\'s due date in the web app (edit the card), then run the import again.',
+    );
+  }
   const invoice = await fetchCardInvoice(account.id, due);
   if (!Array.isArray(invoice.lancamentos)) {
     throw new Error(`GET /v1/cartoes/${account.id}/fatura/${due} did not return lancamentos`);
@@ -245,17 +250,13 @@ function printStatement(document: ImportDocument): void {
     table.push([
       cell(bankTransaction.prefix),
       cell(bankTransaction.date),
-      bankTransaction.value === null ? chalk.gray('-') : formatCurrency(bankTransaction.value),
+      cell(bankTransaction.value, formatCurrency),
       cell(bankTransaction.description),
       cell(categoryLabel(bankTransaction.suggestedCategory)),
       cell(bankTransaction.suggestedDescription),
-      bankTransaction.suggestedTagIds.length === 0 ? chalk.gray('-') : bankTransaction.suggestedTagIds.join(', '),
+      listCell(bankTransaction.suggestedTagIds),
       cell(bankTransaction.duplicateOf),
-      bankTransaction.candidates.length === 0
-        ? chalk.gray('-')
-        : bankTransaction.candidates
-          .map((item) => (item.id === bankTransaction.conciliateWith ? `${item.id} (linked)` : String(item.id)))
-          .join(', '),
+      listCell(bankTransaction.candidates, (item) => (item.id === bankTransaction.conciliateWith ? `${item.id} (linked)` : String(item.id))),
       bankTransaction.defaultAction,
     ]);
   }

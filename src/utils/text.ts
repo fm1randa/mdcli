@@ -13,7 +13,18 @@ export function truncate(text: string, colWidth: number): string {
   return text.length > room ? `${text.slice(0, room)}${ELLIPSIS}` : text;
 }
 
-/** A table cell: the value, or a gray dash when there is none. */
-export function cell(value: string | number | null): string {
-  return value === null ? chalk.gray('-') : String(value);
+/**
+ * A table cell: the value (through `format` when given), or a gray dash when
+ * there is none. The only place that writes the dash (local/no-raw-dash).
+ */
+export function cell(value: string | number | null | undefined): string;
+export function cell<T>(value: T | null | undefined, format: (value: T) => string): string;
+export function cell<T>(value: T | null | undefined, format?: (value: T) => string): string {
+  if (value === null || value === undefined) return chalk.gray('-');
+  return format ? format(value) : String(value);
+}
+
+/** A table cell listing the items (through `format`) separated by commas, or the dash when empty. */
+export function listCell<T>(items: readonly T[], format: (item: T) => string = String): string {
+  return cell(items.length === 0 ? null : items.map((item) => format(item)).join(', '));
 }

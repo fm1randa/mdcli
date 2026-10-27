@@ -10,6 +10,9 @@ export default tseslint.config(
       parserOptions: {
         projectService: {
           allowDefaultProject: ["eslint.config.js", "eslint-rules/*.js"],
+          // The default of 8 counts this config and every rule file; they are
+          // small, so the cost of linting them outside a tsconfig is too.
+          maximumDefaultProjectFileMatchCount_THIS_WILL_SLOW_DOWN_LINTING: 32,
         },
         tsconfigRootDir: import.meta.dirname,
       },
@@ -30,16 +33,27 @@ export default tseslint.config(
   // block scopes one ban without replacing the others' options.
   { plugins: { local } },
   {
-    // Money is formatted in one place, signed by default.
+    // Money is formatted and counted in cents in one place, signed by default.
     files: ["src/**/*.ts"],
     ignores: ["src/utils/currency.ts"],
-    rules: { "local/no-raw-currency": "error" },
+    rules: { "local/no-raw-currency": "error", "local/no-raw-cents": "error" },
   },
   {
-    // User input goes through the strict parse helpers; payloads match
-    // their types instead of being cast.
+    // Strings become numbers only through the strict parse helpers.
+    files: ["src/**/*.ts"],
+    ignores: ["src/utils/parse.ts"],
+    rules: { "local/no-loose-number": "error" },
+  },
+  {
+    // User input payloads match their types instead of being cast.
     files: ["src/commands/**/*.ts", "src/lib/aliases.ts"],
-    rules: { "local/no-number-call": "error", "local/no-double-cast": "error" },
+    rules: { "local/no-double-cast": "error" },
+  },
+  {
+    // An empty table cell is written by cell() alone.
+    files: ["src/**/*.ts"],
+    ignores: ["src/utils/text.ts"],
+    rules: { "local/no-raw-dash": "error" },
   },
   {
     // A card's due date is read only in card-invoice.ts (cardDueAnchor, ownDueDate).

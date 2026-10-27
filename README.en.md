@@ -1,4 +1,4 @@
-<!-- traduzido de README.md @ f79e40e (base: f79e40e215aa719dacc150ab163a80c126f9c22d; readme-blob: df3e371d8297319c2511b9e6a825e6c06f03dbf3); ao atualizar o README.md, sincronize este arquivo e atualize o SHA e o readme-blob (git hash-object README.md) -->
+<!-- traduzido de README.md @ 28d08d5 (base: 28d08d50ea5fea7a6342d5b45bfdaf663d4e2e77; readme-blob: 3aa72ab303cab0773f4600bd92d7535ed858bb58); ao atualizar o README.md, sincronize este arquivo e atualize o SHA e o readme-blob (git hash-object README.md) -->
 
 [Português (Brasil)](README.md) · **English**
 
@@ -210,6 +210,21 @@ mdcli accounts delete 1167419
 # Create an alias for quick access
 mdcli accounts alias add --id 1167419 --name mp
 
+# List, change, or remove aliases (stored on this computer only)
+mdcli accounts alias list
+mdcli accounts alias update --id 1167419 --name mercadopago
+mdcli accounts alias rm --name mercadopago
+
+# Categories and tags have the same alias commands
+mdcli categories alias add --id 12345 --name food
+mdcli categories alias list --json
+mdcli categories alias update --id 12345 --name comida
+mdcli categories alias rm --id 12345
+mdcli tags alias add --id 678 --name viagem
+mdcli tags alias list
+mdcli tags alias update --id 678 --name trip
+mdcli tags alias rm --name trip
+
 # List entries using alias
 mdcli entries list --account mp --from 2024-01-01 --to 2024-01-31
 
@@ -326,6 +341,44 @@ mdcli entries delete 12345
 # (the web app's "Neste e em todos na sequência"); the default is --scope this
 mdcli entries delete 12345 --scope following
 
+# Bank import (Open Finance), like the web's Import button: lists the bank
+# transactions of a connected account with the category the server suggests
+# (learned rules and, on the paid plan, AI), the duplicates, and the entries
+# they may be reconciled with. Read-only. Without --since, loads what the
+# connection reports as new; without that, the statement since the account's
+# last statement date (at most 90 days ago). The prefix identifies each
+# transaction in the commands below, like a git commit prefix
+mdcli entries import list --account mp
+mdcli entries import list --account mp --since 2026-10-01 --json
+
+# Widens the search for entries to reconcile (the web's "Alterar busca"; the
+# default is the statement period ±2 days). On a card, the candidates are the
+# whole invoice of the next due date; a card without a next due date cannot be imported
+mdcli entries import list --account mp --search-to 2026-10-20
+
+# Imports transactions chosen by prefix, all in one category; --reject marks
+# others as not imported. Asks for confirmation (y/N), and --dry-run shows what
+# would be done without writing anything
+mdcli entries import run --account mp --ids 1a2b3c4d,5e6f7a8b --category food --dry-run
+mdcli entries import run --account mp --ids 1a2b3c4d --category food --reject 9c0d1e2f --yes
+
+# One action per transaction (import, conciliate, skip, reject) in a JSON file:
+# {"transactions": [{"id": "1a2b3c4d", "action": "conciliate", "entry": 12345}]}
+mdcli entries import run --account mp --plan plan.json --yes
+
+# Or in $EDITOR, in the style of git rebase -i: one line per transaction
+# (<command> <prefix> <date> <value> <category> | <description>). An error
+# reopens the editor with the message; deleting every line cancels
+mdcli entries import run --account mp --edit
+
+# Lists the bank connections and the accounts linked to each one
+mdcli sync list
+
+# Requests an update (sync) of an account's connection, or of all of them. Each
+# connector accepts at most 3 per day, so it asks for confirmation
+mdcli sync run mp
+mdcli sync run all --yes
+
 # List credit cards (--json has limit, dueDay, nextDueDate, nextClosingDate,
 # closingDaysBeforeDue and paymentAccountId; no balance, which means nothing
 # for a card). null dueDay/nextDueDate/nextClosingDate: the API has no next due
@@ -374,6 +427,9 @@ mdcli categories update 12345 --inactive
 # Delete a category; its entries move to --move-to (must be the same type).
 # Categories with subcategories must have those removed first.
 mdcli categories delete 12345 --move-to "Outros"
+
+# List only active tags
+mdcli tags list --active
 
 # Create a tag (color is optional, defaults to gray)
 mdcli tags create --name "Travel" --color "#FF6600"
@@ -504,3 +560,14 @@ The tests in `test/` run the real CLI as a subprocess against a local mock of th
 | Invoice summary (closing, previous invoice, paid, to pay, reconciled, limit, available) | Done (text; `--summary`; `--json --summary`) |
 | Card settings in `cards list --json` (limit, due/closing dates, payment account) | Done |
 | Future installments | Done |
+
+### Import and sync
+| Feature | Status |
+|---------|--------|
+| List the bank transactions of a connected account (`entries import list`) | Done |
+| Category, description and tag suggestions from the server (rules and AI) | Done |
+| Duplicates and reconciliation candidates, like the web | Done |
+| Import, reconcile or reject (`--ids`, `--plan`, `--edit`) | Done |
+| Dry run without writing (`--dry-run`) | Done |
+| List connections (`sync list`) | Done |
+| Update connections (`sync run <account\|all>`) | Done |

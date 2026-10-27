@@ -1,5 +1,7 @@
-// A card's invoice anchor comes from cardDueAnchor alone (Jardinagem
-// 2026-10-21: three paths had three fallbacks for a card without one). Bans
+// A card's due date is read only in card-invoice.ts (Jardinagem 2026-10-21:
+// three paths had three fallbacks for a card without one). There,
+// cardDueAnchor falls back to primeiraFatura and ownDueDate (the Import) has
+// no fallback, so the Import fails for a card without one. Bans
 // every read of proximoVencimento, not just `proximoVencimento ??`: `?.`,
 // `||`, ternaries and `if (!x) throw` were all ways around the old selector.
 const FIELD = "proximoVencimento";
@@ -12,9 +14,10 @@ function isField(key, computed) {
 export default {
   meta: {
     type: "problem",
-    docs: { description: "Ban reading proximoVencimento outside cardDueAnchor" },
+    docs: { description: "Ban reading proximoVencimento outside card-invoice.ts" },
     messages: {
-      dueAnchor: "Use cardDueAnchor (src/commands/entries/card-invoice.ts) for a card's due date: one rule for a card without proximoVencimento.",
+      dueAnchor:
+        "Read a card's due date through src/commands/entries/card-invoice.ts: cardDueAnchor (falls back to primeiraFatura) or ownDueDate (null without one; the Import fails).",
     },
     schema: [],
   },

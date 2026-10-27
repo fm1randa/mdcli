@@ -7,10 +7,7 @@ import { calendarDay, getCurrentMonthRange, isCalendarDate } from '../../lib/dat
 import type { AccountWithBalance } from '../../types/index.js';
 import { formatStatus } from './format.js';
 import { formatCurrency } from '../../utils/currency.js';
-
-function formatBalance(value: number | null): string {
-  return value === null ? chalk.gray('-') : formatCurrency(value);
-}
+import { cell } from '../../utils/text.js';
 
 export async function listAction(options: { json?: boolean; active?: boolean; at?: string }): Promise<void> {
   if (options.at !== undefined && !isCalendarDate(options.at)) {
@@ -55,12 +52,10 @@ export async function listAction(options: { json?: boolean; active?: boolean; at
       acc.id.toString(),
       acc.name,
       acc.type,
-      acc.bank ?? chalk.gray('-'),
-      formatBalance(acc.balance),
-      formatBalance(acc.projectedBalance),
-      acc.bankBalance === null
-        ? chalk.gray('-')
-        : `${formatCurrency(acc.bankBalance)}${acc.bankBalanceDate ? chalk.gray(` (${acc.bankBalanceDate})`) : ''}`,
+      cell(acc.bank),
+      cell(acc.balance, formatCurrency),
+      cell(acc.projectedBalance, formatCurrency),
+      cell(acc.bankBalance, (balance) => `${formatCurrency(balance)}${acc.bankBalanceDate ? chalk.gray(` (${acc.bankBalanceDate})`) : ''}`),
       formatStatus(acc.active, acc.closed),
     ]);
   }

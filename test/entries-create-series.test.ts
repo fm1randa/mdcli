@@ -117,6 +117,24 @@ describe('entries create --installments', () => {
     });
   });
 
+  test('sends the series total as the signed sum of the installments', async () => {
+    // 0.07 in 10 is 0.07 - 9 * 0.01 = -0.02 on the first installment, the opposite sign of the rest.
+    const income = await runCli(
+      ['entries', 'create', '-a', '1001', '-d', 'Centavos', '-v', '0.07', '-c', '10', '-T', 'income', '-i', '10', '-D', '2026-01-10', '--json'],
+      { home, api }
+    );
+    const expense = await runCli(
+      ['entries', 'create', '-a', '1001', '-d', 'Centavos', '-v', '0.07', '-c', '10', '-i', '10', '-D', '2026-01-10', '--json'],
+      { home, api }
+    );
+
+    expect(income.exitCode).toBe(0);
+    expect(expense.exitCode).toBe(0);
+    const [incomeBody, expenseBody] = mutations(api).map((request) => request.body);
+    expect(incomeBody).toMatchObject({ valor: 0.07, valorPrevisto: 0.07 });
+    expect(expenseBody).toMatchObject({ valor: -0.07, valorPrevisto: -0.07 });
+  });
+
   test('--per-installment, --frequency and --first-installment', async () => {
     const result = await runCli(
       [

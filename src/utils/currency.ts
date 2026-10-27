@@ -30,3 +30,8 @@ export function formatMagnitude(value: number): string {
 export function toCents(value: number): number {
   return Math.round(Math.abs(value) * 100);
 }
+
+/** The signed value rounded to cents, for totals: 0.1 + 0.2 is 0.3. */
+export function roundToCents(value: number): number {
+  return Math.round(value * 100) / 100;
+}

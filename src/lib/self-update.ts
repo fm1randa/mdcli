@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { ensurePrivateDir, writePrivateFile } from './config.js';
+import { parseInteger } from '../utils/parse.js';
 import { homedir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
 
@@ -50,7 +51,7 @@ function installedVersion(packageRoot: string): string | null {
 export function compareVersions(a: string, b: string): number {
   const parts = (v: string) => {
     const [date, n] = v.split('-');
-    return [...date.split('.').map(Number), n === undefined ? 1 : Number(n)];
+    return [...date.split('.').map((part) => parseInteger(part)), n === undefined ? 1 : parseInteger(n)];
   };
   const pa = parts(a);
   const pb = parts(b);

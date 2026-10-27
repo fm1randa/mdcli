@@ -29,6 +29,7 @@ function accountRestriction(config: WebConfig | null): (id: number) => boolean {
   const user = asRecord(config?.usuario);
   const ids = asRecord(asRecord(asRecord(user?.permissoes)?.restricoes))?.contas;
   if (!Array.isArray(ids)) return () => false;
+  // eslint-disable-next-line local/no-loose-number -- API data (number or string), coerced like the web's ==, not user input
   return (id) => ids.some((restricted) => Number(restricted) === id);
 }
 

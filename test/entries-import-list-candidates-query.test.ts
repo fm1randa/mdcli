@@ -92,7 +92,10 @@ describe('entries import list candidate query', () => {
 
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toBe('');
-    expect(JSON.parse(result.stderr).error).toContain('GET /v2/lancamentos');
+    expect(JSON.parse(result.stderr).error).toBe(
+      'GET /v2/lancamentos still had candidates after 200 pages (200 entries). Narrow the search with --search-from and --search-to.',
+    );
+    expect(api.requests.filter((r) => r.path === '/v2/lancamentos')).toHaveLength(200);
     expect(mutations(api)).toHaveLength(0);
   });
 

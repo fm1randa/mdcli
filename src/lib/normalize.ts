@@ -1,4 +1,5 @@
 import type { CategoriesResponse, AccountsResponse, TagsResponse, NormalizedCategory, NormalizedAccount, NormalizedCard, NormalizedTag, NormalizedEntry, Entry, EntryRepetition, EntryStatus, CardInvoiceResponse, CardFutureResponse, NormalizedCardEntry, NormalizedCardInstallment } from '../types/index.js';
+import { parseInteger } from '../utils/parse.js';
 
 function mapCategoryType(tipo: 'd' | 'r' | 't'): 'expense' | 'income' | 'transfer' {
   const typeMap: Record<string, 'expense' | 'income' | 'transfer'> = {
@@ -44,7 +45,7 @@ export function normalizeCards(response: AccountsResponse): NormalizedCard[] {
     return {
       ...normalized,
       limit: card.limite ?? null,
-      dueDay: nextDueDate ? Number.parseInt(nextDueDate.slice(8, 10), 10) : null,
+      dueDay: nextDueDate ? (parseInteger(nextDueDate.slice(8, 10)) ?? null) : null,
       nextDueDate,
       nextClosingDate: card.proximoFechamento?.slice(0, 10) ?? null,
       closingDaysBeforeDue: card.fechamento ?? null,
@@ -158,7 +159,10 @@ export function normalizeCardEntries(response: CardInvoiceResponse): NormalizedC
 function remainingFromInstallment(parcela: string | undefined): number {
   const match = parcela?.match(/^(\d+)\/(\d+)$/);
   if (!match) return 0;
-  return Number(match[2]) - Number(match[1]) + 1;
+  const current = parseInteger(match[1]);
+  const total = parseInteger(match[2]);
+  if (current === undefined || total === undefined) return 0;
+  return total - current + 1;
 }
 
 /**

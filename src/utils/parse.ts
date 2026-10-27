@@ -2,8 +2,8 @@
  * Strict parsing of numbers typed by the user. Number() is too lenient for
  * CLI input: Number('') and Number(' ') are 0, '1e3' is 1000, '0x10' is 16
  * and 'Infinity' passes, so `entries create -v ""` created an R$ 0 entry.
- * Command code goes through these helpers (an ESLint rule bans Number(...)
- * in src/commands).
+ * src code goes through these helpers (`local/no-loose-number` bans Number(),
+ * Number as a value, parseInt, parseFloat and unary + outside this file).
  */
 
 const DIGITS = /^\d+$/;
@@ -13,6 +13,11 @@ export function parseInteger(input: string, min = 0): number | undefined {
   if (!DIGITS.test(input)) return undefined;
   const value = Number.parseInt(input, 10);
   return Number.isSafeInteger(value) && value >= min ? value : undefined;
+}
+
+/** An API ID already in a number, as a JSON file gives it: a positive safe integer. */
+export function isPositiveSafeInteger(value: unknown): value is number {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value > 0;
 }
 
 /** An API ID: a positive integer in plain decimal digits. */

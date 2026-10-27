@@ -88,6 +88,8 @@ describe('entries import run --plan file checks', () => {
           { id: 'cccc3333', action: 'conciliate', entry: '9001' },
           { id: 'dddd4444', action: 'import' },
           { id: 42, action: 'skip' },
+          { id: 'aaaa1111', action: 'conciliate', entry: 0 },
+          { id: 'bbbb2222', action: 'conciliate', entry: 2 ** 53 },
         ],
       }),
       '--yes',
@@ -99,6 +101,8 @@ describe('entries import run --plan file checks', () => {
     expect(result.stderr).toContain('transactions[2]: "entry" must be a numeric Entry id.');
     expect(result.stderr).toContain('transactions[3]: "category" is required for import.');
     expect(result.stderr).toContain('transactions[4]: "id" must be a prefix or UUID string.');
+    expect(result.stderr).toContain('transactions[5]: entry 0 is not an Entry id (a whole number from 1 to 9007199254740991).');
+    expect(result.stderr).toContain('transactions[6]: entry 9007199254740992 is not an Entry id');
     expect(api.requests).toHaveLength(0);
   });
 
