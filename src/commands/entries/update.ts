@@ -188,7 +188,7 @@ export async function updateAction(id: string, options: UpdateOptions): Promise<
       'delete it and create the transfer with: mdcli entries create -T transfer --to-account <id>.'
     );
   }
-  if (newCategory?.tipo === 't') {
+  if (newCategory?.tipo === 't' && existing.tipo !== 'p') {
     exitWithError(
       `Category "${newCategory.nome}" (${newCategory.id}) only classifies transfers, and entry ${entryId} is not a transfer. ` +
       "Use -c with a category of the entry's type (see: mdcli categories list --active)."
