@@ -295,6 +295,7 @@ async function entriesRoute(req: Request, path: string): Promise<Response> {
       valor: merged.valor,
       valorPrevisto: merged.valor,
       valorEfetivo: merged.valor,
+      estorno: merged.estorno ?? false,
       data: merged.data,
       dataPrevista: merged.dataPrevista,
       dataEfetiva: merged.dataEfetiva ?? null,

@@ -282,7 +282,9 @@ mdcli entries summary --account mp,nubank --by account --include-transfers
 # pela conta corrente, que contaria em dobro as compras já lançadas no cartão
 mdcli entries summary --account mp,nubank --exclude-category "Pagamento de cartão"
 
-# Cria um lançamento
+# Cria um lançamento. O tipo (-T, despesa por padrão) e a categoria têm de
+# combinar: a web só lista categorias do tipo do lançamento, então uma
+# categoria de outro tipo é recusada antes de chamar a API
 mdcli entries create --account mp --description "Groceries" --value 150 --category food
 
 # Uma compra no cartão vai para a fatura aberta (ou --invoice YYYY-MM); o ID
@@ -313,7 +315,10 @@ mdcli entries create --account mp --description "IPVA" --value 800 --category ca
 # Compras no cartão de crédito sempre ficam não conciliadas na fatura.
 mdcli entries create --account mp --description "Feira" --value 30 --category food --confirmed
 
-# Atualiza um lançamento (só os campos informados são alterados)
+# Atualiza um lançamento (só os campos informados são alterados). -T define o
+# tipo, e com ele o sinal do valor (receita positiva, despesa negativa) e o
+# estorno, como no app web; -c tem de ser do mesmo tipo, e trocar -T num
+# lançamento cuja categoria é de outro tipo pede -c do novo tipo junto
 mdcli entries update 12345 --value 200 --category food
 
 # Volta um lançamento confirmado para pendente (limpa a data e o valor
@@ -321,7 +326,8 @@ mdcli entries update 12345 --value 200 --category food
 mdcli entries update 12345 --pending
 
 # Atualiza uma transferência por qualquer um dos lados do par - os dois mudam juntos.
-# Uma transferência não pode virar despesa nem receita.
+# Uma transferência não pode virar despesa nem receita, e um lançamento comum não
+# vira transferência (crie com entries create -T transfer --to-account)
 mdcli entries update 12345 --value 200
 
 # Série recorrente (fixa ou parcelada): por padrão só esta ocorrência muda, e ela

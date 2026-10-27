@@ -1,4 +1,4 @@
-<!-- traduzido de README.md @ df07619 (base: df07619000789c0a41aba3d57b43c45443eb0f9e; readme-blob: 51bf47b4f91f43df2f688baf0d7f3c4eb050c1c1); ao atualizar o README.md, sincronize este arquivo e atualize o SHA e o readme-blob (git hash-object README.md) -->
+<!-- traduzido de README.md @ 29d8d0e (base: 29d8d0e; readme-blob: 8fec85a957a9c279249b1d36cf7e468c41985303); ao atualizar o README.md, sincronize este arquivo e atualize o SHA e o readme-blob (git hash-object README.md) -->
 [Português (Brasil)](README.md) · **English**
 
 > The Portuguese [README.md](README.md) is the reference version; this English translation may lag behind it.
@@ -285,7 +285,9 @@ mdcli entries summary --account mp,nubank --by account --include-transfers
 # checking that would double-count the purchases already on the card
 mdcli entries summary --account mp,nubank --exclude-category "Pagamento de cartão"
 
-# Create an entry
+# Create an entry. The type (-T, expense by default) and the category have to
+# match: the web app only lists categories of the entry's type, so a category
+# of another type is refused before the API is called
 mdcli entries create --account mp --description "Groceries" --value 150 --category food
 
 # A card purchase goes to the open invoice (or --invoice YYYY-MM); the ID
@@ -316,7 +318,10 @@ mdcli entries create --account mp --description "IPVA" --value 800 --category ca
 # Credit card purchases are always left unreconciled on the invoice.
 mdcli entries create --account mp --description "Feira" --value 30 --category food --confirmed
 
-# Update an entry (only the fields you pass are changed)
+# Update an entry (only the fields you pass are changed). -T sets the type, and
+# with it the sign of the value (income positive, expense negative) and
+# estorno, as in the web app; -c has to be of the same type, and changing -T on
+# an entry whose current category is of another type takes -c of the new type
 mdcli entries update 12345 --value 200 --category food
 
 # Turn a confirmed entry back into a pending one (clears the effective date
@@ -324,7 +329,8 @@ mdcli entries update 12345 --value 200 --category food
 mdcli entries update 12345 --pending
 
 # Update a transfer from either half of the pair - both halves move together.
-# A transfer cannot be turned into an expense or an income.
+# A transfer cannot be turned into an expense or an income, and a plain entry
+# does not become a transfer (create it with entries create -T transfer --to-account).
 mdcli entries update 12345 --value 200
 
 # Recurring series (fixed or installments): by default only this occurrence
