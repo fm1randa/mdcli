@@ -9,24 +9,24 @@
 # Runs only when CLAUDE_CODE_REMOTE=true, MDCLI_WEBHOOK_URL is set and curl
 # exists; otherwise it exits at once. It never blocks the session: it prints
 # nothing on stdout, always exits 0, and sends the request detached (nohup,
-# curl --max-time 10). Input without a hook_event_name sends nothing.
+# curl --max-time 10). Input without a string hook_event_name sends nothing.
 # Non-string values of reason, error, etc. are sent as compact JSON text.
 #
 # Payload (JSON POST to $MDCLI_WEBHOOK_URL): event (claude_session_stopped |
 # claude_session_failed | claude_session_notification), source, hook_event_name,
 # repo, session_id, session_url (https://claude.ai/code/<id>, with a "cse_"
 # prefix turned into "session_"), branch (empty when detached), head (short
-# sha), cwd,
-# hook_session_id, notification_type, message, reason, error, stop_hook_active,
-# last_assistant_message (first 1500 chars) and at (UTC ISO 8601). The hook
-# input is read from stdin with jq, or with python3 when jq is missing or
-# fails.
+# sha), cwd, hook_session_id, notification_type, message, reason, error,
+# stop_hook_active, last_assistant_message (first 1500 chars) and at (UTC ISO
+# 8601). The hook input is read from stdin with jq, or with python3 when jq is
+# missing or fails.
 #
 # MDCLI_WEBHOOK_AUTH, when set, is sent as the Authorization header: as is if
 # it already starts with "Authorization:" (any case), otherwise prefixed with
 # "Authorization: ". Secrets come only from the environment and are never
-# echoed; the URL, the header and the payload go to curl as a config on its
-# stdin (curl -K -): nothing in argv, nothing on disk.
+# echoed. Trailing whitespace (a pasted newline) is trimmed from both. The URL,
+# the header and the payload go to curl as a config on its stdin (curl -K -):
+# nothing in argv, nothing on disk.
 
 {
   [ "${CLAUDE_CODE_REMOTE:-}" = "true" ] || exit 0
@@ -55,7 +55,7 @@
       --arg branch "$branch" --arg head "$head" --arg at "$at" '
       def s: if . == null then null else tostring end;
       (if type == "object" then . else {} end) as $in
-      | ($in.hook_event_name // "" | tostring) as $name
+      | ($in.hook_event_name | if type == "string" then . else "" end) as $name
       | if $name == "" then empty else {
           event: (if $name == "Stop" then "claude_session_stopped"
                   elif $name == "StopFailure" then "claude_session_failed"
@@ -102,8 +102,8 @@ def text(key):
         return value
     return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
 
-name = text("hook_event_name") or ""
-if not name:
+name = data.get("hook_event_name")
+if not isinstance(name, str) or not name:
     sys.exit(0)
 events = {
     "Stop": "claude_session_stopped",
@@ -112,7 +112,8 @@ events = {
 }
 last = text("last_assistant_message")
 print(json.dumps({
-    "event": events.get(name, "claude_session_" + name.lower()),
+    "event": events.get(name, "claude_session_"
+        + "".join(c.lower() if c.isascii() else c for c in name)),
     "source": "cloud",
     "hook_event_name": name,
     "repo": "fm1randa/mdcli",
@@ -135,6 +136,11 @@ print(json.dumps({
 
   [ -n "$payload" ] || exit 0
 
+  # Drops trailing whitespace, such as a newline pasted along with a secret.
+  trim_end() {
+    printf '%s' "${1%"${1##*[![:space:]]}"}"
+  }
+
   # Quotes a value for a curl config file; refuses values with line breaks.
   curl_quote() {
     case "$1" in *$'\n'* | *$'\r'*) return 1 ;; esac
@@ -142,13 +148,13 @@ print(json.dumps({
     printf '"%s"' "${value//\"/\\\"}"
   }
 
-  url=$(curl_quote "$MDCLI_WEBHOOK_URL") || exit 0
-  auth=""
-  if [ -n "${MDCLI_WEBHOOK_AUTH:-}" ]; then
+  url=$(curl_quote "$(trim_end "$MDCLI_WEBHOOK_URL")") || exit 0
+  auth=$(trim_end "${MDCLI_WEBHOOK_AUTH:-}")
+  if [ -n "$auth" ]; then
     shopt -s nocasematch
-    case "$MDCLI_WEBHOOK_AUTH" in
-      authorization:*) auth=$MDCLI_WEBHOOK_AUTH ;;
-      *) auth="Authorization: $MDCLI_WEBHOOK_AUTH" ;;
+    case "$auth" in
+      authorization:*) ;;
+      *) auth="Authorization: $auth" ;;
     esac
     shopt -u nocasematch
     auth=$(curl_quote "$auth") || exit 0
