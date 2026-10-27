@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterAll } from 'bun:test';
-import { localDay } from './helpers.js';
+import { localDay, TERMINAL_VARS } from './helpers.js';
 
 // Preloaded before every test file (see bunfig.toml). Any code path that reaches
 // src/lib/config.ts in-process writes here instead of the real
@@ -32,6 +32,20 @@ process.env.TZ ??= 'Pacific/Kiritimati';
 // MDCLI_TODAY=2027-03-01 bun run test). localDay reads TZ, set above, and
 // rejects a malformed MDCLI_TODAY here, before any test runs.
 process.env.MDCLI_TODAY = localDay(0);
+
+// The suite prints and asserts the same text on any terminal. Without this,
+// a claude.ai container (TERM=linux, sometimes FORCE_COLOR) got ANSI codes in
+// in-process output and ">" instead of "❯" from @inquirer/prompts, while
+// GitHub CI (no TERM) did not. chalk reads the environment once at import, so
+// this must run before anything loads it: test files load after this preload,
+// and this file's own imports (helpers.ts, fixtures.ts) must not load chalk.
+// TERM=dumb is what turns chalk off; NO_COLOR is for other tools (chalk
+// ignores it). Guarded by test/terminal-env.test.ts.
+for (const name of TERMINAL_VARS) {
+  delete process.env[name];
+}
+process.env.NO_COLOR = '1';
+process.env.TERM = 'dumb';
 
 afterAll(() => {
   rmSync(sandbox, { recursive: true, force: true });

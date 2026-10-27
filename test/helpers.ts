@@ -127,28 +127,47 @@ export interface CliResult {
   output: string;
 }
 
+/**
+ * Environment variables through which the caller's terminal reaches a
+ * spawned CLI. They are dropped from the inherited environment and set
+ * explicitly per run, so the CLI prints the same on any machine.
+ */
+export const TERMINAL_VARS = ['TERM', 'COLORTERM', 'FORCE_COLOR', 'CLICOLOR', 'CLICOLOR_FORCE', 'NO_COLOR', 'TERM_PROGRAM'];
+
+function cliEnv(
+  env: { home: TestHome; api: MockApi; extraEnv?: Record<string, string> },
+  terminal: Record<string, string>
+): Record<string, string | undefined> {
+  const inherited = { ...process.env };
+  for (const name of TERMINAL_VARS) {
+    delete inherited[name];
+  }
+  return {
+    ...inherited,
+    // Point every per-user location at the temp dir so tests never read the
+    // real config or browser profiles (APPDATA/LOCALAPPDATA are the Windows ones).
+    HOME: env.home.dir,
+    USERPROFILE: env.home.dir,
+    APPDATA: env.home.dir,
+    LOCALAPPDATA: env.home.dir,
+    // Overrides the preload's sandbox (inherited via process.env) so the CLI
+    // reads the config this test wrote.
+    MDCLI_CONFIG_DIR: join(env.home.dir, '.config', 'mdcli'),
+    MDCLI_API_URL: env.api.url,
+    MDCLI_NO_AUTO_UPDATE: '1',
+    ...terminal,
+    ...env.extraEnv,
+  };
+}
+
 export async function runCli(
   args: string[],
   env: { home: TestHome; api: MockApi; stdin?: string; extraEnv?: Record<string, string> }
 ): Promise<CliResult> {
   const proc = Bun.spawn(['bun', 'run', join(REPO_ROOT, 'bin', 'cli.ts'), ...args], {
     cwd: REPO_ROOT,
-    env: {
-      ...process.env,
-      // Point every per-user location at the temp dir so tests never read the
-      // real config or browser profiles (APPDATA/LOCALAPPDATA are the Windows ones).
-      HOME: env.home.dir,
-      USERPROFILE: env.home.dir,
-      APPDATA: env.home.dir,
-      LOCALAPPDATA: env.home.dir,
-      // Overrides the preload's sandbox (inherited via process.env) so the CLI
-      // reads the config this test wrote.
-      MDCLI_CONFIG_DIR: join(env.home.dir, '.config', 'mdcli'),
-      MDCLI_API_URL: env.api.url,
-      MDCLI_NO_AUTO_UPDATE: '1',
-      FORCE_COLOR: '0',
-      ...env.extraEnv,
-    },
+    // Piped output, as in a script: no color.
+    env: cliEnv(env, { TERM: 'dumb', NO_COLOR: '1', FORCE_COLOR: '0' }),
     stdin: env.stdin === undefined ? 'ignore' : new Blob([env.stdin]),
     stdout: 'pipe',
     stderr: 'pipe',
@@ -186,17 +205,9 @@ export async function runCliInTerminal(
   const decoder = new TextDecoder();
   const proc = Bun.spawn(['bun', 'run', join(REPO_ROOT, 'bin', 'cli.ts'), ...args], {
     cwd: REPO_ROOT,
-    env: {
-      ...process.env,
-      HOME: env.home.dir,
-      USERPROFILE: env.home.dir,
-      APPDATA: env.home.dir,
-      LOCALAPPDATA: env.home.dir,
-      MDCLI_CONFIG_DIR: join(env.home.dir, '.config', 'mdcli'),
-      MDCLI_API_URL: env.api.url,
-      MDCLI_NO_AUTO_UPDATE: '1',
-      FORCE_COLOR: '0',
-    },
+    // The pseudo-terminal below is an xterm, whatever terminal runs the tests
+    // (on TERM=linux, @inquirer/prompts draws ">" instead of "❯").
+    env: cliEnv(env, { TERM: 'xterm-256color', FORCE_COLOR: '0' }),
     terminal: {
       cols: 120,
       rows: 40,

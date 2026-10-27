@@ -16,4 +16,10 @@ jobs:
           # Single source of truth: the "packageManager" field in package.json.
           bun-version-file: package.json
       - name: Verificação (install, tsc, eslint, knip, testes, CLI)
+        # The terminal of a claude.ai container (TERM=linux, forced color):
+        # verify.sh must normalize it before its checks run, so dropping that
+        # normalization fails here instead of only in the cloud.
+        env:
+          TERM: linux
+          FORCE_COLOR: '1'
         run: scripts/verify.sh
