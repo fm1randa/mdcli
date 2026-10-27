@@ -2,41 +2,47 @@
 
 ## Language
 
-Everything code-related must be written in American English. Examples: variables, functions, comments, commits.
-Issues and pull requests must be written in Brazilian Portuguese.
+- Write everything code-related in American English, such as identifiers and comments.
+- Write commits on branches as English conventional commits: `<type>(<scope>): <description>`, with the scope optional, e.g. `docs: clarify release steps`.
+- Write issues and pull requests in Brazilian Portuguese: titles, bodies, and your comments and reviews on them. Start a PR title with its conventional-commit type and optional scope, then a Brazilian Portuguese description, e.g. `fix(cards): corrige a data de vencimento da fatura`. Release PRs use the exact PR title given in Releases.
+- Squash-merge puts the PR title in the `main` commit subject; a one-commit PR uses its only commit's subject instead. GitHub appends ` (#N)` either way. Main's history therefore mixes Brazilian Portuguese and English; release commits, commits from bot PRs such as Dependabot's, and commits from before this convention are exempt from these language rules. This is expected; it does not change how you write branch commits.
 
-`README.md` is written in Brazilian Portuguese and is the reference version. `README.en.md` is its English translation: whenever a PR changes `README.md`, update `README.en.md` in the same PR to match, and update the comment on line 1 of `README.en.md`:
+## README translation
 
-- `readme-blob:` the git blob hash of the `README.md` the translation matches, from `git hash-object README.md` run on the final `README.md`. `scripts/verify.sh` (step `readme sync`) fails when it differs from the current `README.md`, so a `README.md` change without a synced translation does not pass CI.
-- The commit SHA (short after `@`, full after `base:`): the commit on `main` the translation was last synced from. In a PR that changes `README.md` itself, keep the `main` commit the branch starts from (the squash-merge SHA is not known in advance); the blob is what pins the exact content.
+`README.md` is the reference version, in Brazilian Portuguese; `README.en.md` is its English translation. In any PR that changes `README.md`, update `README.en.md` in the same PR to match and update the `readme-blob:` hash in its line-1 comment:
 
-## Post-Completion Verification
+- `readme-blob:` the output of `git hash-object README.md` on the final `README.md`. The `readme sync` step of `scripts/verify.sh` fails when the recorded `readme-blob:` does not match the current `README.md`, so CI rejects a `README.md` change without a synced translation.
+- The commit SHA (short after `@`, full after `base:`): the `main` commit the translation was last synced from. In a PR that changes `README.md` itself, keep the `main` commit the branch starts from; the squash-merge SHA is unknown in advance, and the blob already pins the exact content.
 
-After completing any user request that modifies code:
+## Verification
 
-1. Run `scripts/verify.sh`. It is the official verification and the same check CI runs (the `verify` job required by branch protection on `main`): install, typecheck, lint, knip, the test suite, and an end-to-end run of the real CLI against a local mock API.
-2. The run passes only when it exits with code 0 and the last line is `VERIFICAÇÃO OK`. On failure it ends with `VERIFICAÇÃO FALHOU: <steps>`.
-3. Fix any issues it reports. To iterate on a single step, you can run it directly (`bun run typecheck`, `bun run lint`, `bun run knip`, `bun run test`), but finish with a full `scripts/verify.sh` run.
-4. Ensure no new warnings are introduced
+After completing any request that changes code:
 
-## Versionamento
+1. Run `scripts/verify.sh`. It is the official verification and the same script the `verify` CI job runs, which branch protection on `main` requires. It runs install, readme sync, typecheck, lint, knip, the test suite, a dependency audit, and an end-to-end run of the real CLI against a local mock API.
+2. Treat the run as passing only when it exits 0 and its last line is `VERIFICAÇÃO OK`. A failure ends with `VERIFICAÇÃO FALHOU: <steps>`.
+3. Fix everything it reports. To iterate on one step, run it directly (`bun run typecheck`, `bun run lint`, `bun run knip`, `bun run test`), then finish with a full `scripts/verify.sh` run.
+4. Introduce no new warnings.
 
-- CalVer `YYYY.M.D` sem zeros à esquerda (ex.: `2026.10.13`), válido como semver para o npm.
-- A versão só sobe no `package.json` ao fazer release (é a fonte única; `--version` e `verify.sh` leem de lá).
-- Segunda release no mesmo dia: `YYYY.M.D-N` com N a partir de 2 (ex.: `2026.10.13-2`). Atenção: no semver isso é pré-release e ordena *antes* de `2026.10.13`; use só quando necessário e prefira a data do dia seguinte se possível.
+## Tests
+
+Do not write tautological tests: a test is tautological when it only re-asserts a mock or stub, re-implements the code under test, asserts constants or types, or cannot fail when the behavior breaks.
+
+## Versioning
+
+- Use CalVer `YYYY.M.D` without leading zeros (e.g. `2026.10.13`), which is valid semver for npm.
+- `version` in `package.json` is the single source of truth (`--version` and `scripts/verify.sh` read it). Bump it only when making a release.
+- For a second release on the same day, use `YYYY.M.D-N` with N starting at 2 (e.g. `2026.10.13-2`). Semver treats this as a pre-release that sorts *before* `2026.10.13`, so use it only when necessary and prefer the next day's date when possible.
 
 ## Releases
 
 A Release is what reaches users: global installs self-update only to the latest GitHub Release, never to the tip of `main` (see `docs/adr/0002-self-update-from-tagged-releases.md`).
 
-- Quem faz: o bot mantenedor, ao fim de todo dia em que houve merge `feat` ou `fix` (mudança visível pra quem usa); dias só com `test`, `docs`, `refactor` ou `chore` não geram release. O Filipe pode pedir uma release a qualquer momento.
-- Procedimento:
-  1. Num PR `chore(release): vYYYY.M.D`, suba `version` no `package.json` para a data (regras de Versionamento acima); `scripts/verify.sh` e o check `verify` precisam passar; faça squash-merge.
-  2. Crie a tag anotada `vYYYY.M.D` no commit do merge em `main` e faça push da tag. A tag tem de ser igual a `v` + `version` do `package.json` desse commit.
-  3. Publique a GitHub Release dessa tag (não draft, não prerelease, marcada como latest), título `vYYYY.M.D`.
-  4. Notas em pt-BR: resumo das mudanças visíveis pra quem usa desde a release anterior, tirado do `/workspace/mdcli-team/changelog.md`, e no fim a lista de links dos PRs incluídos.
-  5. Registre a release no `changelog.md`.
-- Nunca mova nem apague uma tag publicada; para corrigir, faça uma nova release.
+The maintainer bot releases at the end of every day that merged a `feat` or `fix` (a change users can see). Days with only `test`, `docs`, `refactor` or `chore` merges get no release. Filipe can request a release at any time.
 
+1. Open a PR `chore(release): vYYYY.M.D` that sets `version` in `package.json` to the date (see Versioning). Squash-merge it once `scripts/verify.sh` and the `verify` check pass.
+2. Create the annotated tag `vYYYY.M.D` on the merge commit in `main` and push it. The tag must equal `v` + the `version` in `package.json` at that commit.
+3. Publish the GitHub Release for that tag, titled `vYYYY.M.D`: not a draft, not a prerelease, marked as latest.
+4. Write the release notes in Brazilian Portuguese: a summary of the user-visible changes since the previous release, taken from the maintainer's changelog (`/workspace/mdcli-team/changelog.md`, on the maintainer bot's machine, outside this repo), ending with the list of links to the included PRs.
+5. Record the release in that `changelog.md`.
 
-Tautological tests are considered harmful. Do not write tests that only re-assert a mock or stub, re-implement the code under test, assert constants or types, or cannot fail when the behavior breaks.
+Never move or delete a published tag. To correct a release, make a new one.
