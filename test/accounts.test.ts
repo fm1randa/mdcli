@@ -167,6 +167,21 @@ describe('accounts create', () => {
     expect(body).toBeUndefined();
   });
 
+  test('refuses invalid form flags before fetching the accounts', async () => {
+    for (const args of [
+      ['--debtor'],
+      ['--debtor', '--creditor'],
+      ['--balance', 'abc'],
+      ['--balance-date', '2026-02-30'],
+      ['--liquidity', 'liquid'],
+    ]) {
+      api.requests.length = 0;
+      const { result } = await create(...args);
+      expect(result.exitCode).toBe(1);
+      expect(api.requests).toHaveLength(0);
+    }
+  });
+
   test('rejects an unknown type without calling the create endpoint', async () => {
     const result = await runCli(['accounts', 'create', '--name', 'X', '--type', 'bitcoin'], { home, api });
 

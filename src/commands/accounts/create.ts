@@ -43,6 +43,8 @@ interface CreateAccountOptions {
 
 export async function createAccountAction(options: CreateAccountOptions): Promise<void> {
   const form = parseAccountForm(options);
+  // A new account has no stored balance, so the sign is checked before any request.
+  const saldoInicial = signedBalance(form, 0);
   const currency = options.currency !== undefined ? parseId(options.currency) : 1;
   if (currency === undefined) {
     exitWithError('Invalid currency. Must be a number.');
@@ -60,7 +62,7 @@ export async function createAccountAction(options: CreateAccountOptions): Promis
   const payload: CreateAccountPayload = {
     nome: options.name,
     tipoNovo: accountType.id,
-    saldoInicial: signedBalance(form, 0),
+    saldoInicial,
     dataSaldoInicial: form.balanceDate ?? defaultBalanceDate(),
     exibirBP: !options.hideNetWorth,
     moeda: currency,
