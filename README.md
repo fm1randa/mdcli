@@ -202,8 +202,9 @@ mdcli accounts create --name "Empréstimo" --type "Conta Corrente" --balance 500
 # Atualiza uma conta (só os campos informados são alterados)
 mdcli accounts update 1167419 --name "Nubank PF"
 
-# --balance mantém o sinal atual (como o Credor/Devedor da web); --debtor ou
-# --creditor sozinhos só trocam o sinal do saldo inicial
+# --balance mantém o sinal atual (como o Credor/Devedor da web), salvo um valor
+# negativo, que é devedor; --debtor ou --creditor sozinhos só trocam o sinal do
+# saldo inicial
 mdcli accounts update 1167419 --balance 82.09 --balance-date 2026-01-01
 mdcli accounts update 1167419 --debtor
 

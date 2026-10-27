@@ -13,7 +13,7 @@ An Account's balance as the web app shows it (the Saldos de caixa / Saldos das c
 _Avoid_: "balance" for `saldoUltimoExtrato` (the #67 bug), "saldo inicial" (only the starting point)
 
 **Initial balance**:
-The starting point of an Account's balance: `saldoInicial` on `dataSaldoInicial`, dated yesterday by default on `accounts create`, like the web's "Nova conta" form. Its sign is the web's Credor/Devedor radio: `--creditor` (held, positive, the default) or `--debtor` (owed, negative; a negative `--balance` is debtor too), and a positive `--balance` without either flag keeps the stored sign, as the web pre-sets the radio from the current balance. Its "Considerar saldo" (liquidity) is `--liquidity available` (1), `future` (2) or `fixed` (0, imobilizado); a card Account type has no such field, so the flag is refused for it.
+The starting point of an Account's balance: `saldoInicial` on `dataSaldoInicial` (`--balance-date`), dated yesterday by default on `accounts create`, like the web's "Nova conta" form. Its sign is the web's Credor/Devedor radio: `--creditor` (held, positive, the default) or `--debtor` (owed, negative; a negative `--balance` is debtor too), and a positive `--balance` without either flag keeps the stored sign, as the web pre-sets the radio from the current balance. Its "Considerar saldo" (liquidity) is `--liquidity available` (1), `future` (2) or `fixed` (0, imobilizado); a card Account type has no such field, so the flag is refused for it.
 _Avoid_: "balance" for it (see Balance), "start balance"
 
 **Category**:
