@@ -73,11 +73,12 @@ export async function updateAction(id: string, options: UpdateOptions): Promise<
   }
   if (options.scheduled) warnScheduledAlias();
 
+  // Reject an invalid type before resolving any option through the API.
+  const requestedType = options.type === undefined ? undefined : parseEntryType(options.type);
+
   // Validate options that need resolution before fetching entry
   const category = options.category !== undefined ? await resolveEntryCategory(options.category) : null;
   const categoryId = category?.id ?? null;
-
-  const requestedType = options.type === undefined ? undefined : parseEntryType(options.type);
 
   const tagIds = options.tags !== undefined ? await resolveTags(options.tags) : undefined;
   const accountId = options.account !== undefined ? await resolveAccountOrExit(options.account) : undefined;

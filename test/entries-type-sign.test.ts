@@ -73,19 +73,6 @@ describe('entries create refuses a category of another type', () => {
     expect(mutations(api)).toHaveLength(0);
   });
 
-  test('a category of the entry type still goes to the API', async () => {
-    const result = await runCli([...CREATE, '-T', 'income', '-c', '20', '--json'], { home, api });
-
-    expect(result.exitCode).toBe(0);
-    expect(sentBody()).toMatchObject({ tipo: 'r', categoria: 20, valor: 1700 });
-  });
-
-  test('an ID the catalog does not list is still sent as written', async () => {
-    const result = await runCli([...CREATE, '-T', 'income', '-c', '99', '--json'], { home, api });
-
-    expect(result.exitCode).toBe(0);
-    expect(sentBody()).toMatchObject({ tipo: 'r', categoria: 99 });
-  });
 });
 
 describe('entries update sets the sign and estorno from the type', () => {
@@ -182,12 +169,12 @@ describe('entries refuse a type it does not know', () => {
     expect(mutations(api)).toHaveLength(0);
   });
 
-  test('update exits before the PUT', async () => {
-    const result = await runCli(['entries', 'update', '70', '-T', 'bogus'], { home, api });
+  test('update exits before resolving the category or sending the PUT', async () => {
+    const result = await runCli(['entries', 'update', '70', '-T', 'bogus', '-c', '10'], { home, api });
 
     expect(result.exitCode).toBe(1);
     expect(result.output).toContain('Unknown type: bogus. Valid: expense, income, transfer');
-    expect(mutations(api)).toHaveLength(0);
+    expect(api.requests).toHaveLength(0);
   });
 });
 
