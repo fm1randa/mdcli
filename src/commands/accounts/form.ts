@@ -14,45 +14,75 @@ const LIQUIDITY = new Map([
   ['fixed', 0], ['available', 1], ['future', 2], ['0', 0], ['1', 1], ['2', 2],
 ]);
 
-/**
- * The account's liquidez from --liquidity, or `fallback` without it. The web
- * has no "Considerar saldo" field for a type with a grupobp (cards), so the
- * option is refused there.
- */
-export function resolveLiquidity<T extends number | undefined>(
-  input: string | undefined,
-  type: AccountType | undefined,
-  fallback: T
-): number | T {
-  if (input === undefined) return fallback;
-  if (type?.grupobp) {
-    exitWithError(`--liquidity does not apply to the account type "${type.nome}" (the web has no "Considerar saldo" field for it).`);
-  }
-  const liquidity = LIQUIDITY.get(input);
-  if (liquidity === undefined) {
-    exitWithError(`Invalid liquidity "${input}". Use available (1), future (2) or fixed (0).`);
-  }
-  return liquidity;
+export interface AccountFormOptions {
+  balance?: string;
+  balanceDate?: string;
+  debtor?: boolean;
+  creditor?: boolean;
+  liquidity?: string;
 }
 
-/** The initial balance date from --balance-date (YYYY-MM-DD), or `fallback` without it. */
-export function resolveBalanceDate<T>(input: string | undefined, fallback: T): string | T {
-  if (input === undefined) return fallback;
-  if (!isCalendarDate(input)) {
-    exitWithError(`Invalid balance date "${input}". Use YYYY-MM-DD.`);
+/** The form flags, validated before any request is made. */
+export interface AccountForm {
+  balance?: number;
+  balanceDate?: string;
+  liquidity?: number;
+  debtor: boolean;
+  creditor: boolean;
+}
+
+/** Validates the form flags that need no stored account or type. */
+export function parseAccountForm(options: AccountFormOptions): AccountForm {
+  if (options.debtor && options.creditor) {
+    exitWithError('Cannot use --debtor and --creditor together.');
   }
-  return input;
+
+  let balance: number | undefined;
+  if (options.balance !== undefined) {
+    balance = parseAmount(options.balance);
+    if (balance === undefined) {
+      exitWithError('Invalid balance. Must be a number.');
+    }
+    if (balance < 0 && options.creditor) {
+      exitWithError('A negative --balance cannot be used with --creditor.');
+    }
+  }
+
+  if (options.balanceDate !== undefined && !isCalendarDate(options.balanceDate)) {
+    exitWithError(`Invalid balance date "${options.balanceDate}". Use YYYY-MM-DD.`);
+  }
+
+  let liquidity: number | undefined;
+  if (options.liquidity !== undefined) {
+    liquidity = LIQUIDITY.get(options.liquidity);
+    if (liquidity === undefined) {
+      exitWithError(`Invalid liquidity "${options.liquidity}". Use available (1), future (2) or fixed (0).`);
+    }
+  }
+
+  return {
+    balance,
+    balanceDate: options.balanceDate,
+    liquidity,
+    debtor: !!options.debtor,
+    creditor: !!options.creditor,
+  };
+}
+
+/**
+ * The --liquidity value, refused for a type with a grupobp (cards): the web has
+ * no "Considerar saldo" field for it.
+ */
+export function liquidityForType(form: AccountForm, type: AccountType | undefined): number | undefined {
+  if (form.liquidity !== undefined && type?.grupobp) {
+    exitWithError(`--liquidity does not apply to the account type "${type.nome}" (the web has no "Considerar saldo" field for it).`);
+  }
+  return form.liquidity;
 }
 
 /** Yesterday's local calendar day: the web's default initial balance date. */
 export function defaultBalanceDate(): string {
   return addInterval(today(), -1, 'd');
-}
-
-interface SignedBalanceOptions {
-  balance?: string;
-  debtor?: boolean;
-  creditor?: boolean;
 }
 
 /**
@@ -62,24 +92,14 @@ interface SignedBalanceOptions {
  * the radio from; 0 on create). Without --balance the magnitude of `stored` is
  * kept.
  */
-export function resolveSignedBalance(options: SignedBalanceOptions, stored: number): number {
-  if (options.debtor && options.creditor) {
-    exitWithError('Cannot use --debtor and --creditor together.');
-  }
-  let balance = stored;
-  if (options.balance !== undefined) {
-    const parsed = parseAmount(options.balance);
-    if (parsed === undefined) {
-      exitWithError('Invalid balance. Must be a number.');
-    }
-    if (parsed < 0 && options.creditor) {
-      exitWithError('A negative --balance cannot be used with --creditor.');
-    }
-    balance = parsed;
+export function signedBalance(form: AccountForm, stored: number): number {
+  const balance = form.balance ?? stored;
+  if (form.debtor && balance === 0) {
+    exitWithError('--debtor has no effect on a zero balance. Pass a nonzero --balance.');
   }
   let sign = balance < 0 || stored < 0 ? -1 : 1;
-  if (options.debtor) sign = -1;
-  if (options.creditor) sign = 1;
+  if (form.debtor) sign = -1;
+  if (form.creditor) sign = 1;
   const signed = Math.abs(balance) * sign;
   return signed === 0 ? 0 : signed;
 }

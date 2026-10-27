@@ -7,7 +7,7 @@ import type { UpdateAccountPayload } from '../../types/index.js';
 import { resolveAccountType } from './create.js';
 import { formatCurrency } from '../../utils/currency.js';
 import { parseId } from '../../utils/parse.js';
-import { resolveBalanceDate, resolveLiquidity, resolveSignedBalance } from './form.js';
+import { liquidityForType, parseAccountForm, signedBalance } from './form.js';
 
 interface UpdateAccountOptions {
   name?: string;
@@ -54,6 +54,14 @@ export async function updateAccountAction(id: string, options: UpdateAccountOpti
   if (options.hideNetWorth && options.showNetWorth) {
     exitWithError('Cannot use --hide-net-worth and --show-net-worth together.');
   }
+  const form = parseAccountForm(options);
+  let moeda: number | undefined;
+  if (options.currency !== undefined) {
+    moeda = parseId(options.currency);
+    if (moeda === undefined) {
+      exitWithError('Invalid currency. Must be a number.');
+    }
+  }
 
   const response = await fetchAccounts();
   const existing = response.items.find((a) => a.id === accountId);
@@ -71,19 +79,7 @@ export async function updateAccountAction(id: string, options: UpdateAccountOpti
     // The web form keeps the current liquidez when the new type has none.
     liquidez = accountType.liquidez ?? liquidez;
   }
-  liquidez = resolveLiquidity(options.liquidity, accountType, liquidez);
-
-  const saldoInicial = resolveSignedBalance(options, existing.saldoInicial);
-  const dataSaldoInicial = resolveBalanceDate(options.balanceDate, existing.dataSaldoInicial);
-
-  let moeda = existing.moeda;
-  if (options.currency !== undefined) {
-    const currency = parseId(options.currency);
-    if (currency === undefined) {
-      exitWithError('Invalid currency. Must be a number.');
-    }
-    moeda = currency;
-  }
+  liquidez = liquidityForType(form, accountType) ?? liquidez;
 
   let exibirBP = existing.exibirBP;
   if (options.hideNetWorth) exibirBP = false;
@@ -95,9 +91,9 @@ export async function updateAccountAction(id: string, options: UpdateAccountOpti
     nome: options.name ?? existing.nome,
     tipoNovo: accountType?.id ?? existing.tipoNovo,
     liquidez,
-    saldoInicial,
-    dataSaldoInicial,
-    moeda,
+    saldoInicial: signedBalance(form, existing.saldoInicial),
+    dataSaldoInicial: form.balanceDate ?? existing.dataSaldoInicial,
+    moeda: moeda ?? existing.moeda,
     exibirBP,
     // The web's edit form sends 0 for an account without a bank.
     banco: options.bank ?? banco?.id ?? 0,

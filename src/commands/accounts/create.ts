@@ -6,7 +6,7 @@ import { invalidateNameCache } from '../../lib/config.js';
 import type { AccountMeta, CreateAccountPayload } from '../../types/index.js';
 import { formatCurrency } from '../../utils/currency.js';
 import { parseId } from '../../utils/parse.js';
-import { defaultBalanceDate, resolveBalanceDate, resolveLiquidity, resolveSignedBalance } from './form.js';
+import { defaultBalanceDate, liquidityForType, parseAccountForm, signedBalance } from './form.js';
 
 function normalizeTypeName(input: string): string {
   return input
@@ -42,27 +42,26 @@ interface CreateAccountOptions {
 }
 
 export async function createAccountAction(options: CreateAccountOptions): Promise<void> {
+  const form = parseAccountForm(options);
+  const currency = options.currency !== undefined ? parseId(options.currency) : 1;
+  if (currency === undefined) {
+    exitWithError('Invalid currency. Must be a number.');
+  }
+
   const response = await fetchAccounts();
   const accountType = resolveAccountType(response.meta.tipos, options.type);
   if (!accountType) {
     exitWithError(`Unknown account type "${options.type}". Run "mdcli accounts types" to see valid options.`);
   }
 
-  const balance = resolveSignedBalance(options, 0);
-  const balanceDate = resolveBalanceDate(options.balanceDate, defaultBalanceDate());
   // The web form starts at 1 and takes the type's liquidez when the type has one.
-  const liquidity = resolveLiquidity(options.liquidity, accountType, accountType.liquidez ?? 1);
-
-  const currency = options.currency !== undefined ? parseId(options.currency) : 1;
-  if (currency === undefined) {
-    exitWithError('Invalid currency. Must be a number.');
-  }
+  const liquidity = liquidityForType(form, accountType) ?? accountType.liquidez ?? 1;
 
   const payload: CreateAccountPayload = {
     nome: options.name,
     tipoNovo: accountType.id,
-    saldoInicial: balance,
-    dataSaldoInicial: balanceDate,
+    saldoInicial: signedBalance(form, 0),
+    dataSaldoInicial: form.balanceDate ?? defaultBalanceDate(),
     exibirBP: !options.hideNetWorth,
     moeda: currency,
     liquidez: liquidity,

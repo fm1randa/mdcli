@@ -155,6 +155,15 @@ describe('accounts create', () => {
     const { result, body } = await create('--debtor', '--creditor');
 
     expect(result.exitCode).toBe(1);
+    expect(result.output).toContain('Cannot use --debtor and --creditor together');
+    expect(body).toBeUndefined();
+  });
+
+  test('refuses --debtor without a nonzero balance instead of reporting success', async () => {
+    const { result, body } = await create('--debtor');
+
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain('--debtor has no effect on a zero balance');
     expect(body).toBeUndefined();
   });
 
@@ -300,6 +309,30 @@ describe('accounts update', () => {
     expect(result.exitCode).toBe(0);
     expect(body?.status).toBe(true);
     expect(body).not.toHaveProperty('encerrada');
+  });
+
+  test('refuses invalid form flags before fetching the accounts', async () => {
+    for (const args of [
+      ['--debtor', '--creditor'],
+      ['--balance', 'abc'],
+      ['--balance-date', '2026-02-30'],
+      ['--liquidity', 'liquid'],
+    ]) {
+      api.requests.length = 0;
+      const { result } = await update(...args);
+      expect(result.exitCode).toBe(1);
+      expect(api.requests).toHaveLength(0);
+    }
+  });
+
+  test('refuses --debtor on an account whose balance is zero', async () => {
+    withChecking({ saldoInicial: 0 });
+
+    const { result, body } = await update('--debtor');
+
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain('--debtor has no effect on a zero balance');
+    expect(body).toBeUndefined();
   });
 
   test('refuses --close without --inactive', async () => {
