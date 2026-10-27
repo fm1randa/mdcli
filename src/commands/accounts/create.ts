@@ -5,8 +5,8 @@ import { fetchAccounts, createAccount } from '../../lib/api.js';
 import { invalidateNameCache } from '../../lib/config.js';
 import type { AccountMeta, CreateAccountPayload } from '../../types/index.js';
 import { formatCurrency } from '../../utils/currency.js';
-import { parseAmount, parseId } from '../../utils/parse.js';
-import { now } from '../../lib/dates.js';
+import { parseId } from '../../utils/parse.js';
+import { defaultBalanceDate, liquidityFor, parseAccountForm, signedBalance } from './form.js';
 
 function normalizeTypeName(input: string): string {
   return input
@@ -32,40 +32,42 @@ interface CreateAccountOptions {
   type: string;
   bank?: string;
   balance?: string;
+  balanceDate?: string;
+  debtor?: boolean;
+  creditor?: boolean;
+  liquidity?: string;
   currency?: string;
   hideNetWorth?: boolean;
   json?: boolean;
 }
 
 export async function createAccountAction(options: CreateAccountOptions): Promise<void> {
+  const form = parseAccountForm(options);
+  // A new account has no stored balance, so the sign is checked before any request.
+  const saldoInicial = signedBalance(form, 0);
+  const currency = options.currency !== undefined ? parseId(options.currency) : 1;
+  if (currency === undefined) {
+    exitWithError('Invalid currency. Must be a number.');
+  }
+
   const response = await fetchAccounts();
   const accountType = resolveAccountType(response.meta.tipos, options.type);
   if (!accountType) {
     exitWithError(`Unknown account type "${options.type}". Run "mdcli accounts types" to see valid options.`);
   }
 
-  const balance = options.balance !== undefined ? parseAmount(options.balance) : 0;
-  if (balance === undefined) {
-    exitWithError('Invalid balance. Must be a number.');
-  }
-
-  const currency = options.currency !== undefined ? parseId(options.currency) : 1;
-  if (currency === undefined) {
-    exitWithError('Invalid currency. Must be a number.');
-  }
+  // The web form starts at 1 and takes the type's liquidez when the type has one.
+  const liquidity = liquidityFor(form, !!accountType.grupobp, accountType.nome) ?? accountType.liquidez ?? 1;
 
   const payload: CreateAccountPayload = {
     nome: options.name,
     tipoNovo: accountType.id,
-    saldoInicial: balance,
-    dataSaldoInicial: now().toISOString(),
+    saldoInicial,
+    dataSaldoInicial: form.balanceDate ?? defaultBalanceDate(),
     exibirBP: !options.hideNetWorth,
     moeda: currency,
+    liquidez: liquidity,
   };
-
-  if (accountType.liquidez !== undefined) {
-    payload.liquidez = accountType.liquidez;
-  }
 
   if (options.bank) {
     payload.banco = options.bank;

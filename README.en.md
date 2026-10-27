@@ -1,5 +1,4 @@
-<!-- traduzido de README.md @ 28d08d5 (base: 28d08d50ea5fea7a6342d5b45bfdaf663d4e2e77; readme-blob: 3aa72ab303cab0773f4600bd92d7535ed858bb58); ao atualizar o README.md, sincronize este arquivo e atualize o SHA e o readme-blob (git hash-object README.md) -->
-
+<!-- traduzido de README.md @ df07619 (base: df07619000789c0a41aba3d57b43c45443eb0f9e; readme-blob: 51bf47b4f91f43df2f688baf0d7f3c4eb050c1c1); ao atualizar o README.md, sincronize este arquivo e atualize o SHA e o readme-blob (git hash-object README.md) -->
 [Português (Brasil)](README.md) · **English**
 
 > The Portuguese [README.md](README.md) is the reference version; this English translation may lag behind it.
@@ -197,11 +196,28 @@ mdcli accounts types
 # Create an account (--type accepts the ID or the name from "accounts types")
 mdcli accounts create --name "Nubank" --type "Conta Corrente" --bank nubank --balance 0
 
+# Fields of the web "Nova conta" form: initial balance date (default:
+# yesterday, like the web), Credor/Devedor (a negative --balance is debtor too)
+# and "Considerar saldo" (available, future or fixed; default: the type's,
+# else available; not for cards)
+mdcli accounts create --name "Empréstimo" --type "Conta Corrente" --balance 500 --debtor --balance-date 2026-10-01 --liquidity future
+
 # Update an account (only the fields you pass are changed)
 mdcli accounts update 1167419 --name "Nubank PF"
 
-# Archive (deactivate) or reactivate an account
+# --balance keeps the current sign (like the web's Credor/Devedor), except a
+# negative value, which is debtor; --debtor or --creditor alone only flip the
+# sign of the initial balance
+mdcli accounts update 1167419 --balance 82.09 --balance-date 2026-01-01
+mdcli accounts update 1167419 --debtor
+
+# Leave the account out of net worth, or include it again
+mdcli accounts update 1167419 --hide-net-worth
+mdcli accounts update 1167419 --show-net-worth
+
+# Archive (deactivate) or reactivate an account; --close also closes it
 mdcli accounts update 1167419 --inactive
+mdcli accounts update 1167419 --inactive --close
 mdcli accounts update 1167419 --active
 
 # Delete an account (asks for confirmation)

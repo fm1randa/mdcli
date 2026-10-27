@@ -133,8 +133,14 @@ export interface CreateAccountPayload {
   dataSaldoInicial: string;
   exibirBP: boolean;
   moeda: number;
-  liquidez?: number;
+  liquidez: number;
   banco?: string;
 }
 
-export type UpdateAccountPayload = Omit<Account, 'banco'> & { banco?: string };
+/**
+ * The whole account back, as the web's edit form and status dialog send it:
+ * banco is the bank ID (0 for none in the account edit form, left out for cards
+ * and in the status dialog when there is none) and encerrada is left out when
+ * the web sets it to undefined (a real status change other than closing).
+ */
+export type UpdateAccountPayload = Omit<Account, 'banco' | 'encerrada'> & { banco?: string | 0; encerrada?: boolean };

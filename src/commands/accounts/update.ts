@@ -1,23 +1,37 @@
 import chalk from 'chalk';
 import { logger } from '../../utils/logger.js';
 import { exitWithError } from '../../utils/action.js';
-import { fetchAccounts, updateAccount } from '../../lib/api.js';
+import { fetchAccounts, isCreditCard, updateAccount } from '../../lib/api.js';
 import { invalidateNameCache } from '../../lib/config.js';
 import type { UpdateAccountPayload } from '../../types/index.js';
 import { resolveAccountType } from './create.js';
 import { formatCurrency } from '../../utils/currency.js';
-import { parseAmount, parseId } from '../../utils/parse.js';
+import { parseId } from '../../utils/parse.js';
+import { liquidityFor, parseAccountForm, signedBalance } from './form.js';
 
 interface UpdateAccountOptions {
   name?: string;
   type?: string;
   bank?: string;
   balance?: string;
+  balanceDate?: string;
+  debtor?: boolean;
+  creditor?: boolean;
+  liquidity?: string;
   currency?: string;
+  hideNetWorth?: boolean;
+  showNetWorth?: boolean;
   active?: boolean;
   inactive?: boolean;
+  close?: boolean;
   json?: boolean;
 }
+
+const CHANGE_OPTIONS = [
+  'name', 'type', 'bank', 'balance', 'balanceDate', 'debtor', 'creditor', 'liquidity',
+  'currency', 'hideNetWorth', 'showNetWorth', 'active', 'inactive', 'close',
+] as const;
+const STATUS_OPTIONS: readonly string[] = ['active', 'inactive', 'close'];
 
 export async function updateAccountAction(id: string, options: UpdateAccountOptions): Promise<void> {
   const accountId = parseId(id);
@@ -25,22 +39,29 @@ export async function updateAccountAction(id: string, options: UpdateAccountOpti
     exitWithError('Invalid account ID. Must be a number.');
   }
 
-  if (
-    options.name === undefined &&
-    options.type === undefined &&
-    options.bank === undefined &&
-    options.balance === undefined &&
-    options.currency === undefined &&
-    !options.active &&
-    !options.inactive
-  ) {
+  if (CHANGE_OPTIONS.every((key) => options[key] === undefined)) {
     exitWithError(
-      'No changes specified. Use --name, --type, --bank, --balance, --currency, --active or --inactive.'
+      'No changes specified. Use --name, --type, --bank, --balance, --balance-date, --debtor, --creditor, ' +
+        '--liquidity, --currency, --hide-net-worth, --show-net-worth, --active, --inactive or --close.'
     );
   }
 
   if (options.active && options.inactive) {
     exitWithError('Cannot use --active and --inactive together.');
+  }
+  if (options.close && !options.inactive) {
+    exitWithError('--close only works together with --inactive.');
+  }
+  if (options.hideNetWorth && options.showNetWorth) {
+    exitWithError('Cannot use --hide-net-worth and --show-net-worth together.');
+  }
+  const form = parseAccountForm(options);
+  let moeda: number | undefined;
+  if (options.currency !== undefined) {
+    moeda = parseId(options.currency);
+    if (moeda === undefined) {
+      exitWithError('Invalid currency. Must be a number.');
+    }
   }
 
   const response = await fetchAccounts();
@@ -49,50 +70,51 @@ export async function updateAccountAction(id: string, options: UpdateAccountOpti
     exitWithError(`Account ${accountId} not found.`);
   }
 
-  let tipoNovo = existing.tipoNovo;
+  let accountType = response.meta.tipos.find((t) => t.id === existing.tipoNovo);
   let liquidez = existing.liquidez;
   if (options.type !== undefined) {
-    const accountType = resolveAccountType(response.meta.tipos, options.type);
+    accountType = resolveAccountType(response.meta.tipos, options.type);
     if (!accountType) {
       exitWithError(`Unknown account type "${options.type}". Run "mdcli accounts types" to see valid options.`);
     }
-    tipoNovo = accountType.id;
-    liquidez = accountType.liquidez;
+    // The web form keeps the current liquidez when the new type has none.
+    liquidez = accountType.liquidez ?? liquidez;
   }
+  // A card by its (new) type, or by the stored account when its type is not listed.
+  const isCard = accountType ? !!accountType.grupobp : isCreditCard(existing);
+  liquidez = liquidityFor(form, isCard, accountType?.nome ?? existing.tipo) ?? liquidez;
 
-  let saldoInicial = existing.saldoInicial;
-  if (options.balance !== undefined) {
-    const balance = parseAmount(options.balance);
-    if (balance === undefined) {
-      exitWithError('Invalid balance. Must be a number.');
-    }
-    saldoInicial = balance;
-  }
+  let exibirBP = existing.exibirBP;
+  if (options.hideNetWorth) exibirBP = false;
+  if (options.showNetWorth) exibirBP = true;
 
-  let moeda = existing.moeda;
-  if (options.currency !== undefined) {
-    const currency = parseId(options.currency);
-    if (currency === undefined) {
-      exitWithError('Invalid currency. Must be a number.');
-    }
-    moeda = currency;
-  }
-
-  let status = existing.status;
-  if (options.active) status = true;
-  if (options.inactive) status = false;
-
-  const { banco, ...rest } = existing;
+  const { banco, encerrada, ...rest } = existing;
+  const statusOnly = CHANGE_OPTIONS.every((key) => STATUS_OPTIONS.includes(key) || options[key] === undefined);
   const payload: UpdateAccountPayload = {
     ...rest,
     nome: options.name ?? existing.nome,
-    tipoNovo,
+    tipoNovo: accountType?.id ?? existing.tipoNovo,
     liquidez,
-    saldoInicial,
-    moeda,
-    status,
-    banco: options.bank ?? banco?.id,
+    saldoInicial: signedBalance(form, existing.saldoInicial),
+    dataSaldoInicial: form.balanceDate ?? existing.dataSaldoInicial,
+    moeda: moeda ?? existing.moeda,
+    exibirBP,
+    // The web's status dialog passes banco through as read (its id when it is
+    // an object); the account edit form sends 0 for no bank, the card form never does.
+    banco: statusOnly
+      ? (banco && typeof banco === 'object' ? banco.id : banco)
+      : (options.bank ?? banco?.id ?? (isCard ? undefined : 0)),
   };
+  // As the web's status dialog: closing sets encerrada, a real status change
+  // leaves it undefined (absent from the JSON); otherwise it goes back as stored.
+  if (options.close) {
+    payload.status = false;
+    payload.encerrada = true;
+  } else if ((options.active && !existing.status) || (options.inactive && existing.status)) {
+    payload.status = !!options.active;
+  } else {
+    payload.encerrada = encerrada;
+  }
 
   const account = await updateAccount(accountId, payload);
   invalidateNameCache('accounts');

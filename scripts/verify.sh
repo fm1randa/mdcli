@@ -264,6 +264,8 @@ step "cli accounts list --json (mock)" bash -c '"$@" accounts list --json </dev/
 # mock checks the JSON payload, echoes it back and answers DELETE with 204.
 step "cli accounts create (mock)"        expect_ok 'Type: Poupança' accounts create --name Reserva --type Poupança --balance 100
 step "cli accounts create --json (mock)" expect_json 'd.id === 2001 && d.nome === "Reserva" && d.tipoNovo === 122 && d.saldoInicial === 100' accounts create --name Reserva --type Poupança --balance 100 --json
+step "cli accounts create form (mock)"   expect_json 'd.dataSaldoInicial === "2026-01-31" && d.saldoInicial === -100 && d.liquidez === 0' accounts create --name Reserva --type Poupança --balance 100 --debtor --balance-date 2026-01-31 --liquidity fixed --json
+step "cli accounts update --close (mock)" expect_json 'd.status === false && d.encerrada === true && d.exibirBP === false' accounts update 1001 --inactive --close --hide-net-worth --json
 step "cli accounts update (mock)"        expect_ok 'Account "Nubank PF" updated' accounts update 1001 --name "Nubank PF" --inactive
 step "cli accounts update --json (mock)" expect_json 'd.id === 1001 && d.nome === "Nubank PF" && d.status === false' accounts update 1001 --name "Nubank PF" --inactive --json
 step "cli accounts delete (mock)"        expect_ok 'Account 1001 deleted' accounts delete 1001 --dangerously-skip-confirmation
