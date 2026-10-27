@@ -7,7 +7,7 @@ import type { UpdateAccountPayload } from '../../types/index.js';
 import { resolveAccountType } from './create.js';
 import { formatCurrency } from '../../utils/currency.js';
 import { parseId } from '../../utils/parse.js';
-import { liquidityForType, parseAccountForm, signedBalance } from './form.js';
+import { liquidityFor, parseAccountForm, signedBalance } from './form.js';
 
 interface UpdateAccountOptions {
   name?: string;
@@ -80,7 +80,9 @@ export async function updateAccountAction(id: string, options: UpdateAccountOpti
     // The web form keeps the current liquidez when the new type has none.
     liquidez = accountType.liquidez ?? liquidez;
   }
-  liquidez = liquidityForType(form, accountType) ?? liquidez;
+  // A card by its (new) type, or by the stored account when its type is not listed.
+  const isCard = accountType ? !!accountType.grupobp : isCreditCard(existing);
+  liquidez = liquidityFor(form, isCard, accountType?.nome ?? existing.tipo) ?? liquidez;
 
   let exibirBP = existing.exibirBP;
   if (options.hideNetWorth) exibirBP = false;
@@ -88,7 +90,6 @@ export async function updateAccountAction(id: string, options: UpdateAccountOpti
 
   const { banco, encerrada, ...rest } = existing;
   const statusOnly = CHANGE_OPTIONS.every((key) => STATUS_OPTIONS.includes(key) || options[key] === undefined);
-  const isCard = isCreditCard(existing) || !!accountType?.grupobp;
   const payload: UpdateAccountPayload = {
     ...rest,
     nome: options.name ?? existing.nome,

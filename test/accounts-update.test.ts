@@ -202,6 +202,25 @@ describe('accounts update', () => {
     expect(body).not.toHaveProperty('banco');
   });
 
+  test('sends banco 0 when --type turns a bankless credit card into a non-card account', async () => {
+    api.on('PUT /v1/cadastros/contas/1002', (req) => ({ ...CREDIT_CARD_ACCOUNT, ...(req.body as object) }));
+
+    const result = await runCli(['accounts', 'update', '1002', '--type', '100'], { home, api });
+
+    expect(result.exitCode).toBe(0);
+    expect(mutations(api)[0].body).toMatchObject({ id: 1002, tipoNovo: 100, banco: 0 });
+  });
+
+  test('refuses --liquidity on a credit card whose type is not listed', async () => {
+    api.on('GET /v1/cadastros/contas', { ...ACCOUNTS_RESPONSE, items: [{ ...CREDIT_CARD_ACCOUNT, tipoNovo: 999 }] });
+
+    const result = await runCli(['accounts', 'update', '1002', '--liquidity', 'fixed'], { home, api });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain('--liquidity does not apply');
+    expect(mutations(api)).toHaveLength(0);
+  });
+
   test('refuses invalid form flags before fetching the accounts', async () => {
     for (const args of [
       ['--debtor', '--creditor'],

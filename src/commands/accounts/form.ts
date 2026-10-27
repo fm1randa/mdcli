@@ -5,9 +5,6 @@
 import { exitWithError } from '../../utils/action.js';
 import { parseAmount } from '../../utils/parse.js';
 import { addInterval, isCalendarDate, today } from '../../lib/dates.js';
-import type { AccountMeta } from '../../types/index.js';
-
-type AccountType = AccountMeta['tipos'][number];
 
 // "Considerar saldo" (the web's liquidezConta filter): 0 Imobilizado, 1 Disponível, 2 No futuro.
 const LIQUIDITY = new Map([
@@ -70,12 +67,12 @@ export function parseAccountForm(options: AccountFormOptions): AccountForm {
 }
 
 /**
- * The --liquidity value, refused for a type with a grupobp (cards): the web has
- * no "Considerar saldo" field for it.
+ * The --liquidity value, refused for a card: the web has no "Considerar saldo"
+ * field for it.
  */
-export function liquidityForType(form: AccountForm, type: AccountType | undefined): number | undefined {
-  if (form.liquidity !== undefined && type?.grupobp) {
-    exitWithError(`--liquidity does not apply to the account type "${type.nome}" (the web has no "Considerar saldo" field for it).`);
+export function liquidityFor(form: AccountForm, isCard: boolean, typeName: string): number | undefined {
+  if (form.liquidity !== undefined && isCard) {
+    exitWithError(`--liquidity does not apply to the account type "${typeName}" (the web has no "Considerar saldo" field for it).`);
   }
   return form.liquidity;
 }

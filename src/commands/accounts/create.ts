@@ -6,7 +6,7 @@ import { invalidateNameCache } from '../../lib/config.js';
 import type { AccountMeta, CreateAccountPayload } from '../../types/index.js';
 import { formatCurrency } from '../../utils/currency.js';
 import { parseId } from '../../utils/parse.js';
-import { defaultBalanceDate, liquidityForType, parseAccountForm, signedBalance } from './form.js';
+import { defaultBalanceDate, liquidityFor, parseAccountForm, signedBalance } from './form.js';
 
 function normalizeTypeName(input: string): string {
   return input
@@ -57,7 +57,7 @@ export async function createAccountAction(options: CreateAccountOptions): Promis
   }
 
   // The web form starts at 1 and takes the type's liquidez when the type has one.
-  const liquidity = liquidityForType(form, accountType) ?? accountType.liquidez ?? 1;
+  const liquidity = liquidityFor(form, !!accountType.grupobp, accountType.nome) ?? accountType.liquidez ?? 1;
 
   const payload: CreateAccountPayload = {
     nome: options.name,
