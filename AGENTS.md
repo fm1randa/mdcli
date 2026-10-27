@@ -3,8 +3,7 @@
 ## Language
 
 - Write everything code-related in American English: identifiers, comments, commits.
-- Write issue and pull request titles and bodies in Brazilian Portuguese.
-- Keep user-facing pt-BR strings verbatim, such as the CLI's output and the `VERIFICAÇÃO OK` / `VERIFICAÇÃO FALHOU: <steps>` lines of `scripts/verify.sh`.
+- Write issues and pull requests in Brazilian Portuguese.
 
 ## README translation
 
@@ -15,16 +14,16 @@
 
 ## Verification
 
-After any change to code:
+After completing any request that changes code:
 
 1. Run `scripts/verify.sh`. It is the official verification and the same script the `verify` CI job runs, which branch protection on `main` requires.
 2. Treat the run as passing only when it exits 0 and its last line is `VERIFICAÇÃO OK`. A failure ends with `VERIFICAÇÃO FALHOU: <steps>`.
 3. Fix everything it reports. To iterate on one step, run it directly (`bun run typecheck`, `bun run lint`, `bun run knip`, `bun run test`), then finish with a full `scripts/verify.sh` run.
-4. Leave the warning count where you found it: introduce no new warnings.
+4. Introduce no new warnings.
 
 ## Tests
 
-Write tests that fail when the behavior breaks. Tautological tests are harmful: a test that only re-asserts a mock or stub, re-implements the code under test, or asserts constants or types does not belong in the suite.
+Do not write tautological tests: a test that only re-asserts a mock or stub, re-implements the code under test, asserts constants or types, or cannot fail when the behavior breaks.
 
 ## Versioning
 
