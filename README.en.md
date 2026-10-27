@@ -1,4 +1,4 @@
-<!-- traduzido de README.md @ 29d8d0e (base: 29d8d0e; readme-blob: 2bc12b70537bab27c33bb7c84db4d6320873e50b); ao atualizar o README.md, sincronize este arquivo e atualize o SHA e o readme-blob (git hash-object README.md) -->
+<!-- traduzido de README.md @ 29d8d0e (base: 29d8d0e; readme-blob: 8fec85a957a9c279249b1d36cf7e468c41985303); ao atualizar o README.md, sincronize este arquivo e atualize o SHA e o readme-blob (git hash-object README.md) -->
 [Português (Brasil)](README.md) · **English**
 
 > The Portuguese [README.md](README.md) is the reference version; this English translation may lag behind it.
@@ -320,7 +320,8 @@ mdcli entries create --account mp --description "Feira" --value 30 --category fo
 
 # Update an entry (only the fields you pass are changed). -T sets the type, and
 # with it the sign of the value (income positive, expense negative) and
-# estorno, as in the web app; -c has to be of the same type
+# estorno, as in the web app; -c has to be of the same type, and changing -T on
+# an entry whose current category is of another type takes -c of the new type
 mdcli entries update 12345 --value 200 --category food
 
 # Turn a confirmed entry back into a pending one (clears the effective date
@@ -328,7 +329,8 @@ mdcli entries update 12345 --value 200 --category food
 mdcli entries update 12345 --pending
 
 # Update a transfer from either half of the pair - both halves move together.
-# A transfer cannot be turned into an expense or an income.
+# A transfer cannot be turned into an expense or an income, and a plain entry
+# does not become a transfer (create it with entries create -T transfer --to-account).
 mdcli entries update 12345 --value 200
 
 # Recurring series (fixed or installments): by default only this occurrence
