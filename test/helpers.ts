@@ -132,7 +132,7 @@ export interface CliResult {
  * spawned CLI. They are dropped from the inherited environment and set
  * explicitly per run, so the CLI prints the same on any machine.
  */
-const TERMINAL_VARS = ['TERM', 'COLORTERM', 'FORCE_COLOR', 'CLICOLOR', 'CLICOLOR_FORCE', 'NO_COLOR', 'TERM_PROGRAM'];
+export const TERMINAL_VARS = ['TERM', 'COLORTERM', 'FORCE_COLOR', 'CLICOLOR', 'CLICOLOR_FORCE', 'NO_COLOR', 'TERM_PROGRAM'];
 
 function cliEnv(
   env: { home: TestHome; api: MockApi; extraEnv?: Record<string, string> },
@@ -166,7 +166,7 @@ export async function runCli(
 ): Promise<CliResult> {
   const proc = Bun.spawn(['bun', 'run', join(REPO_ROOT, 'bin', 'cli.ts'), ...args], {
     cwd: REPO_ROOT,
-    // Piped output, as in a script: no colour.
+    // Piped output, as in a script: no color.
     env: cliEnv(env, { TERM: 'dumb', NO_COLOR: '1', FORCE_COLOR: '0' }),
     stdin: env.stdin === undefined ? 'ignore' : new Blob([env.stdin]),
     stdout: 'pipe',

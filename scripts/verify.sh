@@ -8,8 +8,10 @@ cd "$(dirname "$0")/.."
 # Same result on any terminal: the caller's environment must not change what
 # the CLI prints. In GitHub CI TERM is unset; claude.ai containers set
 # TERM=linux (which makes @inquirer/prompts draw ">" instead of "❯") and may
-# force colour, which puts ANSI codes in the output the checks below grep.
-unset FORCE_COLOR CLICOLOR_FORCE COLORTERM
+# force color, which puts ANSI codes in the output the checks below grep.
+# Same list as TERMINAL_VARS in test/helpers.ts. TERM=dumb is what turns
+# chalk's colors off; NO_COLOR (which chalk ignores) is for other tools.
+unset TERM COLORTERM FORCE_COLOR CLICOLOR CLICOLOR_FORCE NO_COLOR TERM_PROGRAM
 export NO_COLOR=1 TERM=dumb
 
 FAILED=()
