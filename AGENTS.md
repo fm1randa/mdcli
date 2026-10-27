@@ -2,10 +2,10 @@
 
 ## Language
 
-- Write everything code-related in American English: identifiers and comments.
-- Write commits on branches as English conventional commits: `<type>(<scope>): <description>`, e.g. `docs: clarify release steps`.
-- Write issues and pull requests in Brazilian Portuguese, title and body. Start a PR title with its conventional-commit type and scope, then a Brazilian Portuguese description, e.g. `fix(cards): corrige a data de vencimento da fatura`. Release PRs use the exact title given in Releases.
-- Squash-merge turns the PR title into the commit on `main`, so commits on `main` have Brazilian Portuguese descriptions. This is expected; it does not change how you write branch commits.
+- Write everything code-related in American English, such as identifiers and comments.
+- Write commits on branches as English conventional commits: `<type>(<scope>): <description>`, with the scope optional, e.g. `docs: clarify release steps`.
+- Write the issues and pull requests you open in Brazilian Portuguese, title and body. Start a PR title with its conventional-commit type and optional scope, then a Brazilian Portuguese description, e.g. `fix(cards): corrige a data de vencimento da fatura`. Release PRs use the exact title given in Releases.
+- Squash-merge turns the PR title into the commit on `main`, so new commits on `main` get Brazilian Portuguese descriptions; older ones are in English. This is expected; it does not change how you write branch commits.
 
 ## README translation
 
@@ -18,7 +18,7 @@
 
 After completing any request that changes code:
 
-1. Run `scripts/verify.sh`. It is the official verification and the same script the `verify` CI job runs, which branch protection on `main` requires.
+1. Run `scripts/verify.sh`. It is the official verification and the same script the `verify` CI job runs, which branch protection on `main` requires. It runs install, readme sync, typecheck, lint, knip, the test suite, a dependency audit, and an end-to-end run of the real CLI against a local mock API.
 2. Treat the run as passing only when it exits 0 and its last line is `VERIFICAÇÃO OK`. A failure ends with `VERIFICAÇÃO FALHOU: <steps>`.
 3. Fix everything it reports. To iterate on one step, run it directly (`bun run typecheck`, `bun run lint`, `bun run knip`, `bun run test`), then finish with a full `scripts/verify.sh` run.
 4. Introduce no new warnings.
