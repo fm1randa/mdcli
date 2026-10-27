@@ -166,6 +166,18 @@ export async function updateAction(id: string, options: UpdateOptions): Promise<
   // catalog does not list has no type to compare and still goes to the API.
   const newCategory = category?.category ?? null;
 
+  // Invoice payments are transfer-like entries with their own `p` type. The
+  // ordinary-entry payload cannot safely turn one into an income, expense, or
+  // transfer; it may only keep its transfer category.
+  if (existing.tipo === 'p') {
+    if (requestedType !== undefined) {
+      exitWithError('An invoice payment cannot be turned into an expense, income, or transfer. Change it in the web app.');
+    }
+    if (newCategory !== null && newCategory.tipo !== 't') {
+      exitWithError(`Invoice payment ${entryId} needs a transfer category. Change it in the web app.`);
+    }
+  }
+
   // A transfer is a pair of mirrored entries with two accounts, saved through
   // its own payload (buildTransferPayload, update-transfer.ts). An entry that
   // is not a transfer cannot become one here: it would carry tipo t with no
@@ -183,7 +195,7 @@ export async function updateAction(id: string, options: UpdateOptions): Promise<
     );
   }
 
-  const finalType = requestedType ?? newCategory?.tipo ?? existing.tipo;
+  const finalType = existing.tipo === 'p' ? existing.tipo : requestedType ?? newCategory?.tipo ?? existing.tipo;
   if ((finalType === 'd' || finalType === 'r') && newCategory !== null && newCategory.tipo !== finalType) {
     exitWithError(describeCategoryTypeMismatch(newCategory, finalType));
   }
@@ -191,7 +203,7 @@ export async function updateAction(id: string, options: UpdateOptions): Promise<
   // web app enforces by listing only categories of the type it picked.
   if (
     (requestedType === 'd' || requestedType === 'r') &&
-    newCategory === null &&
+    category === null &&
     existing.categoria !== undefined
   ) {
     const current = await findCategory(existing.categoria);

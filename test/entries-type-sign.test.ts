@@ -158,6 +158,13 @@ describe('entries update refuses a type and a category that disagree', () => {
     expect(result.exitCode).toBe(0);
     expect(sentBody()).toMatchObject({ tipo: 'd', categoria: 10, valor: -1700 });
   });
+
+  test('-T with an unknown replacement category leaves category validation to the API', async () => {
+    const result = await runCli(['entries', 'update', '70', '-T', 'expense', '-c', '999999'], { home, api });
+
+    expect(result.exitCode).toBe(0);
+    expect(sentBody()).toMatchObject({ tipo: 'd', categoria: 999999, valor: -1700 });
+  });
 });
 
 describe('entries refuse a type it does not know', () => {
@@ -175,6 +182,30 @@ describe('entries refuse a type it does not know', () => {
     expect(result.exitCode).toBe(1);
     expect(result.output).toContain('Unknown type: bogus. Valid: expense, income, transfer');
     expect(api.requests).toHaveLength(0);
+  });
+});
+
+describe('entries update keeps invoice payments transfer-like', () => {
+  test('a category cannot turn an invoice payment into an expense', async () => {
+    const payment = { ...refund, tipo: 'p' as const, categoria: 30, contaT: 1002, transferencia: 9 };
+    api.on('GET /v1/lancamentos/70', payment);
+
+    const result = await runCli(['entries', 'update', '70', '-c', '10'], { home, api });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain('Invoice payment 70 needs a transfer category');
+    expect(mutations(api)).toHaveLength(0);
+  });
+
+  test('-T cannot turn an invoice payment into an income', async () => {
+    const payment = { ...refund, tipo: 'p' as const, categoria: 30, contaT: 1002, transferencia: 9 };
+    api.on('GET /v1/lancamentos/70', payment);
+
+    const result = await runCli(['entries', 'update', '70', '-T', 'income'], { home, api });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain('An invoice payment cannot be turned into an expense, income, or transfer');
+    expect(mutations(api)).toHaveLength(0);
   });
 });
 
