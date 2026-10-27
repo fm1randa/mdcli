@@ -42,7 +42,7 @@ export async function updateAccountAction(id: string, options: UpdateAccountOpti
   if (CHANGE_OPTIONS.every((key) => options[key] === undefined)) {
     exitWithError(
       'No changes specified. Use --name, --type, --bank, --balance, --balance-date, --debtor, --creditor, ' +
-        '--liquidity, --currency, --hide-net-worth, --show-net-worth, --active or --inactive.'
+        '--liquidity, --currency, --hide-net-worth, --show-net-worth, --active, --inactive or --close.'
     );
   }
 
