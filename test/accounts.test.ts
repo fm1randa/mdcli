@@ -108,6 +108,14 @@ describe('accounts create', () => {
     expect(body?.liquidez).toBe(2);
   });
 
+  test('refuses an unknown --liquidity value', async () => {
+    const { result, body } = await create('--liquidity', 'liquid');
+
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain('Invalid liquidity "liquid"');
+    expect(body).toBeUndefined();
+  });
+
   test('refuses --liquidity for a type without the "Considerar saldo" field', async () => {
     api.on('POST /v1/cadastros/contas', { ...CHECKING_ACCOUNT, id: 2001 });
 
