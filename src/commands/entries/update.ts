@@ -3,9 +3,9 @@ import { logger } from '../../utils/logger.js';
 import { exitWithError } from '../../utils/action.js';
 import { updateEntry, fetchEntry } from '../../lib/api.js';
 import { resolveTags } from './tags.js';
-import { resolveEntryCategory } from './category.js';
+import { describeCategoryTypeMismatch, findCategory, resolveEntryCategory } from './category.js';
 import type { CreateEntryResponse, UpdateEntryPayload } from '../../types/index.js';
-import { mapTypeToApi, parseTypeOption, warnScheduledAlias } from './create.js';
+import { parseTypeOption, warnScheduledAlias } from './create.js';
 import { describeStatus } from './format.js';
 import { formatCurrency } from '../../utils/currency.js';
 import { describeScope, resolveSeriesScope, type SeriesScope } from './series.js';
@@ -74,7 +74,13 @@ export async function updateAction(id: string, options: UpdateOptions): Promise<
   if (options.scheduled) warnScheduledAlias();
 
   // Validate options that need resolution before fetching entry
-  const categoryId = options.category !== undefined ? await resolveEntryCategory(options.category) : null;
+  const category = options.category !== undefined ? await resolveEntryCategory(options.category) : null;
+  const categoryId = category?.id ?? null;
+
+  const requestedType = options.type === undefined ? undefined : parseTypeOption(options.type);
+  if (options.type !== undefined && requestedType === undefined) {
+    exitWithError(`Unknown type: ${options.type}. Valid: expense, income, transfer`);
+  }
 
   const tagIds = options.tags !== undefined ? await resolveTags(options.tags) : undefined;
   const accountId = options.account !== undefined ? await resolveAccountOrExit(options.account) : undefined;
@@ -131,14 +137,8 @@ export async function updateAction(id: string, options: UpdateOptions): Promise<
   );
 
   if (existing.tipo === 't') {
-    if (options.type !== undefined) {
-      const requestedType = parseTypeOption(options.type);
-      if (requestedType === undefined) {
-        exitWithError(`Unknown type: ${options.type}. Valid: expense, income, transfer`);
-      }
-      if (requestedType !== 't') {
-        exitWithError('A transfer cannot be turned into an expense or an income. Delete it and create the entry you want.');
-      }
+    if (requestedType !== undefined && requestedType !== 't') {
+      exitWithError('A transfer cannot be turned into an expense or an income. Delete it and create the entry you want.');
     }
 
     const moved = accountId !== undefined || toAccountId !== undefined
@@ -161,6 +161,49 @@ export async function updateAction(id: string, options: UpdateOptions): Promise<
     return;
   }
 
+  // The type the entry is saved with: -T, else the new category's, else the one
+  // it already has. The web app's picker only lists categories of the entry's
+  // type (md.js, filterCats) and clears the category when the type changes
+  // (changeTipo), so a category of another type is refused here too. An ID the
+  // catalog does not list has no type to compare and still goes to the API.
+  const newCategory = category?.category ?? null;
+  const finalType = requestedType ?? newCategory?.tipo ?? existing.tipo;
+  if ((finalType === 'd' || finalType === 'r') && newCategory !== null && newCategory.tipo !== finalType) {
+    exitWithError(
+      `${describeCategoryTypeMismatch(newCategory, finalType)} ` +
+      "The web app only offers categories that match the entry's type: use -c with a category of that type " +
+      '(see: mdcli categories list --active), or change -T.'
+    );
+  }
+  // -T alone has to agree with the category the entry already has, the rule the
+  // web app enforces by listing only categories of the type it picked.
+  if (
+    (requestedType === 'd' || requestedType === 'r') &&
+    newCategory === null &&
+    existing.categoria !== undefined
+  ) {
+    const current = await findCategory(existing.categoria);
+    if (current !== null && current.tipo !== requestedType) {
+      exitWithError(
+        `${describeCategoryTypeMismatch(current, requestedType)} ` +
+        "The web app only offers categories that match the entry's type: pass -c with a category of that type too " +
+        '(see: mdcli categories list --active).'
+      );
+    }
+  }
+
+  // The web app's save normalizes the sign from the type (md.js, Tt:
+  // valor = (tipo != "r" ? -1 : 1) * |valor|, and valorPrevisto/valorEfetivo
+  // follow), so a value the user typed with either sign lands with the type's.
+  // A payment (p) and a transfer (t) keep theirs: the web saves them through
+  // its own paths.
+  const sign = finalType === 'r' ? 1 : finalType === 'd' ? -1 : undefined;
+  const signed = (amount: number): number => (sign === undefined ? amount : sign * Math.abs(amount));
+  // The chosen type also sets estorno, which only the refund types er/ed turn
+  // on (md.js, the type→{tipo,estorno} map: a plain r/d is estorno false). An
+  // entry that already is a refund keeps the flag unless its type is chosen.
+  const estorno = (requestedType !== undefined || finalType !== existing.tipo) ? false : existing.estorno ?? false;
+
   // Echo the whole entry back and layer the changes on top. The API rejects
   // the PUT when a field it sent us is missing from the payload, and an
   // installment carries fields the CLI never modeled - parcela, agendaId,
@@ -173,15 +216,15 @@ export async function updateAction(id: string, options: UpdateOptions): Promise<
     id: entryId,
     descricao: options.description ?? existing.descricao,
     status: { confirmado: choice.confirmado, conciliado: choice.conciliado },
-    tipo: options.type ? mapTypeToApi(options.type) : existing.tipo,
-    valor: value ?? existing.valor,
-    valorPrevisto: value ?? existing.valorPrevisto ?? existing.valor,
-    valorEfetivo: value ?? existing.valorEfetivo ?? existing.valor,
+    tipo: finalType,
+    valor: signed(value ?? existing.valor),
+    valorPrevisto: signed(value ?? existing.valorPrevisto ?? existing.valor),
+    valorEfetivo: signed(value ?? existing.valorEfetivo ?? existing.valor),
     dataPrevista: options.date ?? existing.dataPrevista,
     dataEfetiva: options.date ?? existing.dataEfetiva ?? existing.dataPrevista,
     exibirCp: existing.exibirCp ?? true,
     exibirCr: existing.exibirCr ?? true,
-    estorno: existing.estorno ?? false,
+    estorno,
     categoria: categoryId ?? existing.categoria ?? null,
     tags: tagIds ?? existing.tags ?? [],
     observacoes: options.notes ?? existing.observacoes ?? '',

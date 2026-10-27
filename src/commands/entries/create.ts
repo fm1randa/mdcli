@@ -4,7 +4,7 @@ import { exitWithError } from '../../utils/action.js';
 import { createEntry, fetchAccountById, isCreditCard } from '../../lib/api.js';
 import { resolveAccountOrExit } from '../account-id.js';
 import { resolveTags } from './tags.js';
-import { resolveEntryCategory } from './category.js';
+import { describeCategoryTypeMismatch, resolveEntryCategory } from './category.js';
 import type { CreateEntryPayload, CreateEntryResponse } from '../../types/index.js';
 import { describeStatus } from './format.js';
 import { formatCurrency } from '../../utils/currency.js';
@@ -47,7 +47,7 @@ export function parseTypeOption(type: string): 'd' | 'r' | 't' | undefined {
   return TYPE_MAP[type.toLowerCase()];
 }
 
-export function mapTypeToApi(type: string): 'd' | 'r' | 't' {
+function mapTypeToApi(type: string): 'd' | 'r' | 't' {
   return parseTypeOption(type) ?? 'd';
 }
 
@@ -90,7 +90,22 @@ export async function createAction(options: CreateOptions): Promise<void> {
 
   const accountId = await resolveAccountOrExit(options.account);
 
-  let categoryId: number | null = options.category ? await resolveEntryCategory(options.category) : null;
+  let categoryId: number | null = null;
+  if (options.category) {
+    const category = await resolveEntryCategory(options.category);
+    categoryId = category.id;
+    // The web app's picker only offers categories of the entry's type, and
+    // changing the type clears the category (md.js, filterCats/changeTipo): a
+    // mismatched pair never reaches the API there. An ID the catalog does not
+    // list has no type to compare, so it still goes to the API.
+    if (tipo !== 't' && category.category !== null && category.category.tipo !== tipo) {
+      exitWithError(
+        `${describeCategoryTypeMismatch(category.category, tipo)} ` +
+        "The web app only offers categories that match the entry's type: use -c with a category of that type " +
+        '(see: mdcli categories list --active), or change -T.'
+      );
+    }
+  }
   const tagIds = options.tags ? await resolveTags(options.tags) : [];
 
   // Credit card accounts reject the payload unless dataCompetencia is present.

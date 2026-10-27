@@ -97,6 +97,26 @@ export const SEEDED_ENTRIES: Record<number, Record<string, unknown>> = {
     categoria: 10,
     tags: [],
   },
+  // A refund as the server stored one (Finanças 2026-10-27): tipo r with a
+  // negative value and estorno on, which the web app never sends - update -T
+  // income has to fix both.
+  71: {
+    id: 71,
+    descricao: 'Estorno café',
+    tipo: 'r',
+    valor: -1700,
+    valorPrevisto: -1700,
+    valorEfetivo: -1700,
+    data: '2026-01-12',
+    dataPrevista: '2026-01-12',
+    dataEfetiva: '2026-01-12',
+    status: 'conciliado',
+    conciliado: true,
+    estorno: true,
+    conta: 1004,
+    categoria: 20,
+    tags: [],
+  },
 };
 
 type Body = Record<string, unknown>;

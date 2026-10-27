@@ -355,6 +355,12 @@ step "cli entries create cartão -p não concilia (mock)" expect_json 'd.concili
 step "cli entries create categoria ativa por nome (mock)" expect_json 'd.categoria === 42' entries create -a 1001 -d Aluguel -v 10 -c moradia -D 2026-01-05 --json
 step "cli entries create categoria inativa (mock)" expect_fail 'Category "Moradia" \(41\) is inactive' entries create -a 1001 -d Aluguel -v 10 -c 41 -D 2026-01-05
 step "cli entries update categoria inativa (mock)" expect_fail 'is inactive' entries update 70 -c 41
+# Finanças 2026-10-27: the web app only lists categories of the entry's type
+# (md.js filterCats) and signs the value from the type (Tt); a mismatch is
+# refused before the API, and the chosen type sets the sign and estorno.
+step "cli entries create tipo e categoria divergentes (mock)" expect_fail 'is an expense, but the entry type is income' entries create -a 1001 -d X -v 1700 -c 10 -T income
+step "cli entries update tipo e categoria divergentes (mock)" expect_fail 'is an expense, but the entry type is income' entries update 70 -T income
+step "cli entries update estorno: tipo manda no sinal e no estorno (mock)" expect_json 'd.tipo === "r" && d.valor === 1700 && d.valorEfetivo === 1700 && d.estorno === false' entries update 71 -T income -c 20 -v 1700 --json
 step "cli entries update -p volta a pendente (mock)" expect_json 'd.status === "pendente" && d.conciliado === false && d.dataEfetiva === null' entries update 70 -p --json
 step "cli entries update -p texto (mock)" expect_ok 'Status: Pending' entries update 70 -p
 step "cli entries update parcela (mock)"     expect_ok 'Entry updated' entries update 60 -d "Notebook (2/6)"
