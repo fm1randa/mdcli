@@ -193,11 +193,27 @@ mdcli accounts types
 # Cria uma conta (--type aceita o ID ou o nome mostrado em "accounts types")
 mdcli accounts create --name "Nubank" --type "Conta Corrente" --bank nubank --balance 0
 
+# Campos do formulário "Nova conta" da web: data do saldo inicial (padrão:
+# ontem, como na web), Credor/Devedor (--balance negativo também é devedor) e
+# "Considerar saldo" (available = disponível, future = no futuro, fixed =
+# imobilizado; padrão: o do tipo, senão disponível; não vale para cartões)
+mdcli accounts create --name "Empréstimo" --type "Conta Corrente" --balance 500 --debtor --balance-date 2026-10-01 --liquidity future
+
 # Atualiza uma conta (só os campos informados são alterados)
 mdcli accounts update 1167419 --name "Nubank PF"
 
-# Arquiva (desativa) ou reativa uma conta
+# --balance mantém o sinal atual (como o Credor/Devedor da web); --debtor ou
+# --creditor sozinhos só trocam o sinal do saldo inicial
+mdcli accounts update 1167419 --balance 82.09 --balance-date 2026-01-01
+mdcli accounts update 1167419 --debtor
+
+# Tira do patrimônio ou volta a incluir
+mdcli accounts update 1167419 --hide-net-worth
+mdcli accounts update 1167419 --show-net-worth
+
+# Arquiva (desativa) ou reativa uma conta; --close também encerra a conta
 mdcli accounts update 1167419 --inactive
+mdcli accounts update 1167419 --inactive --close
 mdcli accounts update 1167419 --active
 
 # Exclui uma conta (pede confirmação)
