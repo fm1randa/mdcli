@@ -1,26 +1,30 @@
 #!/usr/bin/env bash
 # Notifies the maintainer bot's webhook when a claude.ai cloud session ends a
-# turn (Stop), fails (StopFailure) or waits on a permission prompt or input
-# (Notification). Registered in .claude/settings.json; cloud sessions only run
-# hooks committed in the repo.
+# turn (Stop), fails (StopFailure) or waits on a permission prompt or an
+# input dialog (Notification, matcher permission_prompt|elicitation_dialog;
+# idle_prompt is left out because Stop already covers the end of a turn).
+# Registered in .claude/settings.json; cloud sessions only run hooks committed
+# in the repo.
 #
 # Runs only when CLAUDE_CODE_REMOTE=true, MDCLI_WEBHOOK_URL is set and curl
 # exists; otherwise it exits at once. It never blocks the session: it prints
 # nothing on stdout, always exits 0, and sends the request detached (nohup,
-# curl --max-time 10).
+# curl --max-time 10). Input without a hook_event_name sends nothing.
 #
 # Payload (JSON POST to $MDCLI_WEBHOOK_URL): event (claude_session_stopped |
 # claude_session_failed | claude_session_notification), source, hook_event_name,
 # repo, session_id, session_url (https://claude.ai/code/<id>, with a "cse_"
-# prefix turned into "session_"), branch, head (short sha), cwd,
+# prefix turned into "session_"), branch (empty when detached), head (short
+# sha), cwd,
 # hook_session_id, notification_type, message, reason, error, stop_hook_active,
 # last_assistant_message (first 1500 chars) and at (UTC ISO 8601). The hook
 # input is read from stdin with jq, falling back to python3.
 #
 # MDCLI_WEBHOOK_AUTH, when set, is sent as the Authorization header: as is if
-# it already starts with "Authorization:", otherwise prefixed with
+# it already starts with "Authorization:" (any case), otherwise prefixed with
 # "Authorization: ". Secrets come only from the environment and are never
-# echoed; the header goes to curl through a private temp file, not argv.
+# echoed; the URL and the header go to curl through a private config file
+# (curl -K), not argv.
 
 {
   [ "${CLAUDE_CODE_REMOTE:-}" = "true" ] || exit 0
@@ -37,7 +41,7 @@
   [ -n "$session_id" ] && session_url="https://claude.ai/code/$session_id"
 
   project_dir="${CLAUDE_PROJECT_DIR:-$PWD}"
-  branch=$(git -C "$project_dir" rev-parse --abbrev-ref HEAD 2>/dev/null || true)
+  branch=$(git -C "$project_dir" symbolic-ref --short -q HEAD 2>/dev/null || true)
   head=$(git -C "$project_dir" rev-parse --short HEAD 2>/dev/null || true)
   at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
@@ -48,7 +52,7 @@
       def s: if . == null then null else tostring end;
       (try . catch {}) as $in
       | ($in.hook_event_name // "" | tostring) as $name
-      | {
+      | if $name == "" then empty else {
           event: (if $name == "Stop" then "claude_session_stopped"
                   elif $name == "StopFailure" then "claude_session_failed"
                   elif $name == "Notification" then "claude_session_notification"
@@ -68,11 +72,11 @@
           error: (if $in.error == null then null
                   elif ($in.error | type) == "string" then $in.error
                   else ($in.error | tojson) end),
-          stop_hook_active: ($in.stop_hook_active // false),
+          stop_hook_active: ($in.stop_hook_active == true),
           last_assistant_message: ($in.last_assistant_message | s
                                    | if . == null then null else .[0:1500] end),
           at: $at
-        }' 2>/dev/null) || payload=""
+        } end' 2>/dev/null) || payload=""
   fi
 
   if [ -z "${payload:-}" ] && command -v python3 >/dev/null 2>&1; then
@@ -95,6 +99,8 @@ def text(key):
     return json.dumps(value) if isinstance(value, (dict, list)) else str(value)
 
 name = text("hook_event_name") or ""
+if not name:
+    sys.exit(0)
 events = {
     "Stop": "claude_session_stopped",
     "StopFailure": "claude_session_failed",
@@ -116,7 +122,7 @@ print(json.dumps({
     "message": text("message"),
     "reason": text("reason"),
     "error": text("error"),
-    "stop_hook_active": bool(data.get("stop_hook_active", False)),
+    "stop_hook_active": data.get("stop_hook_active") is True,
     "last_assistant_message": last[:1500] if last is not None else None,
     "at": os.environ["AT"],
 }))
@@ -125,22 +131,35 @@ print(json.dumps({
 
   [ -n "${payload:-}" ] || exit 0
 
-  tmp=$(umask 077 && mktemp -d 2>/dev/null) || exit 0
-  printf '%s' "$payload" >"$tmp/payload.json"
-  : >"$tmp/headers"
+  # Quotes a value for a curl config file; refuses values with line breaks.
+  curl_quote() {
+    case "$1" in *$'\n'* | *$'\r'*) return 1 ;; esac
+    local value=${1//\\/\\\\}
+    printf '"%s"' "${value//\"/\\\"}"
+  }
+
+  url=$(curl_quote "$MDCLI_WEBHOOK_URL") || exit 0
+  auth=""
   if [ -n "${MDCLI_WEBHOOK_AUTH:-}" ]; then
-    case "$MDCLI_WEBHOOK_AUTH" in
-      Authorization:*) printf '%s\n' "$MDCLI_WEBHOOK_AUTH" >"$tmp/headers" ;;
-      *) printf 'Authorization: %s\n' "$MDCLI_WEBHOOK_AUTH" >"$tmp/headers" ;;
+    case "${MDCLI_WEBHOOK_AUTH,,}" in
+      authorization:*) auth=$MDCLI_WEBHOOK_AUTH ;;
+      *) auth="Authorization: $MDCLI_WEBHOOK_AUTH" ;;
     esac
+    auth=$(curl_quote "$auth") || exit 0
   fi
 
+  tmp=$(umask 077 && mktemp -d 2>/dev/null) || exit 0
+  printf '%s' "$payload" >"$tmp/payload.json"
+  {
+    printf 'url = %s\n' "$url"
+    [ -z "$auth" ] || printf 'header = %s\n' "$auth"
+  } >"$tmp/curlrc"
+
   nohup bash -c '
-    curl -sS -o /dev/null --max-time 10 -X POST \
-      -H "Content-Type: application/json" -H "@$1/headers" \
-      --data-binary "@$1/payload.json" "$2"
+    curl -sS -o /dev/null --max-time 10 -X POST -K "$1/curlrc" \
+      -H "Content-Type: application/json" --data-binary "@$1/payload.json"
     rm -rf "$1"
-  ' cloud-notify "$tmp" "$MDCLI_WEBHOOK_URL" </dev/null >/dev/null 2>&1 &
+  ' cloud-notify "$tmp" </dev/null >/dev/null 2>&1 &
 } >/dev/null 2>&1
 
 exit 0
