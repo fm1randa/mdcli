@@ -91,7 +91,9 @@ export function defaultBalanceDate(): string {
  */
 export function signedBalance(form: AccountForm, stored: number): number {
   const balance = form.balance ?? stored;
-  if (form.debtor && balance === 0) {
+  // --debtor on a zero balance would claim a sign 0 cannot carry. An explicit
+  // --balance 0 is not that case: zeroing the balance is the change asked for.
+  if (form.debtor && form.balance === undefined && balance === 0) {
     exitWithError('--debtor has no effect on a zero balance. Pass a nonzero --balance.');
   }
   let sign = balance < 0 || stored < 0 ? -1 : 1;

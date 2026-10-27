@@ -156,6 +156,13 @@ describe('accounts create', () => {
     expect(body).toBeUndefined();
   });
 
+  test('accepts --balance 0 with --debtor, as zeroing the balance is the change asked for', async () => {
+    const { result, body } = await create('--balance', '0', '--debtor');
+
+    expect(result.exitCode).toBe(0);
+    expect(body?.saldoInicial).toBe(0);
+  });
+
   test('refuses invalid form flags before fetching the accounts', async () => {
     for (const args of [
       ['--debtor'],

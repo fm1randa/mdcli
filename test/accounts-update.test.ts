@@ -93,6 +93,15 @@ describe('accounts update', () => {
     expect(body?.saldoInicial).toBe(-82.09);
   });
 
+  test('--balance 0 with --debtor zeroes the balance instead of being refused', async () => {
+    withChecking({ saldoInicial: 82.09 });
+
+    const { result, body } = await update('--balance', '0', '--debtor');
+
+    expect(result.exitCode).toBe(0);
+    expect(body?.saldoInicial).toBe(0);
+  });
+
   test('--balance keeps the stored sign, as the web pre-sets Credor/Devedor from it', async () => {
     withChecking({ saldoInicial: -30 });
 
