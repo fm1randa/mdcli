@@ -104,6 +104,19 @@ describe('local/no-loose-number', () => {
     });
   }
 
+  // .call/.apply run the function once: the .map(...) "on each item" message would mislead.
+  test('reports .call on Number and the parsers as a call, .map as a value', async () => {
+    const messages = async (code: string) => {
+      const [result] = await eslint.lintText(`${code}\n`, { filePath: COMMAND });
+      return result.messages.filter((m) => m.ruleId === 'local/no-loose-number').map((m) => m.messageId);
+    };
+    expect(await messages("export const n = Number.call(null, '1e3');")).toEqual(['numberCall']);
+    expect(await messages("export const n = parseInt.call(null, '12abc', 10);")).toEqual(['parseCall']);
+    expect(await messages("export const n = Number.parseInt.apply(null, ['12abc', 10]);")).toEqual(['parseCall']);
+    expect(await messages("export const n = ['1'].map(Number);")).toEqual(['numberValue']);
+    expect(await messages("export const n = ['1'].map(Number.parseInt);")).toEqual(['parserValue']);
+  });
+
   test('does not fire in src/utils/parse.ts, on a numeric literal or on other Number members', async () => {
     expect(await localRules(NUMBER_CALL, PARSE)).toEqual([]);
     expect(await localRules('export const n = +1;', COMMAND)).toEqual([]);

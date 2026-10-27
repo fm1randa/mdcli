@@ -29,16 +29,26 @@ function isCallee(node) {
 // Function members that run the function: parseInt.call(null, s) is parseInt(s).
 const INVOKERS = new Set(["call", "apply", "bind"]);
 
+// The object of .call, .apply or .bind: reported like a call, since it runs
+// the function, not as a value mapped over items.
+function isInvoked(node) {
+  const { parent } = node;
+  return (
+    parent.type === "MemberExpression" &&
+    parent.object === node &&
+    !parent.computed &&
+    parent.property.type === "Identifier" &&
+    INVOKERS.has(parent.property.name)
+  );
+}
+
 // A function read as a value: not called (reported as numberCall or
-// parseCall), not the object of Number.x unless x runs it (Number.call),
-// not a property name (x.Number, { Number: 1 }) and not a type.
+// parseCall), not the object of Number.x, not a property name (x.Number,
+// { Number: 1 }) and not a type.
 function isValue(node) {
   if (isCallee(node)) return false;
   const { parent } = node;
-  if (parent.type === "MemberExpression") {
-    if (parent.object === node) return !parent.computed && parent.property.type === "Identifier" && INVOKERS.has(parent.property.name);
-    return parent.computed;
-  }
+  if (parent.type === "MemberExpression") return parent.computed && parent.property === node;
   if (parent.type === "Property" && parent.key === node && !parent.computed && !parent.shorthand) return false;
   return !parent.type.startsWith("TS");
 }
@@ -71,13 +81,14 @@ export default {
       CallExpression: call,
       NewExpression: call,
       Identifier(node) {
-        if (!isValue(node)) return;
-        if (node.name === "Number") context.report({ node, messageId: "numberValue" });
-        else if (PARSERS.has(node.name)) context.report({ node, messageId: "parserValue" });
+        const invoked = isInvoked(node);
+        if (!invoked && !isValue(node)) return;
+        if (node.name === "Number") context.report({ node, messageId: invoked ? "numberCall" : "numberValue" });
+        else if (PARSERS.has(node.name)) context.report({ node, messageId: invoked ? "parseCall" : "parserValue" });
       },
       MemberExpression(node) {
         // Number.parseInt as a value; the bare parseInt is the Identifier case.
-        if (isParser(node) && !isCallee(node)) context.report({ node, messageId: "parserValue" });
+        if (isParser(node) && !isCallee(node)) context.report({ node, messageId: isInvoked(node) ? "parseCall" : "parserValue" });
       },
       UnaryExpression(node) {
         // +1 is a number already; +x coerces.
