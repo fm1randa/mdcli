@@ -262,6 +262,14 @@ describe('accounts update', () => {
     expect(body).toBeUndefined();
   });
 
+  test('lists --close in the no-changes message, so the flag is discoverable', async () => {
+    const result = await runCli(['accounts', 'update', '1001'], { home, api });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain('--close');
+    expect(mutations(api)).toHaveLength(0);
+  });
+
   test('refuses --active together with --inactive', async () => {
     const result = await runCli(['accounts', 'update', '1001', '--active', '--inactive'], { home, api });
 
