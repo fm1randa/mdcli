@@ -5,7 +5,7 @@
 - Write everything code-related in American English, such as identifiers and comments.
 - Write commits on branches as English conventional commits: `<type>(<scope>): <description>`, with the scope optional, e.g. `docs: clarify release steps`.
 - Write issues and pull requests in Brazilian Portuguese: titles, bodies, and your comments and reviews on them. Start a PR title with its conventional-commit type and optional scope, then a Brazilian Portuguese description, e.g. `fix(cards): corrige a data de vencimento da fatura`. Release PRs use the exact PR title given in Releases.
-- Squash-merge makes the PR title the subject of its commit on `main` (GitHub appends ` (#N)`). Commits on `main` from PRs titled this way therefore have Brazilian Portuguese descriptions; release commits, commits from bot PRs such as Dependabot's, and commits from before this convention do not. This is expected; it does not change how you write branch commits.
+- Squash-merge puts the PR title in the `main` commit subject, with ` (#N)` appended; a one-commit PR keeps the subject of its only commit instead. Main's history therefore mixes Brazilian Portuguese and English; release commits, commits from bot PRs such as Dependabot's, and commits from before this convention are exempt. This is expected; it does not change how you write branch commits.
 
 ## README translation
 
@@ -25,7 +25,7 @@ After completing any request that changes code:
 
 ## Tests
 
-Do not write tautological tests: a test that only re-asserts a mock or stub, re-implements the code under test, asserts constants or types, or cannot fail when the behavior breaks.
+Do not write tautological tests: a test is tautological when it only re-asserts a mock or stub, re-implements the code under test, asserts constants or types, or cannot fail when the behavior breaks.
 
 ## Versioning
 
