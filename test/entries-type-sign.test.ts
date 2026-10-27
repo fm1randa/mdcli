@@ -172,7 +172,7 @@ describe('entries refuse a type it does not know', () => {
     const result = await runCli([...CREATE, '-T', 'bogus', '-c', '10'], { home, api });
 
     expect(result.exitCode).toBe(1);
-    expect(result.output).toContain('Unknown type: bogus. Valid: expense, income, transfer');
+    expect(result.output).toContain('Unknown type: bogus. Valid: expense (d), income (r), transfer (t)');
     expect(mutations(api)).toHaveLength(0);
   });
 
@@ -180,7 +180,7 @@ describe('entries refuse a type it does not know', () => {
     const result = await runCli(['entries', 'update', '70', '-T', 'bogus', '-c', '10'], { home, api });
 
     expect(result.exitCode).toBe(1);
-    expect(result.output).toContain('Unknown type: bogus. Valid: expense, income, transfer');
+    expect(result.output).toContain('Unknown type: bogus. Valid: expense (d), income (r), transfer (t)');
     expect(api.requests).toHaveLength(0);
   });
 });

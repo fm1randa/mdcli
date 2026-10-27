@@ -40,7 +40,7 @@ export interface ResolvedCategory {
 export async function resolveEntryCategory(input: string): Promise<ResolvedCategory> {
   const checked = await checkEntryCategory(input);
   if ('error' in checked) exitWithError(checked.error);
-  return { id: checked.id, category: checked.category ?? null };
+  return { id: checked.id, category: checked.category };
 }
 
 /** The category with `id` from the catalog, or null when the catalog does not list it. */
@@ -55,7 +55,7 @@ export async function findCategory(id: number, catalog: CategoryCatalog = catego
 export async function checkEntryCategory(
   input: string,
   catalog: CategoryCatalog = categoryCatalog(),
-): Promise<{ id: number; category?: Category } | { error: string }> {
+): Promise<{ id: number; category: Category | null } | { error: string }> {
   const id = await resolveId('categories', input);
   if (id === null) {
     return { error: `Unknown category: ${input}. See available categories with: mdcli categories list --active` };
@@ -63,7 +63,7 @@ export async function checkEntryCategory(
 
   const items = await catalog();
   const category = items.find((c) => c.id === id);
-  if (!category || category.status) return { id, category };
+  if (!category || category.status) return { id, category: category ?? null };
 
   if (!isExplicitReference(input)) {
     const active = items.find((c) => c.status && sameName(c.nome, input));

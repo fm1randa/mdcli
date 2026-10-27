@@ -201,9 +201,10 @@ export async function updateAction(id: string, options: UpdateOptions): Promise<
   }
   // -T alone has to agree with the category the entry already has, the rule the
   // web app enforces by listing only categories of the type it picked.
+  const hasReplacementCategory = category !== null;
   if (
     (requestedType === 'd' || requestedType === 'r') &&
-    category === null &&
+    !hasReplacementCategory &&
     existing.categoria !== undefined
   ) {
     const current = await findCategory(existing.categoria);

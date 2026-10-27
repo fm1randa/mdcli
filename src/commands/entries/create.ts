@@ -50,7 +50,9 @@ function parseTypeOption(type: string): 'd' | 'r' | 't' | undefined {
 /** The entry type -T names, expense by default. A typo is refused, never guessed. */
 export function parseEntryType(input: string): 'd' | 'r' | 't' {
   const tipo = parseTypeOption(input);
-  if (tipo === undefined) exitWithError(`Unknown type: ${input}. Valid: expense, income, transfer`);
+  if (tipo === undefined) {
+    exitWithError(`Unknown type: ${input}. Valid: expense (d), income (r), transfer (t)`);
+  }
   return tipo;
 }
 
