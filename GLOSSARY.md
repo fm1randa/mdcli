@@ -5,12 +5,16 @@ CLI client for [Meu Dinheiro](https://meudinheiroweb.com.br), a Brazilian person
 ## Language
 
 **Account**:
-A financial account held at Meu Dinheiro (checking, savings, credit card, investment, etc.).
+A financial account held at Meu Dinheiro (checking, savings, credit card, investment, etc.). It can be archived (`status: false`, `--inactive`), closed (`encerrada`, `--inactive --close`) or left out of net worth (`exibirBP`, `--hide-net-worth`).
 _Avoid_: "conta" (Portuguese only — keep the surface in English)
 
 **Balance**:
 An Account's balance as the web app shows it (the Saldos de caixa / Saldos das contas panels and the Lançamentos screen): the server sums the Account's Entries up to a day (`GET /v2/lancamentos`, `type=sum`, grouped by account), as **confirmed** (`confirmado`, only Confirmed and Reconciled Entries) and **projected** (`projetado`, Pending and Scheduled too). The web's panels, and `accounts list` without `--at`, use the last day of the current month. Cards, investment portfolios, inactive Accounts that are not closed, Accounts in a currency other than the one selected in the web, and Accounts restricted to the user (`usuario.permissoes.restricoes.contas`) have none. The **bank statement balance** (`saldoUltimoExtrato` on `dataUltimoExtrato`) is the bank's figure from the last statement, which can be years old: `accounts list` shows it only as extra information.
 _Avoid_: "balance" for `saldoUltimoExtrato` (the #67 bug), "saldo inicial" (only the starting point)
+
+**Initial balance**:
+The starting point of an Account's balance: `saldoInicial` on `dataSaldoInicial`, dated yesterday by default on `accounts create`, like the web's "Nova conta" form. Its sign is the web's Credor/Devedor radio: `--creditor` (held, positive, the default) or `--debtor` (owed, negative; a negative `--balance` is debtor too), and a positive `--balance` without either flag keeps the stored sign, as the web pre-sets the radio from the current balance. Its "Considerar saldo" (liquidity) is `--liquidity available` (1), `future` (2) or `fixed` (0, imobilizado); a card Account type has no such field, so the flag is refused for it.
+_Avoid_: "balance" for it (see Balance), "start balance"
 
 **Category**:
 A classification for an entry — expense, income, or transfer. A Category can be inactive (`status: false`): the web app hides it from the entry form, so `entries create`/`update` refuse it too. When a name matches both an active and an inactive Category, the active one wins; an explicit ID or Alias pointing at an inactive one is refused. Filters (`entries list -c`) still accept inactive Categories, since old Entries keep them.
