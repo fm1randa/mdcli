@@ -193,7 +193,7 @@ export interface CreateEntryResponse {
   conciliado: boolean;
   dataCompetencia: string;
   status: string;
-  tipo: 'd' | 'r' | 't';
+  tipo: 'd' | 'r' | 't' | 'p';
   valor: number;
   valorPrevisto: number;
   valorEfetivo: number;
