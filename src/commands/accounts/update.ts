@@ -1,7 +1,7 @@
 import chalk from 'chalk';
 import { logger } from '../../utils/logger.js';
 import { exitWithError } from '../../utils/action.js';
-import { fetchAccounts, updateAccount } from '../../lib/api.js';
+import { fetchAccounts, isCreditCard, updateAccount } from '../../lib/api.js';
 import { invalidateNameCache } from '../../lib/config.js';
 import type { UpdateAccountPayload } from '../../types/index.js';
 import { resolveAccountType } from './create.js';
@@ -31,6 +31,7 @@ const CHANGE_OPTIONS = [
   'name', 'type', 'bank', 'balance', 'balanceDate', 'debtor', 'creditor', 'liquidity',
   'currency', 'hideNetWorth', 'showNetWorth', 'active', 'inactive', 'close',
 ] as const;
+const STATUS_OPTIONS: readonly string[] = ['active', 'inactive', 'close'];
 
 export async function updateAccountAction(id: string, options: UpdateAccountOptions): Promise<void> {
   const accountId = parseId(id);
@@ -86,6 +87,8 @@ export async function updateAccountAction(id: string, options: UpdateAccountOpti
   if (options.showNetWorth) exibirBP = true;
 
   const { banco, encerrada, ...rest } = existing;
+  const statusOnly = CHANGE_OPTIONS.every((key) => STATUS_OPTIONS.includes(key) || options[key] === undefined);
+  const isCard = isCreditCard(existing) || !!accountType?.grupobp;
   const payload: UpdateAccountPayload = {
     ...rest,
     nome: options.name ?? existing.nome,
@@ -95,15 +98,18 @@ export async function updateAccountAction(id: string, options: UpdateAccountOpti
     dataSaldoInicial: form.balanceDate ?? existing.dataSaldoInicial,
     moeda: moeda ?? existing.moeda,
     exibirBP,
-    // The web's edit form sends 0 for an account without a bank.
-    banco: options.bank ?? banco?.id ?? 0,
+    // The web's status dialog passes banco through as read (its id when it is
+    // an object); the account edit form sends 0 for no bank, the card form never does.
+    banco: statusOnly
+      ? (banco && typeof banco === 'object' ? banco.id : banco)
+      : (options.bank ?? banco?.id ?? (isCard ? undefined : 0)),
   };
-  // As the web's status dialog: closing sets encerrada, any other status
-  // change leaves it undefined (absent from the JSON); the edit form keeps it.
+  // As the web's status dialog: closing sets encerrada, a real status change
+  // leaves it undefined (absent from the JSON); otherwise it goes back as stored.
   if (options.close) {
     payload.status = false;
     payload.encerrada = true;
-  } else if (options.active || options.inactive) {
+  } else if ((options.active && !existing.status) || (options.inactive && existing.status)) {
     payload.status = !!options.active;
   } else {
     payload.encerrada = encerrada;
