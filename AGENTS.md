@@ -2,8 +2,10 @@
 
 ## Language
 
-- Write everything code-related in American English: identifiers, comments, commits.
-- Write issues and pull requests in Brazilian Portuguese.
+- Write everything code-related in American English: identifiers and comments.
+- Write commits on branches as English conventional commits: `<type>(<scope>): <description>`, e.g. `docs: clarify release steps`.
+- Write issues and pull requests in Brazilian Portuguese, title and body. Start a PR title with its conventional-commit type and scope, then a Brazilian Portuguese description, e.g. `fix(cards): corrige a data de vencimento da fatura`. Release PRs use the exact title given in Releases.
+- Squash-merge turns the PR title into the commit on `main`, so commits on `main` have Brazilian Portuguese descriptions. This is expected; it does not change how you write branch commits.
 
 ## README translation
 
