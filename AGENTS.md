@@ -5,7 +5,7 @@
 - Write everything code-related in American English, such as identifiers and comments.
 - Write commits on branches as English conventional commits: `<type>(<scope>): <description>`, with the scope optional, e.g. `docs: clarify release steps`.
 - Write issues and pull requests in Brazilian Portuguese: titles, bodies, and your comments and reviews on them. Start a PR title with its conventional-commit type and optional scope, then a Brazilian Portuguese description, e.g. `fix(cards): corrige a data de vencimento da fatura`. Release PRs use the exact PR title given in Releases.
-- Squash-merge puts the PR title in the `main` commit subject, with ` (#N)` appended; a one-commit PR takes that subject from its only commit instead. Main's history therefore mixes Brazilian Portuguese and English; release commits, commits from bot PRs such as Dependabot's, and commits from before this convention are exempt from these language rules. This is expected; it does not change how you write branch commits.
+- Squash-merge puts the PR title in the `main` commit subject; a one-commit PR uses its only commit's subject instead. GitHub appends ` (#N)` either way. Main's history therefore mixes Brazilian Portuguese and English; release commits, commits from bot PRs such as Dependabot's, and commits from before this convention are exempt from these language rules. This is expected; it does not change how you write branch commits.
 
 ## README translation
 
