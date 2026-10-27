@@ -11,7 +11,7 @@
 
 `README.md` is the reference version, in Brazilian Portuguese; `README.en.md` is its English translation. In any PR that changes `README.md`, update `README.en.md` in the same PR to match and update the `readme-blob:` hash in its line-1 comment:
 
-- `readme-blob:` the output of `git hash-object README.md` on the final `README.md`. The `readme sync` step of `scripts/verify.sh` fails when it differs from the current `README.md`, so CI rejects a `README.md` change without a synced translation.
+- `readme-blob:` the output of `git hash-object README.md` on the final `README.md`. The `readme sync` step of `scripts/verify.sh` fails when the recorded `readme-blob:` does not match the current `README.md`, so CI rejects a `README.md` change without a synced translation.
 - The commit SHA (short after `@`, full after `base:`): the `main` commit the translation was last synced from. In a PR that changes `README.md` itself, keep the `main` commit the branch starts from; the squash-merge SHA is unknown in advance, and the blob already pins the exact content.
 
 ## Verification
