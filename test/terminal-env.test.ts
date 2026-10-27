@@ -59,6 +59,10 @@ describe('test run under a TERM=linux, color-forcing caller', () => {
   });
 
   test('prompts on a pseudo-terminal draw the unicode pointer', async () => {
+    // Same menu as "Cancel in the fallback menu keeps the config as it was" in
+    // interactive-prompts.test.ts, which runs with the TERM test/setup.ts
+    // already normalized: only this hostile caller guards the explicit TERM
+    // runCliInTerminal gives the pseudo-terminal.
     const result = await runCliInTerminal(['auth', 'login'], { home, api }, [
       { waitFor: 'How would you like to authenticate?', send: KEY.down.repeat(5) },
       { waitFor: '❯ Cancel', send: KEY.enter },
