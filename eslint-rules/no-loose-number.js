@@ -4,8 +4,9 @@
 // and unary + is Number() in disguise (+'' is 0), so they are banned too
 // (Jardinagem 2026-10-26). Number, parseInt and parseFloat passed as a value,
 // as in .map(Number) or .map(parseInt), run on each item, so they are banned as
-// well, and so is new Number(); Number.isSafeInteger and the other members are
-// fine. src/utils/parse.ts, where the helpers live, is out of scope.
+// well, and so are new Number() and .call/.apply/.bind on them;
+// Number.isSafeInteger and the other members are fine. src/utils/parse.ts,
+// where the helpers live, is out of scope.
 const PARSERS = new Set(["parseInt", "parseFloat"]);
 
 function isParser(callee) {
@@ -25,13 +26,19 @@ function isCallee(node) {
   return (parent.type === "CallExpression" || parent.type === "NewExpression") && parent.callee === node;
 }
 
+// Function members that run the function: parseInt.call(null, s) is parseInt(s).
+const INVOKERS = new Set(["call", "apply", "bind"]);
+
 // A function read as a value: not called (reported as numberCall or
-// parseCall), not the object of Number.x, not a property name (x.Number,
-// { Number: 1 }) and not a type.
+// parseCall), not the object of Number.x unless x runs it (Number.call),
+// not a property name (x.Number, { Number: 1 }) and not a type.
 function isValue(node) {
   if (isCallee(node)) return false;
   const { parent } = node;
-  if (parent.type === "MemberExpression") return parent.computed && parent.property === node;
+  if (parent.type === "MemberExpression") {
+    if (parent.object === node) return !parent.computed && parent.property.type === "Identifier" && INVOKERS.has(parent.property.name);
+    return parent.computed;
+  }
   if (parent.type === "Property" && parent.key === node && !parent.computed && !parent.shorthand) return false;
   return !parent.type.startsWith("TS");
 }
