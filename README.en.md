@@ -1,4 +1,4 @@
-<!-- traduzido de README.md @ a3a9566 (base: a3a9566; readme-blob: a0ab7b882a3e539bfce48585c35b2c44fc7cbeff); ao atualizar o README.md, sincronize este arquivo e atualize o SHA e o readme-blob (git hash-object README.md) -->
+<!-- traduzido de README.md @ b4ffb278 (base: b4ffb278; readme-blob: b4ffb278bb7f5c8d93ea28517cdcae67e0375e4e); ao atualizar o README.md, sincronize este arquivo e atualize o SHA e o readme-blob (git hash-object README.md) -->
 [Português (Brasil)](README.md) · **English**
 
 > The Portuguese [README.md](README.md) is the reference version; this English translation may lag behind it.
@@ -33,6 +33,12 @@ To update right away (in the foreground, reporting the result; works even with a
 
 ```bash
 mdcli update
+```
+
+If `mdcli update` fails after removing the previous installation (for example, with a Bun `dependency loop` message), recover manually with:
+
+```bash
+bun install -g github:fm1randa/mdcli#vYYYY.M.D
 ```
 
 To turn automatic updates off, either set the environment variable:

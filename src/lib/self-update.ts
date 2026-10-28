@@ -115,6 +115,10 @@ function installArgs(tag: string): string[] {
   return ['install', '-g', `github:${REPO}#${tag}`];
 }
 
+function removeArgs(): string[] {
+  return ['remove', '-g', 'mdcli'];
+}
+
 // MDCLI_UPDATE_BUN lets verify.sh and tests swap the real install for a recorder.
 function bunBinary(env: NodeJS.ProcessEnv): string {
   return env.MDCLI_UPDATE_BUN || process.execPath;
@@ -152,9 +156,14 @@ export async function checkForUpdate(opts: Options): Promise<CheckResult> {
     const tag = await fetchLatestTag(env, BACKGROUND_TIMEOUT_MS);
     if (!tag) return 'offline';
     if (compareVersions(tag.slice(1), installed) <= 0) return 'up-to-date';
-    const child = spawn(bunBinary(env), installArgs(tag), { detached: true, stdio: 'ignore' });
-    child.on('error', () => {});
-    child.unref();
+    const removeChild = spawn(bunBinary(env), removeArgs(), { detached: true, stdio: 'ignore' });
+    removeChild.on('error', () => {});
+    removeChild.on('exit', () => {
+      const installChild = spawn(bunBinary(env), installArgs(tag), { detached: true, stdio: 'ignore' });
+      installChild.on('error', () => {});
+      installChild.unref();
+    });
+    removeChild.unref();
     return 'updating';
   } catch {
     return 'offline';
@@ -182,6 +191,15 @@ export async function runManualUpdate(opts: Options): Promise<number> {
     return 0;
   }
   notify(t('updateUpdating', installed, latest));
+  const removeCode = await new Promise<number>((resolve) => {
+    const child = spawn(bunBinary(env), removeArgs(), { stdio: ['ignore', 'inherit', 'inherit'] });
+    child.on('error', () => resolve(1));
+    child.on('exit', (c) => resolve(c ?? 1));
+  });
+  if (removeCode !== 0) {
+    notify(t('updateRemoveFailed', removeCode));
+    return 1;
+  }
   const code = await new Promise<number>((resolve) => {
     const child = spawn(bunBinary(env), installArgs(tag), { stdio: ['ignore', 'inherit', 'inherit'] });
     child.on('error', () => resolve(1));

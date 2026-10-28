@@ -32,6 +32,12 @@ Para atualizar na hora (em primeiro plano, informando o resultado; funciona mesm
 mdcli update
 ```
 
+Se `mdcli update` falhar após remover a instalação anterior (por exemplo, com uma mensagem de `dependency loop` do Bun), recupere manualmente com:
+
+```bash
+bun install -g github:fm1randa/mdcli#vYYYY.M.D
+```
+
 Para desligar as atualizações automáticas, defina a variável de ambiente:
 
 ```bash

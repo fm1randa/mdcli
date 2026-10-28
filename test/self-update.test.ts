@@ -21,14 +21,26 @@ function globalInstall(version: string): string {
   return root;
 }
 
-function recorder(exitCode = 0): { env: NodeJS.ProcessEnv; calls: () => string | null } {
+function recorder(exitCode = 0): { env: NodeJS.ProcessEnv; calls: () => string | null; allCalls: () => string[] } {
   const log = join(dir, 'install-args');
   const script = join(dir, 'fake-bun');
-  writeFileSync(script, `#!/bin/sh\necho "$@" > "${log}"\nexit ${exitCode}\n`);
+  writeFileSync(script, `#!/bin/sh\necho "$@" >> "${log}"\nexit ${exitCode}\n`);
   chmodSync(script, 0o755);
   return {
     env: { MDCLI_UPDATE_BUN: script, MDCLI_UPDATE_CHECK_URL: `${server.url}releases/latest`, MDCLI_CONFIG_DIR: join(dir, 'config') },
-    calls: () => (existsSync(log) ? readFileSync(log, 'utf-8').trim() : null),
+    calls: () => {
+      if (!existsSync(log)) return null;
+      const content = readFileSync(log, 'utf-8').trim();
+      if (!content) return null;
+      const lines = content.split('\n');
+      return lines[lines.length - 1] || null;
+    },
+    allCalls: () => {
+      if (!existsSync(log)) return [];
+      const content = readFileSync(log, 'utf-8').trim();
+      if (!content) return [];
+      return content.split('\n').filter((l) => l.length > 0);
+    },
   };
 }
 
@@ -81,10 +93,13 @@ describe('isGlobalInstall', () => {
 
 describe('checkForUpdate', () => {
   test('installs the newer release tag in the background, silently', async () => {
-    const { env, calls } = recorder();
+    const { env, allCalls } = recorder();
     const notices: string[] = [];
     expect(await checkForUpdate({ packageRoot: globalInstall('2026.10.13'), env, notify: (m) => notices.push(m) })).toBe('updating');
-    expect(await waitFor(calls)).toBe('install -g github:fm1randa/mdcli#v2026.10.20');
+    expect(await waitFor(() => {
+      const c = allCalls();
+      return c.length >= 2 ? c[c.length - 1] : null;
+    })).toBe('install -g github:fm1randa/mdcli#v2026.10.20');
     expect(notices).toEqual([]);
   });
 
@@ -174,5 +189,48 @@ describe('runManualUpdate', () => {
     latestTag = null;
     expect(await runManualUpdate({ packageRoot: globalInstall('2026.10.13'), env: failing.env, notify: quiet })).toBe(1);
     expect(await runManualUpdate({ packageRoot: join(import.meta.dir, '..'), env: failing.env, notify: quiet })).toBe(1);
+  });
+
+  test('runs remove before install and reports sequence', async () => {
+    const { env, allCalls } = recorder();
+    const notices: string[] = [];
+    const code = await runManualUpdate({ packageRoot: globalInstall('2026.10.13'), env, notify: (m) => notices.push(m) });
+    expect(code).toBe(0);
+    expect(allCalls()).toEqual([
+      'remove -g mdcli',
+      'install -g github:fm1randa/mdcli#v2026.10.20',
+    ]);
+    expect(notices.at(-1)).toBe('mdcli atualizado de 2026.10.13 para 2026.10.20');
+  });
+
+  test('fails when remove fails and does not proceed to install', async () => {
+    const { env, allCalls } = recorder(3);
+    const notices: string[] = [];
+    const code = await runManualUpdate({ packageRoot: globalInstall('2026.10.13'), env, notify: (m) => notices.push(m) });
+    expect(code).toBe(1);
+    expect(allCalls()).toEqual(['remove -g mdcli']);
+    expect(notices.at(-1)).toContain('Falha ao remover');
+  });
+
+  test('fails when install fails after successful remove and gives manual recovery', async () => {
+    const log = join(dir, 'install-args');
+    const script = join(dir, 'fake-bun-sequence');
+    // First call (remove) succeeds, second call (install) fails; both are logged.
+    writeFileSync(script, `#!/bin/sh\necho "$@" >> "${log}"\nif echo "$*" | grep -q "install"; then exit 3; else exit 0; fi\n`);
+    chmodSync(script, 0o755);
+    const envRec = {
+      ...recorder().env,
+      MDCLI_UPDATE_BUN: script,
+      MDCLI_UPDATE_CHECK_URL: server.url + 'releases/latest',
+      MDCLI_CONFIG_DIR: join(dir, 'config'),
+    };
+    const notices: string[] = [];
+    const code = await runManualUpdate({ packageRoot: globalInstall('2026.10.13'), env: envRec, notify: (m) => notices.push(m) });
+    expect(code).toBe(1);
+    expect(readFileSync(log, 'utf-8').trim().split('\n').filter((l) => l.length > 0)).toEqual([
+      'remove -g mdcli',
+      'install -g github:fm1randa/mdcli#v2026.10.20',
+    ]);
+    expect(notices.at(-1)).toContain('Recuperação manual');
   });
 });

@@ -449,7 +449,7 @@ self_update() {
   out=$(gcli bun "$GCLI" accounts list --json 2>"$SANDBOX/update-err" </dev/null) || return 1
   OUT="$out" bun -e 'JSON.parse(process.env.OUT)' || { echo "stdout não é JSON: $out"; return 1; }
   [ ! -s "$SANDBOX/update-err" ] || { echo "stderr inesperado: $(cat "$SANDBOX/update-err")"; return 1; }
-  for _ in $(seq 50); do [ -s "$SANDBOX/update-args" ] && break; sleep 0.1; done
+  for _ in $(seq 50); do grep -qx 'install -g github:fm1randa/mdcli#v2099.1.1' "$SANDBOX/update-args" 2>/dev/null && break; sleep 0.1; done
   grep -qx 'install -g github:fm1randa/mdcli#v2099.1.1' "$SANDBOX/update-args" \
     || { echo "install: $(cat "$SANDBOX/update-args" 2>/dev/null)"; return 1; }
   # Within 24h of that check the next run must not check again.
