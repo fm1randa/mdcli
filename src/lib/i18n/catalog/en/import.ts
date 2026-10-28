@@ -184,8 +184,6 @@ export const enImport: typeof SectionType = {
   importNothingToDo: () =>
     'Nothing to do: the file has no command lines. Nothing was written.',
   importNothingNewWritten: (message) => `${message} Nothing was written.`,
-  importNothingToWrite: () =>
-    'Nothing to write: every selected bank transaction is skipped.',
   confirmImport: () => 'Write this import to Meu Dinheiro? (y/N) ',
   importCancelled: () => 'Import cancelled. Nothing was written.',
   importWritten: (name) => `Import written for ${name}.`,

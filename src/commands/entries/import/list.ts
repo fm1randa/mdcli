@@ -49,6 +49,8 @@ export interface LoadedImport {
   linkable: ImportCandidate[][];
   /** Every Entry the run may link, by id, with the fields `sobrescrever` replaces. */
   existing: ReadonlyMap<number, ExistingEntry>;
+  /** The Connection's `markImportedWindowDays`: the commit marks back this many days from the page's latest. */
+  markImportedWindowDays: number | null;
 }
 
 /**
@@ -99,7 +101,7 @@ export async function loadImport(options: ImportLoadOptions): Promise<LoadedImpo
   }
   await fillDuplicates(document, accountId);
   const { linkable, existing } = await fillCandidates(document, account, payload);
-  return { document, account, payload, linkable, existing };
+  return { document, account, payload, linkable, existing, markImportedWindowDays: link.markImportedWindowDays };
 }
 
 /** `LoadedImport.linkable` looked up by row, for `planSelection`. */

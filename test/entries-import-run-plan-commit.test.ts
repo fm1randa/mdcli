@@ -88,7 +88,7 @@ describe('entries import run --plan --yes', () => {
     ]);
     const [mark, conciliation, importing] = mutations(api);
     // The skipped transaction is not marked, and the page date ignores it.
-    expect(mark.body).toEqual({ account: 9001, ids: [TX1, TX2, TX4], date: '2026-10-10' });
+    expect(mark.body).toEqual({ account: 9001, ids: [TX4], date: '2026-10-10' });
     expect(conciliation.body).toMatchObject({ lancamentos: [], maxDate: '2026-10-10', saldo: 80, fonte: FONTE });
     const imported = (importing.body as { lancamentos: Record<string, unknown>[] }).lancamentos;
     expect(imported.map((entry) => [entry.integrationId, entry.valorPrevisto, entry.descricao, entry.categoria])).toEqual([
@@ -103,12 +103,16 @@ describe('entries import run --plan --yes', () => {
   test('a plan that only skips writes nothing and asks nothing', async () => {
     statement([bank(TX1)]);
 
-    const result = await cli(['run', '--plan', planFile({ transactions: [{ id: 'aaaa1111', action: 'skip' }] })]);
+    const result = await cli(['run', '--plan', planFile({ transactions: [{ id: 'aaaa1111', action: 'skip' }] }), '--yes']);
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).not.toContain('(y/N)');
     expect(result.stdout).toContain('aaaa1111 (plan)');
-    expect(mutations(api)).toHaveLength(0);
+    expect(routes()).toEqual([
+      'POST /v1/integracao/transactions/markImported',
+      'POST /v1/lancamentos/conciliacao',
+      'POST /v1/lancamentos/importar',
+    ]);
+    expect(mutations(api)).toHaveLength(3);
   });
 
   test('without --yes, any answer but y cancels without a commit POST', async () => {

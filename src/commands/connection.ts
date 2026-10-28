@@ -10,6 +10,8 @@ export interface AccountConnection {
   connectionAccount: number | null;
   /** `accounts[].summary`: the new Bank Transactions the web's import badge shows. Null when the GET left it out. */
   summary: unknown;
+  /** `markImportedWindowDays`: how far back from the latest date markImported still marks. Null when the GET left it out. */
+  markImportedWindowDays: number | null;
 }
 
 /** Each Connection object of GET /v1/integracao/connections. Anything else in the list is left out. */
@@ -30,6 +32,7 @@ export function connectionList(payload: unknown): Record<string, unknown>[] {
 export async function accountConnection(accountId: number): Promise<AccountConnection> {
   const found = new Map<number, Set<number | null>>();
   let summary: unknown = null;
+  let markImportedWindowDays: number | null = null;
   for (const connection of connectionList(await fetchConnections())) {
     const rows = Array.isArray(connection.accounts) ? connection.accounts : [];
     for (const row of rows) {
@@ -42,6 +45,7 @@ export async function accountConnection(accountId: number): Promise<AccountConne
       const accounts = found.get(connectionId) ?? new Set<number | null>();
       accounts.add(integerOrNull(record?.id));
       summary ??= record?.summary ?? null;
+      markImportedWindowDays ??= integerOrNull(connection.markImportedWindowDays);
       found.set(connectionId, accounts);
     }
   }
@@ -57,5 +61,5 @@ export async function accountConnection(accountId: number): Promise<AccountConne
   if (accounts.length > 1) {
     exitWithError(t('errorAccountLinkedTwice', accountId, connectionId, accounts.join(', ')));
   }
-  return { connectionId, connectionAccount: accounts[0] ?? null, summary };
+  return { connectionId, connectionAccount: accounts[0] ?? null, summary, markImportedWindowDays };
 }

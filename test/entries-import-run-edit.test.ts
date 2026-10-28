@@ -205,8 +205,8 @@ describe('entries import run --edit', () => {
     expect(result.exitCode).toBe(0);
     expect(fake.seen(1)).toContain('# candidates aaaa1111\n# 4242 2026-10-20 -12.34 Padaria prevista\n');
     expect(fake.seen(1)).toContain('import aaaa1111 2026-10-07 -12.34  | Padaria Ficticia\n');
-    expect(routes()).toEqual(COMMIT.slice(1));
-    expect(lancamentos(0)).toEqual([expect.objectContaining({ ids: [4242], data: '2026-10-07' })]);
+    expect(routes()).toEqual(COMMIT);
+    expect(lancamentos(1)).toEqual([expect.objectContaining({ ids: [4242], data: '2026-10-07' })]);
   });
 
   test('flipping the sign needs a category of the new type; explicit import lifts the duplicate skip', async () => {
@@ -246,8 +246,8 @@ describe('entries import run --edit', () => {
     expect(fake.seen(3)).toStartWith(
       '# error: aaaa1111: entry 9007199254740993 is not an Entry id (a whole number from 1 to 9007199254740991).\n',
     );
-    expect(routes()).toEqual(COMMIT.slice(1));
-    expect(lancamentos(0)).toEqual([expect.objectContaining({ ids: [4242] })]);
+    expect(routes()).toEqual(COMMIT);
+    expect(lancamentos(1)).toEqual([expect.objectContaining({ ids: [4242] })]);
   });
 
   test('a different absolute value, a missing entry id, and an unknown command are refused', async () => {
