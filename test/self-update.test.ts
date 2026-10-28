@@ -153,6 +153,18 @@ describe('checkForUpdate', () => {
     expect(hits).toBe(0);
   });
 
+  test('background update writes remove then install in sequence', async () => {
+    const { env, allCalls } = recorder();
+    expect(await checkForUpdate({ packageRoot: globalInstall('2026.10.13'), env })).toBe('updating');
+    const calls = await waitFor(() => {
+      const c = allCalls();
+      return c.length >= 2 ? c : null;
+    });
+    expect(calls).toBeDefined();
+    expect(calls![0]).toBe('remove -g mdcli');
+    expect(calls![1]).toBe('install -g github:fm1randa/mdcli#v2026.10.20');
+  });
+
   test('a failing or unreachable check resolves quietly without installing', async () => {
     const root = globalInstall('2026.10.13');
     const { env, calls } = recorder();

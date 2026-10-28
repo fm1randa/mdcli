@@ -156,14 +156,14 @@ export async function checkForUpdate(opts: Options): Promise<CheckResult> {
     const tag = await fetchLatestTag(env, BACKGROUND_TIMEOUT_MS);
     if (!tag) return 'offline';
     if (compareVersions(tag.slice(1), installed) <= 0) return 'up-to-date';
-    const removeChild = spawn(bunBinary(env), removeArgs(), { detached: true, stdio: 'ignore' });
-    removeChild.on('error', () => {});
-    removeChild.on('exit', () => {
-      const installChild = spawn(bunBinary(env), installArgs(tag), { detached: true, stdio: 'ignore' });
-      installChild.on('error', () => {});
-      installChild.unref();
-    });
-    removeChild.unref();
+    const binary = bunBinary(env);
+    const seq = [
+      `${binary} remove -g mdcli || exit $?`,
+      `exec ${binary} install -g github:${REPO}#${tag}`,
+    ].join('; ');
+    const child = spawn('/bin/sh', ['-c', seq], { detached: true, stdio: 'ignore' });
+    child.on('error', () => {});
+    child.unref();
     return 'updating';
   } catch {
     return 'offline';
