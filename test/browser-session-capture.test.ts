@@ -42,14 +42,10 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  try {
-    await Promise.race([
-      browser?.close(),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('browser close timeout')), 10000)),
-    ]);
-  } catch {
-    // Ignore timeout failures; Playwright's dangling-process cleanup handles leftovers.
-  }
+  await Promise.race([
+    browser?.close(),
+    new Promise((_, reject) => setTimeout(() => reject(new Error('browser close timeout')), 10000)),
+  ]);
   server?.stop(true);
 });
 

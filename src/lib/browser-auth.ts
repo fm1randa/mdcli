@@ -108,14 +108,9 @@ export async function captureAuthFromBrowser(): Promise<AuthConfig> {
 
   console.log(t('authBrowserOpened'));
 
-  const captureTimeoutMs = 30000;
-  const captureStart = Date.now();
   while (!capturedHeaders) {
     if (browserDisconnected) {
       throw new Error(t('errorBrowserClosedEarly'));
-    }
-    if (Date.now() - captureStart > captureTimeoutMs) {
-      throw new Error(t('errorAuthCaptureFailed'));
     }
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
