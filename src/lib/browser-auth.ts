@@ -74,7 +74,15 @@ export async function captureAuthFromBrowser(): Promise<AuthConfig> {
     chromium.launch({
       headless: false,
       channel,
-      args: ['--window-size=1280,800'],
+      args: [
+        '--no-first-run',
+        '--no-default-browser-check',
+        '--disable-background-timer-throttling',
+        '--disable-backgrounding-occluded-windows',
+        '--disable-renderer-backgrounding',
+        '--disable-features=TranslateUI',
+        '--window-size=1280,800',
+      ],
     })
   );
 
@@ -100,9 +108,14 @@ export async function captureAuthFromBrowser(): Promise<AuthConfig> {
 
   console.log(t('authBrowserOpened'));
 
+  const captureTimeoutMs = 30000;
+  const captureStart = Date.now();
   while (!capturedHeaders) {
     if (browserDisconnected) {
       throw new Error(t('errorBrowserClosedEarly'));
+    }
+    if (Date.now() - captureStart > captureTimeoutMs) {
+      throw new Error(t('errorAuthCaptureFailed'));
     }
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
@@ -165,7 +178,16 @@ export async function captureAuthHeadless(opItemName: string): Promise<AuthConfi
     chromium.launch({
       headless: true,
       channel,
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      args: [
+        '--no-first-run',
+        '--no-default-browser-check',
+        '--disable-background-timer-throttling',
+        '--disable-backgrounding-occluded-windows',
+        '--disable-renderer-backgrounding',
+        '--disable-features=TranslateUI',
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+      ],
     })
   );
 

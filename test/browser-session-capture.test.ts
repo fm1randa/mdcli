@@ -27,11 +27,29 @@ beforeAll(async () => {
       );
     },
   });
-  browser = await chromium.launch({ channel: 'chrome', headless: true });
+  browser = await chromium.launch({
+    channel: 'chrome',
+    headless: true,
+    args: [
+      '--no-first-run',
+      '--no-default-browser-check',
+      '--disable-background-timer-throttling',
+      '--disable-backgrounding-occluded-windows',
+      '--disable-renderer-backgrounding',
+      '--disable-features=TranslateUI',
+    ],
+  });
 });
 
 afterAll(async () => {
-  await browser?.close();
+  try {
+    await Promise.race([
+      browser?.close(),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('browser close timeout')), 10000)),
+    ]);
+  } catch {
+    // Ignore timeout failures; Playwright's dangling-process cleanup handles leftovers.
+  }
   server?.stop(true);
 });
 
