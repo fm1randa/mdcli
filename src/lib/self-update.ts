@@ -157,11 +157,12 @@ export async function checkForUpdate(opts: Options): Promise<CheckResult> {
     if (!tag) return 'offline';
     if (compareVersions(tag.slice(1), installed) <= 0) return 'up-to-date';
     const binary = bunBinary(env);
+    const tagStr = tag;
     const seq = [
-      `${binary} remove -g mdcli || exit $?`,
-      `exec ${binary} install -g github:${REPO}#${tag}`,
+      '"$1" remove -g mdcli || exit $?',
+      'exec "$1" install -g github:fm1randa/mdcli#"$2"',
     ].join('; ');
-    const child = spawn('/bin/sh', ['-c', seq], { detached: true, stdio: 'ignore' });
+    const child = spawn('/bin/sh', ['-c', seq, 'sh', binary, tagStr], { detached: true, stdio: 'ignore' });
     child.on('error', () => {});
     child.unref();
     return 'updating';
