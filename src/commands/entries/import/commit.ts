@@ -3,7 +3,7 @@ import {
   importBankTransactions,
   markBankTransactionsImported,
 } from '../../../lib/api.js';
-import { compareDates } from '../../../lib/dates.js';
+import { addInterval, compareDates } from '../../../lib/dates.js';
 import { t } from '../../../lib/i18n/index.js';
 import type { ImportDocument } from './document.js';
 import type { RunDocument } from './plan.js';
@@ -11,8 +11,13 @@ import { asRecord, textOrNull } from '../../../lib/payload.js';
 
 /** The web app's source label for an automatic bank import. */
 const SOURCE = 'Importado via Integração bancária automática';
-/** The web app commits 200 items per page. */
+/** The web app commits 200 rows of the statement per page (`Ue`, mdb.js 21190). */
 const PAGE_SIZE = 200;
+/**
+ * The window the web implies when the Connection has no `markImportedWindowDays`: moment's
+ * `subtract(undefined, 'days')` is a no-op, so only the rows on the page's latest date are marked.
+ */
+const DEFAULT_WINDOW_DAYS = 0;
 /**
  * Statement row fields the web sends when it links a Bank Transaction (`g()`, mdb.js 21108-21119):
  * the row's own, not the linked Entry's nor the edited copy (`E.e`). The server applies them to the
@@ -27,6 +32,8 @@ export interface CommitInput {
   /** The raw statement rows, row for row with `document.transactions`. */
   statementRows: readonly unknown[];
   creditCard: boolean;
+  /** The Connection's `markImportedWindowDays`, read like the web; null when the Connection did not send it. */
+  markImportedWindowDays: number | null;
 }
 
 interface CommitItem {
@@ -37,21 +44,38 @@ interface CommitItem {
   payload: Record<string, unknown> | null;
 }
 
+/** A loaded statement row the web marks as imported, whatever the run does with it. */
+interface PageRow {
+  integrationId: string | null;
+  date: string;
+}
+
 /**
- * Writes the run like the web: pages of 200 in date order; each page posts markImported,
- * then conciliacao, then importar. A failed markImported is reported and the page goes on.
+ * Writes the run like the web: the statement in pages of 200 in date order, and each page posts
+ * markImported with every row of the page inside the Connection's window, then conciliacao and
+ * importar. A failed markImported is reported and the page goes on.
  * A failed conciliacao or importar stops the import and says how many pages were written.
  */
 export async function commitRun(input: CommitInput): Promise<void> {
   const items = commitItems(input).sort((a, b) => compareDates(a.date, b.date));
-  const pages: CommitItem[][] = [];
-  for (let start = 0; start < items.length; start += PAGE_SIZE) pages.push(items.slice(start, start + PAGE_SIZE));
+  // The web pages over the whole statement, not over what the run writes: `lancamentosPagina` is
+  // `extrato.lancamentos.slice(dt, dt + 200)` (mdb.js 21431-21436), and the confirmation dialog marks
+  // every row of the page, ignored and invalid ones included (`u.lancamentos.map(D => D.e)`, 20965-20968).
+  const rows = pageRows(input.document);
+  const pages: PageRow[][] = [];
+  for (let start = 0; start < rows.length; start += PAGE_SIZE) pages.push(rows.slice(start, start + PAGE_SIZE));
+  if (pages.length === 0) return;
+  const windowDays = input.markImportedWindowDays ?? DEFAULT_WINDOW_DAYS;
+  const pageItems = itemsByPage(items, rows, pages.length);
 
   const { run } = input;
   const markErrors: string[] = [];
   for (const [index, page] of pages.entries()) {
-    const maxDate = page.reduce((max, item) => (item.date > max ? item.date : max), page[0].date);
-    const ids = page.filter((item) => item.action !== 'conciliate').map((item) => item.integrationId);
+    const maxDate = page.reduce((max, row) => (row.date > max ? row.date : max), page[0].date);
+    const floor = addInterval(maxDate, -windowDays, 'd');
+    const ids = page
+      .filter((row) => row.integrationId !== null && row.date >= floor)
+      .map((row) => row.integrationId as string);
     if (ids.length > 0) {
       try {
         await markBankTransactionsImported({ account: run.connectionAccount, ids, date: maxDate });
@@ -62,6 +86,7 @@ export async function commitRun(input: CommitInput): Promise<void> {
         run.markImportedError = markErrors.join('\n');
       }
     }
+    const pageRun = pageItems[index];
     try {
       await conciliateBankTransactions({
         sobrescrever: run.overwrite.value,
@@ -70,14 +95,14 @@ export async function commitRun(input: CommitInput): Promise<void> {
         fim: run.statement.end,
         saldo: run.statement.balance,
         conta: run.accountId,
-        lancamentos: payloads(page, 'conciliate'),
+        lancamentos: payloads(pageRun, 'conciliate'),
         considerarObservacoes: false,
         connectionAccount: run.connectionAccount,
         maxDate,
         fonte: SOURCE,
       });
       await importBankTransactions({
-        lancamentos: payloads(page, 'import'),
+        lancamentos: payloads(pageRun, 'import'),
         connectionAccount: run.connectionAccount,
         maxDate,
         fonte: SOURCE,
@@ -91,6 +116,34 @@ export async function commitRun(input: CommitInput): Promise<void> {
       );
     }
   }
+}
+
+/**
+ * The loaded statement rows the web pages over, in the web's order: ascending by date
+ * (`extrato.lancamentos.sort`, mdb.js 21335-21339), rows without a date left out because the
+ * web's page date and window cannot place them.
+ */
+function pageRows(document: ImportDocument): PageRow[] {
+  const rows: PageRow[] = [];
+  for (const transaction of document.transactions) {
+    if (transaction.date === null) continue;
+    rows.push({ integrationId: transaction.integrationId, date: transaction.date });
+  }
+  return rows.sort((a, b) => compareDates(a.date, b.date));
+}
+
+/**
+ * Each written item on the page its row fell on. An item the statement gave no dated row
+ * (no `integrationId`) goes on the last page, so no write is dropped.
+ */
+function itemsByPage(items: readonly CommitItem[], rows: readonly PageRow[], pageCount: number): CommitItem[][] {
+  const pageOf = new Map<string, number>();
+  rows.forEach((row, index) => {
+    if (row.integrationId !== null && !pageOf.has(row.integrationId)) pageOf.set(row.integrationId, Math.floor(index / PAGE_SIZE));
+  });
+  const byPage: CommitItem[][] = Array.from({ length: pageCount }, () => []);
+  for (const item of items) byPage[pageOf.get(item.integrationId) ?? pageCount - 1].push(item);
+  return byPage;
 }
 
 function commitItems(input: CommitInput): CommitItem[] {

@@ -52,11 +52,10 @@ export async function runAction(options: ImportRunOptions): Promise<void> {
     categories,
     names: options.json ? null : await overwrittenNames(run),
   };
-  const writes = run.imported.length + run.conciliated.length + run.rejected.length;
+  // The web's commit marks every row of the statement it read, so a run that only leaves rows
+  // alone (skip) still commits: markImported is how the web persists "Não importar".
   if (!options.json) printRun(run, context);
-  if (!dryRun && writes === 0) {
-    if (!options.json) logger.info(t('importNothingToWrite'));
-  } else if (!dryRun) {
+  if (!dryRun) {
     if (!options.yes && !options.json) {
       const confirmed = await promptConfirmation(t('confirmImport'));
       if (!confirmed) {
@@ -69,6 +68,7 @@ export async function runAction(options: ImportRunOptions): Promise<void> {
       document,
       statementRows: statementRows(payload),
       creditCard: account !== undefined && isCreditCard(account),
+      markImportedWindowDays: loaded.markImportedWindowDays,
     });
     if (!options.json) logger.success(t('importWritten', String(context.accountName ?? run.accountId)));
   }

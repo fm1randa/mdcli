@@ -105,7 +105,7 @@ describe('entries import run: the new Entry payload', () => {
     expect(result.exitCode).toBe(0);
     expect(routes()).toEqual(COMMIT);
     const [mark, , importing] = mutations(api);
-    expect(mark.body).toEqual({ account: 9002, ids: [TX1, TX3], date: '2099-02-01' });
+    expect(mark.body).toEqual({ account: 9002, ids: [TX3], date: '2099-02-01' });
     const common = { moeda: 1, descricao: 'Padaria Ficticia', conta: 1002, categoria: 10, tags: [], tipo: 'd' };
     expect((importing.body as { lancamentos: unknown }).lancamentos).toEqual([
       {

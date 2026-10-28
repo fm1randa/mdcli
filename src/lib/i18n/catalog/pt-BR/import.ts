@@ -183,8 +183,6 @@ export const ptBRImport = {
   importNothingToDo: () =>
     'Nada a fazer: o arquivo não tem linhas de comando. Nada foi gravado.',
   importNothingNewWritten: (message: string) => `${message} Nada foi gravado.`,
-  importNothingToWrite: () =>
-    'Nada a gravar: todas as transações bancárias selecionadas foram puladas.',
   confirmImport: () => 'Gravar esta importação no Meu Dinheiro? (y/N) ',
   importCancelled: () => 'Importação cancelada. Nada foi gravado.',
   importWritten: (name: string) => `Importação gravada para ${name}.`,

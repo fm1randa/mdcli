@@ -19,6 +19,7 @@ beforeEach(() => {
   api.on('GET /v1/cadastros/contas', ACCOUNTS_RESPONSE);
   api.on('GET /v1/cadastros/categorias', CATEGORIES_RESPONSE);
   api.on('GET /v1/lancamentos/duplicidade', {});
+  api.on('POST /v1/integracao/transactions/markImported', {});
   api.on('POST /v1/lancamentos/conciliacao', {});
   api.on('POST /v1/lancamentos/importar', {});
   mockStatement(api, [{ integrationId: TX1, descricao: 'Padaria Ficticia', valor: -12.34, data: '2026-10-07', moeda: 1 }]);

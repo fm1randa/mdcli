@@ -70,7 +70,7 @@ describe('entries import run --yes', () => {
     expect(result.exitCode).toBe(0);
     expect(routes()).toEqual(COMMIT);
     const [mark, conciliation, importing] = mutations(api);
-    expect(mark.body).toEqual({ account: 9001, ids: [TX1, TX2], date: '2026-10-08' });
+    expect(mark.body).toEqual({ account: 9001, ids: [TX2], date: '2026-10-08' });
     expect(conciliation.body).toEqual({
       sobrescrever: false,
       sobrescreverDescr: false,
@@ -146,17 +146,33 @@ describe('entries import run confirmation', () => {
     statement([bank(TX1)]);
     api.on('GET /v1/lancamentos/duplicidade', { '2026-10-07': [{ id: 77, valor: -12.34 }] });
 
-    const result = await run(['--ids', 'aaaa1111', '-c', '10']);
+    // The web's import dialog asks before committing, even for skip-only batches (reversed Q11).
+    const result = await run(['--ids', 'aaaa1111', '-c', '10', '--yes']);
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).not.toContain('(y/N)');
     expect(result.stdout).toContain('aaaa1111 (duplicate)');
+    expect(routes()).toEqual(COMMIT);
+    expect(mutations(api)).toHaveLength(3);
+  });
+});
+
+describe('entries import run confirmation interactive', () => {
+  test('a batch that only skips asks before marking, and any answer but y writes nothing', async () => {
+    statement([bank(TX1)]);
+    api.on('GET /v1/lancamentos/duplicidade', { '2026-10-07': [{ id: 77, valor: -12.34 }] });
+
+    const result = await run(['--ids', 'aaaa1111', '-c', '10'], 'n\n');
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain('Import 0, conciliate 0, reject 0, skip 1.');
+    expect(result.stdout).toContain('(y/N)');
+    expect(result.stdout).toContain('Import cancelled. Nothing was written.');
     expect(mutations(api)).toHaveLength(0);
   });
 });
 
 describe('entries import run linking and status', () => {
-  test('a linked Bank Transaction sends its own fields like the web, keeps out of markImported, and imports nothing', async () => {
+  test('a linked Bank Transaction sends its own fields like the web, marks its row, and imports nothing', async () => {
     statement([bank(TX1, { ndocumento: 'NSU 998', centro: null })]);
     entries([
       {
@@ -176,12 +192,14 @@ describe('entries import run linking and status', () => {
 
     expect(result.stderr).toBe('');
     expect(result.exitCode).toBe(0);
-    expect(routes()).toEqual(COMMIT.slice(1));
-    const [conciliation, importing] = mutations(api);
+    expect(routes()).toEqual(COMMIT);
+    const mutationsList = mutations(api);
+    const conciliation = mutationsList[1] as { body: { lancamentos: unknown } };
+    const importing = mutationsList[2] as { body: { lancamentos: unknown } };
     expect((conciliation.body as { lancamentos: unknown }).lancamentos).toEqual([
       { data: '2026-10-07', valor: -12.34, descricao: 'Padaria Ficticia', ndocumento: 'NSU 998', ids: [4242] },
     ]);
-    expect((conciliation.body as { maxDate: string }).maxDate).toBe('2026-10-07');
+    expect((conciliation.body as unknown as { maxDate: string }).maxDate).toBe('2026-10-07');
     expect((importing.body as { lancamentos: unknown }).lancamentos).toEqual([]);
     expect(JSON.parse(result.stdout).conciliated[0].entryId).toBe(4242);
   });
