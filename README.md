@@ -4,6 +4,10 @@
 
 Cliente de linha de comando (CLI) não oficial do [Meu Dinheiro](https://meudinheiroweb.com.br), um app brasileiro de finanças pessoais.
 
+### Idioma
+
+O idioma padrão é **pt-BR** (português brasileiro). Para usar inglês, passe `--lang en` ou defina `MDCLI_LANG=en`. A variável `MDCLI_LANG` aceita `pt`, `pt-BR`, `pt_BR`, `en` e `en-US` (sem diferenciar maiúsculas/minúsculas). `--lang` tem precedência sobre a variável de ambiente. Valores inválidos geram um erro claro com a lista dos aceitos.
+
 ## Instalação
 
 > Requer o [Bun](https://bun.sh). O mdcli executa TypeScript diretamente e depende de APIs exclusivas do Bun, então não roda no Node.js puro.

@@ -4,6 +4,7 @@ import {
   markBankTransactionsImported,
 } from '../../../lib/api.js';
 import { compareDates } from '../../../lib/dates.js';
+import { t } from '../../../lib/i18n/index.js';
 import type { ImportDocument } from './document.js';
 import type { RunDocument } from './plan.js';
 import { asRecord, textOrNull } from '../../../lib/payload.js';
@@ -55,7 +56,7 @@ export async function commitRun(input: CommitInput): Promise<void> {
       try {
         await markBankTransactionsImported({ account: run.connectionAccount, ids, date: maxDate });
       } catch (error) {
-        const message = `markImported failed: ${errorMessage(error)}`;
+        const message = t('errorMarkImportedFailed', errorMessage(error));
         console.error(message);
         markErrors.push(message);
         run.markImportedError = markErrors.join('\n');
@@ -85,7 +86,7 @@ export async function commitRun(input: CommitInput): Promise<void> {
       });
     } catch (error) {
       throw new Error(
-        `${errorMessage(error)} Pages written before the failure: ${index} of ${pages.length}.`,
+        t('errorPagesWritten', errorMessage(error), index, pages.length),
         { cause: error },
       );
     }
@@ -96,7 +97,7 @@ function commitItems(input: CommitInput): CommitItem[] {
   const { run, document } = input;
   const bankDate = (integrationId: string): string => {
     const row = document.transactions.find((item) => item.integrationId === integrationId);
-    if (row?.date == null) throw new Error(`Bank transaction ${integrationId} has no date.`);
+    if (row?.date == null) throw new Error(t('errorBankTransactionNoDate', integrationId));
     return row.date;
   };
   const statementRow = (integrationId: string): Record<string, unknown> | null => {
@@ -168,5 +169,5 @@ function webPayload(record: Record<string, unknown>): Record<string, unknown> {
 }
 
 function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : 'Unknown error';
+  return error instanceof Error ? error.message : t('unknownError');
 }

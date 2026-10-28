@@ -1,3 +1,4 @@
+import { t } from '../i18n/index.js';
 import { cp, mkdtemp, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -71,7 +72,7 @@ export async function cleanupTempDir(tempDir: string): Promise<void> {
         // Best-effort cleanup: a leftover temp profile copy should never mask
         // a successful auth result (e.g. the browser process on Windows can
         // hold a file handle open briefly after context.close() resolves).
-        console.warn(`⚠ Could not remove temporary profile copy at ${tempDir}. You can delete it manually.`);
+        console.warn(t('warningTempProfileRemoveFailed', tempDir));
         return;
       }
 

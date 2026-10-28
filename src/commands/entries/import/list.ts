@@ -2,6 +2,7 @@ import Table from 'cli-table3';
 import { fetchAccountById, fetchBankTransactions, fetchCardInvoice, fetchImportCandidates, fetchImportDuplicates, isCreditCard } from '../../../lib/api.js';
 import type { Account } from '../../../types/index.js';
 import { exitWithError } from '../../../utils/action.js';
+import { t } from '../../../lib/i18n/index.js';
 import { ownDueDate } from '../card-invoice.js';
 import { formatCurrency } from '../../../utils/currency.js';
 import { logger } from '../../../utils/logger.js';
@@ -64,12 +65,12 @@ export async function loadImport(options: ImportLoadOptions): Promise<LoadedImpo
   const link = await accountConnection(accountId);
   const { connectionAccount } = link;
   if (connectionAccount === null) {
-    exitWithError(`Account ${accountId} is linked to connection ${link.connectionId}, which did not include its connection account id.`);
+    exitWithError(t('errorConnectionMissingAccountId', accountId, link.connectionId));
   }
   const account = await fetchAccountById(accountId);
   const card = account !== undefined && isCreditCard(account);
   if (card && (searchFrom !== undefined || searchTo !== undefined)) {
-    exitWithError('A search window on a credit card is not specified. Candidates come from the current card invoice.');
+    exitWithError(t('errorCardSearchWindow'));
   }
   // Like the web: the import badge shows the connection's summary (what the server has not seen imported),
   // but a GET rarely has one (the web gets it from the sync PUT, which the CLI never sends on its own).
@@ -94,7 +95,7 @@ export async function loadImport(options: ImportLoadOptions): Promise<LoadedImpo
   const from = document.search.from;
   const to = document.search.to;
   if (from !== null && to !== null && from > to) {
-    exitWithError(`Search start ${from} is after search end ${to}.`);
+    exitWithError(t('errorSearchStartAfterEnd', from, to));
   }
   await fillDuplicates(document, accountId);
   const { linkable, existing } = await fillCandidates(document, account, payload);
@@ -189,14 +190,11 @@ async function invoiceRows(account: Account): Promise<unknown[]> {
   const due = ownDueDate(account);
   if (due === null) {
     // No primeiraFatura fallback, like the web (see ownDueDate).
-    exitWithError(
-      `Card ${account.id} has no next due date in Meu Dinheiro, so there is no current invoice to find matching entries in. ` +
-        'Set the card\'s due date in the web app (edit the card), then run the import again.',
-    );
+    exitWithError(t('errorCardNoDueDate', account.id));
   }
   const invoice = await fetchCardInvoice(account.id, due);
   if (!Array.isArray(invoice.lancamentos)) {
-    throw new Error(`GET /v1/cartoes/${account.id}/fatura/${due} did not return lancamentos`);
+    throw new Error(t('errorInvoiceNoLancamentos', account.id, due));
   }
   return invoice.lancamentos;
 }
@@ -210,10 +208,10 @@ function summaryStatement(summary: unknown): Record<string, unknown> | null {
 
 /** Why there is nothing to list or import, and how to load more. */
 export function nothingNewMessage(document: ImportDocument): string {
-  const none = `No bank transactions since ${document.since ?? '-'}.`;
+  const none = t('importNothingNew', document.since ?? '-');
   const floor = earliestSince();
   if (document.since !== null && document.since <= floor) return none;
-  return `${none} To look further back, use --since <YYYY-MM-DD> (${floor} or later).`;
+  return `${none}${t('importNothingNewHint', floor)}`;
 }
 
 export function statementRows(payload: unknown): unknown[] {
@@ -233,16 +231,16 @@ function printStatement(document: ImportDocument): void {
 
   const table = new Table({
     head: [
-      'Prefix',
-      'Date',
-      'Value',
-      'Description',
-      'Category',
-      'Suggested description',
-      'Tags',
-      'Duplicate',
-      'Candidates',
-      'Action',
+      t('labelPrefix'),
+      t('labelDate'),
+      t('labelValue'),
+      t('labelDescription'),
+      t('labelCategory'),
+      t('labelSuggestedDescription'),
+      t('labelTags'),
+      t('labelDuplicate'),
+      t('labelCandidates'),
+      t('labelAction'),
     ],
     style: { head: ['cyan'] },
   });
@@ -256,19 +254,19 @@ function printStatement(document: ImportDocument): void {
       cell(bankTransaction.suggestedDescription),
       listCell(bankTransaction.suggestedTagIds),
       cell(bankTransaction.duplicateOf),
-      listCell(bankTransaction.candidates, (item) => (item.id === bankTransaction.conciliateWith ? `${item.id} (linked)` : String(item.id))),
+      listCell(bankTransaction.candidates, (item) => (item.id === bankTransaction.conciliateWith ? t('importCandidateLinked', item.id) : String(item.id))),
       bankTransaction.defaultAction,
     ]);
   }
   const { start, end } = document.statement;
   logger.header(
     document.source === 'summary'
-      ? `New bank transactions (${document.transactions.length}), statement ${start ?? '-'} to ${end ?? '-'}`
-      : `Bank transactions (${document.transactions.length}) since ${document.since ?? '-'}`,
+      ? t('importListSummaryHeader', document.transactions.length, start ?? '-', end ?? '-')
+      : t('importListStatementHeader', document.transactions.length, document.since ?? '-'),
   );
   console.log(table.toString());
   if (document.ai === 'unavailable') {
-    logger.warning('AI category suggestions are unavailable. Only the learned rules were applied.');
+    logger.warning(t('warningAiUnavailable'));
   }
 }
 

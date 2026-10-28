@@ -1,6 +1,7 @@
 import Table from 'cli-table3';
 import chalk from 'chalk';
 import { logger } from '../../utils/logger.js';
+import { t } from '../../lib/i18n/index.js';
 import { exitWithError } from '../../utils/action.js';
 import { normalizeEntries } from '../../lib/api.js';
 import { fetchListEntries } from './card-entries.js';
@@ -24,7 +25,7 @@ async function loadEntries(options: FilterOptions) {
 
 function checkOutputFormat(options: { json?: boolean; csv?: boolean }): void {
   if (options.json && options.csv) {
-    exitWithError('Use either --json or --csv, not both.');
+    exitWithError(t('errorJsonOrCsv'));
   }
 }
 
@@ -74,7 +75,7 @@ export async function listAction(options: ListOptions): Promise<void> {
   }
 
   const table = new Table({
-    head: ['ID', 'Date', 'Description', 'Value', 'Type', 'Status', 'Installment'],
+    head: [t('labelId'), t('labelDate'), t('labelDescription'), t('labelValue'), t('labelType'), t('labelStatus'), t('labelInstallment')],
     style: { head: ['cyan'] },
     colWidths: LIST_COL_WIDTHS,
   });
@@ -92,7 +93,7 @@ export async function listAction(options: ListOptions): Promise<void> {
   }
 
   const total = entries.reduce((sum, e) => sum + e.value, 0);
-  logger.header(`Entries (${entries.length}) | Total: ${formatCurrency(total)}`);
+  logger.header(t('entriesListHeader', entries.length, formatCurrency(total)));
   console.log(table.toString());
 }
 
@@ -110,7 +111,7 @@ export async function summaryAction(options: SummaryOptions): Promise<void> {
   checkOutputFormat(options);
   const by = (options.by ?? 'category') as SummaryGrouping;
   if (!SUMMARY_GROUPINGS.includes(by)) {
-    exitWithError(`Invalid --by "${options.by}". Use category, month, or account.`);
+    exitWithError(t('errorInvalidBy', options.by ?? ''));
   }
 
   const { params, entries: filtered, excludedByCategory } = await loadEntries(options);
@@ -138,7 +139,7 @@ export async function summaryAction(options: SummaryOptions): Promise<void> {
       return { key: String(e.accountId), label: String(nameOf(names?.accounts, e.accountId)) };
     }
     if (e.categoryId === null) {
-      return { key: 'none', label: '(no category)' };
+      return { key: 'none', label: t('labelNoCategory') };
     }
     return { key: String(e.categoryId), label: String(nameOf(names?.categories, e.categoryId)) };
   });
@@ -169,7 +170,13 @@ export async function summaryAction(options: SummaryOptions): Promise<void> {
   }
 
   const table = new Table({
-    head: [by[0].toUpperCase() + by.slice(1), 'Entries', 'Income', 'Expenses', 'Net'],
+    head: [
+      by === 'month' ? t('summaryGroupMonth') : by === 'account' ? t('summaryGroupAccount') : t('summaryGroupCategory'),
+      t('labelEntries'),
+      t('labelIncome'),
+      t('labelExpenses'),
+      t('labelNet'),
+    ],
     style: { head: ['cyan'] },
   });
   for (const row of rows) {
@@ -183,18 +190,18 @@ export async function summaryAction(options: SummaryOptions): Promise<void> {
     formatCurrency(total.net),
   ]);
 
-  logger.header(`Summary by ${by} | ${params.startDate} to ${params.endDate}`);
+  logger.header(t('entriesSummaryHeader', by, params.startDate, params.endDate));
   console.log(table.toString());
   if (excludedByCategory > 0) {
-    console.log(chalk.gray(`\n${excludedByCategory} entr${excludedByCategory === 1 ? 'y' : 'ies'} left out by --exclude-category.`));
+    console.log(chalk.gray(`\n${t('entriesExcludedByCategory', excludedByCategory)}`));
   }
   if (skippedTransfers > 0) {
-    console.log(chalk.gray(`\n${skippedTransfers} transfer(s) left out. Use --include-transfers to count them.`));
+    console.log(chalk.gray(`\n${t('entriesSkippedTransfers', skippedTransfers)}`));
   }
   if (skippedPayments > 0) {
-    console.log(chalk.gray(`\n${skippedPayments} card payment(s) left out of the summary.`));
+    console.log(chalk.gray(`\n${t('entriesSkippedPayments', skippedPayments)}`));
   }
   if (skippedInvoices > 0) {
-    console.log(chalk.gray(`\n${skippedInvoices} invoice projection(s) left out of the summary.`));
+    console.log(chalk.gray(`\n${t('entriesSkippedInvoices', skippedInvoices)}`));
   }
 }

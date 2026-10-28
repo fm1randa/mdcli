@@ -1,5 +1,6 @@
 import { Command, Option } from 'commander';
 import { action } from '../../utils/action.js';
+import { t } from '../../lib/i18n/index.js';
 import { createAction } from './create.js';
 import { deleteAction } from './delete.js';
 import { addFilterOptions } from './filters.js';
@@ -10,80 +11,80 @@ import { showAction } from './show.js';
 import { updateAction } from './update.js';
 
 export const entriesCommand = new Command('entries')
-  .description('Manage entries (lancamentos)');
+  .description(t('entriesManageDescription'));
 
-addFilterOptions(entriesCommand.command('list').description('List entries for one or more accounts'))
-  .option('--json', 'Output as JSON')
-  .option('--csv', 'Output as CSV (with account and category names)')
+addFilterOptions(entriesCommand.command('list').description(t('entriesListDescription')))
+  .option('--json', t('jsonOption'))
+  .option('--csv', t('entriesListCsvOption'))
   .action(action(listAction));
 
 addFilterOptions(
-  entriesCommand.command('summary').description('Total income and expenses grouped by category, month, or account')
+  entriesCommand.command('summary').description(t('entriesSummaryDescription'))
 )
-  .option('-b, --by <grouping>', 'Group by: category, month, or account', 'category')
-  .option('--include-transfers', 'Count transfers between accounts (left out by default)')
-  .option('--json', 'Output as JSON')
-  .option('--csv', 'Output as CSV')
+  .option('-b, --by <grouping>', t('entriesSummaryByOption'), 'category')
+  .option('--include-transfers', t('entriesSummaryIncludeTransfersOption'))
+  .option('--json', t('jsonOption'))
+  .option('--csv', t('csvOption'))
   .action(action(summaryAction));
 
 entriesCommand
   .command('show <id>')
-  .description('Show every field of one entry')
-  .option('--json', 'Output the normalized entry as JSON (the same fields as list --json)')
-  .option('--raw', 'Output the entry exactly as the API returns it')
+  .description(t('entriesShowDescription'))
+  .option('--json', t('entriesShowJsonOption'))
+  .option('--raw', t('entriesShowRawOption'))
   .action(action(showAction));
 
 entriesCommand
   .command('create')
-  .description('Create a new entry')
-  .requiredOption('-a, --account <id>', 'Account ID, alias, or exact name (case-insensitive); for a transfer, the origin account')
-  .requiredOption('-d, --description <text>', 'Entry description')
-  .requiredOption('-v, --value <amount>', 'Entry value (positive number, e.g. 10.50 or 10,50); with --installments, the total unless --per-installment')
-  .option('-T, --type <type>', 'Entry type: expense, income, transfer (default: expense)', 'expense')
-  .option('--to-account <id>', 'Transfers: destination account ID, alias, or exact name (required with -T transfer)')
-  .option('-c, --category <id>', 'Category ID, alias, or exact name (case-insensitive) (required; transfers default to the transfer category)')
-  .option('-D, --date <date>', 'Entry date (YYYY-MM-DD), defaults to today; with --installments, the first installment')
-  .option('-g, --tags <ids>', 'Tag ID(s), alias(es), or exact name(s) (case-insensitive), comma-separated')
-  .option('-n, --notes <text>', 'Additional notes/observations')
-  .option('-p, --pending', 'Create as not confirmed (Confirmado off in the web app, no effective date): pending up to today, scheduled for a future date')
-  .option('--confirmed', 'Create as confirmed, not reconciled (default: reconciled)')
-  .addOption(new Option('-S, --scheduled', 'Deprecated alias of --pending').hideHelp())
-  .option('-r, --repeat <interval>', 'Recurrence: daily, weekly, monthly, yearly (or d, w, m, y); with --installments, the spacing (default: monthly)')
-  .option('--frequency <n>', 'Repeat every N intervals, e.g. --frequency 2 = every 2 months (default: 1)')
-  .option('--times <n>', 'Fixed series: total occurrences, e.g. --times 6 = 6 times then stop (default: infinite)')
-  .option('-i, --installments <n>', 'Installment series (parcelada): split --value into N installments (N >= 2)')
-  .option('--first-installment <n>', 'Installments: number of the first installment, as in the web app (default: 1)')
-  .option('--per-installment', 'Installments: --value is each installment, not the total')
-  .option('--invoice <YYYY-MM>', 'Credit cards: invoice month to post to (default: the invoice the date falls in)')
-  .option('--json', 'Output as JSON')
+  .description(t('entriesCreateDescription'))
+  .requiredOption('-a, --account <id>', t('entriesCreateAccountOption'))
+  .requiredOption('-d, --description <text>', t('entriesCreateDescriptionOption'))
+  .requiredOption('-v, --value <amount>', t('entriesCreateValueOption'))
+  .option('-T, --type <type>', t('entriesCreateTypeOption'), 'expense')
+  .option('--to-account <id>', t('entriesCreateToAccountOption'))
+  .option('-c, --category <id>', t('entriesCreateCategoryOption'))
+  .option('-D, --date <date>', t('entriesCreateDateOption'))
+  .option('-g, --tags <ids>', t('entriesTagsOption'))
+  .option('-n, --notes <text>', t('entriesNotesOption'))
+  .option('-p, --pending', t('entriesCreatePendingOption'))
+  .option('--confirmed', t('entriesCreateConfirmedOption'))
+  .addOption(new Option('-S, --scheduled', t('entriesScheduledAliasOption')).hideHelp())
+  .option('-r, --repeat <interval>', t('entriesCreateRepeatOption'))
+  .option('--frequency <n>', t('entriesCreateFrequencyOption'))
+  .option('--times <n>', t('entriesCreateTimesOption'))
+  .option('-i, --installments <n>', t('entriesCreateInstallmentsOption'))
+  .option('--first-installment <n>', t('entriesCreateFirstInstallmentOption'))
+  .option('--per-installment', t('entriesCreatePerInstallmentOption'))
+  .option('--invoice <YYYY-MM>', t('entriesCreateInvoiceOption'))
+  .option('--json', t('jsonOption'))
   .action(action(createAction));
 
 entriesCommand
   .command('update <id>')
-  .description('Update an existing entry (partial update - only send fields you want to change)')
-  .option('-a, --account <id>', 'Move the entry to this account: ID, alias, or exact name (case-insensitive); for a transfer, the origin account')
-  .option('--to-account <id>', 'Transfers: move the destination to this account (ID, alias, or exact name)')
-  .option('-d, --description <text>', 'Entry description')
-  .option('-v, --value <amount>', 'Entry value (e.g. 10.50 or 10,50)')
-  .option('-T, --type <type>', 'Entry type: expense, income, transfer')
-  .option('-c, --category <id>', 'Category ID, alias, or exact name (case-insensitive)')
-  .option('-D, --date <date>', 'Entry date (YYYY-MM-DD)')
-  .option('-g, --tags <ids>', 'Tag ID(s), alias(es), or exact name(s) (case-insensitive), comma-separated')
-  .option('-n, --notes <text>', 'Additional notes/observations')
-  .option('-p, --pending', 'Set as not confirmed: clears the effective date and value (pending up to today, scheduled for a future date)')
-  .option('--confirmed', 'Set as confirmed, not reconciled (confirms a pending or scheduled entry)')
-  .option('-r, --reconciled', 'Set as reconciled')
-  .addOption(new Option('-S, --scheduled', 'Deprecated alias of --pending').hideHelp())
-  .addOption(scopeOption('change'))
-  .option('--json', 'Output as JSON')
+  .description(t('entriesUpdateDescription'))
+  .option('-a, --account <id>', t('entriesUpdateAccountOption'))
+  .option('--to-account <id>', t('entriesUpdateToAccountOption'))
+  .option('-d, --description <text>', t('entriesCreateDescriptionOption'))
+  .option('-v, --value <amount>', t('entriesUpdateValueOption'))
+  .option('-T, --type <type>', t('entriesUpdateTypeOption'))
+  .option('-c, --category <id>', t('entriesUpdateCategoryOption'))
+  .option('-D, --date <date>', t('entriesUpdateDateOption'))
+  .option('-g, --tags <ids>', t('entriesTagsOption'))
+  .option('-n, --notes <text>', t('entriesNotesOption'))
+  .option('-p, --pending', t('entriesUpdatePendingOption'))
+  .option('--confirmed', t('entriesUpdateConfirmedOption'))
+  .option('-r, --reconciled', t('entriesUpdateReconciledOption'))
+  .addOption(new Option('-S, --scheduled', t('entriesScheduledAliasOption')).hideHelp())
+  .addOption(scopeOption(t('scopeVerbChange')))
+  .option('--json', t('jsonOption'))
   .action(action(updateAction));
 
 entriesCommand
   .command('delete <id>')
-  .description('Delete an entry')
-  .addOption(scopeOption('delete'))
-  .option('--dangerously-skip-confirmation', 'Skip confirmation prompt')
-  .option('--json', 'Output as JSON')
+  .description(t('entriesDeleteDescription'))
+  .addOption(scopeOption(t('scopeVerbDelete')))
+  .option('--dangerously-skip-confirmation', t('entriesDeleteSkipConfirmationOption'))
+  .option('--json', t('jsonOption'))
   .action(action(deleteAction));
 
 entriesCommand.addCommand(importCommand);

@@ -1,5 +1,6 @@
 import { logger } from '../../utils/logger.js';
 import { exitWithError } from '../../utils/action.js';
+import { t } from '../../lib/i18n/index.js';
 import { getAuthMethod, setAuth, getConfigPath, setCaptchaApiKey } from '../../lib/config.js';
 import type { AuthMethod } from '../../types/index.js';
 import { type LoginAttempt, isInteractiveTerminal, runBrowserManual, runChromeSession, runEdgeSession, runFallbackPrompt, runFirefoxSession, runManualEntry, runOnePassword, runPreferredMethod } from './methods.js';
@@ -15,8 +16,8 @@ export async function loginAction(options: {
   try {
     if (options.captchaKey) {
       setCaptchaApiKey(options.captchaKey);
-      logger.info('2captcha API key saved to config.');
-      logger.info('To change it, run: mdcli auth login --captcha-key <new-key>');
+      logger.info(t('authCaptchaSaved'));
+      logger.info(t('authCaptchaChangeHint'));
     }
 
     let result: LoginAttempt;
@@ -28,7 +29,7 @@ export async function loginAction(options: {
     } else if (options.session) {
       const browserType = options.session === true ? 'chrome' : options.session;
       if (browserType !== 'chrome' && browserType !== 'firefox' && browserType !== 'edge') {
-        throw new Error(`Invalid browser type: ${browserType}. Use "chrome", "edge", or "firefox".`);
+        throw new Error(t('authInvalidBrowserType', browserType));
       }
       result =
         browserType === 'chrome'
@@ -43,27 +44,23 @@ export async function loginAction(options: {
       const primaryMethod: AuthMethod = savedMethod && savedMethod !== 'manual' ? savedMethod : 'browser-chrome';
 
       if (savedMethod && savedMethod !== 'manual') {
-        logger.info(`Trying last used method: ${formatAuthMethod(savedMethod)}`);
+        logger.info(t('authTryingLastMethod', formatAuthMethod(savedMethod)));
       }
 
       try {
         result = await runPreferredMethod(primaryMethod);
       } catch (primaryError) {
-        const primaryMessage = primaryError instanceof Error ? primaryError.message : 'Unknown error';
-        logger.warning(`${formatAuthMethod(primaryMethod)} failed: ${primaryMessage}`);
+        const primaryMessage = primaryError instanceof Error ? primaryError.message : t('unknownError');
+        logger.warning(t('authMethodFailed', formatAuthMethod(primaryMethod), primaryMessage));
         logger.blank();
 
         if (!isInteractiveTerminal()) {
-          throw new Error(
-            'No interactive terminal available to choose a fallback method.\n' +
-              'Use one of: --session chrome, --session firefox, --item <name>, --browser, --manual',
-            { cause: primaryError }
-          );
+          throw new Error(t('authNoInteractiveTerminal'), { cause: primaryError });
         }
 
         const fallbackResult = await runFallbackPrompt(primaryMethod);
         if (!fallbackResult) {
-          logger.info('Authentication cancelled.');
+          logger.info(t('authCancelled'));
           return;
         }
         result = fallbackResult;
@@ -71,10 +68,10 @@ export async function loginAction(options: {
     }
 
     setAuth(result.auth, result.method);
-    logger.success('Authentication saved successfully!');
-    logger.log(`  Config file: ${getConfigPath()}`);
+    logger.success(t('authSavedSuccessfully'));
+    logger.log(t('authConfigFile', getConfigPath()));
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    exitWithError(`Authentication failed: ${message}`);
+    const message = error instanceof Error ? error.message : t('unknownError');
+    exitWithError(t('authFailed', message));
   }
 }

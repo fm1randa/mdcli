@@ -2,6 +2,7 @@ import Table from 'cli-table3';
 import chalk from 'chalk';
 import { logger } from '../../utils/logger.js';
 import { exitWithError } from '../../utils/action.js';
+import { t } from '../../lib/i18n/index.js';
 import { fetchAccountBalances, fetchAccounts, normalizeAccounts } from '../../lib/api.js';
 import { calendarDay, getCurrentMonthRange, isCalendarDate } from '../../lib/dates.js';
 import type { AccountWithBalance } from '../../types/index.js';
@@ -11,7 +12,7 @@ import { cell } from '../../utils/text.js';
 
 export async function listAction(options: { json?: boolean; active?: boolean; at?: string }): Promise<void> {
   if (options.at !== undefined && !isCalendarDate(options.at)) {
-    exitWithError(`Invalid date "${options.at}". Use YYYY-MM-DD (e.g., 2026-10-16).`);
+    exitWithError(t('errorInvalidAtDate', options.at));
   }
   // The web's panels default to the last day of the current month.
   const balanceDate = options.at ?? getCurrentMonthRange().endDate;
@@ -43,7 +44,16 @@ export async function listAction(options: { json?: boolean; active?: boolean; at
   }
 
   const table = new Table({
-    head: ['ID', 'Name', 'Type', 'Bank', 'Confirmed', 'Projected', 'Bank statement', 'Status'],
+    head: [
+      t('labelId'),
+      t('labelName'),
+      t('labelType'),
+      t('labelBank'),
+      t('accountTableConfirmed'),
+      t('accountTableProjected'),
+      t('accountTableBankStatement'),
+      t('labelStatus'),
+    ],
     style: { head: ['cyan'] },
   });
 
@@ -60,6 +70,6 @@ export async function listAction(options: { json?: boolean; active?: boolean; at
     ]);
   }
 
-  logger.header(`Accounts (${accounts.length}), balances at ${balanceDate}`);
+  logger.header(t('accountsHeader', accounts.length, balanceDate));
   console.log(table.toString());
 }

@@ -1,21 +1,19 @@
 import chalk from 'chalk';
 import { Option } from 'commander';
 import { exitWithError } from '../../utils/action.js';
+import { t } from '../../lib/i18n/index.js';
 import type { Entry } from '../../types/index.js';
 
 export type SeriesScope = 'this' | 'following';
 
 /** Human-readable label for the API's `todos` flag. */
 export function describeScope(todos: boolean): string {
-  return todos ? 'this and the following occurrences' : 'this occurrence only';
+  return todos ? t('scopeThisAndFollowing') : t('scopeThisOnly');
 }
 
 /** --scope for commands that act on one occurrence of a recurring series. */
 export function scopeOption(verb: string): Option {
-  return new Option(
-    '--scope <scope>',
-    `For an occurrence of a recurring series: ${verb} only this one (this, the default) or this one and the following ones (following)`
-  ).choices(['this', 'following']);
+  return new Option('--scope <scope>', t('scopeOptionDescription', verb)).choices(['this', 'following']);
 }
 
 /** The web app asks "Apenas neste / Neste e em todos na sequência" only for these. */
@@ -50,7 +48,7 @@ export function resolveSeriesScope(
   if (!isSeriesOccurrence(entry)) {
     if (scope === 'following') {
       if (entry.parcela) exitWithError(messages.detachedOccurrence);
-      exitWithError(`Entry ${entryId} is not part of a recurring series, so --scope following does not apply.`);
+      exitWithError(t('errorNotPartOfSeries', entryId));
     }
     return undefined;
   }

@@ -1,6 +1,7 @@
 import chalk from 'chalk';
 import { logger } from '../../utils/logger.js';
 import { exitWithError } from '../../utils/action.js';
+import { t } from '../../lib/i18n/index.js';
 import { fetchAccounts, isCreditCard, updateAccount } from '../../lib/api.js';
 import { invalidateNameCache } from '../../lib/config.js';
 import type { UpdateAccountPayload } from '../../types/index.js';
@@ -36,38 +37,35 @@ const STATUS_OPTIONS: readonly string[] = ['active', 'inactive', 'close'];
 export async function updateAccountAction(id: string, options: UpdateAccountOptions): Promise<void> {
   const accountId = parseId(id);
   if (accountId === undefined) {
-    exitWithError('Invalid account ID. Must be a number.');
+    exitWithError(t('errorInvalidAccountId'));
   }
 
   if (CHANGE_OPTIONS.every((key) => options[key] === undefined)) {
-    exitWithError(
-      'No changes specified. Use --name, --type, --bank, --balance, --balance-date, --debtor, --creditor, ' +
-        '--liquidity, --currency, --hide-net-worth, --show-net-worth, --active, --inactive or --close.'
-    );
+    exitWithError(t('errorNoAccountChanges'));
   }
 
   if (options.active && options.inactive) {
-    exitWithError('Cannot use --active and --inactive together.');
+    exitWithError(t('errorActiveInactiveTogether'));
   }
   if (options.close && !options.inactive) {
-    exitWithError('--close only works together with --inactive.');
+    exitWithError(t('errorCloseNeedsInactive'));
   }
   if (options.hideNetWorth && options.showNetWorth) {
-    exitWithError('Cannot use --hide-net-worth and --show-net-worth together.');
+    exitWithError(t('errorHideShowNetWorthTogether'));
   }
   const form = parseAccountForm(options);
   let moeda: number | undefined;
   if (options.currency !== undefined) {
     moeda = parseId(options.currency);
     if (moeda === undefined) {
-      exitWithError('Invalid currency. Must be a number.');
+      exitWithError(t('errorInvalidCurrency'));
     }
   }
 
   const response = await fetchAccounts();
   const existing = response.items.find((a) => a.id === accountId);
   if (!existing) {
-    exitWithError(`Account ${accountId} not found.`);
+    exitWithError(t('errorAccountNotFound', accountId));
   }
 
   let accountType = response.meta.tipos.find((t) => t.id === existing.tipoNovo);
@@ -75,7 +73,7 @@ export async function updateAccountAction(id: string, options: UpdateAccountOpti
   if (options.type !== undefined) {
     accountType = resolveAccountType(response.meta.tipos, options.type);
     if (!accountType) {
-      exitWithError(`Unknown account type "${options.type}". Run "mdcli accounts types" to see valid options.`);
+      exitWithError(t('errorUnknownAccountType', options.type));
     }
     // The web form keeps the current liquidez when the new type has none.
     liquidez = accountType.liquidez ?? liquidez;
@@ -124,12 +122,12 @@ export async function updateAccountAction(id: string, options: UpdateAccountOpti
     return;
   }
 
-  logger.success(`Account "${account.nome}" updated successfully!`);
-  console.log(`  ${chalk.gray('ID:')} ${account.id}`);
-  console.log(`  ${chalk.gray('Type:')} ${account.tipo}`);
+  logger.success(t('accountUpdated', account.nome));
+  console.log(`  ${chalk.gray(`${t('labelId')}:`)} ${account.id}`);
+  console.log(`  ${chalk.gray(`${t('labelType')}:`)} ${account.tipo}`);
   if (account.banco) {
-    console.log(`  ${chalk.gray('Bank:')} ${account.banco.nome}`);
+    console.log(`  ${chalk.gray(`${t('labelBank')}:`)} ${account.banco.nome}`);
   }
-  console.log(`  ${chalk.gray('Balance:')} ${formatCurrency(account.saldoInicial)}`);
-  console.log(`  ${chalk.gray('Active:')} ${account.status ? chalk.green('yes') : chalk.gray('no')}`);
+  console.log(`  ${chalk.gray(`${t('labelBalance')}:`)} ${formatCurrency(account.saldoInicial)}`);
+  console.log(`  ${chalk.gray(`${t('labelActive')}:`)} ${account.status ? chalk.green(t('yes')) : chalk.gray(t('no'))}`);
 }

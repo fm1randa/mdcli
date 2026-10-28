@@ -3,6 +3,7 @@ import Table from 'cli-table3';
 import chalk from 'chalk';
 import { logger } from '../utils/logger.js';
 import { action, exitWithError } from '../utils/action.js';
+import { t } from '../lib/i18n/index.js';
 import { fetchAccounts, fetchAccountById, normalizeCards, isCreditCard, fetchCardInvoice, normalizeCardEntries, fetchCardFuture, normalizeCardInstallments } from '../lib/api.js';
 import { resolveAccountOrExit } from './account-id.js';
 import { formatCurrency } from '../utils/currency.js';
@@ -13,8 +14,8 @@ import { normalizeInvoiceSummary } from '../lib/invoice-summary.js';
 import type { Account, NormalizedInvoiceSummary } from '../types/index.js';
 
 function formatStatus(active: boolean, closed: boolean): string {
-  if (closed) return chalk.red('Closed');
-  return active ? chalk.green('Active') : chalk.gray('Inactive');
+  if (closed) return chalk.red(t('statusClosed'));
+  return active ? chalk.green(t('statusActive')) : chalk.gray(t('statusInactive'));
 }
 
 async function listAction(options: { json?: boolean; active?: boolean }): Promise<void> {
@@ -34,7 +35,7 @@ async function listAction(options: { json?: boolean; active?: boolean }): Promis
   }
 
   const table = new Table({
-    head: ['ID', 'Name', 'Bank', 'Limit', 'Next Due', 'Status'],
+    head: [t('labelId'), t('labelName'), t('labelBank'), t('labelLimit'), t('cardsNextDue'), t('labelStatus')],
     style: { head: ['cyan'] },
   });
 
@@ -50,18 +51,18 @@ async function listAction(options: { json?: boolean; active?: boolean }): Promis
     ]);
   }
 
-  logger.header(`Credit Cards (${creditCards.length})`);
+  logger.header(t('cardsHeader', creditCards.length));
   console.log(table.toString());
 }
 
 export const cardsCommand = new Command('cards')
-  .description('Manage credit cards');
+  .description(t('cardsManageDescription'));
 
 cardsCommand
   .command('list')
-  .description('List all credit cards')
-  .option('--json', 'Output as JSON')
-  .option('--active', 'Show only active credit cards')
+  .description(t('cardsListDescription'))
+  .option('--json', t('jsonOption'))
+  .option('--active', t('cardsActiveOnlyOption'))
   .action(action(listAction));
 
 interface SummaryRow {
@@ -72,19 +73,19 @@ interface SummaryRow {
 /** Text rows of the invoice summary; a field the API leaves out is not shown. */
 function invoiceSummaryRows(summary: NormalizedInvoiceSummary): SummaryRow[] {
   const rows: Array<[string, string | number | null]> = [
-    ['Due date', summary.dueDate],
-    ['Closing date', summary.closingDate],
-    ['Previous invoice', summary.previousInvoice],
-    ['Paid', summary.paid],
-    ['Scheduled payments', summary.scheduledPayments],
-    ['Expenses', summary.expenses],
-    ['Income', summary.income],
-    ['Invoice total', summary.total],
-    ['To pay', summary.toPay],
-    ['Reconciled', summary.reconciled],
-    ['Unreconciled', summary.unreconciled],
-    ['Limit', summary.limit],
-    ['Available', summary.available],
+    [t('labelDueDate'), summary.dueDate],
+    [t('labelClosingDate'), summary.closingDate],
+    [t('labelPreviousInvoice'), summary.previousInvoice],
+    [t('labelPaid'), summary.paid],
+    [t('labelScheduledPayments'), summary.scheduledPayments],
+    [t('labelExpenses'), summary.expenses],
+    [t('labelIncome'), summary.income],
+    [t('labelInvoiceTotal'), summary.total],
+    [t('labelToPay'), summary.toPay],
+    [t('labelReconciled'), summary.reconciled],
+    [t('labelUnreconciled'), summary.unreconciled],
+    [t('labelLimit'), summary.limit],
+    [t('labelAvailable'), summary.available],
   ];
   return rows.flatMap(([label, value]) => {
     if (typeof value === 'string') return [{ label, value }];
@@ -106,11 +107,11 @@ async function resolveCardOrExit(input: string): Promise<Account> {
 
   const account = await fetchAccountById(accountId);
   if (!account) {
-    exitWithError(`Account not found: ${accountId}`);
+    exitWithError(t('errorAccountNotFoundById', accountId));
   }
 
   if (!isCreditCard(account)) {
-    exitWithError(`Account ${accountId} is not a credit card`);
+    exitWithError(t('errorNotCreditCard', accountId));
   }
   return account;
 }
@@ -142,7 +143,7 @@ async function invoiceAction(options: { account: string; month?: string; json?: 
   }
 
   const table = new Table({
-    head: ['Purchase', 'Description', 'Value', 'Category'],
+    head: [t('labelPurchase'), t('labelDescription'), t('labelValue'), t('labelCategory')],
     style: { head: ['cyan'] },
     colWidths: INVOICE_COL_WIDTHS,
   });
@@ -160,7 +161,7 @@ async function invoiceAction(options: { account: string; month?: string; json?: 
   // Summing the items double-counts when a payment (tipo p) is listed: use the
   // API's bill total instead (dogfood 2026-10-19).
   const total = summary.total ?? invoiceResponse.valor;
-  logger.header(`Invoice for ${account.nome} - ${dueDate} (${entries.length} entries) | Total: ${formatCurrency(total)}`);
+  logger.header(t('cardsInvoiceHeader', account.nome, dueDate, entries.length, formatCurrency(total)));
   printInvoiceSummary(invoiceSummaryRows(summary));
   // --summary without --json: the summary only, no items table.
   if (options.summary) return;
@@ -169,11 +170,11 @@ async function invoiceAction(options: { account: string; month?: string; json?: 
 
 cardsCommand
   .command('invoice')
-  .description('Show credit card invoice entries')
-  .requiredOption('-a, --account <id>', 'Card ID, alias, or exact name (case-insensitive)')
-  .option('--month <YYYY-MM>', 'Invoice month, due on the card\'s due day (default: current/next invoice)')
-  .option('--json', 'Output as JSON (an array of items)')
-  .option('--summary', 'Only the invoice summary; with --json, print { invoice, entries } instead of the array')
+  .description(t('cardsInvoiceDescription'))
+  .requiredOption('-a, --account <id>', t('cardsAccountOption'))
+  .option('--month <YYYY-MM>', t('cardsInvoiceMonthOption'))
+  .option('--json', t('cardsInvoiceJsonOption'))
+  .option('--summary', t('cardsInvoiceSummaryOption'))
   .action(action(invoiceAction));
 
 async function futureAction(options: { account: string; json?: boolean }): Promise<void> {
@@ -188,7 +189,7 @@ async function futureAction(options: { account: string; json?: boolean }): Promi
   }
 
   const table = new Table({
-    head: ['Date', 'Description', 'Value', 'Installment', 'Remaining'],
+    head: [t('labelDate'), t('labelDescription'), t('labelValue'), t('labelInstallment'), t('labelRemaining')],
     style: { head: ['cyan'] },
     colWidths: FUTURE_COL_WIDTHS,
   });
@@ -204,13 +205,13 @@ async function futureAction(options: { account: string; json?: boolean }): Promi
   }
 
   const total = installments.reduce((sum, i) => sum + i.value, 0);
-  logger.header(`Future Installments for ${account.nome} (${installments.length} items) | Total: ${formatCurrency(total)}`);
+  logger.header(t('cardsFutureHeader', account.nome, installments.length, formatCurrency(total)));
   console.log(table.toString());
 }
 
 cardsCommand
   .command('future')
-  .description('Show future installments for credit card')
-  .requiredOption('-a, --account <id>', 'Card ID, alias, or exact name (case-insensitive)')
-  .option('--json', 'Output as JSON')
+  .description(t('cardsFutureDescription'))
+  .requiredOption('-a, --account <id>', t('cardsAccountOption'))
+  .option('--json', t('jsonOption'))
   .action(action(futureAction));

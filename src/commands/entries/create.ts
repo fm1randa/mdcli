@@ -1,6 +1,7 @@
 import chalk from 'chalk';
 import { logger } from '../../utils/logger.js';
 import { exitWithError } from '../../utils/action.js';
+import { t } from '../../lib/i18n/index.js';
 import { createEntry, fetchAccountById, isCreditCard } from '../../lib/api.js';
 import { resolveAccountOrExit } from '../account-id.js';
 import { resolveTags } from './tags.js';
@@ -12,7 +13,7 @@ import { getCurrentMonthRange, isCalendarDate, now, toLocalDateString } from '..
 import { resolveCardDueDate } from './card-invoice.js';
 import { withCardEntryId } from './card-entries.js';
 import { defaultTransferCategory, resolveTransferDestination } from './create-transfer.js';
-import { INTERVAL_LABELS, parseSchedule, type Schedule, type ScheduleOptions } from './schedule.js';
+import { intervalLabel, parseSchedule, type Schedule, type ScheduleOptions } from './schedule.js';
 import { parseAmount } from '../../utils/parse.js';
 import { buildEntryStatus } from './status.js';
 
@@ -51,7 +52,7 @@ function parseTypeOption(type: string): 'd' | 'r' | 't' | undefined {
 export function parseEntryType(input: string): 'd' | 'r' | 't' {
   const tipo = parseTypeOption(input);
   if (tipo === undefined) {
-    exitWithError(`Unknown type: ${input}. Valid: expense (d), income (r), transfer (t)`);
+    exitWithError(t('errorUnknownEntryType', input));
   }
   return tipo;
 }
@@ -59,25 +60,23 @@ export function parseEntryType(input: string): 'd' | 'r' | 't' {
 /** Checks that need no API call, so a bad command never reaches the network. */
 function checkOptions(options: CreateOptions, tipo: 'd' | 'r' | 't'): void {
   if (tipo === 't' && !options.toAccount) {
-    exitWithError('A transfer needs a destination account. Use --to-account <id|alias> (--account is the origin).');
+    exitWithError(t('errorTransferNeedsDestination'));
   }
   if (tipo !== 't' && options.toAccount) {
-    exitWithError('--to-account only applies to transfers (-T transfer).');
+    exitWithError(t('errorToAccountOnlyTransfers'));
   }
   if (tipo !== 't' && !options.category) {
-    exitWithError(
-      'A category is required to create an entry. Use -c, --category <id|alias>. See available categories with: mdcli categories list'
-    );
+    exitWithError(t('errorCategoryRequiredForEntry'));
   }
   if ((options.pending || options.scheduled) && options.confirmed) {
-    exitWithError('Use either --pending or --confirmed, not both.');
+    exitWithError(t('errorPendingOrConfirmed'));
   }
 }
 
 export async function createAction(options: CreateOptions): Promise<void> {
   const value = parseAmount(options.value);
   if (value === undefined) {
-    exitWithError(`Invalid value "${options.value}". Use a number like 10, 10.50 or 10,50.`);
+    exitWithError(t('errorInvalidValue', options.value));
   }
 
   const tipo = parseEntryType(options.type ?? 'expense');
@@ -86,7 +85,7 @@ export async function createAction(options: CreateOptions): Promise<void> {
   const createdAt = now();
   const dateStr = options.date ?? toLocalDateString(createdAt);
   if (!isCalendarDate(dateStr)) {
-    exitWithError('Invalid date. Use YYYY-MM-DD (e.g., 2026-10-03).');
+    exitWithError(t('errorInvalidDate'));
   }
   // Only income is positive: the web app sends expenses and transfers (from
   // the origin side) as negative values.
@@ -113,11 +112,11 @@ export async function createAction(options: CreateOptions): Promise<void> {
   // Regular accounts already work without it, so only cards get the extra field.
   const account = await fetchAccountById(accountId);
   if (!account) {
-    logger.warning(`Account ${accountId} was not found in the account list. Creating the entry without the credit card fields.`);
+    logger.warning(t('warningAccountNotFoundInList', accountId));
   }
   const isCardAccount = account ? isCreditCard(account) : false;
   if (options.invoice && !isCardAccount) {
-    exitWithError('--invoice only applies to credit card accounts.');
+    exitWithError(t('errorInvoiceOnlyCards'));
   }
   const unconfirmed = Boolean(options.pending || options.scheduled);
   if (options.scheduled) warnScheduledAlias();
@@ -126,7 +125,7 @@ export async function createAction(options: CreateOptions): Promise<void> {
     // a purchase sits unreconciled on its invoice until the invoice is paid.
     console.error(
       chalk.yellow('⚠'),
-      `Card purchases have no pending or confirmed state: the purchase goes to the invoice unreconciled. ${unconfirmed ? '--pending' : '--confirmed'} was ignored.`
+      t('warningCardPurchaseStatus', unconfirmed ? '--pending' : '--confirmed')
     );
   }
 
@@ -209,17 +208,14 @@ export async function createAction(options: CreateOptions): Promise<void> {
 }
 
 export function warnScheduledAlias(): void {
-  console.error(
-    chalk.yellow('⚠'),
-    '--scheduled is now --pending: both leave Confirmado off; the API shows the entry as scheduled when its date is in the future and as pending otherwise.'
-  );
+  console.error(chalk.yellow('⚠'), t('warningScheduledAlias'));
 }
 
 function describeSchedule(schedule: Schedule): string {
   const { agenda, parcelas } = schedule;
-  const every = `${INTERVAL_LABELS[agenda.intervalo]}, every ${agenda.frequencia}`;
+  const every = t('scheduleEvery', intervalLabel(agenda.intervalo), agenda.frequencia);
   if (!parcelas) {
-    const timesLabel = agenda.quantidade === -1 ? 'infinite' : `${agenda.quantidade} times`;
+    const timesLabel = agenda.quantidade === -1 ? t('scheduleInfinite') : t('scheduleTimes', agenda.quantidade);
     return `${every}, ${timesLabel}`;
   }
   const first = parcelas[0].valor;
@@ -227,22 +223,22 @@ function describeSchedule(schedule: Schedule): string {
   const split = first === rest
     ? `${parcelas.length}x ${formatCurrency(rest)}`
     : `1x ${formatCurrency(first)} + ${parcelas.length - 1}x ${formatCurrency(rest)}`;
-  const start = agenda.inicial > 1 ? `, starting at installment ${agenda.inicial}` : '';
+  const start = agenda.inicial > 1 ? t('scheduleStartingAtInstallment', agenda.inicial) : '';
   return `${split} (${every}${start})`;
 }
 
 function reportCreate(response: CreateEntryResponse, schedule: Schedule | undefined, destinationId: number | null): void {
-  logger.success(`Entry created successfully!`);
-  console.log(`  ${chalk.gray('ID:')} ${response.id}`);
-  console.log(`  ${chalk.gray('Description:')} ${response.descricao}`);
-  console.log(`  ${chalk.gray('Value:')} ${formatCurrency(response.valor)}`);
-  console.log(`  ${chalk.gray('Date:')} ${response.data}`);
+  logger.success(t('entryCreated'));
+  console.log(`  ${chalk.gray(`${t('labelId')}:`)} ${response.id}`);
+  console.log(`  ${chalk.gray(`${t('labelDescription')}:`)} ${response.descricao}`);
+  console.log(`  ${chalk.gray(`${t('labelValue')}:`)} ${formatCurrency(response.valor)}`);
+  console.log(`  ${chalk.gray(`${t('labelDate')}:`)} ${response.data}`);
   if (destinationId !== null) {
-    console.log(`  ${chalk.gray('To account:')} ${destinationId}`);
+    console.log(`  ${chalk.gray(`${t('labelToAccount')}:`)} ${destinationId}`);
   }
-  console.log(`  ${chalk.gray('Status:')} ${describeStatus(response.status, response.dataPrevista ?? response.data)}`);
+  console.log(`  ${chalk.gray(`${t('labelStatus')}:`)} ${describeStatus(response.status, response.dataPrevista ?? response.data)}`);
   if (schedule) {
-    const label = schedule.parcelas ? 'Installments:' : 'Recurrence:';
+    const label = schedule.parcelas ? `${t('labelInstallments')}:` : `${t('labelRecurrence')}:`;
     console.log(`  ${chalk.gray(label)} ${describeSchedule(schedule)}`);
   }
 }

@@ -1,4 +1,5 @@
 import { addInterval, isCalendarDate } from '../../../lib/dates.js';
+import { t } from '../../../lib/i18n/index.js';
 import type { ImportCandidate } from './candidates.js';
 import { asRecord, numberOrNull, textOrNull } from '../../../lib/payload.js';
 import { learnedFields } from './suggest.js';
@@ -66,9 +67,9 @@ export function toImportDocument(input: {
     ? 'The summary of GET /v1/integracao/connections'
     : `GET /v1/integracao/account/${input.connectionAccount}/transactions`;
   const record = asRecord(input.payload);
-  if (!record) throw new Error(`${origin} did not return a statement`);
+  if (!record) throw new Error(t('errorStatementDidNotReturnStatement', origin));
   const rows = record.lancamentos;
-  if (rows !== undefined && !Array.isArray(rows)) throw new Error(`${origin} did not return lancamentos`);
+  if (rows !== undefined && !Array.isArray(rows)) throw new Error(t('errorStatementDidNotReturnLancamentos', origin));
   const items = (Array.isArray(rows) ? rows : []).map(readBankTransaction);
   const prefixes = uniquePrefixes(items.map((item) => item.integrationId));
   const start = textOrNull(record.inicio);

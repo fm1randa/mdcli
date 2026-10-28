@@ -1,4 +1,5 @@
 import { exitWithError } from '../../utils/action.js';
+import { t } from '../../lib/i18n/index.js';
 import { fetchCategories } from '../../lib/api.js';
 import { getAliases, resolveId } from '../../lib/aliases.js';
 import { sameName } from '../../lib/name-cache.js';
@@ -58,7 +59,7 @@ export async function checkEntryCategory(
 ): Promise<{ id: number; category: Category | null } | { error: string }> {
   const id = await resolveId('categories', input);
   if (id === null) {
-    return { error: `Unknown category: ${input}. See available categories with: mdcli categories list --active` };
+    return { error: t('errorUnknownCategoryForEntry', input) };
   }
 
   const items = await catalog();
@@ -70,15 +71,15 @@ export async function checkEntryCategory(
     if (active) return { id: active.id, category: active };
   }
 
-  return {
-    error:
-      `Category "${category.nome}" (${category.id}) is inactive, so the web app hides it from new entries. ` +
-      'Use an active category (see: mdcli categories list --active) or reactivate it in Meu Dinheiro.',
-  };
+  return { error: t('errorCategoryInactive', category.nome, category.id) };
 }
 
 /** How the entry-type messages name each type: `d` is "an expense". */
-const TYPE_WORDS: Record<Category['tipo'], string> = { d: 'an expense', r: 'income', t: 'a transfer' };
+const TYPE_WORDS: Record<Category['tipo'], () => string> = {
+  d: () => t('categoryTypeExpense'),
+  r: () => t('categoryTypeIncome'),
+  t: () => t('categoryTypeTransfer'),
+};
 
 /**
  * The refusal for a category of another type:
@@ -88,7 +89,11 @@ const TYPE_WORDS: Record<Category['tipo'], string> = { d: 'an expense', r: 'inco
  * category (changeTipo), so a mismatched pair never reaches the API there.
  */
 export function describeCategoryTypeMismatch(category: Category, tipo: Category['tipo']): string {
-  return `Category "${category.nome}" (${category.id}) is ${TYPE_WORDS[category.tipo]}, but the entry type is ${TYPE_WORDS[tipo]}. ` +
-    "The web app only offers categories that match the entry's type: use -c with a category of that type " +
-    '(see: mdcli categories list --active), or change -T.';
+  return t(
+    'errorCategoryEntryTypeMismatch',
+    category.nome,
+    category.id,
+    TYPE_WORDS[category.tipo](),
+    TYPE_WORDS[tipo]()
+  );
 }

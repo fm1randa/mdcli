@@ -1,4 +1,5 @@
 import { sameName } from '../../../lib/name-cache.js';
+import { t } from '../../../lib/i18n/index.js';
 import type { Category } from '../../../types/index.js';
 import { parseAmount } from '../../../utils/parse.js';
 import type { ImportDocument, BankTransactionRow } from './document.js';
@@ -20,7 +21,7 @@ export function renderEditFile(document: ImportDocument, categories: readonly Ca
       continue;
     }
     if (row.candidates.length > 0) {
-      out.push(`# candidates ${row.prefix}`);
+      out.push(t('importEditCandidates', row.prefix));
       for (const candidate of row.candidates) {
         const description = candidate.description === null ? '' : ` ${candidate.description}`;
         out.push(`# ${candidate.id} ${candidate.date} ${amount(candidate.value)}${description}`);
@@ -30,19 +31,19 @@ export function renderEditFile(document: ImportDocument, categories: readonly Ca
     const description = row.suggestedDescription ?? row.description ?? '';
     out.push(`${defaultCommand(row)} ${row.date} ${amount(row.value)} ${category} | ${description}`);
   }
-  if (unusable.length > 0) out.push('', `# Left out (no id, date or value from the bank): ${unusable.join(', ')}`);
+  if (unusable.length > 0) out.push('', t('importEditLeftOut', unusable.join(', ')));
   const name = document.account.name ?? String(document.account.id);
   out.push(
     '',
-    `# Import for ${name}, statement ${document.statement.start ?? '-'} to ${document.statement.end ?? '-'}.`,
-    '# Commands:',
-    '#   import <prefix> <date> <value> <category> | <description>   create an Entry',
-    '#   conciliate <prefix> [<entryId>] <date> <value> <category> | <description>   link an existing Entry',
-    '#     Reconciled Entries are not listed as candidates, but their id may still be written here.',
-    '#   skip <prefix> ...     leave it for later',
-    '#   reject <prefix> ...   mark it as not imported',
-    '# The date and the absolute value must be the bank ones; flipping the sign is allowed.',
-    '# Lines starting with # are comments. Remove every command line to cancel.',
+    t('importEditImportFor', name, document.statement.start ?? '-', document.statement.end ?? '-'),
+    t('importEditCommandsHeader'),
+    t('importEditImportCommand'),
+    t('importEditConciliateCommand'),
+    t('importEditReconciledNote'),
+    t('importEditSkipCommand'),
+    t('importEditRejectCommand'),
+    t('importEditDateValueNote'),
+    t('importEditCommentsNote'),
   );
   return `${out.join('\n')}\n`;
 }
@@ -103,11 +104,11 @@ export function parseEditFile(
   text.split('\n').forEach((raw, index) => {
     const line = raw.trim();
     if (line === '' || line.startsWith('#')) return;
-    const parsed = parseLine(line, `Line ${index + 1}`, bankTransactions);
+    const parsed = parseLine(line, index + 1, bankTransactions);
     if (typeof parsed === 'string') {
       errors.push(parsed);
     } else if (seen.has(parsed.row)) {
-      errors.push(`${parsed.item.id}: it has more than one command line.`);
+      errors.push(t('importEditMoreThanOneLine', parsed.item.id));
     } else {
       seen.add(parsed.row);
       items.push(parsed.item);
@@ -118,27 +119,28 @@ export function parseEditFile(
 
 function parseLine(
   line: string,
-  where: string,
+  lineNumber: number,
   bankTransactions: readonly BankTransactionRow[],
 ): { row: BankTransactionRow; item: SelectionItem } | string {
+  const where = t('importEditLine', lineNumber);
   // The line is trimmed, so an empty description leaves the pipe last: "... |".
   const pipe = PIPE.exec(line);
   const head = pipe === null ? line : line.slice(0, pipe.index);
   const description = pipe === null ? '' : line.slice(pipe.index + pipe[0].length).trim();
   const match = LINE.exec(head);
   if (match === null || pipe === null) {
-    return `${where}: expected "<command> <prefix> <date> <value> <category> | <description>".`;
+    return t('importEditExpectedLine', where);
   }
   const [, command, prefix, entryText, date, valueText, categoryText = ''] = match;
   const action = SELECTION_ACTIONS.find((name) => name === command);
-  if (action === undefined) return `${where}: unknown command "${command}". Use ${SELECTION_ACTIONS.join(', ')}.`;
-  const row = matchPrefix(bankTransactions, prefix, `${where}: prefix`);
+  if (action === undefined) return t('importEditUnknownCommand', where, command, SELECTION_ACTIONS.join(', '));
+  const row = matchPrefix(bankTransactions, prefix, t('importEditPrefixFlag', where));
   if (typeof row === 'string') return row;
   const id = row.prefix ?? prefix;
-  if (entryText !== undefined && action !== 'conciliate') return `${id}: only conciliate takes an entry id.`;
-  if (date !== row.date) return `${id}: the date must be the bank date ${row.date ?? '-'}.`;
+  if (entryText !== undefined && action !== 'conciliate') return t('importEditOnlyConciliateEntryId', id);
+  if (date !== row.date) return t('importEditDateMustBeBankDate', id, row.date ?? '-');
   const value = parseAmount(valueText);
-  if (value === undefined) return `${id}: the value ${valueText} is not a number.`;
+  if (value === undefined) return t('importEditValueNotNumber', id, valueText);
   const item: SelectionItem = { id, action, value };
   if (action === 'import') {
     // Empty: the suggested description, then the bank text (planImport).

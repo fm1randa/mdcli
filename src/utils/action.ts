@@ -1,5 +1,6 @@
 import { Command } from 'commander';
 import { logger } from './logger.js';
+import { t } from '../lib/i18n/index.js';
 
 // Set by action() for the command being run: with --json, errors are written
 // as JSON too, so a caller parsing the output never gets plain text.
@@ -32,7 +33,7 @@ export function action<Args extends unknown[]>(
     try {
       await fn(...args);
     } catch (error) {
-      exitWithError(error instanceof Error ? error.message : 'Unknown error');
+      exitWithError(error instanceof Error ? error.message : t('unknownError'));
     }
   };
 }

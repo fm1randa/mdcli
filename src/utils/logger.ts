@@ -1,4 +1,5 @@
 import chalk from 'chalk';
+import { t } from '../lib/i18n/index.js';
 
 class Logger {
   private debugMode = false;
@@ -45,7 +46,7 @@ class Logger {
 
   kv(key: string, value: string | number | boolean | null | undefined): void {
     const displayValue = value === null || value === undefined 
-      ? chalk.gray('(not set)') 
+      ? chalk.gray(t('notSet')) 
       : String(value);
     console.log(`  ${chalk.gray(key + ':')} ${displayValue}`);
   }

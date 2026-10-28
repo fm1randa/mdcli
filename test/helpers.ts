@@ -135,14 +135,14 @@ export interface CliResult {
 export const TERMINAL_VARS = ['TERM', 'COLORTERM', 'FORCE_COLOR', 'CLICOLOR', 'CLICOLOR_FORCE', 'NO_COLOR', 'TERM_PROGRAM'];
 
 function cliEnv(
-  env: { home: TestHome; api: MockApi; extraEnv?: Record<string, string> },
+  env: { home: TestHome; api: MockApi; extraEnv?: Record<string, string | undefined> },
   terminal: Record<string, string>
 ): Record<string, string | undefined> {
   const inherited = { ...process.env };
   for (const name of TERMINAL_VARS) {
     delete inherited[name];
   }
-  return {
+  const merged: Record<string, string | undefined> = {
     ...inherited,
     // Point every per-user location at the temp dir so tests never read the
     // real config or browser profiles (APPDATA/LOCALAPPDATA are the Windows ones).
@@ -155,14 +155,25 @@ function cliEnv(
     MDCLI_CONFIG_DIR: join(env.home.dir, '.config', 'mdcli'),
     MDCLI_API_URL: env.api.url,
     MDCLI_NO_AUTO_UPDATE: '1',
+    // The suite asserts the English messages, so it runs in English; the pt-BR
+    // default is what test/i18n.test.ts covers. A test that wants another
+    // language overrides this, and `MDCLI_LANG: undefined` removes it.
+    MDCLI_LANG: 'en',
     ...terminal,
-    ...env.extraEnv,
   };
+  for (const [name, value] of Object.entries(env.extraEnv ?? {})) {
+    if (value === undefined) {
+      delete merged[name];
+    } else {
+      merged[name] = value;
+    }
+  }
+  return merged;
 }
 
 export async function runCli(
   args: string[],
-  env: { home: TestHome; api: MockApi; stdin?: string; extraEnv?: Record<string, string> }
+  env: { home: TestHome; api: MockApi; stdin?: string; extraEnv?: Record<string, string | undefined> }
 ): Promise<CliResult> {
   const proc = Bun.spawn(['bun', 'run', join(REPO_ROOT, 'bin', 'cli.ts'), ...args], {
     cwd: REPO_ROOT,

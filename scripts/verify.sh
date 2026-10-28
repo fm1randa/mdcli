@@ -73,7 +73,7 @@ cleanup() {
   rm -rf "$SANDBOX"
 }
 trap cleanup EXIT
-CLI=(bun bin/cli.ts)
+CLI=(bun bin/cli.ts --lang en)
 
 expect_ok() {   # expect_ok <regex> <args...>
   local re="$1"; shift
@@ -493,7 +493,7 @@ step "cli aviso de atualização no stderr" update_notice
 step "cli auto-update desligado (MDCLI_NO_AUTO_UPDATE=1)" opt_out env
 step "cli auto-update desligado (config autoUpdate=false)" opt_out config
 step "cli update manual (mock)" manual_update
-step "cli update fora de instalação global" expect_fail 'não está instalado globalmente' update
+step "cli update fora de instalação global" expect_fail 'mdcli is not installed globally' update
 
 echo
 if [ ${#FAILED[@]} -gt 0 ]; then

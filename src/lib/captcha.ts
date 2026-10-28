@@ -1,6 +1,7 @@
 import Solver from '2captcha';
 import type { Page } from 'playwright';
 import { getCaptchaApiKey } from './config.js';
+import { t } from './i18n/index.js';
 
 const RECAPTCHA_SITEKEY_PATTERN = /sitekey['":\s]+['"]([^'"]+)['"]/i;
 
@@ -95,19 +96,19 @@ function injectRecaptchaToken(token: string): string {
 export async function solveRecaptcha(page: Page): Promise<boolean> {
   const apiKey = getCaptchaApiKey();
   if (!apiKey) {
-    console.log('⚠ reCAPTCHA detected but no 2captcha API key configured.');
-    console.log('  Run: mdcli auth login --captcha-key <your-2captcha-api-key>');
+    console.log(t('captchaNoApiKey'));
+    console.log(t('captchaConfigureHint'));
     return false;
   }
 
   const sitekey = await extractSitekey(page);
   if (!sitekey) {
-    console.log('⚠ Could not extract reCAPTCHA sitekey from page');
+    console.log(t('captchaSitekeyMissing'));
     return false;
   }
 
   const pageUrl = page.url();
-  console.log('🔐 Solving reCAPTCHA challenge...');
+  console.log(t('captchaSolving'));
 
   try {
     const solver = new Solver.Solver(apiKey);
@@ -116,14 +117,14 @@ export async function solveRecaptcha(page: Page): Promise<boolean> {
     });
 
     const token = result.data;
-    console.log('✓ reCAPTCHA solved');
+    console.log(t('captchaSolved'));
 
     await page.evaluate(injectRecaptchaToken(token));
 
     return true;
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    console.log(`⚠ Failed to solve reCAPTCHA: ${message}`);
+    const message = error instanceof Error ? error.message : t('unknownError');
+    console.log(t('captchaSolveFailed', message));
     return false;
   }
 }

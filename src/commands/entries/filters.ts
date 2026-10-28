@@ -1,5 +1,6 @@
 import { Command } from 'commander';
 import { exitWithError } from '../../utils/action.js';
+import { t } from '../../lib/i18n/index.js';
 import { fetchCategories } from '../../lib/api.js';
 import { resolveIds } from '../../lib/aliases.js';
 import { resolveTags } from './tags.js';
@@ -14,13 +15,11 @@ const LAST_LOADABLE_DATE = '2031-12-31';
 function checkDateRange(from: string | undefined, to: string | undefined): void {
   for (const [flag, value] of [['--from', from], ['--to', to]] as const) {
     if (value !== undefined && !isCalendarDate(value)) {
-      exitWithError(`Invalid ${flag} date: ${value}. Use YYYY-MM-DD.`);
+      exitWithError(t('errorInvalidFilterDate', flag, value));
     }
   }
   if (to !== undefined && to > LAST_LOADABLE_DATE) {
-    exitWithError(
-      `--to ${to} is past ${LAST_LOADABLE_DATE}, the last date Meu Dinheiro loads entries for. Use --to ${LAST_LOADABLE_DATE} or earlier.`
-    );
+    exitWithError(t('errorPastLastLoadableDate', to, LAST_LOADABLE_DATE));
   }
 }
 
@@ -89,18 +88,18 @@ function parseFlagFilter(input: string, flags: Record<string, number>, max: numb
   }, 0);
 
   if (unknown.length > 0) {
-    exitWithError(`Unknown ${label}: ${unknown.join(', ')}. Valid: ${valid}`);
+    exitWithError(t('errorUnknownFilterValue', label, unknown.join(', '), valid));
   }
 
   return mask;
 }
 
 const parseStatusFilter = (input: string) =>
-  parseFlagFilter(input, STATUS_FLAGS, 15, 'status', 'pending, confirmed, reconciled, scheduled');
+  parseFlagFilter(input, STATUS_FLAGS, 15, t('filterLabelStatus'), 'pending, confirmed, reconciled, scheduled');
 const parseTypeFilter = (input: string) =>
-  parseFlagFilter(input, TYPE_FLAGS, 15, 'type', 'expense, income, transfer-out, transfer-in');
+  parseFlagFilter(input, TYPE_FLAGS, 15, t('filterLabelType'), 'expense, income, transfer-out, transfer-in');
 const parseRepetitionFilter = (input: string) =>
-  parseFlagFilter(input, REPETITION_FLAGS, 7, 'repetition', 'single, installment, fixed');
+  parseFlagFilter(input, REPETITION_FLAGS, 7, t('filterLabelRepetition'), 'single, installment, fixed');
 
 export interface FilterOptions {
   account?: string;
@@ -120,23 +119,23 @@ export interface FilterOptions {
 
 export async function resolveEntryFilters(options: FilterOptions): Promise<Omit<EntriesParams, 'page' | 'pageSize'>> {
   if (!options.account) {
-    exitWithError('At least one account ID or alias is required. Use --account <id> or --account <id1,id2,...>');
+    exitWithError(t('errorAccountRequired'));
   }
   checkDateRange(options.from, options.to);
 
   const accountResult = await resolveIds('accounts', options.account);
   if (accountResult.unresolved.length > 0) {
-    exitWithError(`Unknown account(s): ${accountResult.unresolved.join(', ')}`);
+    exitWithError(t('errorUnknownAccounts', accountResult.unresolved.join(', ')));
   }
   if (accountResult.ids.length === 0) {
-    exitWithError('At least one account ID or alias is required. Use --account <id> or --account <id1,id2,...>');
+    exitWithError(t('errorAccountRequired'));
   }
 
   let categoryIds: number[] | undefined;
   if (options.category) {
     const categoryResult = await resolveIds('categories', options.category);
     if (categoryResult.unresolved.length > 0) {
-      exitWithError(`Unknown category(ies): ${categoryResult.unresolved.join(', ')}`);
+      exitWithError(t('errorUnknownCategories', categoryResult.unresolved.join(', ')));
     }
     categoryIds = categoryResult.ids;
   }
@@ -147,7 +146,7 @@ export async function resolveEntryFilters(options: FilterOptions): Promise<Omit<
   if (options.value !== undefined) {
     value = parseAmount(options.value);
     if (value === undefined) {
-      exitWithError(`Invalid value "${options.value}". Use a number like 10, 10.50 or 10,50.`);
+      exitWithError(t('errorInvalidValue', options.value));
     }
   }
 
@@ -175,7 +174,7 @@ export async function resolveExcludedCategories(input: string | undefined): Prom
 
   const result = await resolveIds('categories', input);
   if (result.unresolved.length > 0) {
-    exitWithError(`Unknown category(ies) in --exclude-category: ${result.unresolved.join(', ')}`);
+    exitWithError(t('errorUnknownCategoriesExclude', result.unresolved.join(', ')));
   }
 
   const { items } = await fetchCategories();
@@ -190,16 +189,16 @@ export async function resolveExcludedCategories(input: string | undefined): Prom
 
 export function addFilterOptions(command: Command): Command {
   return command
-    .requiredOption('-a, --account <ids>', 'Account ID(s), alias(es), or exact name(s) (case-insensitive), comma-separated')
-    .option('-f, --from <date>', 'Start date (YYYY-MM-DD), defaults to first day of current month')
-    .option('-t, --to <date>', 'End date (YYYY-MM-DD), defaults to last day of current month (API limit 2031-12-31)')
-    .option('-s, --status <filter>', 'Filter by status: pending, confirmed, reconciled, scheduled (or bitmask 0-15)')
-    .option('-T, --type <filter>', 'Filter by type: expense, income, transfer-out, transfer-in (or bitmask 0-15)')
-    .option('-R, --repetition <filter>', 'Filter by repetition: single, installment, fixed (or bitmask 0-7)')
-    .option('-c, --category <ids>', 'Filter by category ID(s), alias(es), or exact name(s) (case-insensitive), comma-separated')
-    .option('-g, --tag <ids>', 'Filter by tag ID(s), alias(es), or exact name(s) (case-insensitive), comma-separated')
-    .option('-k, --keywords <text>', 'Search by keywords')
-    .option('-v, --value <amount>', 'Filter by value')
-    .option('-x, --exclude-category <ids>', 'Leave out these categories and their subcategories, comma-separated')
-    .option('--no-invoices', 'Omit credit-card invoice projections (API faturas: false; default includes them)');
+    .requiredOption('-a, --account <ids>', t('entriesFilterAccountOption'))
+    .option('-f, --from <date>', t('entriesFilterFromOption'))
+    .option('-t, --to <date>', t('entriesFilterToOption'))
+    .option('-s, --status <filter>', t('entriesFilterStatusOption'))
+    .option('-T, --type <filter>', t('entriesFilterTypeOption'))
+    .option('-R, --repetition <filter>', t('entriesFilterRepetitionOption'))
+    .option('-c, --category <ids>', t('entriesFilterCategoryOption'))
+    .option('-g, --tag <ids>', t('entriesFilterTagOption'))
+    .option('-k, --keywords <text>', t('entriesFilterKeywordsOption'))
+    .option('-v, --value <amount>', t('entriesFilterValueOption'))
+    .option('-x, --exclude-category <ids>', t('entriesFilterExcludeCategoryOption'))
+    .option('--no-invoices', t('entriesFilterNoInvoicesOption'));
 }

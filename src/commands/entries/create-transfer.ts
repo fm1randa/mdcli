@@ -1,4 +1,5 @@
 import { exitWithError } from '../../utils/action.js';
+import { t } from '../../lib/i18n/index.js';
 import { fetchAccountById, fetchCategories, isCreditCard } from '../../lib/api.js';
 import { resolveAccountOrExit } from '../account-id.js';
 import type { Account } from '../../types/index.js';
@@ -15,11 +16,11 @@ const TRANSFER_CATEGORY_TIPO_L = 15;
 export async function resolveTransferDestination(origin: Account | undefined, originId: number, toAccount: string): Promise<number> {
   const destinationId = await resolveAccountOrExit(toAccount);
   if (destinationId === originId) {
-    exitWithError('A transfer needs two different accounts: --to-account names the same account as --account.');
+    exitWithError(t('errorTransferSameAccount'));
   }
   const destination = await fetchAccountById(destinationId);
   if (!origin || !destination) {
-    exitWithError(`Account ${origin ? destinationId : originId} was not found in the account list.`);
+    exitWithError(t('errorAccountNotFoundInList', origin ? destinationId : originId));
   }
   checkTransferAccounts(origin, destination);
   return destinationId;
@@ -30,12 +31,12 @@ export function checkTransferAccounts(origin: Account, destination: Account): vo
   // Paying a card invoice (destination card) and card-to-account transfers
   // carry invoice dates and a plastico the CLI does not model yet.
   if (isCreditCard(origin) || isCreditCard(destination)) {
-    exitWithError('Transfers to or from a credit card account are not supported by the CLI yet. Use the web app.');
+    exitWithError(t('errorTransferCreditCard'));
   }
   // Between currencies each half has its own value (valorT), which the CLI
   // has no option for.
   if (origin.moeda !== destination.moeda) {
-    exitWithError('Transfers between accounts in different currencies are not supported by the CLI yet. Use the web app.');
+    exitWithError(t('errorTransferDifferentCurrencies'));
   }
 }
 
@@ -44,7 +45,7 @@ export async function defaultTransferCategory(): Promise<number> {
   const { items } = await fetchCategories();
   const category = items.find((c) => c.tipoL === TRANSFER_CATEGORY_TIPO_L && c.status);
   if (!category) {
-    exitWithError('No transfer category found. Pass one with -c, --category <id|alias>. See: mdcli categories list');
+    exitWithError(t('errorNoTransferCategory'));
   }
   return category.id;
 }

@@ -1,5 +1,6 @@
 import type { Category } from '../../../types/index.js';
 import { exitWithError } from '../../../utils/action.js';
+import { t } from '../../../lib/i18n/index.js';
 import { isPositiveSafeInteger, parseId } from '../../../utils/parse.js';
 import { categoryCatalog, checkEntryCategory, type CategoryCatalog } from '../category.js';
 import type { ImportCandidate } from './candidates.js';
@@ -47,7 +48,7 @@ type EntryIdRead = { entry: number } | { error: string };
 export function readEntryId(input: number | string): EntryIdRead {
   const entry = typeof input === 'number' ? (isPositiveSafeInteger(input) ? input : undefined) : parseId(input);
   if (entry !== undefined) return { entry };
-  return { error: `entry ${input} is not an Entry id (a whole number from 1 to ${Number.MAX_SAFE_INTEGER}).` };
+  return { error: t('errorEntryIdNotEntry', input) };
 }
 
 /**
@@ -62,10 +63,10 @@ async function checkImportCategory(
   if ('error' in checked) return checked;
   const category = (await catalog()).find((item) => item.id === checked.id);
   if (category === undefined) {
-    return { error: `Unknown category: ${input}. See available categories with: mdcli categories list --active` };
+    return { error: t('errorUnknownCategoryForEntry', input) };
   }
   if (category.tipo === 't') {
-    return { error: `Category "${category.nome}" (${category.id}) is a transfer category. Import does not create transfers.` };
+    return { error: t('errorImportTransferCategory', category.nome, category.id) };
   }
   return category;
 }
@@ -124,7 +125,7 @@ export function planSelection(
     }
     const earlier = seen.get(row);
     if (earlier !== undefined) {
-      problems.push(`${label(row)}: selected twice (${earlier} and ${item.id}).`);
+      problems.push(t('errorSelectedTwice', label(row), earlier, item.id));
       continue;
     }
     seen.set(row, item.id);
@@ -157,7 +158,7 @@ function planItem(row: BankTransactionRow, item: SelectionItem, options: Selecti
       // Only the automatically linked Entry already records it; another candidate is linked by hand or not at all.
       const linked = linkedCandidate(row);
       if (linked !== null) {
-        return `entry ${linked.id} already records it (linked automatically). Use conciliate, or skip it.`;
+        return t('errorEntryAlreadyRecords', linked.id);
       }
       const category = item.category === undefined ? null : (options.categories.get(item.category) ?? null);
       return planImport(row, { category, today: options.today, value: item.value, description: item.description }, run);
@@ -175,14 +176,16 @@ function planLink(
     // Like the web with "carregar conciliados": a Reconciled Entry hidden from the candidates may be named.
     const entry = options.linkable(row).find((candidate) => candidate.id === entryId);
     if (entry === undefined) {
-      const known = row.candidates.length === 0 ? 'it has no candidates' : `candidates: ${formatIds(row.candidates)}`;
-      return `entry ${entryId} is not a candidate (${known}).`;
+      const known = row.candidates.length === 0
+        ? t('importNoCandidates')
+        : t('importCandidatesList', formatIds(row.candidates));
+      return t('errorEntryNotCandidate', entryId, known);
     }
     return planConciliate(row, entry, run);
   }
   const linked = linkedCandidate(row);
   if (linked !== null) return planConciliate(row, linked, run);
-  if (row.candidates.length === 0) return 'no entry matches it, so there is nothing to link.';
+  if (row.candidates.length === 0) return t('errorNoEntryMatches');
   const count = row.candidates.length;
-  return `${count} ${count === 1 ? 'entry' : 'entries'} may match it (${formatIds(row.candidates)}), none linked automatically. ${options.entryHint(label(row))}`;
+  return t('errorEntriesMayMatch', count, formatIds(row.candidates), options.entryHint(label(row)));
 }

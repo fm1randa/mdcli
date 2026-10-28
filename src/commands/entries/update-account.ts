@@ -1,6 +1,7 @@
 import chalk from 'chalk';
 import { fetchAccounts, fetchPlastics, isCreditCard } from '../../lib/api.js';
 import { exitWithError } from '../../utils/action.js';
+import { t } from '../../lib/i18n/index.js';
 import { today } from '../../lib/dates.js';
 import type { Account, Entry, UpdateEntryPayload } from '../../types/index.js';
 import { formCardDueDate } from './card-invoice.js';
@@ -13,7 +14,7 @@ async function accountLookup(): Promise<(id: number) => Account> {
   const { items } = await fetchAccounts();
   return (id) => {
     const account = items.find((a) => a.id === id);
-    if (!account) exitWithError(`Account ${id} was not found in the account list.`);
+    if (!account) exitWithError(t('errorAccountNotFoundInList', id));
     return account;
   };
 }
@@ -24,10 +25,7 @@ async function accountLookup(): Promise<(id: number) => Account> {
  */
 function checkActive(account: Account): void {
   if (account.status === false) {
-    exitWithError(
-      `Account "${account.nome}" (${account.id}) is inactive, so the web app does not offer it. ` +
-        'Use an active account (see: mdcli accounts list --active) or reactivate it in Meu Dinheiro.'
-    );
+    exitWithError(t('errorAccountInactive', account.nome, account.id));
   }
 }
 
@@ -48,7 +46,7 @@ export async function moveTransfer(
   const originId = accountId ?? current.origin;
   const destinationId = toAccountId ?? current.destination;
   if (originId === destinationId) {
-    exitWithError(`A transfer needs two different accounts: origin and destination would both be account ${originId}.`);
+    exitWithError(t('errorTransferSameAccounts', originId));
   }
   const get = await accountLookup();
   if (originId !== current.origin) checkActive(get(originId));
@@ -106,12 +104,16 @@ async function moveToCard(
   { date, flags }: MoveContext
 ): Promise<void> {
   if (flags.reconciled) {
-    exitWithError('The CLI does not reconcile card purchases: drop -r/--reconciled to move the entry to a credit card.');
+    exitWithError(t('errorReconcileCardPurchase'));
   }
   if (flags.pending || flags.confirmed) {
     console.error(
       chalk.yellow('⚠'),
-      `Card purchases have no pending or confirmed state: the purchase goes to the invoice ${existing.conciliado ? 'reconciled, as it was' : 'unreconciled'}. ${flags.pending ? '--pending' : '--confirmed'} was ignored.`
+      t(
+        'warningCardPurchaseMoveStatus',
+        existing.conciliado ? t('cardPurchaseReconciledState') : t('cardPurchaseUnreconciledState'),
+        flags.pending ? '--pending' : '--confirmed'
+      )
     );
   }
   // The form's date: the purchase date on a card, else the effective or

@@ -1,5 +1,6 @@
 import chalk from 'chalk';
 import { logger } from '../../utils/logger.js';
+import { t } from '../../lib/i18n/index.js';
 import { promptConfirmation } from '../../utils/prompt.js';
 import { fetchEntry, deleteEntry } from '../../lib/api.js';
 import { formatCurrency } from '../../utils/currency.js';
@@ -18,29 +19,27 @@ export async function deleteAction(id: string, options: DeleteOptions): Promise<
 
   const entry = await fetchEntry(entryId);
   const todos = resolveSeriesScope(entryId, entry, options.scope, {
-    thisOnlyWarning: `Entry ${entryId} is an occurrence of a recurring series (${entry.parcela}): only this occurrence will be deleted. Use --scope following to delete this and the following occurrences, or --scope this to silence this warning.`,
-    detachedOccurrence: `Entry ${entryId} belongs to a recurring series (${entry.parcela}), but the server no longer links it to the series (like the first occurrence, or one already confirmed or reconciled), so it is deleted on its own. To delete the series, use --scope following on a scheduled occurrence.`,
+    thisOnlyWarning: t('warningSeriesThisOnlyDelete', entryId, String(entry.parcela)),
+    detachedOccurrence: t('errorDetachedSeriesDelete', entryId, String(entry.parcela)),
   });
 
   if (!options.dangerouslySkipConfirmation) {
-    console.log(chalk.yellow('\nEntry to be deleted:'));
-    console.log(`  ${chalk.gray('ID:')} ${entry.id}`);
-    console.log(`  ${chalk.gray('Description:')} ${entry.descricao}`);
-    console.log(`  ${chalk.gray('Value:')} ${formatCurrency(entry.valor)}`);
-    console.log(`  ${chalk.gray('Date:')} ${entry.data}`);
+    console.log(chalk.yellow(`\n${t('entriesDeleteHeader')}`));
+    console.log(`  ${chalk.gray(`${t('labelId')}:`)} ${entry.id}`);
+    console.log(`  ${chalk.gray(`${t('labelDescription')}:`)} ${entry.descricao}`);
+    console.log(`  ${chalk.gray(`${t('labelValue')}:`)} ${formatCurrency(entry.valor)}`);
+    console.log(`  ${chalk.gray(`${t('labelDate')}:`)} ${entry.data}`);
     if (todos !== undefined) {
-      console.log(`  ${chalk.gray('Series:')} ${entry.parcela}`);
-      console.log(`  ${chalk.gray('Scope:')} ${describeScope(todos)}`);
+      console.log(`  ${chalk.gray(`${t('labelSeries')}:`)} ${entry.parcela}`);
+      console.log(`  ${chalk.gray(`${t('labelScope')}:`)} ${describeScope(todos)}`);
     }
     console.log();
 
-    const question = todos
-      ? 'Are you sure you want to delete this occurrence and all the following ones? (y/N) '
-      : 'Are you sure you want to delete this entry? (y/N) ';
+    const question = todos ? t('confirmDeleteSeriesEntry') : t('confirmDeleteEntry');
     const confirmed = await promptConfirmation(chalk.red(question));
 
     if (!confirmed) {
-      logger.info('Deletion cancelled.');
+      logger.info(t('deletionCancelled'));
       process.exit(0);
     }
   }
@@ -53,7 +52,5 @@ export async function deleteAction(id: string, options: DeleteOptions): Promise<
     return;
   }
 
-  logger.success(
-    todos ? `Entry ${entryId} and the following occurrences deleted successfully!` : `Entry ${entryId} deleted successfully!`
-  );
+  logger.success(todos ? t('entryAndFollowingDeleted', entryId) : t('entryDeleted', entryId));
 }

@@ -1,21 +1,22 @@
 import { Command } from 'commander';
 import { action } from '../../utils/action.js';
+import { t } from '../../lib/i18n/index.js';
 import { listAction } from './list.js';
 import { runAction } from './run.js';
 
 export const syncCommand = new Command('sync')
-  .description('List connections and request a Sync');
+  .description(t('syncManageDescription'));
 
 syncCommand
   .command('list')
-  .description('List connections and the accounts linked to each one')
-  .option('--json', 'Output as JSON')
+  .description(t('syncListDescription'))
+  .option('--json', t('jsonOption'))
   .action(action(listAction));
 
 syncCommand
   .command('run')
-  .description('Request a Sync for the Connection that contains an Account, or for every Connection')
-  .argument('<account>', 'Account Identifier (id, alias, or exact name), or "all"')
-  .option('--yes', 'Skip the confirmation prompt')
-  .option('--json', 'Output as JSON (requires --yes)')
+  .description(t('syncRunDescription'))
+  .argument('<account>', t('syncRunAccountArgument'))
+  .option('--yes', t('syncRunYesOption'))
+  .option('--json', t('syncRunJsonOption'))
   .action(action(runAction));

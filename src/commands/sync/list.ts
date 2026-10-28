@@ -1,5 +1,6 @@
 import Table from 'cli-table3';
 import { logger } from '../../utils/logger.js';
+import { t } from '../../lib/i18n/index.js';
 import { cell } from '../../utils/text.js';
 import { fetchAccounts, fetchConnections } from '../../lib/api.js';
 import { asRecord, integerOrNull, textOrNull } from '../../lib/payload.js';
@@ -64,7 +65,7 @@ export async function listAction(options: { json?: boolean }): Promise<void> {
 /** Same table as `sync list`: one row per connection account, or one for a connection with none. */
 export function printSyncList(connections: SyncListConnection[]): void {
   const table = new Table({
-    head: ['Connection', 'Status', 'Type', 'Connection account', 'Account'],
+    head: [t('syncConnectionColumn'), t('labelStatus'), t('labelType'), t('syncConnectionAccountColumn'), t('labelAccount')],
     style: { head: ['cyan'] },
   });
 
@@ -84,12 +85,12 @@ export function printSyncList(connections: SyncListConnection[]): void {
     }
   }
 
-  logger.header(`Connections (${connections.length})`);
+  logger.header(t('syncConnectionsHeader', connections.length));
   console.log(table.toString());
 }
 
 /** Name from the registry, or that the bank account has no Account. Never a guessed name. */
 function accountLabel(account: SyncListAccount): string {
-  if (account.accountId === null && account.accountName === null) return 'No account';
+  if (account.accountId === null && account.accountName === null) return t('syncNoAccount');
   return cell(account.accountName);
 }

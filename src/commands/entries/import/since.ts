@@ -1,11 +1,12 @@
 import { addInterval, calendarDay, isCalendarDate, today } from '../../../lib/dates.js';
 import { exitWithError } from '../../../utils/action.js';
+import { t } from '../../../lib/i18n/index.js';
 
 /** A calendar date flag (YYYY-MM-DD) as typed, undefined when omitted, or exit when it is not a real day. */
 export function calendarDateFlag(input: string | undefined): string | undefined {
   if (input === undefined) return undefined;
   if (!isCalendarDate(input)) {
-    exitWithError(`Invalid date "${input}". Use YYYY-MM-DD (e.g., 2026-10-03).`);
+    exitWithError(t('errorInvalidDateWithValue', input));
   }
   return input;
 }
@@ -31,10 +32,10 @@ export function explicitSince(typed: string | undefined, day = today()): string 
   if (input === undefined) return undefined;
   const floor = earliestSince(day);
   if (input < floor) {
-    exitWithError(`The earliest start date is ${floor}. Bank transactions can only be loaded for the last 90 days.`);
+    exitWithError(t('errorEarliestStart', floor));
   }
   if (input > day) {
-    exitWithError(`The latest start date is today (${day}).`);
+    exitWithError(t('errorLatestStart', day));
   }
   return input;
 }

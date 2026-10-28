@@ -13,6 +13,7 @@ import {
 } from '../lib/api.js';
 import { buildAliasCommand, resolveId } from '../lib/aliases.js';
 import { invalidateNameCache } from '../lib/config.js';
+import { t } from '../lib/i18n/index.js';
 import type { Category } from '../types/index.js';
 import { parseId } from '../utils/parse.js';
 
@@ -29,7 +30,7 @@ async function resolveCategory(input: string, categories: Category[]): Promise<C
   const id = await resolveId('categories', input);
   const category = id === null ? undefined : categories.find((c) => c.id === id);
   if (!category) {
-    exitWithError(`Category "${input}" not found. See: mdcli categories list`);
+    exitWithError(t('errorCategoryNotFound', input));
   }
   return category;
 }
@@ -41,7 +42,12 @@ function formatType(type: string): string {
     income: chalk.green,
     transfer: chalk.blue,
   };
-  return (colors[type] ?? chalk.white)(type);
+  const labels: Record<string, () => string> = {
+    expense: () => t('typeExpense'),
+    income: () => t('typeIncome'),
+    transfer: () => t('typeTransfer'),
+  };
+  return (colors[type] ?? chalk.white)(labels[type]?.() ?? type);
 }
 
 function formatBoolean(value: boolean): string {
@@ -49,9 +55,13 @@ function formatBoolean(value: boolean): string {
 }
 
 async function listAction(options: { json?: boolean; active?: boolean; type?: string }): Promise<void> {
-  const typeFilter = options.type === undefined ? undefined : parseTypeName(options.type);
-  if (typeFilter === null) {
-    exitWithError(`Invalid type "${options.type}". Use expense, income, or transfer.`);
+  let typeFilter: CategoryTypeName | undefined;
+  if (options.type !== undefined) {
+    const parsed = parseTypeName(options.type);
+    if (parsed === null) {
+      exitWithError(t('errorInvalidCategoryType', options.type));
+    }
+    typeFilter = parsed;
   }
 
   const response = await fetchCategories();
@@ -71,7 +81,7 @@ async function listAction(options: { json?: boolean; active?: boolean; type?: st
   }
 
   const table = new Table({
-    head: ['ID', 'Name', 'Type', 'Active', 'System'],
+    head: [t('labelId'), t('labelName'), t('labelType'), t('labelActive'), t('labelSystem')],
     style: { head: ['cyan'] },
   });
 
@@ -85,19 +95,19 @@ async function listAction(options: { json?: boolean; active?: boolean; type?: st
     ]);
   }
 
-  logger.header(`Categories (${categories.length})`);
+  logger.header(t('categoriesHeader', categories.length));
   console.log(table.toString());
 }
 
 export const categoriesCommand = new Command('categories')
-  .description('Manage categories');
+  .description(t('categoriesManageDescription'));
 
 categoriesCommand
   .command('list')
-  .description('List all categories')
-  .option('--json', 'Output as JSON')
-  .option('--active', 'Show only active categories')
-  .option('-t, --type <type>', 'Show only one type: expense, income, or transfer')
+  .description(t('categoriesListDescription'))
+  .option('--json', t('jsonOption'))
+  .option('--active', t('categoriesActiveOnlyOption'))
+  .option('-t, --type <type>', t('categoriesListTypeOption'))
   .action(action(listAction));
 
 interface CreateCategoryOptions {
@@ -109,14 +119,14 @@ interface CreateCategoryOptions {
 
 async function createCategoryAction(options: CreateCategoryOptions): Promise<void> {
   if (!options.type && !options.parent) {
-    exitWithError('Use --type (expense or income) for a top-level category, or --parent for a subcategory.');
+    exitWithError(t('errorCategoryTypeRequired'));
   }
 
   let tipo: 'd' | 'r' | undefined;
   if (options.type) {
     const typeName = parseTypeName(options.type);
     if (typeName !== 'expense' && typeName !== 'income') {
-      exitWithError(`Invalid type "${options.type}". Use expense or income.`);
+      exitWithError(t('errorInvalidCategoryTypeParent', options.type));
     }
     tipo = TYPE_CODES[typeName];
   }
@@ -125,16 +135,16 @@ async function createCategoryAction(options: CreateCategoryOptions): Promise<voi
   if (options.parent) {
     parent = await resolveCategory(options.parent, (await fetchCategories()).items);
     if (parent.tipo === 't') {
-      exitWithError('Transfer categories cannot have subcategories.');
+      exitWithError(t('errorTransferCategorySubcategory'));
     }
     if (tipo && tipo !== parent.tipo) {
-      exitWithError(`--type doesn't match the parent category's type.`);
+      exitWithError(t('errorCategoryTypeMismatch'));
     }
     tipo = parent.tipo;
   }
 
   if (!tipo) {
-    exitWithError('Could not determine the category type.');
+    exitWithError(t('errorCategoryTypeUndetermined'));
   }
 
   const category = await createCategory({
@@ -150,17 +160,17 @@ async function createCategoryAction(options: CreateCategoryOptions): Promise<voi
     return;
   }
 
-  logger.success(`Category "${category.nome}" created successfully!`);
-  console.log(`  ${chalk.gray('ID:')} ${category.id}`);
+  logger.success(t('categoryCreated', category.nome));
+  console.log(`  ${chalk.gray(`${t('labelId')}:`)} ${category.id}`);
 }
 
 categoriesCommand
   .command('create')
-  .description('Create a category or, with --parent, a subcategory')
-  .requiredOption('-n, --name <name>', 'Category name')
-  .option('-t, --type <type>', 'expense or income (inherited from --parent when omitted)')
-  .option('-p, --parent <category>', 'Parent category (ID, alias, or name)')
-  .option('--json', 'Output as JSON')
+  .description(t('categoriesCreateDescription'))
+  .requiredOption('-n, --name <name>', t('categoriesCreateNameOption'))
+  .option('-t, --type <type>', t('categoriesCreateTypeOption'))
+  .option('-p, --parent <category>', t('categoriesCreateParentOption'))
+  .option('--json', t('jsonOption'))
   .action(action(createCategoryAction));
 
 interface UpdateCategoryOptions {
@@ -173,21 +183,21 @@ interface UpdateCategoryOptions {
 async function updateCategoryAction(id: string, options: UpdateCategoryOptions): Promise<void> {
   const categoryId = parseId(id);
   if (categoryId === undefined) {
-    exitWithError('Invalid category ID. Must be a number.');
+    exitWithError(t('errorInvalidCategoryId'));
   }
   if (options.name === undefined && !options.active && !options.inactive) {
-    exitWithError('No changes specified. Use --name, --active or --inactive.');
+    exitWithError(t('errorCategoryNoChanges'));
   }
   if (options.active && options.inactive) {
-    exitWithError('Cannot use --active and --inactive together.');
+    exitWithError(t('errorActiveInactiveTogether'));
   }
 
   const existing = (await fetchCategories()).items.find((c) => c.id === categoryId);
   if (!existing) {
-    exitWithError(`Category ${categoryId} not found.`);
+    exitWithError(t('errorCategoryIdNotFound', categoryId));
   }
   if (!existing.permissoes.acoes.editar) {
-    exitWithError(`Category "${existing.nome}" can't be edited (system category).`);
+    exitWithError(t('errorCategorySystemEdit', existing.nome));
   }
 
   let status = existing.status;
@@ -209,18 +219,18 @@ async function updateCategoryAction(id: string, options: UpdateCategoryOptions):
     return;
   }
 
-  logger.success(`Category "${category.nome}" updated successfully!`);
-  console.log(`  ${chalk.gray('ID:')} ${category.id}`);
-  console.log(`  ${chalk.gray('Active:')} ${category.status ? chalk.green('yes') : chalk.gray('no')}`);
+  logger.success(t('categoryUpdated', category.nome));
+  console.log(`  ${chalk.gray(`${t('labelId')}:`)} ${category.id}`);
+  console.log(`  ${chalk.gray(`${t('labelActive')}:`)} ${category.status ? chalk.green(t('yes')) : chalk.gray(t('no'))}`);
 }
 
 categoriesCommand
   .command('update <id>')
-  .description('Update a category (only the fields you pass are changed)')
-  .option('-n, --name <name>', 'New category name')
-  .option('--active', 'Mark the category as active')
-  .option('--inactive', 'Mark the category as inactive (archive)')
-  .option('--json', 'Output as JSON')
+  .description(t('categoriesUpdateDescription'))
+  .option('-n, --name <name>', t('categoriesUpdateNameOption'))
+  .option('--active', t('categoriesUpdateActiveOption'))
+  .option('--inactive', t('categoriesUpdateInactiveOption'))
+  .option('--json', t('jsonOption'))
   .action(action(updateCategoryAction));
 
 interface DeleteCategoryOptions {
@@ -232,37 +242,35 @@ interface DeleteCategoryOptions {
 async function deleteCategoryAction(id: string, options: DeleteCategoryOptions): Promise<void> {
   const categoryId = parseId(id);
   if (categoryId === undefined) {
-    exitWithError('Invalid category ID. Must be a number.');
+    exitWithError(t('errorInvalidCategoryId'));
   }
 
   const categories = (await fetchCategories()).items;
   const category = categories.find((c) => c.id === categoryId);
   if (!category) {
-    exitWithError(`Category ${categoryId} not found.`);
+    exitWithError(t('errorCategoryIdNotFound', categoryId));
   }
   if (!category.permissoes.acoes.excluir) {
-    exitWithError(`Category "${category.nome}" can't be deleted (system category).`);
+    exitWithError(t('errorCategorySystemDelete', category.nome));
   }
   if (categories.some((c) => c.pai === categoryId)) {
-    exitWithError(`Category "${category.nome}" has subcategories. Delete or move them first.`);
+    exitWithError(t('errorCategoryHasChildren', category.nome));
   }
 
   const destination = await resolveCategory(options.moveTo, categories);
   if (destination.id === categoryId) {
-    exitWithError('--move-to must be a different category.');
+    exitWithError(t('errorMoveToSameCategory'));
   }
   if (destination.tipo !== category.tipo) {
-    exitWithError(`--move-to must be the same type as "${category.nome}".`);
+    exitWithError(t('errorMoveToSameType', category.nome));
   }
 
   if (!options.dangerouslySkipConfirmation) {
     const confirmed = await promptConfirmation(
-      chalk.red(
-        `Delete category "${category.nome}" (${categoryId}) and move its entries to "${destination.nome}"? (y/N) `
-      )
+      chalk.red(t('confirmDeleteCategory', category.nome, categoryId, destination.nome))
     );
     if (!confirmed) {
-      logger.info('Deletion cancelled.');
+      logger.info(t('deletionCancelled'));
       return;
     }
   }
@@ -275,15 +283,15 @@ async function deleteCategoryAction(id: string, options: DeleteCategoryOptions):
     return;
   }
 
-  logger.success(`Category ${categoryId} deleted; its entries now belong to "${destination.nome}".`);
+  logger.success(t('categoryDeleted', categoryId, destination.nome));
 }
 
 categoriesCommand
   .command('delete <id>')
-  .description('Delete a category, moving its entries to another category')
-  .requiredOption('--move-to <category>', 'Category (ID, alias, or name) that receives the entries')
-  .option('--dangerously-skip-confirmation', 'Skip confirmation prompt')
-  .option('--json', 'Output as JSON')
+  .description(t('categoriesDeleteDescription'))
+  .requiredOption('--move-to <category>', t('categoriesDeleteMoveToOption'))
+  .option('--dangerously-skip-confirmation', t('skipConfirmationOption'))
+  .option('--json', t('jsonOption'))
   .action(action(deleteCategoryAction));
 
 buildAliasCommand(categoriesCommand, 'categories');

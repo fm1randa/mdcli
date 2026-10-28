@@ -1,5 +1,7 @@
 import { join } from 'node:path';
 import { Command } from 'commander';
+import { t } from './lib/i18n/index.js';
+import { applyCommanderLocalization } from './lib/i18n/commander.js';
 import { authCommand } from './commands/auth/index.js';
 import { accountsCommand } from './commands/accounts/index.js';
 import { categoriesCommand } from './commands/categories.js';
@@ -18,8 +20,12 @@ export const program = new Command();
 
 program
   .name('mdcli')
-  .description('Unofficial CLI client for Meu Dinheiro (meudinheiroweb.com.br)')
-  .version(pkg.version);
+  .description(t('programDescription'))
+  .version(pkg.version, '-V, --version', t('versionOptionDescription'))
+  // Read and stripped from argv before commander parses it (src/lib/i18n/index.ts),
+  // and declared here so it shows up in the help.
+  .option('--lang <code>', t('langOptionDescription'))
+  .helpOption('-h, --help', t('helpOptionDescription'));
 
 program.addCommand(authCommand);
 program.addCommand(categoriesCommand);
@@ -31,7 +37,9 @@ program.addCommand(syncCommand);
 
 program
   .command('update')
-  .description('Update a global install to the latest release now')
+  .description(t('updateCommandDescription'))
   .action(async () => {
     process.exitCode = await runManualUpdate({ packageRoot });
   });
+
+applyCommanderLocalization(program);

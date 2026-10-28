@@ -3,6 +3,7 @@ import { fetchCategories, fetchTags } from '../../../lib/api.js';
 import type { Category } from '../../../types/index.js';
 import { formatCurrency } from '../../../utils/currency.js';
 import { logger } from '../../../utils/logger.js';
+import { t } from '../../../lib/i18n/index.js';
 import { cell, listCell } from '../../../utils/text.js';
 import type { OverwrittenFields } from './candidates.js';
 import type { RunDocument } from './plan.js';
@@ -21,19 +22,22 @@ export function printRun(
   context: { accountName: string | null; categories: readonly Category[]; names: OverwrittenNames | null },
 ): void {
   const name = context.accountName ?? String(run.accountId);
-  logger.header(`${run.dryRun ? 'Import dry run' : 'Import'} for ${name} (connection account ${run.connectionAccount})`);
+  logger.header(
+    run.dryRun
+      ? t('importDryRunHeader', name, run.connectionAccount)
+      : t('importRunHeader', name, run.connectionAccount)
+  );
   const { start, end, balance } = run.statement;
   console.log(
-    `Statement ${start ?? '-'} to ${end ?? '-'}, balance ${balance === null ? '-' : formatCurrency(balance)}`,
+    t('importStatementSummary', start ?? '-', end ?? '-', balance === null ? '-' : formatCurrency(balance)),
   );
   console.log(
-    `Import ${run.imported.length}, conciliate ${run.conciliated.length}, ` +
-      `reject ${run.rejected.length}, skip ${run.skipped.length}.`,
+    t('importCounts', run.imported.length, run.conciliated.length, run.rejected.length, run.skipped.length),
   );
 
   if (run.imported.length > 0) {
     const table = new Table({
-      head: ['Prefix', 'Date', 'Value', 'Description', 'Category', 'Tags', 'Status'],
+      head: [t('labelPrefix'), t('labelDate'), t('labelValue'), t('labelDescription'), t('labelCategory'), t('labelTags'), t('labelStatus')],
       style: { head: ['cyan'] },
     });
     for (const item of run.imported) {
@@ -44,16 +48,23 @@ export function printRun(
         cell(item.description),
         context.categories.find((category) => category.id === item.categoryId)?.nome ?? String(item.categoryId),
         listCell(item.tagIds),
-        item.status === 'reconciled' ? 'Reconciled' : 'Scheduled',
+        item.status === 'reconciled' ? t('statusReconciled') : t('statusScheduled'),
       ]);
     }
-    logger.header('New entries');
+    logger.header(t('importNewEntriesHeader'));
     console.log(table.toString());
   }
 
   if (run.conciliated.length > 0) {
     const table = new Table({
-      head: ['Prefix', 'Entry', 'Value before', 'Value after', 'Description before', 'Description after'],
+      head: [
+        t('labelPrefix'),
+        t('labelEntry'),
+        t('labelValueBefore'),
+        t('labelValueAfter'),
+        t('labelDescriptionBefore'),
+        t('labelDescriptionAfter'),
+      ],
       style: { head: ['cyan'] },
     });
     for (const item of run.conciliated) {
@@ -66,21 +77,24 @@ export function printRun(
         cell(item.after.description),
       ]);
     }
-    logger.header('Linked entries');
+    logger.header(t('importLinkedEntriesHeader'));
     console.log(table.toString());
     printOverwritten(run.conciliated, context.names);
     for (const note of overwriteNotes(run.overwrite)) logger.info(note);
   }
 
   if (run.rejected.length > 0) {
-    logger.header('Rejected');
+    logger.header(t('importRejectedHeader'));
     for (const item of run.rejected) console.log(`  ${item.prefix}`);
   }
   if (run.skipped.length > 0) {
-    logger.header('Skipped');
-    for (const item of run.skipped) console.log(`  ${item.prefix} (${item.reason})`);
+    logger.header(t('importSkippedHeader'));
+    for (const item of run.skipped) {
+      const reason = item.reason === 'duplicate' ? t('importSkipReasonDuplicate') : t('importSkipReasonPlan');
+      console.log(`  ${item.prefix} (${reason})`);
+    }
   }
-  if (run.dryRun) logger.info('Dry run: nothing was written.');
+  if (run.dryRun) logger.info(t('importDryRunNote'));
 }
 
 /**
@@ -99,13 +113,13 @@ export async function overwrittenNames(run: RunDocument): Promise<OverwrittenNam
 }
 
 /** The overwritten fields, in the web dialog's order. */
-const FIELD_LABELS: readonly [keyof OverwrittenFields, string][] = [
-  ['contactId', 'Contact'],
-  ['categoryId', 'Category'],
-  ['costCenterId', 'Cost center'],
-  ['projectId', 'Project'],
-  ['tagIds', 'Tags'],
-  ['documentNumber', 'Document number'],
+const FIELD_LABELS: readonly [keyof OverwrittenFields, () => string][] = [
+  ['contactId', () => t('labelContact')],
+  ['categoryId', () => t('labelCategory')],
+  ['costCenterId', () => t('labelCostCenter')],
+  ['projectId', () => t('labelProject')],
+  ['tagIds', () => t('labelTags')],
+  ['documentNumber', () => t('labelDocumentNumber')],
 ];
 
 /** With `sobrescrever` on: each replaced field before and after, and why a reconciled Entry keeps them. */
@@ -113,25 +127,25 @@ function printOverwritten(items: readonly ConciliatedItem[], names: OverwrittenN
   const replaced = items.filter((item) => item.reconciled === false);
   for (const item of items) {
     if (item.reconciled !== true) continue;
-    logger.info(
-      `${item.prefix} (entry ${item.entryId}) is already reconciled: ` +
-        'the web only overwrites entries that are not reconciled, so it keeps its fields.',
-    );
+    logger.info(t('importReconciledKeepsFields', item.prefix, item.entryId));
   }
   if (replaced.length === 0) return;
-  const table = new Table({ head: ['Prefix', 'Entry', 'Field', 'Before', 'After'], style: { head: ['cyan'] } });
+  const table = new Table({
+    head: [t('labelPrefix'), t('labelEntry'), t('labelField'), t('labelBefore'), t('labelAfter')],
+    style: { head: ['cyan'] },
+  });
   for (const item of replaced) {
     for (const [key, label] of FIELD_LABELS) {
       table.push([
         item.prefix,
         String(item.entryId),
-        label,
+        label(),
         fieldText(key, item.before[key], names),
         fieldText(key, item.after[key], names),
       ]);
     }
   }
-  logger.header('Overwritten by the bank');
+  logger.header(t('importOverwrittenHeader'));
   console.log(table.toString());
 }
 
@@ -142,7 +156,7 @@ function fieldText(key: keyof OverwrittenFields, value: OverwrittenFields[keyof 
   return cell(String(value));
 }
 
-const OVERWRITTEN = 'contact, category, cost center, project, tags and document number';
+
 
 /**
  * What the overwrite preference does to the linked Entries, in the web dialog's terms for a bank import:
@@ -151,15 +165,15 @@ const OVERWRITTEN = 'contact, category, cost center, project, tags and document 
  */
 function overwriteNotes(overwrite: RunDocument['overwrite']): string[] {
   if (overwrite.source === 'default') {
-    return ['The overwrite preferences could not be read, so the web default applies: linked entries keep their fields.'];
+    return [t('importOverwriteUnavailable')];
   }
+  const fields = t('importOverwriteFields');
   return [
     overwrite.value
-      ? `Overwrite on (your web preference): linked entries that are not reconciled take the bank transaction's ${OVERWRITTEN}.`
-      : `Overwrite off (your web preference): linked entries keep their ${OVERWRITTEN}; ` +
-        "with it on, the ones that are not reconciled would take the bank transaction's.",
+      ? t('importOverwriteOn', fields)
+      : t('importOverwriteOff', fields),
     overwrite.description
-      ? "Fill empty descriptions on (your web preference): a linked entry without a description takes the bank transaction's."
-      : 'Fill empty descriptions off (your web preference): linked entries keep their description.',
+      ? t('importFillDescriptionOn')
+      : t('importFillDescriptionOff'),
   ];
 }
