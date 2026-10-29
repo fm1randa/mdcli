@@ -1,4 +1,4 @@
-<!-- traduzido de README.md @ b4ffb278 (base: b4ffb278; readme-blob: b4ffb278bb7f5c8d93ea28517cdcae67e0375e4e); ao atualizar o README.md, sincronize este arquivo e atualize o SHA e o readme-blob (git hash-object README.md) -->
+<!-- traduzido de README.md @ 4cb7683 (base: 4cb7683713d7d29ef9b7aea90e28ca742f2fdc35; readme-blob: ec60edff8ab599bd22753ab7d62027d5c22349e8); ao atualizar o README.md, sincronize este arquivo e atualize o SHA e o readme-blob (git hash-object README.md) -->
 [Português (Brasil)](README.md) · **English**
 
 > The Portuguese [README.md](README.md) is the reference version; this English translation may lag behind it.
@@ -25,7 +25,7 @@ bun install -g github:fm1randa/mdcli
 
 A global install keeps itself on the latest **release** (a `vYYYY.M.D` tag with a GitHub Release). Commits merged to `main` without a release are not installed.
 
-At most once every 24 hours, mdcli asks GitHub for the latest release (`api.github.com/repos/fm1randa/mdcli/releases/latest`, 1.5 s timeout, no token) and compares it with the installed version (the `package.json` of the install). If the release is newer, it runs `bun install -g github:fm1randa/mdcli#<tag>` in the background; the new version is used from the next run on, which prints one line to stderr, e.g. `mdcli atualizado de 2026.10.13 para 2026.10.20`. stdout is never touched, so `--json` and `--csv` output stays clean.
+At most once every 24 hours, mdcli asks GitHub for the latest release (`api.github.com/repos/fm1randa/mdcli/releases/latest`, 1.5 s timeout, no token) and compares it with the installed version (the `package.json` of the install). If the release is newer, it removes the current install (`bun remove -g mdcli`) and installs the new one (`bun install -g github:fm1randa/mdcli#<tag>`), both steps in a single background process; the new version is used from the next run on, which prints one line to stderr, e.g. `mdcli atualizado de 2026.10.13 para 2026.10.20`. stdout is never touched, so `--json` and `--csv` output stays clean.
 
 The check is skipped when running from a source checkout, when `CI` is set, and when offline; a failed check or update never fails the command. The last check time is stored in `update-check.json` inside the config directory (`MDCLI_CONFIG_DIR`, default `~/.config/mdcli`).
 
@@ -35,7 +35,7 @@ To update right away (in the foreground, reporting the result; works even with a
 mdcli update
 ```
 
-If `mdcli update` fails after removing the previous installation (for example, with a Bun `dependency loop` message), recover manually with:
+If an update fails after removing the previous installation (for example, with a Bun `dependency loop` message on `mdcli update`, or silently on the automatic update), recover manually with:
 
 ```bash
 bun install -g github:fm1randa/mdcli#vYYYY.M.D
