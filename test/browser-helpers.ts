@@ -16,7 +16,7 @@ const LAUNCH_ARGS = [
 ] as const;
 
 export async function launchTestBrowser(): Promise<Browser> {
-  return chromium.launch({ channel: 'chrome', headless: true, args: [...LAUNCH_ARGS] });
+  return chromium.launch({ channel: 'chrome', headless: true, timeout: 15000, args: [...LAUNCH_ARGS] });
 }
 
 const CLOSE_TIMEOUT_MS = 10000;
