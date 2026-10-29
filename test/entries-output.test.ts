@@ -41,6 +41,14 @@ afterEach(() => {
 });
 
 describe('signed values', () => {
+  test('entries create shows an income as positive', async () => {
+    api.on('POST /v1/lancamentos', { id: 9, descricao: 'Salário', valor: 150, data: '2026-01-05', status: 'conciliado' });
+    const result = await runCli(['entries', 'create', '-a', '1001', '-d', 'Salário', '-v', '150', '-c', '20', '-T', 'income', '-D', '2026-01-05'], { home, api });
+
+    expect(result.exitCode).toBe(0);
+    expect(text(result.stdout)).toContain('Value: R$ 150,00');
+  });
+
   test('entries create shows an expense as negative', async () => {
     const result = await runCli(['entries', 'create', '-a', '1001', '-d', 'Feira', '-v', '30', '-c', '10', '-D', '2026-01-05'], { home, api });
 
