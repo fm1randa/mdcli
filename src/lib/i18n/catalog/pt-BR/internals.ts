@@ -63,5 +63,5 @@ export const ptBRInternals = {
   updateInstallFailed: (tag: string, code: number) =>
     `✗ Falha ao instalar ${tag} (bun saiu com código ${code}). Recuperação manual: bun install -g github:fm1randa/mdcli#${tag}.`,
   updateRemoveFailed: (code: number) =>
-    `✗ Falha ao remover a instalação antiga do mdcli (bun saiu com código ${code}). Tente: bun remove -g mdcli.`,
+    `✗ Falha ao remover a instalação antiga do mdcli (bun saiu com código ${code}). A atualização foi cancelada antes de instalar a nova versão; rode \`mdcli update\` de novo para tentar outra vez.`,
 };

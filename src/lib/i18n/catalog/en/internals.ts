@@ -65,5 +65,5 @@ export const enInternals: typeof SectionType = {
   updateInstallFailed: (tag, code) =>
     `✗ Failed to install ${tag} (bun exited with code ${code}). Manual recovery: bun install -g github:fm1randa/mdcli#${tag}.`,
   updateRemoveFailed: (code) =>
-    `✗ Failed to remove the old mdcli installation (bun exited with code ${code}). Try: bun remove -g mdcli.`,
+    `✗ Failed to remove the old mdcli installation (bun exited with code ${code}). The update was cancelled before installing the new version; run \`mdcli update\` again to retry.`,
 };
