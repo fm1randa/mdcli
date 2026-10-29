@@ -15,6 +15,7 @@ import { basename, dirname, join } from 'node:path';
 // package.json shipped with the install.
 
 const REPO = 'fm1randa/mdcli';
+const PACKAGE = 'mdcli';
 const DEFAULT_RELEASE_URL = `https://api.github.com/repos/${REPO}/releases/latest`;
 const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const BACKGROUND_TIMEOUT_MS = 1500;
@@ -111,12 +112,16 @@ async function fetchLatestTag(env: NodeJS.ProcessEnv, timeoutMs: number): Promis
   }
 }
 
+function packageSpec(tag: string): string {
+  return `github:${REPO}#${tag}`;
+}
+
 function installArgs(tag: string): string[] {
-  return ['install', '-g', `github:${REPO}#${tag}`];
+  return ['install', '-g', packageSpec(tag)];
 }
 
 function removeArgs(): string[] {
-  return ['remove', '-g', 'mdcli'];
+  return ['remove', '-g', PACKAGE];
 }
 
 // MDCLI_UPDATE_BUN lets verify.sh and tests swap the real install for a recorder.
@@ -157,12 +162,20 @@ export async function checkForUpdate(opts: Options): Promise<CheckResult> {
     if (!tag) return 'offline';
     if (compareVersions(tag.slice(1), installed) <= 0) return 'up-to-date';
     const binary = bunBinary(env);
-    const tagStr = tag;
-    const seq = [
-      '"$1" remove -g mdcli || exit $?',
-      'exec "$1" install -g github:fm1randa/mdcli#"$2"',
-    ].join('; ');
-    const child = spawn('/bin/sh', ['-c', seq, 'sh', binary, tagStr], { detached: true, stdio: 'ignore' });
+    // The CLI usually exits before the update finishes, so remove and install
+    // must run inside ONE detached process: chaining the install on the first
+    // child's "exit" drops it whenever the CLI is already gone. On POSIX a
+    // shell does the sequence and both values travel as positional arguments,
+    // so a path with spaces or a tag cannot break the command or inject into it.
+    // Windows has no /bin/sh: keep the plain install rather than skip updates.
+    const child =
+      process.platform === 'win32'
+        ? spawn(binary, installArgs(tag), { detached: true, stdio: 'ignore' })
+        : spawn(
+            '/bin/sh',
+            ['-c', '"$1" remove -g "$2" || exit $?; exec "$1" install -g "$3"', 'sh', binary, PACKAGE, packageSpec(tag)],
+            { detached: true, stdio: 'ignore' },
+          );
     child.on('error', () => {});
     child.unref();
     return 'updating';
