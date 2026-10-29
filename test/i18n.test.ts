@@ -95,6 +95,25 @@ describe('i18n', () => {
     expect(result.stdout).toContain('Account Types');
   });
 
+  test('table-driven commander errors: pt-BR uses `erro:` and no English fragments', async () => {
+    home = createHome(MANUAL_AUTH);
+    const table: Array<[string[], string, string[]]> = [
+      [['--bad-opt'], 'erro:', ['for \'', 'argument', 'Expected']],
+      [['accounts', 'list', 'extra'], 'erro:', ['for \'', 'argument', 'Expected']],
+      [['nope'], 'erro:', ['for \'', 'argument', 'Expected']],
+    ];
+    for (const [args, mustContain, mustNotContain] of table) {
+      const result = await runCli(args, { home, api, extraEnv: { MDCLI_LANG: undefined } });
+      expect(result.exitCode).not.toBe(0);
+      expect(result.output).toContain(mustContain);
+      for (const fragment of mustNotContain) {
+        // Use word boundary for "argument" so "argumentos" (pt-BR) doesn't trigger.
+        const pattern = fragment === 'argument' ? '\\bargument\\b' : fragment;
+        expect(result.output).not.toMatch(new RegExp(pattern));
+      }
+    }
+  });
+
   test('JSON output identical under both languages', async () => {
     home = createHome(MANUAL_AUTH);
     api.on('GET /v1/cadastros/contas', { items: [{ id: 1, nome: 'Nubank' }] });
