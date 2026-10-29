@@ -32,8 +32,11 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await closeTestBrowser(browser);
-  server?.stop(true);
+  try {
+    await closeTestBrowser(browser);
+  } finally {
+    server?.stop(true);
+  }
 });
 
 describe('session auth capture (setupAuthCapture)', () => {
