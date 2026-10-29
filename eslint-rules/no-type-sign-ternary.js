@@ -22,7 +22,7 @@ export default {
     function isBinaryCompareToR(node) {
       if (node.type !== 'BinaryExpression') return false;
       if (!['===', '!==', '==', '!='].includes(node.operator)) return false;
-      return (isRString(node.left) || isRString(node.right)) && (node.operator === '===' || node.operator === '!==');
+      return (isRString(node.left) || isRString(node.right)) && ['===', '!==', '==', '!='].includes(node.operator);
     }
     return {
       ConditionalExpression(node) {
