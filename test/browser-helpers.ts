@@ -1,10 +1,11 @@
 import { chromium, type Browser } from 'playwright';
 
-// Chrome's first run and its background work have stalled Playwright's launch
-// past bun's 20 s hook timeout on CI (run 40568587595: browser-session-capture
-// timed out in beforeAll after 20 s, while browser-auth-capture took 8.9 s in
-// the same run). These flags skip that first-run work. They are test-only and
-// a mitigation, not a proven fix: the real login launches Chrome unchanged.
+// A hook timed out after 20 s in CI (run 40568587595): its file reported no
+// test, only "a beforeEach/afterEach hook timed out", and bun killed the
+// dangling process — the launch in beforeAll never came back. Chrome was also
+// 8.9 s for one test in that run, ~18x its time here, so the runner was slow.
+// These flags skip Chrome's first-run work. Test-only: a plausible mitigation,
+// not a proven fix, and the real login launches Chrome unchanged.
 const LAUNCH_ARGS = [
   '--no-first-run',
   '--no-default-browser-check',
