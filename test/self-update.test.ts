@@ -44,8 +44,8 @@ function recorder(exitCode = 0): { env: NodeJS.ProcessEnv; calls: () => string |
   };
 }
 
-async function waitFor<T>(fn: () => T | null): Promise<T | null> {
-  for (let i = 0; i < 50; i++) {
+async function waitFor<T>(fn: () => T | null, attempts = 50): Promise<T | null> {
+  for (let i = 0; i < attempts; i++) {
     const v = fn();
     if (v) return v;
     await Bun.sleep(20);
@@ -163,6 +163,60 @@ describe('checkForUpdate', () => {
     expect(calls).toBeDefined();
     expect(calls![0]).toBe('remove -g mdcli');
     expect(calls![1]).toBe('install -g github:fm1randa/mdcli#v2026.10.20');
+  });
+
+  test('finishes remove and install after the CLI that started them exits', async () => {
+    const root = globalInstall('2026.10.13');
+    const log = join(dir, 'install-args');
+    const script = join(dir, 'slow-bun');
+    // Each call outlives the parent: the old code chained the install on the
+    // remove child's "exit", so exiting first dropped the install for good.
+    writeFileSync(script, `#!/bin/sh\nsleep 0.3\necho "$@" >> "${log}"\n`);
+    chmodSync(script, 0o755);
+    const env = {
+      MDCLI_UPDATE_BUN: script,
+      MDCLI_UPDATE_CHECK_URL: `${server.url}releases/latest`,
+      MDCLI_CONFIG_DIR: join(dir, 'config'),
+    };
+    const cli = join(dir, 'exiting-cli.ts');
+    writeFileSync(
+      cli,
+      [
+        `import { checkForUpdate } from ${JSON.stringify(join(import.meta.dir, '..', 'src', 'lib', 'self-update.ts'))};`,
+        `await checkForUpdate({ packageRoot: process.argv[2], env: JSON.parse(process.env.CHECK_ENV || '{}') });`,
+      ].join('\n'),
+    );
+    const proc = Bun.spawn([process.execPath, cli, root], {
+      env: { ...process.env, CHECK_ENV: JSON.stringify(env) },
+      stdout: 'ignore',
+      stderr: 'ignore',
+    });
+    expect(await proc.exited).toBe(0);
+    const calls = await waitFor(() => {
+      const c = existsSync(log) ? readFileSync(log, 'utf-8').trim().split('\n').filter((l) => l.length > 0) : [];
+      return c.length >= 2 ? c : null;
+    }, 100);
+    expect(calls).toEqual(['remove -g mdcli', 'install -g github:fm1randa/mdcli#v2026.10.20']);
+  });
+
+  test('keeps the update working when the bun path contains spaces', async () => {
+    const spaced = join(dir, 'with space');
+    mkdirSync(spaced, { recursive: true });
+    const log = join(dir, 'install-args');
+    const script = join(spaced, 'fake-bun');
+    writeFileSync(script, `#!/bin/sh\necho "$@" >> "${log}"\n`);
+    chmodSync(script, 0o755);
+    const env = {
+      MDCLI_UPDATE_BUN: script,
+      MDCLI_UPDATE_CHECK_URL: `${server.url}releases/latest`,
+      MDCLI_CONFIG_DIR: join(dir, 'config'),
+    };
+    expect(await checkForUpdate({ packageRoot: globalInstall('2026.10.13'), env })).toBe('updating');
+    const calls = await waitFor(() => {
+      const c = existsSync(log) ? readFileSync(log, 'utf-8').trim().split('\n').filter((l) => l.length > 0) : [];
+      return c.length >= 2 ? c : null;
+    });
+    expect(calls).toEqual(['remove -g mdcli', 'install -g github:fm1randa/mdcli#v2026.10.20']);
   });
 
   test('a failing or unreachable check resolves quietly without installing', async () => {
