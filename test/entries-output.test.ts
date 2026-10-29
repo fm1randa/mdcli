@@ -41,6 +41,14 @@ afterEach(() => {
 });
 
 describe('signed values', () => {
+  test('entries create sends an income as positive (payload sign)', async () => {
+    const result = await runCli(['entries', 'create', '-a', '1001', '-d', 'Salário', '-v', '150', '-c', '20', '-T', 'income', '-D', '2026-01-05'], { home, api });
+
+    expect(result.exitCode).toBe(0);
+    const [post] = mutations(api);
+    expect((post.body as Record<string, unknown>).valor).toBe(150);
+  });
+
   test('entries create shows an expense as negative', async () => {
     const result = await runCli(['entries', 'create', '-a', '1001', '-d', 'Feira', '-v', '30', '-c', '10', '-D', '2026-01-05'], { home, api });
 
