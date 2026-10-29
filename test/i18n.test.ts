@@ -101,6 +101,7 @@ describe('i18n', () => {
       [['--bad-opt'], 'erro:', ['for \'', 'argument', 'Expected']],
       [['accounts', 'list', 'extra'], 'erro:', ['for \'', 'argument', 'Expected']],
       [['nope'], 'erro:', ['for \'', 'argument', 'Expected']],
+      [['sync', 'run'], 'erro:', ['for \'', 'argument', 'Expected']],
     ];
     for (const [args, mustContain, mustNotContain] of table) {
       const result = await runCli(args, { home, api, extraEnv: { MDCLI_LANG: undefined } });
