@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
-import { chromium, type Browser } from 'playwright';
+import type { Browser } from 'playwright';
 import { setupAuthCapture } from '../src/lib/browser-auth.js';
+import { closeTestBrowser, launchTestBrowser } from './browser-helpers.js';
 
 // Regression: `auth login --browser` hung when the authenticated /api/ traffic
 // came from a tab other than the first one (the listener was page-scoped).
@@ -26,25 +27,11 @@ beforeAll(async () => {
       );
     },
   });
-  browser = await chromium.launch({
-    channel: 'chrome',
-    headless: true,
-    args: [
-      '--no-first-run',
-      '--no-default-browser-check',
-      '--disable-background-timer-throttling',
-      '--disable-backgrounding-occluded-windows',
-      '--disable-renderer-backgrounding',
-      '--disable-features=TranslateUI',
-    ],
-  });
+  browser = await launchTestBrowser();
 });
 
 afterAll(async () => {
-  await Promise.race([
-    browser?.close(),
-    new Promise((_, reject) => setTimeout(() => reject(new Error('browser close timeout')), 10000)),
-  ]);
+  await closeTestBrowser(browser);
   server?.stop(true);
 });
 
