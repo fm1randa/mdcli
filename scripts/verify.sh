@@ -87,6 +87,11 @@ expect_ok_without() { # expect_ok_without <regex> <absent regex> <args...>
   grep -Eq "$re" <<<"$out" || { echo "esperava /$re/ em: $out"; return 1; }
   if grep -Eq "$absent" <<<"$out"; then echo "não esperava /$absent/ em: $out"; return 1; fi
 }
+expect_ok_ptbr() { # expect_ok_ptbr <regex> <args...> — runs without --lang to assert pt-BR output
+  local re="$1"; shift
+  local out; out=$(env -u MDCLI_LANG bun bin/cli.ts "$@" </dev/null 2>&1) || { echo "saída: $out"; return 1; }
+  grep -Eq "$re" <<<"$out" || { echo "esperava /$re/ em: $out"; return 1; }
+}
 expect_json() { # expect_json <js condition on d> <args...> — d = JSON parsed from stdout
   local cond="$1"; shift
   local out; out=$("${CLI[@]}" "$@" </dev/null) || { echo "saída: $out"; return 1; }
@@ -125,9 +130,8 @@ step "cli entries import run --help" expect_ok 'Usage' entries import run --help
 step "cli comando inválido" expect_fail 'unknown command' nope
 step "cli auth status"      expect_ok 'Authenticated: No' auth status
 # Default language is pt-BR: a few steps without --lang must show pt-BR output.
-PTBR_CLI=(env -u MDCLI_LANG bun bin/cli.ts)
-step "cli pt-BR --help"     { out=$("${PTBR_CLI[@]}" --help </dev/null 2>&1) || { echo "saída: $out"; return 1; }; grep -Eq 'Uso:' <<<"$out" || { echo "esperava Uso: em: $out"; return 1; }; }
-step "cli pt-BR auth status"     { out=$("${PTBR_CLI[@]}" auth status </dev/null 2>&1) || { echo "saída: $out"; return 1; }; grep -Eq 'Autenticado:' <<<"$out" || { echo "esperava Autenticado: em: $out"; return 1; }; }
+step "cli pt-BR --help"     expect_ok_ptbr 'Uso:' --help
+step "cli pt-BR auth status" expect_ok_ptbr 'Autenticado:' auth status
 step "cli sem login"        expect_fail 'Not authenticated' accounts list
 
 # One JSON line per request, so the sync list step can see the method.
