@@ -67,9 +67,21 @@ export default tseslint.config(
     rules: { "local/no-ambient-clock": "error" },
   },
   {
+    // Entry sign logic by type lives only in src/commands/entries/type.ts.
+    files: ["src/**/*.ts"],
+    ignores: ["src/commands/entries/type.ts"],
+    rules: { "local/no-type-sign-ternary": "error" },
+  },
+  {
     // --since accepts only the last 90 days: tests pass a date relative to today.
     files: ["test/**/*.ts"],
-    rules: { "local/no-literal-since": "error" },
+    ignores: ["test/dates.test.ts"],
+    rules: {
+      "local/no-literal-since": "error",
+      "no-restricted-imports": ["error", {
+        paths: [{ name: "../src/lib/dates.js", message: "Tests must not import production date functions; use localDay() from test/helpers.ts instead." }],
+      }],
+    },
   },
   {
     ignores: ["node_modules", "dist"],
