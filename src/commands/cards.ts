@@ -82,7 +82,7 @@ function invoiceSummaryRows(summary: NormalizedInvoiceSummary): SummaryRow[] {
     [t('labelIncome'), summary.income],
     [t('labelInvoiceTotal'), summary.total],
     [t('labelToPay'), summary.toPay],
-    [t('labelReconciled'), summary.reconciled],
+    [t('statusReconciled'), summary.reconciled],
     [t('labelUnreconciled'), summary.unreconciled],
     [t('labelLimit'), summary.limit],
     [t('labelAvailable'), summary.available],

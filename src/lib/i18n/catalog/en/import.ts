@@ -66,6 +66,8 @@ export const enImport: typeof SectionType = {
     'Set the card\'s due date in the web app (edit the card), then run the import again.',
   errorInvoiceNoLancamentos: (id, due) =>
     `GET /v1/cartoes/${id}/fatura/${due} did not return lancamentos`,
+  errorStatementOriginSummary: () => 'Connections summary (GET /v1/integracao/connections)',
+  errorStatementOriginStatement: (connectionAccount: number) => `GET /v1/integracao/account/${connectionAccount}/transactions`,
   errorStatementDidNotReturnStatement: (origin) => `${origin} did not return a statement`,
   errorStatementDidNotReturnLancamentos: (origin) =>
     `${origin} did not return lancamentos`,

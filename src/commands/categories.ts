@@ -81,7 +81,7 @@ async function listAction(options: { json?: boolean; active?: boolean; type?: st
   }
 
   const table = new Table({
-    head: [t('labelId'), t('labelName'), t('labelType'), t('labelActive'), t('labelSystem')],
+    head: [t('labelId'), t('labelName'), t('labelType'), t('statusActive'), t('labelSystem')],
     style: { head: ['cyan'] },
   });
 
@@ -221,7 +221,7 @@ async function updateCategoryAction(id: string, options: UpdateCategoryOptions):
 
   logger.success(t('categoryUpdated', category.nome));
   console.log(`  ${chalk.gray(`${t('labelId')}:`)} ${category.id}`);
-  console.log(`  ${chalk.gray(`${t('labelActive')}:`)} ${category.status ? chalk.green(t('yes')) : chalk.gray(t('no'))}`);
+  console.log(`  ${chalk.gray(`${t('statusActive')}:`)} ${category.status ? chalk.green(t('yes')) : chalk.gray(t('no'))}`);
 }
 
 categoriesCommand

@@ -65,6 +65,8 @@ export const ptBRImport = {
     'Defina o vencimento do cartão no app web (edite o cartão) e execute a importação novamente.',
   errorInvoiceNoLancamentos: (id: number, due: string) =>
     `GET /v1/cartoes/${id}/fatura/${due} não retornou lancamentos`,
+  errorStatementOriginSummary: () => 'Resumo das conexões (GET /v1/integracao/connections)',
+  errorStatementOriginStatement: (connectionAccount: number) => `GET /v1/integracao/account/${connectionAccount}/transactions`,
   errorStatementDidNotReturnStatement: (origin: string) => `${origin} não retornou um extrato`,
   errorStatementDidNotReturnLancamentos: (origin: string) =>
     `${origin} não retornou lancamentos`,
