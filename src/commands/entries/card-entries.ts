@@ -47,8 +47,8 @@ function inMask(mask: number | undefined, bit: number): boolean {
 }
 
 function matchesFilters(entry: Entry, params: ListParams): boolean {
-  // The same bits the API filters the statement on (filters.ts), since it
-  // did not filter the invoices.
+  // The same bits the API filters the statement on (filters.ts), used
+  // both for statement items and for invoice projections that stay.
   const status = statusBit(entry.status);
   if (status && !inMask(params.status, status)) return false;
   // tipoLancamento 0 lists every type on the API (docs/api-filters.md).

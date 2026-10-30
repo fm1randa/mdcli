@@ -276,6 +276,7 @@ describe('invoice payment (tipo p) and invoice projection dedupe', () => {
     const list = await runCli(['entries', 'list', '-a', '1001', '-f', '2026-01-01', '-t', '2026-01-31', '-k', 'mercado', '--json'], { home, api });
     expect(list.exitCode).toBe(0);
     const entries = JSON.parse(list.stdout);
+    expect(entries.map((e: { id: number }) => e.id)).toEqual([1]);
     expect(entries.some((e: { type: string }) => e.type === 'invoice')).toBe(false);
   });
 
