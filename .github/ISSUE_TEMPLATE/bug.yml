@@ -135,3 +135,4 @@ body:
     validations:
       required: false
       accept: ".png,.jpg,.jpeg,.gif,.webp,.svg,.mp4,.mov,.webm,.log,.txt,.json,.zip"
+blank_issues_enabled: false

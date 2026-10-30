@@ -14,7 +14,7 @@ não apenas adicionar compatibilidade. Escopo pequeno, evidência de verificaç�
 ## Escopo
 
 <!-- Link para a issue resolvida (`Closes #n`). Se não há issue prévia, explique por que o escopo é pequeno e óbvio. -->
-Closes #
+Closes #n (substitua `n`; se não há issue, explique abaixo)
 
 ## Verificação
 

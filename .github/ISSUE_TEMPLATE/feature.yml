@@ -1,7 +1,7 @@
 name: Pedido de funcionalidade
 description: Sugestão de melhoria ou novo comando/flag no mdcli
 title: "feat: "
-labels: ["enhancement"]
+labels: ["enhancement", "needs-triage"]
 body:
   - type: markdown
     attributes:
