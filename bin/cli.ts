@@ -8,7 +8,24 @@ import { checkForUpdate } from '../src/lib/self-update.js';
 import { packageRoot, program } from '../src/program.js';
 import { acceptedLanguages, refusedLanguageValue, stripLanguageFlag, t } from '../src/lib/i18n/index.js';
 
-const argv = stripLanguageFlag(process.argv);
+/** Preprocess argv so short options with `=` (`-v=46.33`) work: commander
+  treats `=` as a separator only for long options, so `-v=46.33` arrives
+  as value `=46.33`. We split it centrally for every command and option. */
+function preprocessShortOptions(argv: string[]): string[] {
+  const result: string[] = [];
+  for (const arg of argv) {
+    const match = /^-([a-zA-Z])=(.+)$/.exec(arg);
+    if (match) {
+      result.push(`-${match[1]}`);
+      result.push(match[2]);
+    } else {
+      result.push(arg);
+    }
+  }
+  return result;
+}
+
+const argv = preprocessShortOptions(stripLanguageFlag(process.argv));
 
 // An invalid --lang or MDCLI_LANG is an error, never a silent fallback.
 const refusedLanguage = refusedLanguageValue();

@@ -84,6 +84,11 @@ export default tseslint.config(
     },
   },
   {
+    // Short options with = must be preprocessed before commander parses argv (#151).
+    files: ["bin/cli.ts"],
+    rules: { "local/no-short-option-equals": "error" },
+  },
+  {
     ignores: ["node_modules", "dist"],
   }
 );
