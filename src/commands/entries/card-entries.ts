@@ -47,8 +47,8 @@ function inMask(mask: number | undefined, bit: number): boolean {
 }
 
 function matchesFilters(entry: Entry, params: ListParams): boolean {
-  // The same bits the API filters the statement on (filters.ts), since it
-  // did not filter the invoices.
+  // The same bits the API filters the statement on (filters.ts), used
+  // both for statement items and for invoice projections that stay.
   const status = statusBit(entry.status);
   if (status && !inMask(params.status, status)) return false;
   // tipoLancamento 0 lists every type on the API (docs/api-filters.md).
@@ -81,9 +81,11 @@ export async function fetchListEntries(params: ListParams): Promise<Entry[]> {
   // Drop the statement's projecaoFatura for that card so the bill is not
   // counted twice (dogfood 2026-10-19 / regression of #78 over #72).
   const cardIds = new Set(cards.map((c) => c.id));
-  const withoutDupedInvoices = listed.filter(
-    (e) => e.projecaoFatura == null || !cardIds.has(e.projecaoFatura)
-  );
+  const withoutDupedInvoices = listed.filter((e) => {
+    if (e.projecaoFatura == null) return true;
+    if (cardIds.has(e.projecaoFatura)) return false;
+    return matchesFilters(e, params);
+  });
   // A year on two cards is 24 invoices: fetch them a few at a time instead of
   // one after the other (Jardinagem 2026-10-21). Results come back in card
   // and due-date order, so the dedupe below keeps the same entry as before.

@@ -7,6 +7,7 @@ import '../src/lib/i18n/bootstrap.js';
 import { checkForUpdate } from '../src/lib/self-update.js';
 import { Command } from 'commander';
 import { packageRoot, program } from '../src/program.js';
+import { flushStdout } from '../src/utils/action.js';
 import { acceptedLanguages, refusedLanguageValue, stripLanguageFlag, t } from '../src/lib/i18n/index.js';
 
 /** The short and long flags that take a value, read from the command tree so
@@ -99,13 +100,19 @@ if (refusedLanguage !== undefined) {
         : t('invalidLanguageValue', refusedLanguage, acceptedLanguages())
     }`,
   );
+  await flushStdout(3000);
+  // eslint-disable-next-line local/no-bare-process-exit
   process.exit(1);
 }
 
 process.on('unhandledRejection', (reason) => {
   const message = reason instanceof Error ? reason.stack ?? reason.message : String(reason);
   console.error(`✗ ${t('unexpectedError', message)}`);
-  process.exit(1);
+  flushStdout(3000)
+    // eslint-disable-next-line local/no-bare-process-exit
+    .then(() => process.exit(1))
+    // eslint-disable-next-line local/no-bare-process-exit
+    .catch(() => process.exit(1));
 });
 
 // Runs alongside the command; never blocks it for longer than the check timeout.
@@ -114,3 +121,4 @@ const updateCheck = argv[2] === 'update' ? Promise.resolve() : checkForUpdate({ 
 
 await program.parseAsync(argv);
 await updateCheck;
+await flushStdout();
