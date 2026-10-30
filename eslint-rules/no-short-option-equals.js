@@ -13,35 +13,26 @@ export default {
   create(context) {
     return {
       CallExpression(node) {
-        // Check for program.parseAsync(argv) or .parseAsync() without preprocess
-        if (node.callee.type === "MemberExpression") {
-          const prop = node.callee.property;
-          if (prop.type === "Identifier" && prop.name === "parseAsync") {
-            const args = node.arguments;
-            const arg0 = args[0];
-            const isDirectCall = arg0?.type === "CallExpression" &&
-              arg0.callee?.type === "Identifier" && arg0.callee.name === "preprocessShortOptions";
-            let isPreprocessedVar = false;
-            if (arg0?.type === "Identifier" && arg0.name === "argv") {
-              // Check if the variable `argv` is initialized with preprocessShortOptions
-              const scope = context.sourceCode ? context.sourceCode.getScope(node) : (context.getScope ? context.getScope() : null);
-              const variable = scope.variables.find((v) => v.name === "argv");
-              if (variable && variable.defs && variable.defs.length > 0) {
-                const init = variable.defs[0].node.init;
-                isPreprocessedVar = init?.type === "CallExpression" &&
-                  init.callee?.type === "Identifier" && init.callee.name === "preprocessShortOptions";
-              }
-            }
-            if (!isDirectCall && !isPreprocessedVar) {
-              // Only flag on the CLI entry point
-              const fileName = context.filename || context.getFilename();
-              if (fileName.endsWith("bin/cli.ts") || fileName.includes("cli")) {
-                context.report({ node, messageId: "missingPreprocess" });
-              }
-            }
-          }
-        }
+        if (node.callee.type !== "MemberExpression") return;
+        const prop = node.callee.property;
+        if (prop.type !== "Identifier" || prop.name !== "parseAsync") return;
+        if (isPreprocessed(node.arguments[0], context, node)) return;
+        context.report({ node, messageId: "missingPreprocess" });
       },
     };
   },
 };
+
+function isPreprocessed(arg, context, node) {
+  if (!arg) return false;
+  if (arg.type === "CallExpression") {
+    return arg.callee.type === "Identifier" && arg.callee.name === "preprocessShortOptions";
+  }
+  if (arg.type !== "Identifier") return false;
+  const scope = context.sourceCode ? context.sourceCode.getScope(node) : context.getScope?.();
+  const variable = scope?.variables.find((v) => v.name === arg.name);
+  const init = variable?.defs?.[0]?.node?.init;
+  return init?.type === "CallExpression" &&
+    init.callee?.type === "Identifier" &&
+    init.callee.name === "preprocessShortOptions";
+}

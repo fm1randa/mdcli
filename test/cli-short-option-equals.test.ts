@@ -61,12 +61,30 @@ describe('cli -v=-46.33 (short option equals value)', () => {
     expect(result.output).toContain('valor=-46.33');
   });
 
-  test('fails without preprocessShortOptions (simulated revert)', async () => {
-    // Manual revert performed during round 2 review: removing
-    // preprocessShortOptions from bin/cli.ts makes `runCli` with
-    // `-v=-46.33` fail (exitCode 1, "Valor inválido" in output).
-    // Restored after verification. The file at line 87 must keep the call.
-    const source = await Bun.file('bin/cli.ts').text();
-    expect(source).toContain('preprocessShortOptions');
+  test('create parses uppercase short option with equals (-T=income)', async () => {
+    const result = await runCli(
+      ['entries', 'create', '-a', '1001', '-d', 'Salário', '-v=46.33', '-T=income', '-c', '20', '-D', '2026-01-05', '--json'],
+      { home, api }
+    );
+    expect(result.exitCode).toBe(0);
+    expect(sentBody()).toMatchObject({ valor: 46.33, tipo: 'r', descricao: 'Salário' });
+  });
+
+  test('create parses uppercase date short option with equals (-D=2026-01-05)', async () => {
+    const result = await runCli(
+      ['entries', 'create', '-a', '1001', '-d', 'Despesa', '-v=-46.33', '-c', '10', '-D=2026-01-05', '--json'],
+      { home, api }
+    );
+    expect(result.exitCode).toBe(0);
+    expect(sentBody()).toMatchObject({ valor: -46.33, dataPrevista: '2026-01-05' });
+  });
+
+  test('long boolean option before -v= does not hide the short option', async () => {
+    const result = await runCli(
+      ['entries', 'create', '-a', '1001', '-d', 'Despesa', '-c', '10', '--json', '-v=-46.33', '-D', '2026-01-05'],
+      { home, api }
+    );
+    expect(result.exitCode).toBe(0);
+    expect(sentBody()).toMatchObject({ valor: -46.33 });
   });
 });
