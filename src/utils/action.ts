@@ -25,27 +25,26 @@ export function flushStdout(timeoutMs = 5000): Promise<void> {
 // as JSON too, so a caller parsing the output never gets plain text.
 let jsonErrors = false;
 
-/**
- * Report an error on stderr and exit 1. Shared by command actions for
- * validation failures. Under --json the line is `{"error": "<message>"}`.
- */
-export function exitWithError(message: string): never {
+/** Thrown by exitWithError to stop the command; action() turns it into exit 1. */
+class ExitSignal extends Error {}
+
+function reportError(message: string): void {
   if (jsonErrors) {
     console.error(JSON.stringify({ error: message }));
   } else {
     logger.error(message);
   }
-  // Flush stdout so the error message and any prior output are fully drained
-  // to the pipe before the process exits; without this, output can be truncated
-  // at the kernel pipe buffer size (65536 bytes).
-  flushStdout(3000)
-    // eslint-disable-next-line local/no-bare-process-exit
-    .then(() => process.exit(1))
-    // eslint-disable-next-line local/no-bare-process-exit
-    .catch(() => process.exit(1));
-  // Block forever so this never returns synchronously; the timeout above
-  // ensures we exit even if the drain event never fires.
-  return new Promise(() => {}) as never;
+}
+
+/**
+ * Report an error on stderr and stop the command. Shared by command actions for
+ * validation failures. Under --json the line is `{"error": "<message>"}`.
+ * Throwing stops the action synchronously, so nothing after the refusal runs;
+ * action() flushes stdout and exits 1.
+ */
+export function exitWithError(message: string): never {
+  reportError(message);
+  throw new ExitSignal(message);
 }
 
 /**
@@ -62,9 +61,15 @@ export function action<Args extends unknown[]>(
     try {
       await fn(...args);
     } catch (error) {
-      // await ensures we don't resolve the action (and thus the CLI) before
-      // stdout is flushed and process.exit() runs.
-      await exitWithError(error instanceof Error ? error.message : t('unknownError'));
+      if (!(error instanceof ExitSignal)) {
+        reportError(error instanceof Error ? error.message : t('unknownError'));
+      }
+      // Flush stdout so the error message and any prior output are fully drained
+      // to the pipe before the process exits; without this, output can be truncated
+      // at the kernel pipe buffer size (65536 bytes).
+      await flushStdout(3000);
+      // eslint-disable-next-line local/no-bare-process-exit
+      process.exit(1);
     }
   };
 }
