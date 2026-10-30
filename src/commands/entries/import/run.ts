@@ -60,7 +60,8 @@ export async function runAction(options: ImportRunOptions): Promise<void> {
       const confirmed = await promptConfirmation(t('confirmImport'));
       if (!confirmed) {
         logger.info(t('importCancelled'));
-        process.exit(0);
+        // eslint-disable-next-line local/no-bare-process-exit
+      process.exit(0);
       }
     }
     await commitRun({

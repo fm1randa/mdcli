@@ -185,6 +185,7 @@ async function deleteTagAction(id: string, options: DeleteTagOptions): Promise<v
 
     if (!confirmed) {
       logger.info(t('deletionCancelled'));
+      // eslint-disable-next-line local/no-bare-process-exit
       process.exit(0);
     }
   }

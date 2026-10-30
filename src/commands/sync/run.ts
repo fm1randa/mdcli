@@ -67,6 +67,7 @@ export async function runAction(target: string, options: RunOptions): Promise<vo
     const confirmed = await promptConfirmation(confirmation(ids));
     if (!confirmed) {
       logger.info(t('syncCancelled'));
+      // eslint-disable-next-line local/no-bare-process-exit
       process.exit(0);
     }
   }

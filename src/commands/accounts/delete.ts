@@ -31,6 +31,7 @@ export async function deleteAccountAction(id: string, options: DeleteAccountOpti
 
     if (!confirmed) {
       logger.info(t('deletionCancelled'));
+      // eslint-disable-next-line local/no-bare-process-exit
       process.exit(0);
     }
   }

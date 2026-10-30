@@ -40,6 +40,7 @@ export async function deleteAction(id: string, options: DeleteOptions): Promise<
 
     if (!confirmed) {
       logger.info(t('deletionCancelled'));
+      // eslint-disable-next-line local/no-bare-process-exit
       process.exit(0);
     }
   }
