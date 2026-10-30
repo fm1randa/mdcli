@@ -59,7 +59,7 @@ Every agent session starts with `/poteto-mode <short-intention>` (e.g. `/poteto-
 
 ### Limits (what the session never does)
 
-4. Never merge, release, tag, force-push, or push to `main`. Non-force push only to the PR's own branch (`git push -u origin HEAD:<branch>`).
+4. Never merge, release, tag, force-push, or push to `main`; the release flow in Releases belongs to the maintainer, not to a session. Non-force push only to the PR's own branch (`git push -u origin HEAD:<branch>`).
 5. Never touch secrets or credentials; never read or print values of `MDCLI_WEBHOOK_*`.
 6. Never use the real Meu Dinheiro account or real data, and never send real PUT/POST. Only use the mock (`scripts/mock-api.ts`) with fake config in `/tmp`.
 7. No external posts not requested: nothing outside this repo's own issue or PR on GitHub (no comments elsewhere, chats, or webhooks). Never call the memory service at `100.91.167.116:8888`.
@@ -87,7 +87,7 @@ PR RESULT: pr=<number> pushed <sha>, verify=<OK or FAIL>
 
 17. Confirm `HEAD` equals `origin/<branch>` (`git fetch origin && git status -sb`) and get context on GitHub (`gh pr view`, `gh issue view`, `git log origin/main..HEAD`).
 18. Follow the `/code-review` skill process on axes (a) repo standards (types, i18n, file size limits, CLI-boundary validation, non-tautological tests, no deleted/loosened assertions, no larger timeouts) and (b) spec (the issue resolved consistently and behavior matching the web).
-19. Classify each finding as high, medium, low, or taste and write in `REVIEW-<P>-r<N>.md` at the repo root, without committing (add to `.git/info/exclude` if needed).
+19. Classify each finding as high, medium, low, or taste and write in `REVIEW-<P>-r<N>.md` at the repo root, without committing (add it to the local exclude file, `git rev-parse --git-path info/exclude`, if needed).
 20. Fix every high and medium finding and the cheap low ones, with commits in English (conventional commits). Run `verify.sh` as in item 3 and push non-force to the PR branch if there is a commit.
 21. Update the PR body in Brazilian Portuguese to match the final diff and evidence (`gh pr edit <P> --body-file <file>`; if the GraphQL call fails, use `gh api -X PATCH repos/fm1randa/mdcli/pulls/<P> -F body=@<file>`).
 22. At the end, list findings with severity (or say the round came out fully clean), what was fixed, and the `verify.sh` result. The last line is exactly (the maintainer automation depends on this format):
