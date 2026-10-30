@@ -17,6 +17,8 @@ body:
           required: true
         - label: Incluí contexto suficiente (problema real, proposta, alternativas).
           required: true
+    validations:
+      required: true
   - type: dropdown
     id: area
     attributes:
@@ -60,8 +62,3 @@ body:
       placeholder: Usei alias + script externo, mas...
     validations:
       required: false
-blank_issues_enabled: false
-contact_links:
-  - name: Documentação / README
-    url: https://github.com/fm1randa/mdcli#readme
-    about: Consulte o README antes de abrir uma issue (auth, comandos, verify.sh).
