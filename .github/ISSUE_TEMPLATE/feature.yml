@@ -7,6 +7,33 @@ body:
     attributes:
       value: |
         Descreva o problema que a funcionalidade resolveria e a proposta. Alternativas ajudam a escolher o caminho certo.
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      description: Confirme antes de enviar.
+      options:
+        - label: Procurei issues duplicadas (busca por título ou descrição).
+          required: true
+        - label: Incluí contexto suficiente (problema real, proposta, alternativas).
+          required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Área
+      description: Qual parte do projeto seria afetada?
+      options:
+        - auth
+        - entries
+        - import
+        - accounts
+        - cards
+        - saída / CLI
+        - CI / release
+        - docs
+        - não sei
+    validations:
+      required: true
   - type: textarea
     id: problema
     attributes:
@@ -33,3 +60,8 @@ body:
       placeholder: Usei alias + script externo, mas...
     validations:
       required: false
+blank_issues_enabled: false
+contact_links:
+  - name: Documentação / README
+    url: https://github.com/fm1randa/mdcli#readme
+    about: Consulte o README antes de abrir uma issue (auth, comandos, verify.sh).

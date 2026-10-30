@@ -1,0 +1,85 @@
+name: Relatório via agente
+description: Relatório de problema investigado por um agente (triagem, jardineiro, dogfooding, finanças)
+title: "agente: "
+labels: ["via-agente", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Não cole tokens, senhas, nomes reais de contas, valores financeiros, IDs pessoais nem caminhos absolutos de máquinas locais.** Redija tudo antes de colar.
+  - type: textarea
+    id: o-que-aconteceu
+    attributes:
+      label: O que aconteceu
+      description: O problema observado pelo usuário e o contexto (comando, ambiente, sequência de ações).
+      placeholder: |
+        Ao rodar `mdcli auth doctor` depois de atualizar para v2026.10.28, o comando retorna erro de conexão com a API local...
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostico
+    attributes:
+      label: Diagnóstico
+      description: 'O que a investigação encontrou, com referências a arquivos e linhas de código relevantes.'
+      placeholder: |
+        `src/auth/doctor.ts:42` retorna `undefined` quando `token` está vazio. `tests/auth/doctor.spec.ts` não cobre esse caso.
+    validations:
+      required: true
+  - type: textarea
+    id: passos-reproducao
+    attributes:
+      label: Passos para reproduzir
+      description: 'Passos determinísticos, de preferência com o mock (`scripts/mock-api.ts`).'
+      placeholder: |
+        1. `bun scripts/mock-api.ts`
+        2. `bun bin/cli.ts auth doctor`
+        3. Observar o erro no terminal.
+    validations:
+      required: true
+  - type: input
+    id: versao
+    attributes:
+      label: Versão
+      description: '`mdcli --version` ou o commit SHA onde o problema ocorreu.'
+      placeholder: 2026.10.28 (main @ 57c1b30)
+    validations:
+      required: true
+  - type: input
+    id: ambiente
+    attributes:
+      label: Ambiente
+      description: SO, versão do Bun, modelo/agente usado, se relevante.
+      placeholder: Linux 6.8, Bun 1.4.2, Claude (opus-5) via poteto-mode
+    validations:
+      required: true
+  - type: textarea
+    id: evidencia
+    attributes:
+      label: Evidência
+      description: Linhas de log, saída de terminal ou rastreamento relevantes. Redija dados sensíveis.
+      render: shell
+      placeholder: |
+        $ mdcli auth doctor
+        erro: token não encontrado (linha 42 de src/auth/doctor.ts)
+    validations:
+      required: true
+  - type: input
+    id: issues-relacionadas
+    attributes:
+      label: Issues relacionadas
+      description: Issues semelhantes e por que esta não é duplicata.
+      placeholder: "#145 parece relacionado (mesma função `doctor`), mas trata de timeout; este é falha de token vazio."
+  - type: textarea
+    id: workaround
+    attributes:
+      label: Correção aplicada / workaround
+      description: Qualquer correção temporária, script, patch ou instrução aplicada.
+      placeholder: "Aplicado patch manual em `src/auth/doctor.ts` adicionando verificação de `token` vazio."
+  - type: input
+    id: aberto-por
+    attributes:
+      label: Aberto por
+      description: Agente e modelo que produziram este relatório.
+      placeholder: "claude (opus-5) via poteto-mode, harness = mdcli CLI"
+    validations:
+      required: true
