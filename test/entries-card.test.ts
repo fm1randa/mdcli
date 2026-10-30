@@ -261,6 +261,24 @@ describe('invoice payment (tipo p) and invoice projection dedupe', () => {
     expect(report.skippedInvoices).toBe(0);
   });
 
+  test('keyword filter excludes projections that do not match', async () => {
+    const projection = {
+      descricao: 'Fatura Cartão Azul',
+      valor: -3264.53,
+      data: '2026-01-16',
+      dataPrevista: '2026-01-16',
+      status: 'pendente',
+      conta: 1001,
+      projecaoFatura: 1002,
+    };
+    api.on('GET /v2/lancamentos', entriesPage([SAMPLE_ENTRIES[0], projection]));
+
+    const list = await runCli(['entries', 'list', '-a', '1001', '-f', '2026-01-01', '-t', '2026-01-31', '-k', 'mercado', '--json'], { home, api });
+    expect(list.exitCode).toBe(0);
+    const entries = JSON.parse(list.stdout);
+    expect(entries.some((e: { type: string }) => e.type === 'invoice')).toBe(false);
+  });
+
   test('summary still leaves invoice projections out when the card is not in -a', async () => {
     const projection = {
       descricao: 'Fatura Cartão Azul',
