@@ -1,6 +1,6 @@
 import chalk from 'chalk';
 import { logger } from '../../utils/logger.js';
-import { exitWithError } from '../../utils/action.js';
+import { exitWithError, flushStdout } from '../../utils/action.js';
 import { t } from '../../lib/i18n/index.js';
 import { promptConfirmation } from '../../utils/prompt.js';
 import { fetchAccounts, normalizeAccounts, deleteAccount } from '../../lib/api.js';
@@ -31,6 +31,7 @@ export async function deleteAccountAction(id: string, options: DeleteAccountOpti
 
     if (!confirmed) {
       logger.info(t('deletionCancelled'));
+      await flushStdout(3000);
       // eslint-disable-next-line local/no-bare-process-exit
       process.exit(0);
     }

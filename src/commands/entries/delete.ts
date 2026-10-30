@@ -3,6 +3,7 @@ import { logger } from '../../utils/logger.js';
 import { t } from '../../lib/i18n/index.js';
 import { promptConfirmation } from '../../utils/prompt.js';
 import { fetchEntry, deleteEntry } from '../../lib/api.js';
+import { flushStdout } from '../../utils/action.js';
 import { formatCurrency } from '../../utils/currency.js';
 import { describeScope, resolveSeriesScope, type SeriesScope } from './series.js';
 import { parseEntryId } from './entry-id.js';
@@ -40,6 +41,7 @@ export async function deleteAction(id: string, options: DeleteOptions): Promise<
 
     if (!confirmed) {
       logger.info(t('deletionCancelled'));
+      await flushStdout(3000);
       // eslint-disable-next-line local/no-bare-process-exit
       process.exit(0);
     }

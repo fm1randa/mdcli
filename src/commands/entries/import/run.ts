@@ -1,7 +1,7 @@
 import { isCreditCard } from '../../../lib/api.js';
 import { today } from '../../../lib/dates.js';
 import type { Category } from '../../../types/index.js';
-import { exitWithError } from '../../../utils/action.js';
+import { exitWithError, flushStdout } from '../../../utils/action.js';
 import { t } from '../../../lib/i18n/index.js';
 import { logger } from '../../../utils/logger.js';
 import { promptConfirmation } from '../../../utils/prompt.js';
@@ -60,6 +60,7 @@ export async function runAction(options: ImportRunOptions): Promise<void> {
       const confirmed = await promptConfirmation(t('confirmImport'));
       if (!confirmed) {
         logger.info(t('importCancelled'));
+        await flushStdout(3000);
         // eslint-disable-next-line local/no-bare-process-exit
         process.exit(0);
       }
