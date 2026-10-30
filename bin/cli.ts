@@ -16,7 +16,7 @@ function collectValueShortFlags(cmd: Command): Set<string> {
   const flags = new Set<string>();
   for (const opt of cmd.options || []) {
     if ((opt.required || opt.optional) && opt.short) {
-      const short = (opt.short || '').match(/^-([a-zA-Z])/)?.[1] ?? '';
+      const short = (opt.short || '').match(/^-([a-z])/)?.[1] ?? '';
       if (short.length === 1) flags.add(short);
     }
   }
@@ -51,7 +51,7 @@ function preprocessShortOptions(argv: string[]): string[] {
       continue;
     }
     // Detect a known value option expecting the next argument as value.
-    const shortOption = /^-([a-zA-Z])$/.exec(arg);
+    const shortOption = /^-([a-z])$/.exec(arg);
     if (shortOption && knownShortFlags.has(shortOption[1])) {
       result.push(arg);
       expectingValue = true;
@@ -71,7 +71,7 @@ function preprocessShortOptions(argv: string[]): string[] {
     }
     // Split a short option with inline value only when it is a known
     // value-taking flag and is not being provided as a previous option's value.
-    const match = /^-([a-zA-Z])=(.+)$/.exec(arg);
+    const match = /^-([a-z])=(.+)$/.exec(arg);
     if (match && knownShortFlags.has(match[1])) {
       result.push(`-${match[1]}`);
       result.push(match[2]);

@@ -21,7 +21,17 @@ export default {
             const arg0 = args[0];
             const isDirectCall = arg0?.type === "CallExpression" &&
               arg0.callee?.type === "Identifier" && arg0.callee.name === "preprocessShortOptions";
-            const isPreprocessedVar = arg0?.type === "Identifier" && arg0.name === "argv";
+            let isPreprocessedVar = false;
+            if (arg0?.type === "Identifier" && arg0.name === "argv") {
+              // Check if the variable `argv` is initialized with preprocessShortOptions
+              const scope = context.sourceCode ? context.sourceCode.getScope(node) : (context.getScope ? context.getScope() : null);
+              const variable = scope.variables.find((v) => v.name === "argv");
+              if (variable && variable.defs && variable.defs.length > 0) {
+                const init = variable.defs[0].node.init;
+                isPreprocessedVar = init?.type === "CallExpression" &&
+                  init.callee?.type === "Identifier" && init.callee.name === "preprocessShortOptions";
+              }
+            }
             if (!isDirectCall && !isPreprocessedVar) {
               // Only flag on the CLI entry point
               const fileName = context.filename || context.getFilename();
