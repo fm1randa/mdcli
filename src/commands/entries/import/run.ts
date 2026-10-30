@@ -61,7 +61,7 @@ export async function runAction(options: ImportRunOptions): Promise<void> {
       if (!confirmed) {
         logger.info(t('importCancelled'));
         // eslint-disable-next-line local/no-bare-process-exit
-      process.exit(0);
+        process.exit(0);
       }
     }
     await commitRun({
