@@ -84,6 +84,11 @@ export default tseslint.config(
     },
   },
   {
+    // Flush stdout before exit so piped output isn't truncated at 65536 bytes.
+    files: ["src/**/*.ts", "bin/**/*.ts"],
+    rules: { "local/no-bare-process-exit": "error" },
+  },
+  {
     ignores: ["node_modules", "dist"],
   }
 );

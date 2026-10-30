@@ -1,7 +1,7 @@
 import chalk from 'chalk';
 import { fetchAccounts, fetchConnections, requestSync } from '../../lib/api.js';
 import { integerOrNull } from '../../lib/payload.js';
-import { exitWithError } from '../../utils/action.js';
+import { exitWithError, flushStdout } from '../../utils/action.js';
 import { logger } from '../../utils/logger.js';
 import { t } from '../../lib/i18n/index.js';
 import { promptConfirmation } from '../../utils/prompt.js';
@@ -67,6 +67,8 @@ export async function runAction(target: string, options: RunOptions): Promise<vo
     const confirmed = await promptConfirmation(confirmation(ids));
     if (!confirmed) {
       logger.info(t('syncCancelled'));
+      await flushStdout(3000);
+      // eslint-disable-next-line local/no-bare-process-exit
       process.exit(0);
     }
   }
