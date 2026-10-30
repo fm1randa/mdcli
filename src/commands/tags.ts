@@ -31,7 +31,7 @@ async function listAction(options: { json?: boolean; active?: boolean }): Promis
   }
 
   const table = new Table({
-    head: [t('labelId'), t('labelName'), t('labelColor'), t('labelActive')],
+    head: [t('labelId'), t('labelName'), t('labelColor'), t('statusActive')],
     style: { head: ['cyan'] },
   });
 
@@ -149,7 +149,7 @@ async function updateTagAction(id: string, options: UpdateTagOptions): Promise<v
   logger.success(t('tagUpdated', response.nome));
   console.log(`  ${chalk.gray(`${t('labelId')}:`)} ${response.id}`);
   console.log(`  ${chalk.gray(`${t('labelColor')}:`)} ${formatColor('#' + response.cor)}`);
-  console.log(`  ${chalk.gray(`${t('labelActive')}:`)} ${response.status ? chalk.green(t('yes')) : chalk.gray(t('no'))}`);
+  console.log(`  ${chalk.gray(`${t('statusActive')}:`)} ${response.status ? chalk.green(t('yes')) : chalk.gray(t('no'))}`);
 }
 
 tagsCommand

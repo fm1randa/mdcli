@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Verificação completa do mdcli: install, typecheck, lint, knip, testes e
-# exercício real da CLI (sem tocar a API real nem a config do usuário).
+# Verificação completa do mdcli: install, readme sync, typecheck, lint, knip,
+# audit, testes e exercício real da CLI (sem tocar a API real nem a config
+# do usuário).
 # Uso: scripts/verify.sh   — sai com código != 0 em qualquer falha.
 set -uo pipefail
 cd "$(dirname "$0")/.."
@@ -86,6 +87,11 @@ expect_ok_without() { # expect_ok_without <regex> <absent regex> <args...>
   grep -Eq "$re" <<<"$out" || { echo "esperava /$re/ em: $out"; return 1; }
   if grep -Eq "$absent" <<<"$out"; then echo "não esperava /$absent/ em: $out"; return 1; fi
 }
+expect_ok_ptbr() { # expect_ok_ptbr <regex> <args...> — runs without --lang to assert pt-BR output
+  local re="$1"; shift
+  local out; out=$(env -u MDCLI_LANG bun bin/cli.ts "$@" </dev/null 2>&1) || { echo "saída: $out"; return 1; }
+  grep -Eq "$re" <<<"$out" || { echo "esperava /$re/ em: $out"; return 1; }
+}
 expect_json() { # expect_json <js condition on d> <args...> — d = JSON parsed from stdout
   local cond="$1"; shift
   local out; out=$("${CLI[@]}" "$@" </dev/null) || { echo "saída: $out"; return 1; }
@@ -123,6 +129,9 @@ step "cli entries import list --help" expect_ok 'Usage' entries import list --he
 step "cli entries import run --help" expect_ok 'Usage' entries import run --help
 step "cli comando inválido" expect_fail 'unknown command' nope
 step "cli auth status"      expect_ok 'Authenticated: No' auth status
+# Default language is pt-BR: a few steps without --lang must show pt-BR output.
+step "cli pt-BR --help"     expect_ok_ptbr 'Uso:' --help
+step "cli pt-BR auth status" expect_ok_ptbr 'Autenticado:' auth status
 step "cli sem login"        expect_fail 'Not authenticated' accounts list
 
 # One JSON line per request, so the sync list step can see the method.

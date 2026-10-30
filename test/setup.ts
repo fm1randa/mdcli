@@ -46,6 +46,8 @@ for (const name of TERMINAL_VARS) {
 }
 process.env.NO_COLOR = '1';
 process.env.TERM = 'dumb';
+// The default CLI language is pt-BR; pin it explicitly for in-process tests.
+process.env.MDCLI_LANG = 'pt-BR';
 
 afterAll(() => {
   rmSync(sandbox, { recursive: true, force: true });
