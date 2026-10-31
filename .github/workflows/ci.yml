@@ -15,6 +15,13 @@ jobs:
         with:
           # Single source of truth: the "packageManager" field in package.json.
           bun-version-file: package.json
+      # The install cache survives across runs: `bun install` then only links
+      # packages instead of downloading them again.
+      - uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
       - name: Verificação (install, tsc, eslint, knip, testes, CLI)
         # The terminal of a claude.ai container (TERM=linux, forced color):
         # verify.sh must normalize it before its checks run, so dropping that

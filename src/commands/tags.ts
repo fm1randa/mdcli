@@ -1,5 +1,4 @@
 import { Command } from 'commander';
-import Table from 'cli-table3';
 import chalk from 'chalk';
 import { logger } from '../utils/logger.js';
 import { action, exitWithError, flushStdout } from '../utils/action.js';
@@ -8,6 +7,7 @@ import { fetchTags, normalizeTags, createTag, updateTag, deleteTag } from '../li
 import { buildAliasCommand } from '../lib/aliases.js';
 import { t } from '../lib/i18n/index.js';
 import { parseId } from '../utils/parse.js';
+import { newTable } from '../utils/table.js';
 
 function formatColor(hex: string): string {
   return chalk.hex(hex)('██') + ' ' + hex;
@@ -30,7 +30,7 @@ async function listAction(options: { json?: boolean; active?: boolean }): Promis
     return;
   }
 
-  const table = new Table({
+  const table = newTable({
     head: [t('labelId'), t('labelName'), t('labelColor'), t('statusActive')],
     style: { head: ['cyan'] },
   });

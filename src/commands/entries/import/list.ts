@@ -1,4 +1,3 @@
-import Table from 'cli-table3';
 import { fetchAccountById, fetchBankTransactions, fetchCardInvoice, fetchImportCandidates, fetchImportDuplicates, isCreditCard } from '../../../lib/api.js';
 import type { Account } from '../../../types/index.js';
 import { exitWithError } from '../../../utils/action.js';
@@ -17,6 +16,7 @@ import { accountConnection } from '../../connection.js';
 import { asRecord, nonEmptyTextOrNull } from '../../../lib/payload.js';
 import { calendarDateFlag, defaultSince, earliestSince, explicitSince } from './since.js';
 import { today } from '../../../lib/dates.js';
+import { newTable } from '../../../utils/table.js';
 
 export interface ImportLoadOptions {
   account: string;
@@ -231,7 +231,7 @@ function printStatement(document: ImportDocument): void {
     return;
   }
 
-  const table = new Table({
+  const table = newTable({
     head: [
       t('labelPrefix'),
       t('labelDate'),

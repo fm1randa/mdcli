@@ -1,4 +1,3 @@
-import Table from 'cli-table3';
 import { fetchCategories, fetchTags } from '../../../lib/api.js';
 import type { Category } from '../../../types/index.js';
 import { formatCurrency } from '../../../utils/currency.js';
@@ -7,6 +6,7 @@ import { t } from '../../../lib/i18n/index.js';
 import { cell, listCell } from '../../../utils/text.js';
 import type { OverwrittenFields } from './candidates.js';
 import type { RunDocument } from './plan.js';
+import { newTable } from '../../../utils/table.js';
 
 /** Category and tag names for the overwritten fields; contact, cost center and project stay ids. */
 interface OverwrittenNames {
@@ -36,7 +36,7 @@ export function printRun(
   );
 
   if (run.imported.length > 0) {
-    const table = new Table({
+    const table = newTable({
       head: [t('labelPrefix'), t('labelDate'), t('labelValue'), t('labelDescription'), t('labelCategory'), t('labelTags'), t('labelStatus')],
       style: { head: ['cyan'] },
     });
@@ -56,7 +56,7 @@ export function printRun(
   }
 
   if (run.conciliated.length > 0) {
-    const table = new Table({
+    const table = newTable({
       head: [
         t('labelPrefix'),
         t('labelEntry'),
@@ -130,7 +130,7 @@ function printOverwritten(items: readonly ConciliatedItem[], names: OverwrittenN
     logger.info(t('importReconciledKeepsFields', item.prefix, item.entryId));
   }
   if (replaced.length === 0) return;
-  const table = new Table({
+  const table = newTable({
     head: [t('labelPrefix'), t('labelEntry'), t('labelField'), t('labelBefore'), t('labelAfter')],
     style: { head: ['cyan'] },
   });

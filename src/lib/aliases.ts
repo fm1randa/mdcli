@@ -1,11 +1,11 @@
 import { Command } from 'commander';
-import Table from 'cli-table3';
 import { getFullConfig, setAliases } from './config.js';
 import { logger } from '../utils/logger.js';
 import { exitWithError } from '../utils/action.js';
 import { t } from './i18n/index.js';
 import type { Alias, AliasMap, AliasType } from '../types/index.js';
 import { parseId } from '../utils/parse.js';
+import { newTable } from '../utils/table.js';
 
 function loadAliases(): AliasMap {
   const config = getFullConfig();
@@ -184,7 +184,7 @@ export function buildAliasCommand(parent: Command, type: AliasType): Command {
         logger.info(t('aliasNone'));
         return;
       }
-      const table = new Table({
+      const table = newTable({
         head: [t('labelId'), t('aliasColumn')],
         style: { head: ['cyan'] },
       });

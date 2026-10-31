@@ -14,7 +14,7 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "knip": "knip",
-    "test": "bun test --timeout 20000"
+    "test": "bun test --timeout 20000 --parallel"
   },
   "keywords": [
     "meu-dinheiro",

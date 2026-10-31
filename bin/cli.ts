@@ -6,7 +6,7 @@ import '../src/lib/i18n/bootstrap.js';
 
 import { checkForUpdate } from '../src/lib/self-update.js';
 import { Command } from 'commander';
-import { packageRoot, program } from '../src/program.js';
+import { packageRoot, buildProgram } from '../src/program.js';
 import { flushStdout } from '../src/utils/action.js';
 import { acceptedLanguages, refusedLanguageValue, stripLanguageFlag, t } from '../src/lib/i18n/index.js';
 
@@ -22,8 +22,6 @@ function collectShortValueFlags(cmd: Command, flags: Set<string> = new Set()): S
   return flags;
 }
 
-const valueFlags = collectShortValueFlags(program);
-
 /** Commander treats `=` as a separator only for long options, so `-v=46.33`
   reaches a short option as `=46.33`. Split it before any command parser runs.
   Only a token that looks like `-x=value` with a value-taking `x` is touched;
@@ -32,7 +30,7 @@ const valueFlags = collectShortValueFlags(program);
   is value-taking in one command (`--repeat`) and boolean in another
   (`--reconciled`), so a global flag set cannot decide, and a token that looks
   like `-x=value` is never a legitimate option value here. */
-function preprocessShortOptions(argv: string[]): string[] {
+function preprocessShortOptions(argv: string[], valueFlags: ReadonlySet<string>): string[] {
   const result: string[] = [];
   let afterDashDash = false;
   for (const arg of argv) {
@@ -56,7 +54,7 @@ function preprocessShortOptions(argv: string[]): string[] {
   return result;
 }
 
-const argv = preprocessShortOptions(stripLanguageFlag(process.argv));
+const rawArgv = stripLanguageFlag(process.argv);
 
 // An invalid --lang or MDCLI_LANG is an error, never a silent fallback.
 const refusedLanguage = refusedLanguageValue();
@@ -85,8 +83,10 @@ process.on('unhandledRejection', (reason) => {
 
 // Runs alongside the command; never blocks it for longer than the check timeout.
 // Skipped for `mdcli update`, which does the same work in the foreground.
-const updateCheck = argv[2] === 'update' ? Promise.resolve() : checkForUpdate({ packageRoot });
+const updateCheck = rawArgv[2] === 'update' ? Promise.resolve() : checkForUpdate({ packageRoot });
 
+const program = await buildProgram(rawArgv.slice(2));
+const argv = preprocessShortOptions(rawArgv, collectShortValueFlags(program));
 await program.parseAsync(argv);
 await updateCheck;
 await flushStdout();
