@@ -10,80 +10,48 @@ import { packageRoot, program } from '../src/program.js';
 import { flushStdout } from '../src/utils/action.js';
 import { acceptedLanguages, refusedLanguageValue, stripLanguageFlag, t } from '../src/lib/i18n/index.js';
 
-/** The short and long flags that take a value, read from the command tree so
-  new options are covered without a second list. */
-interface ValueFlags {
-  short: Set<string>;
-  long: Set<string>;
-}
-
-function collectValueFlags(cmd: Command, flags: ValueFlags = { short: new Set(), long: new Set() }): ValueFlags {
+/** The short flags that take a value, read from the command tree so new
+  options are covered without a second list. */
+function collectShortValueFlags(cmd: Command, flags: Set<string> = new Set()): Set<string> {
   for (const opt of cmd.options ?? []) {
     if (!(opt.required || opt.optional)) continue;
     const short = opt.short?.replace(/^-/, '');
-    if (short && short.length === 1) flags.short.add(short);
-    if (opt.long) flags.long.add(opt.long);
+    if (short && short.length === 1) flags.add(short);
   }
-  for (const sub of cmd.commands ?? []) collectValueFlags(sub, flags);
+  for (const sub of cmd.commands ?? []) collectShortValueFlags(sub, flags);
   return flags;
 }
 
-const valueFlags = collectValueFlags(program);
+const valueFlags = collectShortValueFlags(program);
 
 /** Commander treats `=` as a separator only for long options, so `-v=46.33`
-  reaches a short option as `=46.33`. Split it before any command parser runs. */
+  reaches a short option as `=46.33`. Split it before any command parser runs.
+  Only a token that looks like `-x=value` with a value-taking `x` is touched;
+  long options, boolean flags and positional arguments pass through unchanged.
+  Never track a "previous option expects a value": a short flag such as `-r`
+  is value-taking in one command (`--repeat`) and boolean in another
+  (`--reconciled`), so a global flag set cannot decide, and a token that looks
+  like `-x=value` is never a legitimate option value here. */
 function preprocessShortOptions(argv: string[]): string[] {
   const result: string[] = [];
   let afterDashDash = false;
-  let expectingValue = false;
   for (const arg of argv) {
     if (afterDashDash) {
       result.push(arg);
-      expectingValue = false;
       continue;
     }
     if (arg === '--') {
       afterDashDash = true;
       result.push(arg);
-      expectingValue = false;
       continue;
     }
-    // If the previous option expects a value, this argument is its value.
-    if (expectingValue) {
-      result.push(arg);
-      expectingValue = false;
-      continue;
-    }
-    // Only a value-taking option consumes the next argument. A boolean long
-    // flag such as --json must leave the next token to the short-option split.
-    const shortOption = /^-([a-zA-Z])$/.exec(arg);
-    if (shortOption && valueFlags.short.has(shortOption[1])) {
-      result.push(arg);
-      expectingValue = true;
-      continue;
-    }
-    const longOption = /^(--[a-zA-Z][a-zA-Z0-9-]*)$/.exec(arg);
-    if (longOption) {
-      result.push(arg);
-      expectingValue = valueFlags.long.has(longOption[1]);
-      continue;
-    }
-    const longWithValue = /^--[a-zA-Z][a-zA-Z0-9-]*=/.test(arg);
-    if (longWithValue) {
-      result.push(arg);
-      expectingValue = false;
-      continue;
-    }
-    // Split a short option with inline value only when it is a known
-    // value-taking flag and is not being provided as a previous option's value.
     const match = /^-([a-zA-Z])=(.+)$/.exec(arg);
-    if (match && valueFlags.short.has(match[1])) {
+    if (match && valueFlags.has(match[1])) {
       result.push(`-${match[1]}`);
       result.push(match[2]);
     } else {
       result.push(arg);
     }
-    expectingValue = false;
   }
   return result;
 }

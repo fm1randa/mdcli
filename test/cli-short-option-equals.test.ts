@@ -54,9 +54,9 @@ describe('cli -v=-46.33 (short option equals value)', () => {
       { home, api }
     );
     // If argv were corrupted, parseAmount would reject "=-46.33" and the
-    // CLI would exit 1 with "Valor inválido". The absence of that error
+    // CLI would exit 1 with "Invalid value". The absence of that error
     // proves the preprocessor worked.
-    expect(result.output).not.toContain('Valor inválido');
+    expect(result.output).not.toContain('Invalid value');
     // The query parameter shows the value was parsed correctly, not as =-46.33.
     expect(result.output).toContain('valor=-46.33');
   });
@@ -86,5 +86,27 @@ describe('cli -v=-46.33 (short option equals value)', () => {
     );
     expect(result.exitCode).toBe(0);
     expect(sentBody()).toMatchObject({ valor: -46.33 });
+  });
+
+  test('boolean short option before -v= does not hide the short option (create -p)', async () => {
+    const result = await runCli(
+      ['entries', 'create', '-a', '1001', '-d', 'Despesa', '-p', '-v=-46.33', '-c', '10', '-D', '2026-01-05', '--json'],
+      { home, api }
+    );
+    expect(result.exitCode).toBe(0);
+    expect(sentBody()).toMatchObject({ valor: -46.33, status: { confirmado: false } });
+  });
+
+  test('boolean short option before -v= does not hide the short option (update -r)', async () => {
+    api.on('GET /v1/lancamentos/70', { id: 70, descricao: 'Café', valor: -12.5, conta: 1001, categoria: 10, tipo: 'd' });
+    api.on('PUT /v1/lancamentos/70', (req: RecordedRequest) => ({ ...(req.body as Record<string, unknown>), id: 70 }));
+    const result = await runCli(
+      ['entries', 'update', '70', '-r', '-v=-46.33', '--json'],
+      { home, api }
+    );
+    expect(result.exitCode).toBe(0);
+    const [req] = mutations(api);
+    expect(req).toBeDefined();
+    expect(req.body).toMatchObject({ valor: -46.33 });
   });
 });
