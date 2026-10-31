@@ -54,7 +54,7 @@ body:
     attributes:
       label: Versão ou commit
       description: '`mdcli --version` ou o SHA do commit onde o problema ocorreu.'
-      placeholder: 2026.10.29 (main @ <commit-sha>)
+      placeholder: <versão> (main @ <commit-sha>)
     validations:
       required: true
   - type: input
@@ -83,7 +83,7 @@ body:
         ...
         # ou
         $ mdcli --version
-        2026.10.14
+        <versão>
     validations:
       required: true
   - type: textarea

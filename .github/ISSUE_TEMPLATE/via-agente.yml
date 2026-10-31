@@ -41,7 +41,7 @@ body:
     attributes:
       label: Versão
       description: '`mdcli --version` ou o commit SHA onde o problema ocorreu.'
-      placeholder: 2026.10.29 (main @ <commit-sha>)
+      placeholder: <versão> (main @ <commit-sha>)
   - type: input
     id: ambiente
     attributes:
