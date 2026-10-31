@@ -79,7 +79,7 @@ body:
     id: aberto-por
     attributes:
       label: Aberto por
-      description: Agente e modelo que produziram este relatório.
-      placeholder: "claude (opus-5) via poteto-mode, harness = mdcli CLI"
+      description: Agente, modelo e harness (a ferramenta de agente) que produziram este relatório.
+      placeholder: "claude-opus via claude code (harness: t3/claude code)"
     validations:
       required: true

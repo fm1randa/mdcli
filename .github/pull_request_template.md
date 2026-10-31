@@ -24,6 +24,6 @@ Closes #n (substitua `n`; se não há issue, explique abaixo)
 - Reprodução antes:
 - Reprodução depois:
 
-<!-- Se usou um agente, finalize com o modelo e o harness que fizeram o trabalho. -->
-- Modelo: 
-- Harness: mdcli CLI (mock `scripts/mock-api.ts`)
+<!-- Se usou um agente, finalize com o modelo e o harness (a ferramenta de agente) que fizeram o trabalho. -->
+- Modelo: <!-- ex.: cliproxy/frontier, opencode/deepseek-v4.1-flash-free, claude-opus -->
+- Harness: <!-- ex.: claude code, opencode, pi, t3/claude code, t3/opencode -->

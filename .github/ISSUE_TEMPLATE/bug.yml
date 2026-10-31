@@ -14,7 +14,7 @@ body:
       label: Checklist obrigatório
       description: Confirme antes de enviar.
       options:
-        - label: Procurei issues duplicadas (busca por título ou `mdcli --version` no texto).
+        - label: Procurei issues duplicadas (busca por título ou descrição).
           required: true
         - label: Incluí detalhe suficiente para reproduzir (comando exato, ambiente, saída de diagnóstico).
           required: true
