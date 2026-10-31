@@ -1,4 +1,3 @@
-import Table from 'cli-table3';
 import chalk from 'chalk';
 import { logger } from '../../utils/logger.js';
 import { t } from '../../lib/i18n/index.js';
@@ -12,6 +11,7 @@ import { formatStatus, formatType } from './format.js';
 import { formatCurrency, formatMagnitude } from '../../utils/currency.js';
 import { loadNames, nameOf, tagNames } from './names.js';
 import { cell, truncate } from '../../utils/text.js';
+import { newTable } from '../../utils/table.js';
 
 const LIST_COL_WIDTHS = [12, 12, 36, 15, 12, 12, 13];
 
@@ -74,7 +74,7 @@ export async function listAction(options: ListOptions): Promise<void> {
     return;
   }
 
-  const table = new Table({
+  const table = newTable({
     head: [t('labelId'), t('labelDate'), t('labelDescription'), t('labelValue'), t('labelType'), t('labelStatus'), t('labelInstallment')],
     style: { head: ['cyan'] },
     colWidths: LIST_COL_WIDTHS,
@@ -169,7 +169,7 @@ export async function summaryAction(options: SummaryOptions): Promise<void> {
     return;
   }
 
-  const table = new Table({
+  const table = newTable({
     head: [
       by === 'month' ? t('summaryGroupMonth') : by === 'account' ? t('summaryGroupAccount') : t('summaryGroupCategory'),
       t('labelEntries'),

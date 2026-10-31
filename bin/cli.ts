@@ -5,7 +5,7 @@
 import '../src/lib/i18n/bootstrap.js';
 
 import { checkForUpdate } from '../src/lib/self-update.js';
-import { packageRoot, program } from '../src/program.js';
+import { packageRoot, buildProgram } from '../src/program.js';
 import { acceptedLanguages, refusedLanguageValue, stripLanguageFlag, t } from '../src/lib/i18n/index.js';
 
 const argv = stripLanguageFlag(process.argv);
@@ -33,5 +33,6 @@ process.on('unhandledRejection', (reason) => {
 // Skipped for `mdcli update`, which does the same work in the foreground.
 const updateCheck = argv[2] === 'update' ? Promise.resolve() : checkForUpdate({ packageRoot });
 
+const program = await buildProgram(argv.slice(2));
 await program.parseAsync(argv);
 await updateCheck;
