@@ -169,7 +169,7 @@ async function fillCandidates(
   const linked = automaticLinks(banks, existing);
   document.transactions.forEach((bankTransaction, index) => {
     const id = linked[index] ?? null;
-    const matched = candidatesFor(banks[index], existing);
+    const matched = candidatesFor(banks[index], existing, card);
     bankTransaction.candidates = matched
       .filter((item) => !item.reconciled || item.candidate.id === id)
       .map((item) => item.candidate);

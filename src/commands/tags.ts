@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import { logger } from '../utils/logger.js';
-import { action, exitWithError } from '../utils/action.js';
+import { action, exitWithError, flushStdout } from '../utils/action.js';
 import { promptConfirmation } from '../utils/prompt.js';
 import { fetchTags, normalizeTags, createTag, updateTag, deleteTag } from '../lib/api.js';
 import { buildAliasCommand } from '../lib/aliases.js';
@@ -185,6 +185,8 @@ async function deleteTagAction(id: string, options: DeleteTagOptions): Promise<v
 
     if (!confirmed) {
       logger.info(t('deletionCancelled'));
+      await flushStdout(3000);
+      // eslint-disable-next-line local/no-bare-process-exit
       process.exit(0);
     }
   }
