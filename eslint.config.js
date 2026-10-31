@@ -84,6 +84,11 @@ export default tseslint.config(
     },
   },
   {
+    // Short options with = must be preprocessed before commander parses argv (#151).
+    files: ["bin/cli.ts"],
+    rules: { "local/no-short-option-equals": "error" },
+  },
+  {
     // Flush stdout before exit so piped output isn't truncated at 65536 bytes.
     files: ["src/**/*.ts", "bin/**/*.ts"],
     rules: { "local/no-bare-process-exit": "error" },
