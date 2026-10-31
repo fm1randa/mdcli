@@ -42,16 +42,12 @@ body:
       label: Versão
       description: '`mdcli --version` ou o commit SHA onde o problema ocorreu.'
       placeholder: 2026.10.28 (main @ 57c1b30)
-    validations:
-      required: true
   - type: input
     id: ambiente
     attributes:
       label: Ambiente
       description: SO, versão do Bun, modelo/agente usado, se relevante.
       placeholder: Linux 6.8, Bun 1.4.2, Claude (opus-5) via poteto-mode
-    validations:
-      required: true
   - type: textarea
     id: evidencia
     attributes:
@@ -61,8 +57,6 @@ body:
       placeholder: |
         $ mdcli auth doctor
         erro: token não encontrado (linha 42 de src/auth/doctor.ts)
-    validations:
-      required: true
   - type: input
     id: issues-relacionadas
     attributes:
