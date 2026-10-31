@@ -17,8 +17,9 @@ export NO_COLOR=1 TERM=dumb
 
 FAILED=()
 
-# Milliseconds since the epoch. Bash 5+ exposes EPOCHREALTIME, so this costs no
-# process; macOS bash 3.2 falls back to whole seconds.
+# A millisecond clock for measuring step durations. Bash 5+ uses EPOCHREALTIME
+# (no subprocess); macOS bash 3.2 falls back to SECONDS — whole seconds since
+# the shell started. Only ever subtracted to time a step, never a wall clock.
 now_ms() {
   if [ -n "${EPOCHREALTIME:-}" ]; then
     printf '%s' $(( ${EPOCHREALTIME/./} / 1000 ))
