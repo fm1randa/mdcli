@@ -16,10 +16,57 @@ unset TERM COLORTERM FORCE_COLOR CLICOLOR CLICOLOR_FORCE NO_COLOR TERM_PROGRAM
 export NO_COLOR=1 TERM=dumb
 
 FAILED=()
+
+# Milliseconds since the epoch. Bash 5+ exposes EPOCHREALTIME, so this costs no
+# process; macOS bash 3.2 falls back to whole seconds.
+now_ms() {
+  if [ -n "${EPOCHREALTIME:-}" ]; then
+    printf '%s' $(( ${EPOCHREALTIME/./} / 1000 ))
+  else
+    printf '%s' $(( SECONDS * 1000 ))
+  fi
+}
+fmt_s() { printf '%d.%03d' $(( $1 / 1000 )) $(( $1 % 1000 )); }
+
+RUN_START_MS=$(now_ms)
 step() {
   local name="$1"; shift
   echo "::: $name"
+  local t0; t0=$(now_ms)
   if "$@"; then echo "✓ $name"; else echo "✗ $name"; FAILED+=("$name"); fi
+  printf '⏱ %s: %ss\n' "$name" "$(fmt_s $(( $(now_ms) - t0 )))"
+}
+
+# Steps that do not depend on each other run together: each one's output is
+# buffered and reported once it finishes, so the log stays readable.
+PAR_NAMES=(); PAR_PIDS=(); PAR_LOGS=(); PAR_MS=()
+start_step() {
+  local name="$1"; shift
+  local log; log=$(mktemp)
+  PAR_NAMES+=("$name"); PAR_LOGS+=("$log")
+  (
+    t0=$(now_ms)
+    "$@" >"$log" 2>&1
+    rc=$?
+    printf '%s' $(( $(now_ms) - t0 )) >"$log.ms"
+    exit $rc
+  ) &
+  PAR_PIDS+=("$!")
+  echo "::: $name (em paralelo)"
+}
+wait_steps() {
+  local i name pid ms
+  for i in "${!PAR_PIDS[@]}"; do
+    name=${PAR_NAMES[$i]}; pid=${PAR_PIDS[$i]}
+    if wait "$pid"; then
+      echo "✓ $name"
+    else
+      echo "✗ $name"; FAILED+=("$name"); sed 's/^/  /' "${PAR_LOGS[$i]}"
+    fi
+    ms=$(cat "${PAR_LOGS[$i]}.ms" 2>/dev/null || echo 0)
+    printf '⏱ %s: %ss\n' "$name" "$(fmt_s "$ms")"
+    rm -f "${PAR_LOGS[$i]}" "${PAR_LOGS[$i]}.ms"
+  done
 }
 
 step "install"   bun install --frozen-lockfile
@@ -44,10 +91,10 @@ readme_sync() {
   '
 }
 step "readme sync" readme_sync
-step "typecheck" bun run typecheck
-step "lint"      bun run lint
-step "knip"      bun run knip
-step "test"      bun run test
+start_step "typecheck" bun run typecheck
+start_step "lint"      bun run lint
+start_step "knip"      bun run knip
+start_step "test"      bun run test
 # Audit: high/critical in runtime dependencies fails; in dev only warns.
 # `bun audit --prod` (honored by bun 1.4.2 though absent from --help) audits
 # only the "dependencies" graph.
@@ -508,7 +555,10 @@ step "cli auto-update desligado (config autoUpdate=false)" opt_out config
 step "cli update manual (mock)" manual_update
 step "cli update fora de instalação global" expect_fail 'mdcli is not installed globally' update
 
+wait_steps
+
 echo
+printf '⏱ total: %ss\n' "$(fmt_s $(( $(now_ms) - RUN_START_MS )))"
 if [ ${#FAILED[@]} -gt 0 ]; then
   echo "VERIFICAÇÃO FALHOU: ${FAILED[*]}"; exit 1
 fi
