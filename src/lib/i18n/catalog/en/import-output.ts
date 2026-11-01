@@ -22,6 +22,9 @@ export const enEntriesImportOutput: typeof SectionType = {
   warningCardEntryIdNotFound: (id, dueDate, cardId, month) =>
     `⚠ The API answered with "${id}", which is not an entry ID, and the purchase was not found in the ` +
     `${dueDate} invoice. Find its ID with: mdcli cards invoice -a ${cardId} --month ${month} --json`,
+  warningScheduledEntryIdNotFound: (id, accountId) =>
+    `⚠ The API answered with "${id}", which is not an entry ID, and the scheduled entry was not found in the ` +
+    `account's entries. Find its ID with: mdcli entries list -a ${accountId} --json`,
   errorUnknownEntryType: (input) =>
     `Unknown type: ${input}. Valid: expense (d), income (r), transfer (t)`,
   errorTransferNeedsDestination: () =>
