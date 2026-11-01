@@ -200,7 +200,7 @@ export async function createAction(options: CreateOptions): Promise<void> {
   const created = await createEntry(payload);
   const response = cardDueDate
     ? await withCardEntryId(created, { id: accountId, dueDate: cardDueDate, description: options.description, value: effectiveValue })
-    : await withScheduledEntryId(created, { accountId, date: dateStr, description: options.description, value: finalValue });
+    : await withScheduledEntryId(created, { accountId, date: dateStr, description: options.description, value: effectiveValue });
   if (options.json) {
     console.log(JSON.stringify(response, null, 2));
     return;
