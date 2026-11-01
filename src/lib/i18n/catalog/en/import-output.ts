@@ -1,127 +1,7 @@
-import type { ptBREntries as SectionType } from '../pt-BR/entries.js';
+import type { ptBREntriesImportOutput as SectionType } from '../pt-BR/import-output.js';
 
-/** Entries, in English. Typed by the pt-BR section, so a missing key fails typecheck. */
-
-export const enEntries: typeof SectionType = {
-  // --- Entries -------------------------------------------------------------------
-  entriesManageDescription: () => 'Manage entries (lancamentos)',
-  entriesListDescription: () => 'List entries for one or more accounts',
-  entriesListCsvOption: () => 'Output as CSV (with account and category names)',
-  entriesSummaryDescription: () =>
-    'Total income and expenses grouped by category, month, or account',
-  entriesSummaryByOption: () => 'Group by: category, month, or account',
-  entriesSummaryIncludeTransfersOption: () =>
-    'Count transfers between accounts (left out by default)',
-  entriesShowDescription: () => 'Show every field of one entry',
-  entriesShowJsonOption: () =>
-    'Output the normalized entry as JSON (the same fields as list --json)',
-  entriesShowRawOption: () => 'Output the entry exactly as the API returns it',
-  entriesCreateDescription: () => 'Create a new entry',
-  entriesCreateAccountOption: () =>
-    'Account ID, alias, or exact name (case-insensitive); for a transfer, the origin account',
-  entriesCreateDescriptionOption: () => 'Entry description',
-  entriesCreateValueOption: () =>
-    'Entry value (positive number, e.g. 10.50 or 10,50); with --installments, the total unless --per-installment',
-  entriesCreateTypeOption: () => 'Entry type: expense, income, transfer (default: expense)',
-  entriesCreateToAccountOption: () =>
-    'Transfers: destination account ID, alias, or exact name (required with -T transfer)',
-  entriesCreateCategoryOption: () =>
-    'Category ID, alias, or exact name (case-insensitive) (required; transfers default to the transfer category)',
-  entriesCreateDateOption: () =>
-    'Entry date (YYYY-MM-DD), defaults to today; with --installments, the first installment',
-  entriesTagsOption: () =>
-    'Tag ID(s), alias(es), or exact name(s) (case-insensitive), comma-separated',
-  entriesNotesOption: () => 'Additional notes/observations',
-  entriesCreatePendingOption: () =>
-    'Create as not confirmed (Confirmado off in the web app, no effective date): pending up to today, scheduled for a future date',
-  entriesCreateConfirmedOption: () =>
-    'Create as confirmed, not reconciled (default: reconciled)',
-  entriesScheduledAliasOption: () => 'Deprecated alias of --pending',
-  entriesCreateRepeatOption: () =>
-    'Recurrence: daily, weekly, monthly, yearly (or d, w, m, y); with --installments, the spacing (default: monthly)',
-  entriesCreateFrequencyOption: () =>
-    'Repeat every N intervals, e.g. --frequency 2 = every 2 months (default: 1)',
-  entriesCreateTimesOption: () =>
-    'Fixed series: total occurrences, e.g. --times 6 = 6 times then stop (default: infinite)',
-  entriesCreateInstallmentsOption: () =>
-    'Installment series (parcelada): split --value into N installments (N >= 2)',
-  entriesCreateFirstInstallmentOption: () =>
-    'Installments: number of the first installment, as in the web app (default: 1)',
-  entriesCreatePerInstallmentOption: () =>
-    'Installments: --value is each installment, not the total',
-  entriesCreateInvoiceOption: () =>
-    'Credit cards: invoice month to post to (default: the invoice the date falls in)',
-  entriesUpdateDescription: () =>
-    'Update an existing entry (partial update - only send fields you want to change)',
-  entriesUpdateAccountOption: () =>
-    'Move the entry to this account: ID, alias, or exact name (case-insensitive); for a transfer, the origin account',
-  entriesUpdateToAccountOption: () =>
-    'Transfers: move the destination to this account (ID, alias, or exact name)',
-  entriesUpdateValueOption: () => 'Entry value (e.g. 10.50 or 10,50)',
-  entriesUpdateTypeOption: () => 'Entry type: expense, income, transfer',
-  entriesUpdateCategoryOption: () =>
-    'Category ID, alias, or exact name (case-insensitive)',
-  entriesUpdateDateOption: () => 'Entry date (YYYY-MM-DD)',
-  entriesUpdatePendingOption: () =>
-    'Set as not confirmed: clears the effective date and value (pending up to today, scheduled for a future date)',
-  entriesUpdateConfirmedOption: () =>
-    'Set as confirmed, not reconciled (confirms a pending or scheduled entry)',
-  entriesUpdateReconciledOption: () => 'Set as reconciled',
-  entriesDeleteDescription: () => 'Delete an entry',
-  entriesDeleteSkipConfirmationOption: () => 'Skip confirmation prompt',
-  entriesFilterAccountOption: () =>
-    'Account ID(s), alias(es), or exact name(s) (case-insensitive), comma-separated',
-  entriesFilterFromOption: () =>
-    'Start date (YYYY-MM-DD), defaults to first day of current month',
-  entriesFilterToOption: () =>
-    'End date (YYYY-MM-DD), defaults to last day of current month (API limit 2031-12-31)',
-  entriesFilterStatusOption: () =>
-    'Filter by status: pending, confirmed, reconciled, scheduled (or bitmask 0-15)',
-  entriesFilterTypeOption: () =>
-    'Filter by type: expense, income, transfer-out, transfer-in (or bitmask 0-15)',
-  entriesFilterRepetitionOption: () =>
-    'Filter by repetition: single, installment, fixed (or bitmask 0-7)',
-  entriesFilterCategoryOption: () =>
-    'Filter by category ID(s), alias(es), or exact name(s) (case-insensitive), comma-separated',
-  entriesFilterTagOption: () =>
-    'Filter by tag ID(s), alias(es), or exact name(s) (case-insensitive), comma-separated',
-  entriesFilterKeywordsOption: () => 'Search by keywords',
-  entriesFilterValueOption: () => 'Filter by value',
-  entriesFilterExcludeCategoryOption: () =>
-    'Leave out these categories and their subcategories, comma-separated',
-  entriesFilterNoInvoicesOption: () =>
-    'Omit credit-card invoice projections (API faturas: false; default includes them)',
-  errorInvalidFilterDate: (flag, value) => `Invalid ${flag} date: ${value}. Use YYYY-MM-DD.`,
-  errorPastLastLoadableDate: (to, last) =>
-    `--to ${to} is past ${last}, the last date Meu Dinheiro loads entries for. Use --to ${last} or earlier.`,
-  errorUnknownFilterValue: (label, unknown, valid) => `Unknown ${label}: ${unknown}. Valid: ${valid}`,
-  filterLabelStatus: () => 'status',
-  filterLabelType: () => 'type',
-  filterLabelRepetition: () => 'repetition',
-  errorAccountRequired: () =>
-    'At least one account ID or alias is required. Use --account <id> or --account <id1,id2,...>',
-  errorUnknownAccounts: (list) => `Unknown account(s): ${list}`,
-  errorUnknownCategories: (list) => `Unknown category(ies): ${list}`,
-  errorUnknownCategoriesExclude: (list) =>
-    `Unknown category(ies) in --exclude-category: ${list}`,
-  errorInvalidValue: (value) =>
-    `Invalid value "${value}". Use a number like 10, 10.50 or 10,50.`,
-  errorJsonOrCsv: () => 'Use either --json or --csv, not both.',
-  entriesListHeader: (count, total) => `Entries (${count}) | Total: ${total}`,
-  errorInvalidBy: (value) => `Invalid --by "${value}". Use category, month, or account.`,
-  labelNoCategory: () => '(no category)',
-  summaryGroupCategory: () => 'Category',
-  summaryGroupMonth: () => 'Month',
-  summaryGroupAccount: () => 'Account',
-  entriesSummaryHeader: (by, from, to) => `Summary by ${by} | ${from} to ${to}`,
-  entriesExcludedByCategory: (count) =>
-    `${count} entr${count === 1 ? 'y' : 'ies'} left out by --exclude-category.`,
-  entriesSkippedTransfers: (count) =>
-    `${count} transfer(s) left out. Use --include-transfers to count them.`,
-  entriesSkippedPayments: (count) =>
-    `${count} card payment(s) left out of the summary.`,
-  entriesSkippedInvoices: (count) =>
-    `${count} invoice projection(s) left out of the summary.`,
+/** Import output and remaining entry labels, in English. */
+export const enEntriesImportOutput: typeof SectionType = {
   notReturnedByApi: () => '(not returned by the API)',
   errorJsonOrRaw: () => 'Use either --json or --raw, not both.',
   errorUnknownTags: (list) => `Unknown tag(s): ${list}`,
@@ -255,4 +135,161 @@ export const enEntries: typeof SectionType = {
   entryDeleted: (id) => `Entry ${id} deleted successfully!`,
   entryAndFollowingDeleted: (id) =>
     `Entry ${id} and the following occurrences deleted successfully!`,
+  importEditCandidates: (prefix) => `# candidates ${prefix}`,
+  importEditLeftOut: (list) =>
+    `# Left out (no id, date or value from the bank): ${list}`,
+  importEditImportFor: (name, start, end) =>
+    `# Import for ${name}, statement ${start} to ${end}.`,
+  importEditCommandsHeader: () => '# Commands:',
+  importEditImportCommand: () =>
+    '#   import <prefix> <date> <value> <category> | <description>   create an Entry',
+  importEditConciliateCommand: () =>
+    '#   conciliate <prefix> [<entryId>] <date> <value> <category> | <description>   link an existing Entry',
+  importEditReconciledNote: () =>
+    '#     Reconciled Entries are not listed as candidates, but their id may still be written here.',
+  importEditSkipCommand: () => '#   skip <prefix> ...     leave it for later',
+  importEditRejectCommand: () => '#   reject <prefix> ...   mark it as not imported',
+  importEditDateValueNote: () =>
+    '# The date and the absolute value must be the bank ones; flipping the sign is allowed.',
+  importEditCommentsNote: () =>
+    '# Lines starting with # are comments. Remove every command line to cancel.',
+  importEditExpectedLine: (where) =>
+    `${where}: expected "<command> <prefix> <date> <value> <category> | <description>".`,
+  importEditUnknownCommand: (where, command, actions) =>
+    `${where}: unknown command "${command}". Use ${actions}.`,
+  importEditOnlyConciliateEntryId: (id) =>
+    `${id}: only conciliate takes an entry id.`,
+  importEditDateMustBeBankDate: (id, date) =>
+    `${id}: the date must be the bank date ${date}.`,
+  importEditValueNotNumber: (id, value) =>
+    `${id}: the value ${value} is not a number.`,
+  importEditMoreThanOneLine: (id) => `${id}: it has more than one command line.`,
+  importEditLine: (line) => `Line ${line}`,
+  importEditPrefixFlag: (where) => `${where}: prefix`,
+  importPrefixNoMatch: (flag, prefix) =>
+    `${flag} ${prefix} does not match any bank transaction.`,
+  importPrefixManyMatches: (flag, prefix, count) =>
+    `${flag} ${prefix} matches ${count} bank transactions. Use a longer prefix.`,
+  errorEditorRequired: () =>
+    '--edit needs $EDITOR (e.g. EDITOR=vim). Nothing was written.',
+  errorEditUnchangedInvalid: (errors) =>
+    `The file is unchanged and still invalid. Nothing was written.\n${errors}`,
+  errorCouldNotRunEditor: (editor, message) =>
+    `Could not run $EDITOR (${editor}): ${message}. Nothing was written.`,
+  errorEditorStopped: (editor, how) =>
+    `$EDITOR (${editor}) ${how}. Nothing was written.`,
+  editorStoppedBySignal: (signal) => `was stopped by ${signal}`,
+  editorExitedWithCode: (status) => `exited with code ${status}`,
+  errorCannotReadPlanFile: (path, message) =>
+    `Cannot read the --plan file ${path}: ${message}`,
+  errorPlanInvalidJson: (message) =>
+    `The --plan file is not valid JSON: ${message}`,
+  errorPlanNotObject: () => 'the file must be a JSON object with "transactions".',
+  errorPlanUnknownKey: (key) =>
+    `unknown key ${key} (the file only has "transactions").`,
+  errorPlanTransactionsMustBeList: () => '"transactions" must be a list.',
+  errorPlanEmpty: () => '"transactions" is empty. There is no "import everything".',
+  errorPlanIdMustBeString: () => '"id" must be a prefix or UUID string.',
+  errorPlanActionOneOf: (actions) => `"action" must be one of ${actions}.`,
+  errorPlanKeyNotApplicable: (key, action) =>
+    `${key} does not apply to ${action}.`,
+  errorPlanCategory: () =>
+    '"category" must be a category ID, alias, or name.',
+  errorPlanValue: () => '"value" must be a number.',
+  errorPlanDescription: () => '"description" must be a string.',
+  errorPlanEntry: () => '"entry" must be a numeric Entry id.',
+  errorPlanCategoryRequired: () => '"category" is required for import.',
+  errorInvalidPlanFile: (problems) =>
+    `Invalid --plan file. Nothing was imported.\n${problems}`,
+  errorNothingImported: (problems) =>
+    `Nothing was imported. Fix the selection:\n${problems}`,
+  importNoBankDate: () => 'the bank did not send a date.',
+  importZeroValue: () => 'the value is zero.',
+  errorWrittenValue: (value, bankValue) =>
+    `value ${value} is not the bank value ${bankValue}. Only the sign can change.`,
+  importNoCategory: () => 'it has no category.',
+  importNoBankValue: () => 'the bank did not send a value.',
+  errorCategoryExpenseNegative: (name) =>
+    `category "${name}" is an expense, so the value must be negative.`,
+  errorCategoryIncomePositive: (name) =>
+    `category "${name}" is income, so the value must be positive.`,
+  errorCategoryIsTransfer: (name) => `category "${name}" is a transfer.`,
+  importDryRunHeader: (name, connectionAccount) =>
+    `Import dry run for ${name} (connection account ${connectionAccount})`,
+  importRunHeader: (name, connectionAccount) =>
+    `Import for ${name} (connection account ${connectionAccount})`,
+  importStatementSummary: (start, end, balance) =>
+    `Statement ${start} to ${end}, balance ${balance}`,
+  importCounts: (imported, conciliated, rejected, skipped) =>
+    `Import ${imported}, conciliate ${conciliated}, reject ${rejected}, skip ${skipped}.`,
+  importNewEntriesHeader: () => 'New entries',
+  importLinkedEntriesHeader: () => 'Linked entries',
+  importRejectedHeader: () => 'Rejected',
+  importSkippedHeader: () => 'Skipped',
+  importSkipReasonDuplicate: () => 'duplicate',
+  importSkipReasonPlan: () => 'plan',
+  importDryRunNote: () => 'Dry run: nothing was written.',
+  importReconciledKeepsFields: (prefix, entryId) =>
+    `${prefix} (entry ${entryId}) is already reconciled: ` +
+    'the web only overwrites entries that are not reconciled, so it keeps its fields.',
+  importOverwrittenHeader: () => 'Overwritten by the bank',
+  importOverwriteUnavailable: () =>
+    'The overwrite preferences could not be read, so the web default applies: linked entries keep their fields.',
+  importOverwriteOn: (fields) =>
+    `Overwrite on (your web preference): linked entries that are not reconciled take the bank transaction's ${fields}.`,
+  importOverwriteOff: (fields) =>
+    `Overwrite off (your web preference): linked entries keep their ${fields}; ` +
+    "with it on, the ones that are not reconciled would take the bank transaction's.",
+  importOverwriteFields: () =>
+    'contact, category, cost center, project, tags and document number',
+  importFillDescriptionOn: () =>
+    "Fill empty descriptions on (your web preference): a linked entry without a description takes the bank transaction's.",
+  importFillDescriptionOff: () =>
+    'Fill empty descriptions off (your web preference): linked entries keep their description.',
+  errorImportJsonRequires: () => 'entries import run --json requires --yes or --dry-run',
+  importNothingToDo: () =>
+    'Nothing to do: the file has no command lines. Nothing was written.',
+  importNothingNewWritten: (message) => `${message} Nothing was written.`,
+  confirmImport: () => 'Write this import to Meu Dinheiro? (y/N) ',
+  importCancelled: () => 'Import cancelled. Nothing was written.',
+  importWritten: (name) => `Import written for ${name}.`,
+  errorPlanDoesNotCombineWithEdit: () => '--plan does not combine with --edit.',
+  errorFlagDoesNotCombine: (flag, source) =>
+    `${flag} does not combine with ${source}. Every choice goes in the ${source} file.`,
+  errorCategoryOnlyIds: () => '--category only applies to --ids.',
+  errorIdsNeedsCategory: () =>
+    '--ids needs -c, --category: every Entry the import creates has a category.',
+  errorNothingSelected: (listCommand) =>
+    'Nothing selected. Use --ids with --category, --reject, --plan, or --edit. There is no "import everything". ' +
+    `To see what would be imported, with the suggested categories and actions, use: ${listCommand}`,
+  errorPrefixInBoth: (prefix) => `${prefix} is in both --ids and --reject.`,
+  errorSelectedByBoth: (prefix) =>
+    `${prefix} is selected by both --ids and --reject.`,
+  errorPrefixNeedsOne: (flag) => `${flag} needs at least one prefix.`,
+  errorEntryIdNotEntry: (input) =>
+    `entry ${input} is not an Entry id (a whole number from 1 to ${Number.MAX_SAFE_INTEGER}).`,
+  errorImportTransferCategory: (name, id) =>
+    `Category "${name}" (${id}) is a transfer category. Import does not create transfers.`,
+  errorSelectedTwice: (label, first, second) =>
+    `${label}: selected twice (${first} and ${second}).`,
+  errorEntryAlreadyRecords: (id) =>
+    `entry ${id} already records it (linked automatically). Use conciliate, or skip it.`,
+  errorEntryNotCandidate: (entryId, known) =>
+    `entry ${entryId} is not a candidate (${known}).`,
+  importNoCandidates: () => 'it has no candidates',
+  importCandidatesList: (ids) => `candidates: ${ids}`,
+  errorNoEntryMatches: () =>
+    'no entry matches it, so there is nothing to link.',
+  errorEntriesMayMatch: (count, ids, hint) =>
+    `${count} ${count === 1 ? 'entry' : 'entries'} may match it (${ids}), none linked automatically. ${hint}`,
+  importEntryHintEdit: (prefix) =>
+    `Write the one to link: conciliate ${prefix} <entryId> ...`,
+  importEntryHintPlan: () => 'Say which one with "entry".',
+  errorEarliestStart: (floor) =>
+    `The earliest start date is ${floor}. Bank transactions can only be loaded for the last 90 days.`,
+  errorLatestStart: (day) => `The latest start date is today (${day}).`,
+  errorMarkImportedFailed: (message) => `markImported failed: ${message}`,
+  errorPagesWritten: (message, index, total) =>
+    `${message} Pages written before the failure: ${index} of ${total}.`,
+  errorBankTransactionNoDate: (id) => `Bank transaction ${id} has no date.`,
 };

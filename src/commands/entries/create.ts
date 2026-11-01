@@ -13,6 +13,7 @@ import { getCurrentMonthRange, isCalendarDate, now, toLocalDateString } from '..
 import { resolveCardDueDate } from './card-invoice.js';
 import { withCardEntryId } from './card-entries.js';
 import { withScheduledEntryId } from './entry-id.js';
+import { signForType } from './type.js';
 import { defaultTransferCategory, resolveTransferDestination } from './create-transfer.js';
 import { intervalLabel, parseSchedule, type Schedule, type ScheduleOptions } from './schedule.js';
 import { parseAmount } from '../../utils/parse.js';
@@ -90,7 +91,8 @@ export async function createAction(options: CreateOptions): Promise<void> {
   }
   // Only income is positive: the web app sends expenses and transfers (from
   // the origin side) as negative values.
-  const finalValue = tipo === 'r' ? Math.abs(value) : -Math.abs(value);
+  const sign = signForType(tipo);
+  const finalValue = sign === 0 ? value : sign * Math.abs(value);
   const schedule = parseSchedule(options, finalValue, dateStr);
 
   const accountId = await resolveAccountOrExit(options.account);

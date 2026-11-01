@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Verificação completa do mdcli: install, typecheck, lint, knip, testes e
-# exercício real da CLI (sem tocar a API real nem a config do usuário).
+# Verificação completa do mdcli: install, readme sync, typecheck, lint, knip,
+# audit, testes e exercício real da CLI (sem tocar a API real nem a config
+# do usuário).
 # Uso: scripts/verify.sh   — sai com código != 0 em qualquer falha.
 set -uo pipefail
 cd "$(dirname "$0")/.."
@@ -15,10 +16,58 @@ unset TERM COLORTERM FORCE_COLOR CLICOLOR CLICOLOR_FORCE NO_COLOR TERM_PROGRAM
 export NO_COLOR=1 TERM=dumb
 
 FAILED=()
+
+# A millisecond clock for measuring step durations. Bash 5+ uses EPOCHREALTIME
+# (no subprocess); macOS bash 3.2 falls back to SECONDS — whole seconds since
+# the shell started. Only ever subtracted to time a step, never a wall clock.
+now_ms() {
+  if [ -n "${EPOCHREALTIME:-}" ]; then
+    printf '%s' $(( ${EPOCHREALTIME/./} / 1000 ))
+  else
+    printf '%s' $(( SECONDS * 1000 ))
+  fi
+}
+fmt_s() { printf '%d.%03d' $(( $1 / 1000 )) $(( $1 % 1000 )); }
+
+RUN_START_MS=$(now_ms)
 step() {
   local name="$1"; shift
   echo "::: $name"
+  local t0; t0=$(now_ms)
   if "$@"; then echo "✓ $name"; else echo "✗ $name"; FAILED+=("$name"); fi
+  printf '⏱ %s: %ss\n' "$name" "$(fmt_s $(( $(now_ms) - t0 )))"
+}
+
+# Steps that do not depend on each other run together: each one's output is
+# buffered and reported once it finishes, so the log stays readable.
+PAR_NAMES=(); PAR_PIDS=(); PAR_LOGS=(); PAR_MS=()
+start_step() {
+  local name="$1"; shift
+  local log; log=$(mktemp)
+  PAR_NAMES+=("$name"); PAR_LOGS+=("$log")
+  (
+    t0=$(now_ms)
+    "$@" >"$log" 2>&1
+    rc=$?
+    printf '%s' $(( $(now_ms) - t0 )) >"$log.ms"
+    exit $rc
+  ) &
+  PAR_PIDS+=("$!")
+  echo "::: $name (em paralelo)"
+}
+wait_steps() {
+  local i name pid ms
+  for i in "${!PAR_PIDS[@]}"; do
+    name=${PAR_NAMES[$i]}; pid=${PAR_PIDS[$i]}
+    if wait "$pid"; then
+      echo "✓ $name"
+    else
+      echo "✗ $name"; FAILED+=("$name"); sed 's/^/  /' "${PAR_LOGS[$i]}"
+    fi
+    ms=$(cat "${PAR_LOGS[$i]}.ms" 2>/dev/null || echo 0)
+    printf '⏱ %s: %ss\n' "$name" "$(fmt_s "$ms")"
+    rm -f "${PAR_LOGS[$i]}" "${PAR_LOGS[$i]}.ms"
+  done
 }
 
 step "install"   bun install --frozen-lockfile
@@ -43,10 +92,10 @@ readme_sync() {
   '
 }
 step "readme sync" readme_sync
-step "typecheck" bun run typecheck
-step "lint"      bun run lint
-step "knip"      bun run knip
-step "test"      bun run test
+start_step "typecheck" bun run typecheck
+start_step "lint"      bun run lint
+start_step "knip"      bun run knip
+start_step "test"      bun run test
 # Audit: high/critical in runtime dependencies fails; in dev only warns.
 # `bun audit --prod` (honored by bun 1.4.2 though absent from --help) audits
 # only the "dependencies" graph.
@@ -86,6 +135,11 @@ expect_ok_without() { # expect_ok_without <regex> <absent regex> <args...>
   grep -Eq "$re" <<<"$out" || { echo "esperava /$re/ em: $out"; return 1; }
   if grep -Eq "$absent" <<<"$out"; then echo "não esperava /$absent/ em: $out"; return 1; fi
 }
+expect_ok_ptbr() { # expect_ok_ptbr <regex> <args...> — runs without --lang to assert pt-BR output
+  local re="$1"; shift
+  local out; out=$(env -u MDCLI_LANG bun bin/cli.ts "$@" </dev/null 2>&1) || { echo "saída: $out"; return 1; }
+  grep -Eq "$re" <<<"$out" || { echo "esperava /$re/ em: $out"; return 1; }
+}
 expect_json() { # expect_json <js condition on d> <args...> — d = JSON parsed from stdout
   local cond="$1"; shift
   local out; out=$("${CLI[@]}" "$@" </dev/null) || { echo "saída: $out"; return 1; }
@@ -123,6 +177,9 @@ step "cli entries import list --help" expect_ok 'Usage' entries import list --he
 step "cli entries import run --help" expect_ok 'Usage' entries import run --help
 step "cli comando inválido" expect_fail 'unknown command' nope
 step "cli auth status"      expect_ok 'Authenticated: No' auth status
+# Default language is pt-BR: a few steps without --lang must show pt-BR output.
+step "cli pt-BR --help"     expect_ok_ptbr 'Uso:' --help
+step "cli pt-BR auth status" expect_ok_ptbr 'Autenticado:' auth status
 step "cli sem login"        expect_fail 'Not authenticated' accounts list
 
 # One JSON line per request, so the sync list step can see the method.
@@ -438,7 +495,7 @@ mkdir -p "$GLOBAL/node_modules/mdcli"
 cp -r bin src package.json "$GLOBAL/node_modules/mdcli/"
 ln -s "$PWD/node_modules" "$GLOBAL/node_modules/mdcli/node_modules"
 echo '"mdcli": ["mdcli@github:fm1randa/mdcli#v2026.10.13", {}, "fm1randa-mdcli-abc1234", "sha512-x"],' >"$GLOBAL/bun.lock"
-printf '#!/bin/sh\necho "$@" > "%s"\n' "$SANDBOX/update-args" >"$SANDBOX/fake-bun"; chmod +x "$SANDBOX/fake-bun"
+printf '#!/bin/sh\necho "$@" >> "%s"\n' "$SANDBOX/update-args" >"$SANDBOX/fake-bun"; chmod +x "$SANDBOX/fake-bun"
 RELEASE_URL() { echo "http://127.0.0.1:$(head -1 "$PORT_FILE")/github/repos/fm1randa/mdcli/releases/latest"; }
 gcli() { env -u CI MDCLI_UPDATE_CHECK_URL="$(RELEASE_URL)" MDCLI_UPDATE_BUN="$SANDBOX/fake-bun" "$@"; }
 set_global_version() { V="$1" F="$GLOBAL/node_modules/mdcli/package.json" bun -e 'const f=process.env.F; const p=await Bun.file(f).json(); p.version=process.env.V; await Bun.write(f, JSON.stringify(p))'; }
@@ -449,9 +506,13 @@ self_update() {
   out=$(gcli bun "$GCLI" accounts list --json 2>"$SANDBOX/update-err" </dev/null) || return 1
   OUT="$out" bun -e 'JSON.parse(process.env.OUT)' || { echo "stdout não é JSON: $out"; return 1; }
   [ ! -s "$SANDBOX/update-err" ] || { echo "stderr inesperado: $(cat "$SANDBOX/update-err")"; return 1; }
-  for _ in $(seq 50); do [ -s "$SANDBOX/update-args" ] && break; sleep 0.1; done
-  grep -qx 'install -g github:fm1randa/mdcli#v2099.1.1' "$SANDBOX/update-args" \
-    || { echo "install: $(cat "$SANDBOX/update-args" 2>/dev/null)"; return 1; }
+  # The background child must run both steps, in this order: the old code lost
+  # the install when the CLI exited before the remove finished.
+  for _ in $(seq 50); do [ "$(sed -n '2p' "$SANDBOX/update-args" 2>/dev/null)" = 'install -g github:fm1randa/mdcli#v2099.1.1' ] && break; sleep 0.1; done
+  [ "$(sed -n '1p' "$SANDBOX/update-args" 2>/dev/null)" = 'remove -g mdcli' ] \
+    && [ "$(sed -n '2p' "$SANDBOX/update-args" 2>/dev/null)" = 'install -g github:fm1randa/mdcli#v2099.1.1' ] \
+    && [ "$(wc -l < "$SANDBOX/update-args" 2>/dev/null | tr -d ' ')" = 2 ] \
+    || { echo "update-args: $(cat "$SANDBOX/update-args" 2>/dev/null)"; return 1; }
   # Within 24h of that check the next run must not check again.
   rm -f "$SANDBOX/update-args"
   gcli bun "$GCLI" --version >/dev/null 2>&1 </dev/null
@@ -495,7 +556,10 @@ step "cli auto-update desligado (config autoUpdate=false)" opt_out config
 step "cli update manual (mock)" manual_update
 step "cli update fora de instalação global" expect_fail 'mdcli is not installed globally' update
 
+wait_steps
+
 echo
+printf '⏱ total: %ss\n' "$(fmt_s $(( $(now_ms) - RUN_START_MS )))"
 if [ ${#FAILED[@]} -gt 0 ]; then
   echo "VERIFICAÇÃO FALHOU: ${FAILED[*]}"; exit 1
 fi

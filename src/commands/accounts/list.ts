@@ -1,4 +1,3 @@
-import Table from 'cli-table3';
 import chalk from 'chalk';
 import { logger } from '../../utils/logger.js';
 import { exitWithError } from '../../utils/action.js';
@@ -9,6 +8,7 @@ import type { AccountWithBalance } from '../../types/index.js';
 import { formatStatus } from './format.js';
 import { formatCurrency } from '../../utils/currency.js';
 import { cell } from '../../utils/text.js';
+import { newTable } from '../../utils/table.js';
 
 export async function listAction(options: { json?: boolean; active?: boolean; at?: string }): Promise<void> {
   if (options.at !== undefined && !isCalendarDate(options.at)) {
@@ -43,7 +43,7 @@ export async function listAction(options: { json?: boolean; active?: boolean; at
     return;
   }
 
-  const table = new Table({
+  const table = newTable({
     head: [
       t('labelId'),
       t('labelName'),

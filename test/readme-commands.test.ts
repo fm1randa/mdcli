@@ -9,7 +9,8 @@ const ROOT = `${import.meta.dir}/..`;
 // runs in its own process: importing the commands here would load
 // src/lib/api.ts, which reads MDCLI_API_URL once, before other test files set it.
 const WALK = `
-  import { program } from './src/program.ts';
+  import { buildProgram } from './src/program.ts';
+  const program = await buildProgram();
   const walk = (command, prefix) => command.commands.flatMap((sub) => {
     const path = [...prefix, sub.name()];
     return sub.commands.length === 0 ? [path.join(' ')] : walk(sub, path);

@@ -1,13 +1,13 @@
 import { Command } from 'commander';
-import Table from 'cli-table3';
 import chalk from 'chalk';
 import { logger } from '../utils/logger.js';
-import { action, exitWithError } from '../utils/action.js';
+import { action, exitWithError, flushStdout } from '../utils/action.js';
 import { promptConfirmation } from '../utils/prompt.js';
 import { fetchTags, normalizeTags, createTag, updateTag, deleteTag } from '../lib/api.js';
 import { buildAliasCommand } from '../lib/aliases.js';
 import { t } from '../lib/i18n/index.js';
 import { parseId } from '../utils/parse.js';
+import { newTable } from '../utils/table.js';
 
 function formatColor(hex: string): string {
   return chalk.hex(hex)('██') + ' ' + hex;
@@ -30,8 +30,8 @@ async function listAction(options: { json?: boolean; active?: boolean }): Promis
     return;
   }
 
-  const table = new Table({
-    head: [t('labelId'), t('labelName'), t('labelColor'), t('labelActive')],
+  const table = newTable({
+    head: [t('labelId'), t('labelName'), t('labelColor'), t('statusActive')],
     style: { head: ['cyan'] },
   });
 
@@ -149,7 +149,7 @@ async function updateTagAction(id: string, options: UpdateTagOptions): Promise<v
   logger.success(t('tagUpdated', response.nome));
   console.log(`  ${chalk.gray(`${t('labelId')}:`)} ${response.id}`);
   console.log(`  ${chalk.gray(`${t('labelColor')}:`)} ${formatColor('#' + response.cor)}`);
-  console.log(`  ${chalk.gray(`${t('labelActive')}:`)} ${response.status ? chalk.green(t('yes')) : chalk.gray(t('no'))}`);
+  console.log(`  ${chalk.gray(`${t('statusActive')}:`)} ${response.status ? chalk.green(t('yes')) : chalk.gray(t('no'))}`);
 }
 
 tagsCommand
@@ -185,6 +185,8 @@ async function deleteTagAction(id: string, options: DeleteTagOptions): Promise<v
 
     if (!confirmed) {
       logger.info(t('deletionCancelled'));
+      await flushStdout(3000);
+      // eslint-disable-next-line local/no-bare-process-exit
       process.exit(0);
     }
   }

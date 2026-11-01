@@ -1,4 +1,3 @@
-import { input, password, select } from '@inquirer/prompts';
 import { logger } from '../../utils/logger.js';
 import { t } from '../../lib/i18n/index.js';
 import { getOpItem, setOpItem } from '../../lib/config.js';
@@ -7,6 +6,7 @@ import { extractSessionFromBrowser } from '../../lib/browser-session/index.js';
 import type { AuthConfig, AuthMethod } from '../../types/index.js';
 
 async function promptManualAuth(): Promise<AuthConfig> {
+  const { input, password } = await import('@inquirer/prompts');
   logger.info(t('authManualIntro'));
   logger.blank();
 
@@ -38,6 +38,7 @@ async function resolveOpItemName(providedItem?: string): Promise<string> {
     return savedItem;
   }
 
+  const { input } = await import('@inquirer/prompts');
   return input({
     message: t('authOpItemPrompt'),
     default: 'MeuDinheiroWeb',
@@ -127,6 +128,7 @@ export async function runFallbackPrompt(excludeMethod: AuthMethod): Promise<Logi
 
   const choices = allChoices.filter((c) => c.method !== excludeMethod);
 
+  const { select } = await import('@inquirer/prompts');
   const fallbackChoice = await select({
     message: t('authChooseMethod'),
     choices: [...choices.map(({ value, name }) => ({ value, name })), { value: 'abort', name: t('authCancel') }],

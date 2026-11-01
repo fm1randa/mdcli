@@ -64,8 +64,8 @@ export function toImportDocument(input: {
   payload: unknown;
 }): ImportDocument {
   const origin = input.source === 'summary'
-    ? 'The summary of GET /v1/integracao/connections'
-    : `GET /v1/integracao/account/${input.connectionAccount}/transactions`;
+    ? t('errorStatementOriginSummary')
+    : t('errorStatementOriginStatement', input.connectionAccount);
   const record = asRecord(input.payload);
   if (!record) throw new Error(t('errorStatementDidNotReturnStatement', origin));
   const rows = record.lancamentos;

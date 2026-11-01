@@ -1,5 +1,4 @@
 import { Command } from 'commander';
-import Table from 'cli-table3';
 import { logger } from '../../utils/logger.js';
 import { action } from '../../utils/action.js';
 import { t } from '../../lib/i18n/index.js';
@@ -9,6 +8,7 @@ import { createAccountAction } from './create.js';
 import { deleteAccountAction } from './delete.js';
 import { listAction } from './list.js';
 import { updateAccountAction } from './update.js';
+import { newTable } from '../../utils/table.js';
 
 export const accountsCommand = new Command('accounts')
   .description(t('accountsManageDescription'));
@@ -34,7 +34,7 @@ accountsCommand
       return;
     }
 
-    const table = new Table({
+    const table = newTable({
       head: [t('accountTypeTableId'), t('accountTypeTableName')],
       style: { head: ['cyan'] },
     });

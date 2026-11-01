@@ -36,7 +36,7 @@ function styleSubcommandTerm(term: string): string {
 
 const SUGGESTION = /\n\(Did you mean (one of )?(.+?)\?\)$/;
 
-function translateSuggestion(suggestion: string, many: boolean, names: string): string {
+function translateSuggestion(many: boolean, names: string): string {
   return `\n(${many ? t('commanderSuggestionMany', names) : t('commanderSuggestionOne', names)})`;
 }
 
@@ -48,7 +48,7 @@ function translateCommanderError(text: string): string {
   const message = trailingNewline ? text.slice(0, -1) : text;
   const suggestion = SUGGESTION.exec(message);
   const translatedSuggestion = suggestion
-    ? translateSuggestion(suggestion[0], suggestion[1] !== undefined, suggestion[2])
+    ? translateSuggestion(suggestion[1] !== undefined, suggestion[2])
     : '';
   const body = suggestion ? message.slice(0, suggestion.index) : message;
   const suffix = translatedSuggestion + (trailingNewline ? '\n' : '');
@@ -56,46 +56,43 @@ function translateCommanderError(text: string): string {
   const patterns: Array<[RegExp, (match: RegExpExecArray) => string]> = [
     [
       /^error: unknown command '([^']*)'$/,
-      (match) => `erro: ${t('commanderUnknownCommand', match[1])}`,
+      (match) => t('commanderUnknownCommand', match[1]),
     ],
     [
       /^error: unknown option '([^']*)'$/,
-      (match) => `erro: ${t('commanderUnknownOption', match[1])}`,
+      (match) => t('commanderUnknownOption', match[1]),
     ],
     [
       /^error: missing required argument '([^']*)'$/,
-      (match) => `erro: ${t('commanderMissingArgument', match[1])}`,
+      (match) => t('commanderMissingArgument', match[1]),
     ],
     [
       /^error: option '([^']*)' argument missing$/,
-      (match) => `erro: ${t('commanderOptionArgumentMissing', match[1])}`,
+      (match) => t('commanderOptionArgumentMissing', match[1]),
     ],
     [
       /^error: required option '([^']*)' not specified$/,
-      (match) => `erro: ${t('commanderRequiredOption', match[1])}`,
+      (match) => t('commanderRequiredOption', match[1]),
     ],
     [
       /^error: option '([^']*)' argument '([^']*)' is invalid\.$/,
-      (match) => `erro: ${t('commanderInvalidOptionArgument', match[1], match[2])}.`,
+      (match) => `${t('commanderInvalidOptionArgument', match[1], match[2])}.`,
     ],
     [
       /^error: command-argument value '([^']*)' is invalid for argument '([^']*)'\.$/,
-      (match) => `erro: ${t('commanderInvalidArgument', match[1], match[2])}.`,
+      (match) => `${t('commanderInvalidArgument', match[1], match[2])}.`,
     ],
     [
       /^error: option '([^']*)' cannot be used with option '([^']*)'$/,
-      (match) => `erro: ${t('commanderConflictingOptions', match[1], match[2])}`,
+      (match) => t('commanderConflictingOptions', match[1], match[2]),
     ],
     [
-      /^error: too many arguments( for '([^']*)')?\. Expected (\d+ argument\w*) but got (\d+): (.*)\.$/,
-      (match) =>
-        `erro: ${t(
-          'commanderExcessArguments',
-          match[1] ?? '',
-          match[3],
-          match[4],
-          match[5],
-        )}`,
+      /^error: too many arguments( for '([^']*)')?\. Expected (\d+) (argument[s]?) but got (\d+): (.*)\.$/,
+      (match) => {
+        const subcommand = match[2] ? ` para '${match[2]}'` : '';
+        const expected = `${match[3]} ${match[4] === 'arguments' ? 'argumentos' : 'argumento'}`;
+        return t('commanderExcessArguments', subcommand, expected, match[5], match[6]);
+      },
     ],
   ];
 

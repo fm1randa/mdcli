@@ -1,5 +1,4 @@
 import { Command } from 'commander';
-import Table from 'cli-table3';
 import chalk from 'chalk';
 import { logger } from '../utils/logger.js';
 import { action, exitWithError } from '../utils/action.js';
@@ -16,6 +15,7 @@ import { invalidateNameCache } from '../lib/config.js';
 import { t } from '../lib/i18n/index.js';
 import type { Category } from '../types/index.js';
 import { parseId } from '../utils/parse.js';
+import { newTable } from '../utils/table.js';
 
 const TYPE_CODES = { expense: 'd', income: 'r', transfer: 't' } as const;
 type CategoryTypeName = keyof typeof TYPE_CODES;
@@ -80,8 +80,8 @@ async function listAction(options: { json?: boolean; active?: boolean; type?: st
     return;
   }
 
-  const table = new Table({
-    head: [t('labelId'), t('labelName'), t('labelType'), t('labelActive'), t('labelSystem')],
+  const table = newTable({
+    head: [t('labelId'), t('labelName'), t('labelType'), t('statusActive'), t('labelSystem')],
     style: { head: ['cyan'] },
   });
 
@@ -221,7 +221,7 @@ async function updateCategoryAction(id: string, options: UpdateCategoryOptions):
 
   logger.success(t('categoryUpdated', category.nome));
   console.log(`  ${chalk.gray(`${t('labelId')}:`)} ${category.id}`);
-  console.log(`  ${chalk.gray(`${t('labelActive')}:`)} ${category.status ? chalk.green(t('yes')) : chalk.gray(t('no'))}`);
+  console.log(`  ${chalk.gray(`${t('statusActive')}:`)} ${category.status ? chalk.green(t('yes')) : chalk.gray(t('no'))}`);
 }
 
 categoriesCommand

@@ -67,9 +67,31 @@ export default tseslint.config(
     rules: { "local/no-ambient-clock": "error" },
   },
   {
+    // Entry sign logic by type lives only in src/commands/entries/type.ts.
+    files: ["src/**/*.ts"],
+    ignores: ["src/commands/entries/type.ts"],
+    rules: { "local/no-type-sign-ternary": "error" },
+  },
+  {
     // --since accepts only the last 90 days: tests pass a date relative to today.
     files: ["test/**/*.ts"],
-    rules: { "local/no-literal-since": "error" },
+    ignores: ["test/dates.test.ts"],
+    rules: {
+      "local/no-literal-since": "error",
+      "no-restricted-imports": ["error", {
+        paths: [{ name: "../src/lib/dates.js", message: "Tests must not import production date functions; use localDay() from test/helpers.ts instead." }],
+      }],
+    },
+  },
+  {
+    // Short options with = must be preprocessed before commander parses argv (#151).
+    files: ["bin/cli.ts"],
+    rules: { "local/no-short-option-equals": "error" },
+  },
+  {
+    // Flush stdout before exit so piped output isn't truncated at 65536 bytes.
+    files: ["src/**/*.ts", "bin/**/*.ts"],
+    rules: { "local/no-bare-process-exit": "error" },
   },
   {
     ignores: ["node_modules", "dist"],

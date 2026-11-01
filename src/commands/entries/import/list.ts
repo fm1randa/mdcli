@@ -1,4 +1,3 @@
-import Table from 'cli-table3';
 import { fetchAccountById, fetchBankTransactions, fetchCardInvoice, fetchImportCandidates, fetchImportDuplicates, isCreditCard } from '../../../lib/api.js';
 import type { Account } from '../../../types/index.js';
 import { exitWithError } from '../../../utils/action.js';
@@ -17,6 +16,7 @@ import { accountConnection } from '../../connection.js';
 import { asRecord, nonEmptyTextOrNull } from '../../../lib/payload.js';
 import { calendarDateFlag, defaultSince, earliestSince, explicitSince } from './since.js';
 import { today } from '../../../lib/dates.js';
+import { newTable } from '../../../utils/table.js';
 
 export interface ImportLoadOptions {
   account: string;
@@ -169,7 +169,7 @@ async function fillCandidates(
   const linked = automaticLinks(banks, existing);
   document.transactions.forEach((bankTransaction, index) => {
     const id = linked[index] ?? null;
-    const matched = candidatesFor(banks[index], existing);
+    const matched = candidatesFor(banks[index], existing, card);
     bankTransaction.candidates = matched
       .filter((item) => !item.reconciled || item.candidate.id === id)
       .map((item) => item.candidate);
@@ -231,7 +231,7 @@ function printStatement(document: ImportDocument): void {
     return;
   }
 
-  const table = new Table({
+  const table = newTable({
     head: [
       t('labelPrefix'),
       t('labelDate'),

@@ -1,5 +1,4 @@
 import { Command } from 'commander';
-import Table from 'cli-table3';
 import chalk from 'chalk';
 import { logger } from '../utils/logger.js';
 import { action, exitWithError } from '../utils/action.js';
@@ -12,6 +11,7 @@ import { cardDueAnchor } from './entries/card-invoice.js';
 import { dueDateInMonth, parseInvoiceMonth } from '../lib/dates.js';
 import { normalizeInvoiceSummary } from '../lib/invoice-summary.js';
 import type { Account, NormalizedInvoiceSummary } from '../types/index.js';
+import { newTable } from '../utils/table.js';
 
 function formatStatus(active: boolean, closed: boolean): string {
   if (closed) return chalk.red(t('statusClosed'));
@@ -34,7 +34,7 @@ async function listAction(options: { json?: boolean; active?: boolean }): Promis
     return;
   }
 
-  const table = new Table({
+  const table = newTable({
     head: [t('labelId'), t('labelName'), t('labelBank'), t('labelLimit'), t('cardsNextDue'), t('labelStatus')],
     style: { head: ['cyan'] },
   });
@@ -82,7 +82,7 @@ function invoiceSummaryRows(summary: NormalizedInvoiceSummary): SummaryRow[] {
     [t('labelIncome'), summary.income],
     [t('labelInvoiceTotal'), summary.total],
     [t('labelToPay'), summary.toPay],
-    [t('labelReconciled'), summary.reconciled],
+    [t('statusReconciled'), summary.reconciled],
     [t('labelUnreconciled'), summary.unreconciled],
     [t('labelLimit'), summary.limit],
     [t('labelAvailable'), summary.available],
@@ -142,7 +142,7 @@ async function invoiceAction(options: { account: string; month?: string; json?: 
     return;
   }
 
-  const table = new Table({
+  const table = newTable({
     head: [t('labelPurchase'), t('labelDescription'), t('labelValue'), t('labelCategory')],
     style: { head: ['cyan'] },
     colWidths: INVOICE_COL_WIDTHS,
@@ -188,7 +188,7 @@ async function futureAction(options: { account: string; json?: boolean }): Promi
     return;
   }
 
-  const table = new Table({
+  const table = newTable({
     head: [t('labelDate'), t('labelDescription'), t('labelValue'), t('labelInstallment'), t('labelRemaining')],
     style: { head: ['cyan'] },
     colWidths: FUTURE_COL_WIDTHS,

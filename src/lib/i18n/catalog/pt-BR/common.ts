@@ -2,6 +2,8 @@
 
 export const ptBRCommon = {
   // --- Language selection --------------------------------------------------------
+
+
   invalidLanguageValue: (value: string, accepted: string) =>
     `Valor de idioma inválido: "${value}". Valores aceitos: ${accepted}.`,
   missingLanguageValue: (accepted: string) => `Falta o valor de --lang. Valores aceitos: ${accepted}.`,
@@ -14,19 +16,19 @@ export const ptBRCommon = {
   helpGlobalOptions: () => 'Opções globais:',
   helpOptionsToken: () => '[opções]',
   helpCommandToken: () => '[comando]',
-  commanderUnknownCommand: (command: string) => `comando desconhecido '${command}'`,
-  commanderUnknownOption: (option: string) => `opção desconhecida '${option}'`,
-  commanderMissingArgument: (name: string) => `argumento obrigatório ausente '${name}'`,
-  commanderOptionArgumentMissing: (flags: string) => `falta o argumento da opção '${flags}'`,
-  commanderRequiredOption: (flags: string) => `opção obrigatória '${flags}' não informada`,
+  commanderUnknownCommand: (command: string) => `erro: comando desconhecido '${command}'`,
+  commanderUnknownOption: (option: string) => `erro: opção desconhecida '${option}'`,
+  commanderMissingArgument: (name: string) => `erro: argumento obrigatório ausente '${name}'`,
+  commanderOptionArgumentMissing: (flags: string) => `erro: falta o argumento da opção '${flags}'`,
+  commanderRequiredOption: (flags: string) => `erro: opção obrigatória '${flags}' não informada`,
   commanderExcessArguments: (subcommand: string, expected: string, received: string, details: string) =>
-    `argumentos demais${subcommand}. Esperados ${expected}, recebidos ${received}: ${details}.`,
+    `erro: argumentos demais${subcommand}. Esperados ${expected}, recebidos ${received}: ${details}.`,
   commanderInvalidOptionArgument: (flags: string, value: string) =>
-    `o argumento '${value}' da opção '${flags}' é inválido`,
+    `erro: o argumento '${value}' da opção '${flags}' é inválido`,
   commanderInvalidArgument: (value: string, name: string) =>
-    `o valor '${value}' é inválido para o argumento '${name}'`,
+    `erro: o valor '${value}' é inválido para o argumento '${name}'`,
   commanderConflictingOptions: (first: string, second: string) =>
-    `a opção '${first}' não pode ser usada com a opção '${second}'`,
+    `erro: a opção '${first}' não pode ser usada com a opção '${second}'`,
   commanderSuggestionOne: (name: string) => `Deseja dizer ${name}?`,
   commanderSuggestionMany: (names: string) => `Deseja dizer um destes: ${names}?`,
 
@@ -36,8 +38,8 @@ export const ptBRCommon = {
   helpOptionDescription: () => 'Mostrar ajuda',
   helpCommandDescription: () => 'Mostrar ajuda para um comando',
   langOptionDescription: () => 'Idioma da interface: pt-BR ou en (padrão: pt-BR)',
-  updateCommandDescription: () => 'Atualizar uma instalação global para a última versão agora',
   unexpectedError: (message: string) => `Erro inesperado: ${message}`,
+  updateCommandDescription: () => 'Atualizar uma instalação global para a última versão agora',
 
   // --- Common --------------------------------------------------------------------
   jsonOption: () => 'Saída em JSON',
@@ -49,7 +51,6 @@ export const ptBRCommon = {
   labelType: () => 'Tipo',
   labelBank: () => 'Banco',
   labelBalance: () => 'Saldo',
-  labelActive: () => 'Ativa',
   labelStatus: () => 'Status',
   labelColor: () => 'Cor',
   labelCategory: () => 'Categoria',
@@ -72,7 +73,6 @@ export const ptBRCommon = {
   labelIncome: () => 'Receitas',
   labelInvoiceTotal: () => 'Total da fatura',
   labelToPay: () => 'A pagar',
-  labelReconciled: () => 'Conciliado',
   labelUnreconciled: () => 'Não conciliado',
   labelLimit: () => 'Limite',
   labelAvailable: () => 'Disponível',
@@ -83,7 +83,6 @@ export const ptBRCommon = {
   labelEntries: () => 'Lançamentos',
   labelNet: () => 'Líquido',
   labelSystem: () => 'Sistema',
-  labelAccountType: () => 'Tipo de conta',
   labelPurchase: () => 'Compra',
   labelPrefix: () => 'Prefixo',
   labelEntry: () => 'Lançamento',
