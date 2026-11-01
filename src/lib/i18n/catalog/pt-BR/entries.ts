@@ -141,6 +141,9 @@ export const ptBREntries = {
   warningCardEntryIdNotFound: (id: string, dueDate: string, cardId: number, month: string) =>
     `⚠ A API respondeu com "${id}", que não é um ID de lançamento, e a compra não foi encontrada na fatura de ${dueDate}. ` +
     `Encontre o ID com: mdcli cards invoice -a ${cardId} --month ${month} --json`,
+  warningScheduledEntryIdNotFound: (id: string, accountId: number) =>
+    `⚠ A API respondeu com "${id}", que não é um ID de lançamento, e o lançamento agendado não foi encontrado nos lançamentos da conta. ` +
+    `Encontre o ID com: mdcli entries list -a ${accountId} --json`,
   errorUnknownEntryType: (input: string) =>
     `Tipo desconhecido: ${input}. Válidos: expense (d), income (r), transfer (t)`,
   errorTransferNeedsDestination: () =>

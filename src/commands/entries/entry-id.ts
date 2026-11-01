@@ -1,6 +1,10 @@
 import { exitWithError } from '../../utils/action.js';
 import { t } from '../../lib/i18n/index.js';
-import { parseId } from '../../utils/parse.js';
+import { parseId, parseInteger } from '../../utils/parse.js';
+import { fetchAllEntries } from '../../lib/api.js';
+import { toCents } from '../../utils/currency.js';
+import { shiftDueDate } from '../../lib/dates.js';
+import type { CreateEntryResponse } from '../../types/index.js';
 
 /**
  * What POST /v1/lancamentos answered for a card purchase (Finanças,
@@ -21,4 +25,42 @@ export function parseEntryId(id: string): number {
     exitWithError(t('errorSeriesOccurrenceId', id));
   }
   exitWithError(t('errorInvalidEntryId'));
+}
+
+/**
+ * A future pending entry on a regular account comes back from POST with the
+ * same occurrence ID a card purchase does ("<agenda>A<date>", #165); its
+ * numeric entry ID only shows up in the entries list. Match the created entry
+ * there (account, description, value and planned date) and answer with its ID,
+ * keeping the API's occurrence ID alongside, like withCardEntryId does.
+ */
+export async function withScheduledEntryId(
+  response: CreateEntryResponse,
+  scheduled: { accountId: number; date: string; description: string; value: number }
+): Promise<CreateEntryResponse & { occurrenceId?: string }> {
+  if (isEntryId(response.id)) return response;
+  // The list's date range filters on dataPrevista (normalize.ts), so one month
+  // around the planned date covers the entry wherever its `data` falls.
+  const month = scheduled.date.slice(0, 7);
+  const startDate = `${month}-01`;
+  // Day 31 clamps to the month's last day (shiftDueDate: 31 -> Feb 28).
+  const endDate = shiftDueDate(`${month}-31`, 0);
+  const entries = await fetchAllEntries({ accountIds: [scheduled.accountId], startDate, endDate });
+  const ids = entries
+    .filter((e) =>
+      e.descricao === scheduled.description &&
+      toCents(e.valor) === toCents(scheduled.value) &&
+      e.dataPrevista?.slice(0, 10) === scheduled.date &&
+      isEntryId(e.id)
+    )
+    .flatMap((e) => {
+      const id = typeof e.id === 'number' ? e.id : parseInteger(e.id);
+      return id === undefined ? [] : [id];
+    });
+  if (ids.length === 0) {
+    // stderr: stdout stays machine-readable under --json.
+    console.error(t('warningScheduledEntryIdNotFound', String(response.id), scheduled.accountId));
+    return response;
+  }
+  return { ...response, id: Math.max(...ids), occurrenceId: String(response.id) };
 }
