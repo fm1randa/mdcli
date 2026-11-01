@@ -17,6 +17,11 @@ export function isEntryId(id: unknown): boolean {
   return (typeof id === 'number' && Number.isInteger(id)) || (typeof id === 'string' && /^\d+$/.test(id));
 }
 
+/** True for the occurrence ID the API answers for a future pending entry ("<agenda>A<date>"). */
+function isOccurrenceId(id: unknown): boolean {
+  return typeof id === 'string' && OCCURRENCE_ID.test(id);
+}
+
 /** The numeric entry ID from a CLI argument, or exit with a hint. */
 export function parseEntryId(id: string): number {
   const entryId = parseId(id);
@@ -38,7 +43,9 @@ export async function withScheduledEntryId(
   response: CreateEntryResponse,
   scheduled: { accountId: number; date: string; description: string; value: number }
 ): Promise<CreateEntryResponse & { occurrenceId?: string }> {
-  if (isEntryId(response.id)) return response;
+  // Only an occurrence ID needs resolving: a numeric ID (or anything else the
+  // API answers) is already the entry's ID, so leave the response untouched.
+  if (!isOccurrenceId(response.id)) return response;
   // The list's date range filters on dataPrevista (normalize.ts), so one month
   // around the planned date covers the entry wherever its `data` falls.
   const month = scheduled.date.slice(0, 7);
