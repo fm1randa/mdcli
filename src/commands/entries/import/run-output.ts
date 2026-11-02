@@ -6,7 +6,7 @@ import { logger } from '../../../utils/logger.js';
 import { t } from '../../../lib/i18n/index.js';
 import { cell, listCell } from '../../../utils/text.js';
 import type { OverwrittenFields } from './candidates.js';
-import type { RunDocument } from './plan.js';
+import type { OverwriteSource, RunDocument } from './plan.js';
 
 /** Category and tag names for the overwritten fields; contact, cost center and project stay ids. */
 interface OverwrittenNames {
@@ -159,21 +159,28 @@ function fieldText(key: keyof OverwrittenFields, value: OverwrittenFields[keyof 
 
 
 /**
- * What the overwrite preference does to the linked Entries, in the web dialog's terms for a bank import:
+ * What the overwrite toggle does to the linked Entries, in the web dialog's terms for a bank import:
  * "Atualizar os lançamentos não conciliados com as informações disponíveis no arquivo"
  * (partials/importacao__v2-importacao-confirmar.html, line 1, `tipoArquivo != 'ofx'`).
  */
 function overwriteNotes(overwrite: RunDocument['overwrite']): string[] {
-  if (overwrite.source === 'default') {
+  if (overwrite.valueSource === 'default' && overwrite.descriptionSource === 'default') {
     return [t('importOverwriteUnavailable')];
   }
   const fields = t('importOverwriteFields');
   return [
     overwrite.value
-      ? t('importOverwriteOn', fields)
-      : t('importOverwriteOff', fields),
+      ? t('importOverwriteOn', fields, origin(overwrite.valueSource))
+      : t('importOverwriteOff', fields, origin(overwrite.valueSource)),
     overwrite.description
-      ? t('importFillDescriptionOn')
-      : t('importFillDescriptionOff'),
+      ? t('importFillDescriptionOn', origin(overwrite.descriptionSource))
+      : t('importFillDescriptionOff', origin(overwrite.descriptionSource)),
   ];
+}
+
+/** The provenance suffix of a note: empty for a flag, otherwise which source chose the value. */
+function origin(source: OverwriteSource): string {
+  if (source === 'flag') return '';
+  if (source === 'default') return t('importOverwriteDefaultOrigin');
+  return t('importOverwritePreferenceOrigin');
 }

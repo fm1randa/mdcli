@@ -385,6 +385,14 @@ mdcli entries import list --account mp --search-to 2026-10-20
 mdcli entries import run --account mp --ids 1a2b3c4d,5e6f7a8b --category food --dry-run
 mdcli entries import run --account mp --ids 1a2b3c4d --category food --reject 9c0d1e2f --yes
 
+# A conciliação segue a preferência salva no app web. --overwrite liga a
+# sobrescrita só nesta execução (atualiza contato, categoria, centro de custo,
+# projeto, tags e número do documento dos lançamentos vinculados não
+# conciliados) e --no-overwrite desliga; --fill-description preenche a
+# descrição vazia dos vinculados e --no-fill-description desliga. Nada é
+# gravado de volta na preferência
+mdcli entries import run --account mp --ids 1a2b3c4d --category food --overwrite --fill-description --yes
+
 # Uma ação por transação (import, conciliate, skip, reject) num arquivo JSON:
 # {"transactions": [{"id": "1a2b3c4d", "action": "conciliate", "entry": 12345}]}
 mdcli entries import run --account mp --plan plan.json --yes

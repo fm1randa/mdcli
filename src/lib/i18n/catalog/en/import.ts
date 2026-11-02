@@ -42,6 +42,14 @@ export const enImport: typeof SectionType = {
     'Choose the action, category, and description of each bank transaction in $EDITOR',
   importIncludeDuplicatesOption: () =>
     'Import duplicates instead of skipping them (--ids; --edit opens them as import)',
+  importOverwriteOption: () =>
+    'Update the non-reconciled linked entries from the statement (contact, category, cost center, project, tags and document number)',
+  importNoOverwriteOption: () =>
+    'Force overwriting off for this run, ignoring the saved preference',
+  importFillDescriptionOption: () =>
+    'Fill the empty description of linked entries from the statement',
+  importNoFillDescriptionOption: () =>
+    'Force description filling off for this run, ignoring the saved preference',
   importDryRunOption: () => 'Show what would be imported without writing anything',
   importYesOption: () => 'Skip the confirmation prompt',
   importJsonOption: () => 'Output as JSON (requires --yes or --dry-run)',
@@ -169,17 +177,19 @@ export const enImport: typeof SectionType = {
   importOverwrittenHeader: () => 'Overwritten by the bank',
   importOverwriteUnavailable: () =>
     'The overwrite preferences could not be read, so the web default applies: linked entries keep their fields.',
-  importOverwriteOn: (fields) =>
-    `Overwrite on (your web preference): linked entries that are not reconciled take the bank transaction's ${fields}.`,
-  importOverwriteOff: (fields) =>
-    `Overwrite off (your web preference): linked entries keep their ${fields}; ` +
+  importOverwriteOn: (fields, origin) =>
+    `Overwrite on${origin}: linked entries that are not reconciled take the bank transaction's ${fields}.`,
+  importOverwriteOff: (fields, origin) =>
+    `Overwrite off${origin}: linked entries keep their ${fields}; ` +
     "with it on, the ones that are not reconciled would take the bank transaction's.",
   importOverwriteFields: () =>
     'contact, category, cost center, project, tags and document number',
-  importFillDescriptionOn: () =>
-    "Fill empty descriptions on (your web preference): a linked entry without a description takes the bank transaction's.",
-  importFillDescriptionOff: () =>
-    'Fill empty descriptions off (your web preference): linked entries keep their description.',
+  importOverwritePreferenceOrigin: () => ' (your web preference)',
+  importOverwriteDefaultOrigin: () => ' (web default)',
+  importFillDescriptionOn: (origin) =>
+    `Fill empty descriptions on${origin}: a linked entry without a description takes the bank transaction's.`,
+  importFillDescriptionOff: (origin) =>
+    `Fill empty descriptions off${origin}: linked entries keep their description.`,
   errorImportJsonRequires: () => 'entries import run --json requires --yes or --dry-run',
   importNothingToDo: () =>
     'Nothing to do: the file has no command lines. Nothing was written.',

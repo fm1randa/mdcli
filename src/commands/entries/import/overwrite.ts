@@ -2,12 +2,12 @@ import { fetchWebConfig } from '../../../lib/api.js';
 import { asRecord } from '../../../lib/payload.js';
 import { overwrittenFields, type ExistingEntry } from './candidates.js';
 import type { ImportDocument } from './document.js';
-import type { RunDocument } from './plan.js';
+import type { Overwrite, RunDocument } from './plan.js';
 
-export type Overwrite = RunDocument['overwrite'];
+export type { Overwrite };
 
 /** The web default (`getConfig("conciliacao", {o: "d", s: false, sd: false})`), used when the preference cannot be read. */
-const DEFAULT_OVERWRITE: Overwrite = { value: false, description: false, source: 'default' };
+const DEFAULT_OVERWRITE: Overwrite = { value: false, description: false, valueSource: 'default', descriptionSource: 'default' };
 
 /**
  * The user's `conciliacao` preference, read like the web: configuracoesService takes
@@ -20,7 +20,23 @@ export async function readOverwrite(): Promise<Overwrite> {
   if (mdconfig === null) return DEFAULT_OVERWRITE;
   const mdweb = asRecord(asRecord(asRecord(mdconfig.usuario)?.config)?.mdweb);
   const saved = asRecord(mdweb?.conciliacao) ?? {};
-  return { value: saved.s === true, description: saved.sd === true, source: 'preferences' };
+  return { value: saved.s === true, description: saved.sd === true, valueSource: 'preferences', descriptionSource: 'preferences' };
+}
+
+/** Which flag turns each toggle on for this run. Undefined means "follow the saved preference". */
+export interface OverwriteFlags {
+  overwrite?: boolean;
+  fillDescription?: boolean;
+}
+
+/** The effective overwrite for a run: each flag overrides the saved preference for its own toggle only. */
+export function resolveOverwrite(preference: Overwrite, flags: OverwriteFlags): Overwrite {
+  return {
+    value: flags.overwrite ?? preference.value,
+    description: flags.fillDescription ?? preference.description,
+    valueSource: flags.overwrite === undefined ? preference.valueSource : 'flag',
+    descriptionSource: flags.fillDescription === undefined ? preference.descriptionSource : 'flag',
+  };
 }
 
 /** What `applyOverwrite` reads besides the run: the statement rows and the Entries it may link. */

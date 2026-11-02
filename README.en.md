@@ -1,4 +1,4 @@
-<!-- traduzido de README.md @ a3a9566 (base: a3a9566; readme-blob: a0ab7b882a3e539bfce48585c35b2c44fc7cbeff); ao atualizar o README.md, sincronize este arquivo e atualize o SHA e o readme-blob (git hash-object README.md) -->
+<!-- traduzido de README.md @ 4cb7683 (base: 4cb7683713d7d29ef9b7aea90e28ca742f2fdc35; readme-blob: 1bee2b9da560914c825c39f1347d77cae66c6026); ao atualizar o README.md, sincronize este arquivo e atualize o SHA e o readme-blob (git hash-object README.md) -->
 [Português (Brasil)](README.md) · **English**
 
 > The Portuguese [README.md](README.md) is the reference version; this English translation may lag behind it.
@@ -387,6 +387,14 @@ mdcli entries import list --account mp --search-to 2026-10-20
 # would be done without writing anything
 mdcli entries import run --account mp --ids 1a2b3c4d,5e6f7a8b --category food --dry-run
 mdcli entries import run --account mp --ids 1a2b3c4d --category food --reject 9c0d1e2f --yes
+
+# Conciliation follows the preference saved in the web app. --overwrite turns
+# overwriting on for this run only (it updates the contact, category, cost
+# center, project, tags and document number of the non-reconciled linked
+# entries) and --no-overwrite turns it off; --fill-description fills the empty
+# description of linked entries and --no-fill-description turns it off. Nothing
+# is written back to the preference
+mdcli entries import run --account mp --ids 1a2b3c4d --category food --overwrite --fill-description --yes
 
 # One action per transaction (import, conciliate, skip, reject) in a JSON file:
 # {"transactions": [{"id": "1a2b3c4d", "action": "conciliate", "entry": 12345}]}
