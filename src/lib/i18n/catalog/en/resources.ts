@@ -38,6 +38,11 @@ export const enResources: typeof SectionType = {
   errorCategoryHasChildren: (name) => `Category "${name}" has subcategories. Delete or move them first.`,
   errorMoveToSameCategory: () => '--move-to must be a different category.',
   errorMoveToSameType: (name) => `--move-to must be the same type as "${name}".`,
+  errorCategoryInactiveDestination: (name, id) =>
+    `Category "${name}" (${id}) is inactive, so the web app hides it from the category pickers. ` +
+    'Use an active category (see: mdcli categories list --active) or reactivate it in Meu Dinheiro.',
+  errorCategoryNameAmbiguous: (name, ids) =>
+    `The name "${name}" matches more than one active category (${ids}). Pass the exact category ID.`,
   confirmDeleteCategory: (name, id, destination) =>
     `Delete category "${name}" (${id}) and move its entries to "${destination}"? (y/N) `,
 

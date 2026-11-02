@@ -38,6 +38,11 @@ export const ptBRResources = {
     `A categoria "${name}" tem subcategorias. Exclua ou mova-as primeiro.`,
   errorMoveToSameCategory: () => '--move-to deve ser uma categoria diferente.',
   errorMoveToSameType: (name: string) => `--move-to deve ser do mesmo tipo de "${name}".`,
+  errorCategoryInactiveDestination: (name: string, id: number) =>
+    `A categoria "${name}" (${id}) está inativa, então o app web a esconde dos seletores de categoria. ` +
+    'Use uma categoria ativa (veja: mdcli categories list --active) ou reative-a no Meu Dinheiro.',
+  errorCategoryNameAmbiguous: (name: string, ids: string) =>
+    `O nome "${name}" corresponde a mais de uma categoria ativa (${ids}). Informe o ID exato da categoria desejada.`,
   confirmDeleteCategory: (name: string, id: string | number, destination: string) =>
     `Excluir a categoria "${name}" (${id}) e mover seus lançamentos para "${destination}"? (y/N) `,
 

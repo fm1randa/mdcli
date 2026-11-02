@@ -412,6 +412,10 @@ step "cli entries create cartão -p não concilia (mock)" expect_json 'd.concili
 step "cli entries create categoria ativa por nome (mock)" expect_json 'd.categoria === 42' entries create -a 1001 -d Aluguel -v 10 -c moradia -D 2026-01-05 --json
 step "cli entries create categoria inativa (mock)" expect_fail 'Category "Moradia" \(41\) is inactive' entries create -a 1001 -d Aluguel -v 10 -c 41 -D 2026-01-05
 step "cli entries update categoria inativa (mock)" expect_fail 'is inactive' entries update 70 -c 41
+# Categorias (#170): --move-to recusa um destino inativo e um nome ambíguo,
+# antes de qualquer DELETE (o par ativo+inativo é coberto pelos testes).
+step "cli categories delete --move-to inativa (mock)" expect_fail 'Category "Moradia" \(41\) is inactive' categories delete 11 --move-to 41 --dangerously-skip-confirmation
+step "cli categories delete --move-to nome ambíguo (mock)" expect_fail 'matches more than one active category' categories delete 11 --move-to casa --dangerously-skip-confirmation
 # Finanças 2026-10-27: the web app only lists categories of the entry's type
 # (md.js filterCats) and signs the value from the type (Tt); a mismatch is
 # refused before the API, and the chosen type sets the sign and estorno.
