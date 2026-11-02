@@ -49,7 +49,7 @@ Never move or delete a published tag. To correct a release, make a new one.
 
 ## Agent sessions
 
-Every agent session starts with `/poteto-mode <short-intention>` (e.g. `/poteto-mode fix bug #321`). The task details live in the issue or PR; the rules below are permanent.
+An agent session prompt is a short intention followed by the skill call at the end (e.g. `fix bug #321 /poteto-mode` or `revisar PR #123 /poteto-mode`). Never start a prompt with `/poteto-mode` or any other `/` command: T3 sends a leading slash to opencode as a command, which dies at T3's hardcoded 300 s timeout. The task details live in the issue or PR; the rules below are permanent.
 
 ### Environment and verification
 
@@ -75,7 +75,7 @@ Every agent session starts with `/poteto-mode <short-intention>` (e.g. `/poteto-
 
 ## Pull requests (implementation flow)
 
-14. Open the PR with `gh pr create -R fm1randa/mdcli --base main`. The body is in Brazilian Portuguese with `Closes #n` for each issue, the root cause, what changed, and how it was verified (reproduction before and after). Then wait for CI (`gh pr checks <n> -R fm1randa/mdcli --watch`) and fix if `verify` fails.
+14. Open the PR with `gh pr create -R fm1randa/mdcli --base main`. The body is in Brazilian Portuguese with `Closes #n` for each issue, the root cause, what changed, and how it was verified (reproduction before and after). Then wait for CI (`gh pr checks <n> -R fm1randa/mdcli --watch`) with a tool timeout of at least 20 minutes, and fix if `verify` fails.
 15. The implementation session does not run review rounds: review rounds come in separate sessions.
 16. The session's final message carries the PR URL, the pushed SHA, and the `verify.sh` result, with the last line exactly:
 
