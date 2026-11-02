@@ -235,20 +235,6 @@ export const ptBREntriesImportOutput = {
   importReconciledKeepsFields: (prefix: string, entryId: number) =>
     `${prefix} (lançamento ${entryId}) já está conciliado: ` +
     'o app web só sobrescreve lançamentos não conciliados, então ele mantém seus campos.',
-  importOverwrittenHeader: () => 'Sobrescritos pelo banco',
-  importOverwriteUnavailable: () =>
-    'As preferências de sobrescrita não puderam ser lidas, então vale o padrão do app web: os lançamentos vinculados mantêm seus campos.',
-  importOverwriteOn: (fields: string) =>
-    `Sobrescrita ligada (sua preferência no app web): os lançamentos vinculados que não estão conciliados recebem ${fields} da transação bancária.`,
-  importOverwriteOff: (fields: string) =>
-    `Sobrescrita desligada (sua preferência no app web): os lançamentos vinculados mantêm ${fields}; ` +
-    'com ela ligada, os que não estão conciliados receberiam os da transação bancária.',
-  importOverwriteFields: () =>
-    'contato, categoria, centro de custo, projeto, tags e número do documento',
-  importFillDescriptionOn: () =>
-    'Preencher descrições vazias ligado (sua preferência no app web): um lançamento vinculado sem descrição recebe a da transação bancária.',
-  importFillDescriptionOff: () =>
-    'Preencher descrições vazias desligado (sua preferência no app web): os lançamentos vinculados mantêm sua descrição.',
   errorImportJsonRequires: () => 'entries import run --json requer --yes ou --dry-run',
   importNothingToDo: () =>
     'Nada a fazer: o arquivo não tem linhas de comando. Nada foi gravado.',

@@ -232,20 +232,6 @@ export const enEntriesImportOutput: typeof SectionType = {
   importReconciledKeepsFields: (prefix, entryId) =>
     `${prefix} (entry ${entryId}) is already reconciled: ` +
     'the web only overwrites entries that are not reconciled, so it keeps its fields.',
-  importOverwrittenHeader: () => 'Overwritten by the bank',
-  importOverwriteUnavailable: () =>
-    'The overwrite preferences could not be read, so the web default applies: linked entries keep their fields.',
-  importOverwriteOn: (fields) =>
-    `Overwrite on (your web preference): linked entries that are not reconciled take the bank transaction's ${fields}.`,
-  importOverwriteOff: (fields) =>
-    `Overwrite off (your web preference): linked entries keep their ${fields}; ` +
-    "with it on, the ones that are not reconciled would take the bank transaction's.",
-  importOverwriteFields: () =>
-    'contact, category, cost center, project, tags and document number',
-  importFillDescriptionOn: () =>
-    "Fill empty descriptions on (your web preference): a linked entry without a description takes the bank transaction's.",
-  importFillDescriptionOff: () =>
-    'Fill empty descriptions off (your web preference): linked entries keep their description.',
   errorImportJsonRequires: () => 'entries import run --json requires --yes or --dry-run',
   importNothingToDo: () =>
     'Nothing to do: the file has no command lines. Nothing was written.',
