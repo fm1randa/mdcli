@@ -1,4 +1,4 @@
-import { chromium, type Page, type Browser, type BrowserContext } from 'playwright';
+import type { Page, Browser, BrowserContext } from 'playwright';
 import type { AuthConfig } from '../types/index.js';
 import { getCredentialsFromOnePassword } from './onepassword.js';
 import { t } from './i18n/index.js';
@@ -70,6 +70,7 @@ function validateCapturedAuth(auth: AuthConfig): string[] {
 }
 
 export async function captureAuthFromBrowser(): Promise<AuthConfig> {
+  const { chromium } = await import('playwright');
   const browser = await launchAvailableChromiumChannel((channel) =>
     chromium.launch({
       headless: false,
@@ -161,6 +162,7 @@ function headersToAuthConfig(headers: CapturedHeaders): AuthConfig {
 export async function captureAuthHeadless(opItemName: string): Promise<AuthConfig> {
   const credentials = await getCredentialsFromOnePassword(opItemName);
 
+  const { chromium } = await import('playwright');
   const browser = await launchAvailableChromiumChannel((channel) =>
     chromium.launch({
       headless: true,

@@ -1,5 +1,4 @@
 import { t } from '../i18n/index.js';
-import { chromium, firefox } from 'playwright';
 import type { AuthConfig } from '../../types/index.js';
 import { getChromeCookieValue, getChromeProfilePath, getEdgeProfilePath } from './chromium.js';
 import { getFirefoxProfilePath } from './firefox.js';
@@ -44,6 +43,7 @@ export async function extractSessionFromBrowser(
   try {
     tempDir = await copyProfileToTemp(profilePath, browserType);
 
+    const { chromium, firefox } = await import('playwright');
     const browserLauncher = browserType === 'firefox' ? firefox : chromium;
     const channel = browserType === 'chrome' ? 'chrome' : browserType === 'edge' ? 'msedge' : undefined;
     let context;

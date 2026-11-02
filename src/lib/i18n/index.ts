@@ -1,6 +1,7 @@
-import { ptBRCatalog } from './pt-BR.js';
-import { enCatalog } from './en.js';
+import { createRequire } from 'node:module';
 import type { Catalog, MessageArgs, MessageKey } from './types.js';
+
+const require = createRequire(import.meta.url);
 
 /** The languages the CLI ships, in the order the error message lists them. */
 const LANGUAGES = ['pt-BR', 'en'] as const;
@@ -10,10 +11,22 @@ export type Language = (typeof LANGUAGES)[number];
 /** Filipe's choice: Brazilian Portuguese, never inferred from the system locale. */
 const DEFAULT_LANGUAGE: Language = 'pt-BR';
 
-const CATALOGS: Record<Language, Catalog> = {
-  'pt-BR': ptBRCatalog,
-  en: enCatalog,
+/**
+ * Only the chosen language is loaded: the other catalog stays on disk, so a
+ * `mdcli entries list` in pt-BR never pays to parse the English messages. The
+ * catalog is pure data, so a synchronous `require` keeps `t()` sync.
+ */
+const CATALOGS: Partial<Record<Language, Catalog>> = {};
+
+const LOADERS: Record<Language, () => Catalog> = {
+  'pt-BR': () => (require('./pt-BR.ts') as { ptBRCatalog: Catalog }).ptBRCatalog,
+  en: () => (require('./en.ts') as { enCatalog: Catalog }).enCatalog,
 };
+
+function catalog(language: Language): Catalog {
+  CATALOGS[language] ??= LOADERS[language]();
+  return CATALOGS[language] as Catalog;
+}
 
 /** The accepted values as the error message lists them: "pt-BR, en". */
 export function acceptedLanguages(): string {
@@ -139,7 +152,7 @@ function message<K extends MessageKey>(
   key: K,
   ...args: MessageArgs<K>
 ): string {
-  const entry = CATALOGS[language][key] as (...params: MessageArgs<K>) => string;
+  const entry = catalog(language)[key] as (...params: MessageArgs<K>) => string;
   return entry(...args);
 }
 

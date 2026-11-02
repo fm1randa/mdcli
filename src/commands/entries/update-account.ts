@@ -6,6 +6,7 @@ import { today } from '../../lib/dates.js';
 import type { Account, Entry, UpdateEntryPayload } from '../../types/index.js';
 import { formCardDueDate } from './card-invoice.js';
 import { checkTransferAccounts } from './create-transfer.js';
+import { signForType } from './type.js';
 import { buildEntryStatus, type EntryStatusFlags } from './status.js';
 import { transferSides } from './update-transfer.js';
 
@@ -185,7 +186,7 @@ function moveOffCard(payload: UpdateEntryPayload, existing: Entry, { date, flags
  */
 function setValues(payload: UpdateEntryPayload, effective: boolean): void {
   if (effective) {
-    const sign = payload.tipo !== 'r' ? -1 : 1;
+    const sign = signForType(payload.tipo);
     payload.valorEfetivo = payload.valor;
     payload.valorPrevisto = Math.abs(payload.valorPrevisto || payload.valor) * sign;
   } else {

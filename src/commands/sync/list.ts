@@ -1,4 +1,3 @@
-import Table from 'cli-table3';
 import { logger } from '../../utils/logger.js';
 import { t } from '../../lib/i18n/index.js';
 import { cell } from '../../utils/text.js';
@@ -6,6 +5,7 @@ import { fetchAccounts, fetchConnections } from '../../lib/api.js';
 import { asRecord, integerOrNull, textOrNull } from '../../lib/payload.js';
 import { connectionList } from '../connection.js';
 import type { Account } from '../../types/index.js';
+import { newTable } from '../../utils/table.js';
 
 interface SyncListAccount {
   connectionAccount: number | null;
@@ -64,7 +64,7 @@ export async function listAction(options: { json?: boolean }): Promise<void> {
 
 /** Same table as `sync list`: one row per connection account, or one for a connection with none. */
 export function printSyncList(connections: SyncListConnection[]): void {
-  const table = new Table({
+  const table = newTable({
     head: [t('syncConnectionColumn'), t('labelStatus'), t('labelType'), t('syncConnectionAccountColumn'), t('labelAccount')],
     style: { head: ['cyan'] },
   });

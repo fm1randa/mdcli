@@ -92,6 +92,7 @@ describe('entries import list card candidates', () => {
     expect(body.transactions[0].defaultAction).toBe('conciliate');
     expect(body.transactions[0].candidates).toEqual([
       { id: 778, date: '2026-01-02', value: -12.34, description: 'So Compra', categoryId: 11 },
+      { id: 780, date: '2026-10-07', value: 12.34, description: 'Sinal Trocado', categoryId: 20 },
       { id: 777, date: '2026-10-08', value: -12.34, description: 'Compra Ficticia', categoryId: 10 },
     ]);
     expect(api.requests.some((r) => r.path === INVOICE)).toBe(true);

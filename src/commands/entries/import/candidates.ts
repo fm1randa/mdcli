@@ -60,11 +60,13 @@ export function readExisting(rows: readonly unknown[], source: 'entry' | 'invoic
 }
 
 /**
- * Same signed value, Reconciled Entries included. A document number never drops one: the web
- * only uses it to link the same number first.
+ * Same signed value for checking accounts (the web's `mapaConciliacao` groups
+ * by date + value); for credit cards (`card` true) the whole invoice is the
+ * candidate list, so value does not filter it out. A document number never
+ * drops one: the web only uses it to link the same number first.
  */
-export function candidatesFor(bank: BankSide, existing: readonly ExistingEntry[]): ExistingEntry[] {
-  return existing.filter((item) => item.candidate.value === bank.value);
+export function candidatesFor(bank: BankSide, existing: readonly ExistingEntry[], card?: boolean): ExistingEntry[] {
+  return card ? [...existing] : existing.filter((item) => item.candidate.value === bank.value);
 }
 
 /** The web's day shifts (`conciliarAutomaticamente` default: up to 2 days), in its order. */

@@ -1,7 +1,7 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "project": ["bin/**/*.ts", "src/**/*.ts"],
-  "entry": ["test/probes/*.ts"],
+  "entry": ["test/probes/*.ts", "src/lib/i18n/pt-BR.ts", "src/lib/i18n/en.ts"],
   "ignoreDependencies": ["bun-types"],
   "ignoreBinaries": ["op"]
 }

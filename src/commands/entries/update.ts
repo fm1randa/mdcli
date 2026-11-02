@@ -10,6 +10,7 @@ import { parseEntryType, warnScheduledAlias } from './create.js';
 import { describeStatus } from './format.js';
 import { formatCurrency } from '../../utils/currency.js';
 import { describeScope, resolveSeriesScope, type SeriesScope } from './series.js';
+import { signForType } from './type.js';
 import { buildTransferPayload, clearEffective, keepUnconfirmed } from './update-transfer.js';
 import { parseEntryId } from './entry-id.js';
 import { buildEntryStatus } from './status.js';
@@ -82,8 +83,8 @@ async function resolveEntryType(
     }
   }
 
-  // Web app signs value from type: r -> +1, d -> -1. Payment (p) keeps its sign.
-  const sign = finalType === 'r' ? 1 : finalType === 'd' ? -1 : 0;
+  // Web app signs value from type: r -> +1, d -> -1, p keeps its sign (0).
+  const sign = signForType(finalType);
   // estorno = false when -T given OR type changes; else preserve existing.
   const estorno = (requestedType !== undefined || finalType !== (existing.tipo ?? 'd')) ? false : existing.estorno ?? false;
 

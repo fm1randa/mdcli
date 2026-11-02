@@ -129,5 +129,5 @@ export async function updateAccountAction(id: string, options: UpdateAccountOpti
     console.log(`  ${chalk.gray(`${t('labelBank')}:`)} ${account.banco.nome}`);
   }
   console.log(`  ${chalk.gray(`${t('labelBalance')}:`)} ${formatCurrency(account.saldoInicial)}`);
-  console.log(`  ${chalk.gray(`${t('labelActive')}:`)} ${account.status ? chalk.green(t('yes')) : chalk.gray(t('no'))}`);
+  console.log(`  ${chalk.gray(`${t('statusActive')}:`)} ${account.status ? chalk.green(t('yes')) : chalk.gray(t('no'))}`);
 }

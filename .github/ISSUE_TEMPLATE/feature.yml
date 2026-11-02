@@ -1,12 +1,41 @@
 name: Pedido de funcionalidade
 description: Sugestão de melhoria ou novo comando/flag no mdcli
 title: "feat: "
-labels: ["enhancement"]
+labels: ["enhancement", "needs-triage"]
 body:
   - type: markdown
     attributes:
       value: |
         Descreva o problema que a funcionalidade resolveria e a proposta. Alternativas ajudam a escolher o caminho certo.
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      description: Confirme antes de enviar.
+      options:
+        - label: Procurei issues duplicadas (busca por título ou descrição).
+          required: true
+        - label: Incluí contexto suficiente (problema real, proposta, alternativas).
+          required: true
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Área
+      description: Qual parte do projeto seria afetada?
+      options:
+        - auth
+        - entries
+        - import
+        - accounts
+        - cards
+        - saída / CLI
+        - CI / release
+        - docs
+        - não sei
+    validations:
+      required: true
   - type: textarea
     id: problema
     attributes:

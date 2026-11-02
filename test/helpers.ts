@@ -175,7 +175,7 @@ export async function runCli(
   args: string[],
   env: { home: TestHome; api: MockApi; stdin?: string; extraEnv?: Record<string, string | undefined> }
 ): Promise<CliResult> {
-  const proc = Bun.spawn(['bun', 'run', join(REPO_ROOT, 'bin', 'cli.ts'), ...args], {
+  const proc = Bun.spawn(['bun', join(REPO_ROOT, 'bin', 'cli.ts'), ...args], {
     cwd: REPO_ROOT,
     // Piped output, as in a script: no color.
     env: cliEnv(env, { TERM: 'dumb', NO_COLOR: '1', FORCE_COLOR: '0' }),
@@ -214,7 +214,7 @@ export async function runCliInTerminal(
 ): Promise<{ exitCode: number; output: string }> {
   let raw = '';
   const decoder = new TextDecoder();
-  const proc = Bun.spawn(['bun', 'run', join(REPO_ROOT, 'bin', 'cli.ts'), ...args], {
+  const proc = Bun.spawn(['bun', join(REPO_ROOT, 'bin', 'cli.ts'), ...args], {
     cwd: REPO_ROOT,
     // The pseudo-terminal below is an xterm, whatever terminal runs the tests
     // (on TERM=linux, @inquirer/prompts draws ">" instead of "❯").

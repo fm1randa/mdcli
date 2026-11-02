@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createHome, MANUAL_AUTH, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CHECKING_ACCOUNT, CREDIT_CARD_ACCOUNT, SESSION_RESPONSE } from './fixtures.js';
-import { getCurrentMonthRange } from '../src/lib/dates.js';
 
 // Issue #67: accounts list showed saldoUltimoExtrato (Reserva de Emergência:
 // 4491.97 from a 2023-09-07 statement) while the web showed R$ 0,00. The web's
@@ -73,10 +72,14 @@ describe('accounts list balances', () => {
     api.on('GET /v1/cadastros/contas', { ...ACCOUNTS_RESPONSE, items: [EMERGENCY_FUND] });
     api.on('GET /v2/lancamentos', { sum: [{ conta: 862776, projetado: 0, confirmado: 0 }] });
 
-    const result = await runCli(['accounts', 'list'], { home, api });
+    // Fixed MDCLI_TODAY so the expected end-of-month is a literal (not
+    // computed with getCurrentMonthRange(), which would be tautological).
+    const pinned = '2026-03-15';
+    const endDate = '2026-03-31';
+
+    const result = await runCli(['accounts', 'list'], { home, api, extraEnv: { MDCLI_TODAY: pinned } });
 
     expect(result.exitCode).toBe(0);
-    const { endDate } = getCurrentMonthRange();
     expect(sumRequests()[0].query.get('fim')).toBe(endDate);
     expect(result.stdout).toContain(`balances at ${endDate}`);
     expect(row(result.stdout, 'Reserva de Emergência')).toEqual([

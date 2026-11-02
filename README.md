@@ -22,7 +22,7 @@ bun install -g github:fm1randa/mdcli
 
 Uma instalação global se mantém sempre na **release** mais recente (uma tag `vYYYY.M.D` com uma GitHub Release). Commits mesclados na `main` sem uma release não são instalados.
 
-No máximo uma vez a cada 24 horas, o mdcli consulta o GitHub pela release mais recente (`api.github.com/repos/fm1randa/mdcli/releases/latest`, timeout de 1,5 s, sem token) e a compara com a versão instalada (o `package.json` da instalação). Se a release for mais nova, ele executa `bun install -g github:fm1randa/mdcli#<tag>` em segundo plano; a nova versão passa a ser usada a partir da próxima execução, que imprime uma linha no stderr, por exemplo `mdcli atualizado de 2026.10.13 para 2026.10.20`. O stdout nunca é afetado, então a saída de `--json` e `--csv` continua limpa.
+No máximo uma vez a cada 24 horas, o mdcli consulta o GitHub pela release mais recente (`api.github.com/repos/fm1randa/mdcli/releases/latest`, timeout de 1,5 s, sem token) e a compara com a versão instalada (o `package.json` da instalação). Se a release for mais nova, ele remove a instalação atual (`bun remove -g mdcli`) e instala a nova (`bun install -g github:fm1randa/mdcli#<tag>`), as duas etapas num único processo em segundo plano; a nova versão passa a ser usada a partir da próxima execução, que imprime uma linha no stderr, por exemplo `mdcli atualizado de 2026.10.13 para 2026.10.20`. O stdout nunca é afetado, então a saída de `--json` e `--csv` continua limpa.
 
 A verificação é ignorada ao rodar a partir de um checkout do código-fonte, quando `CI` está definida e quando não há conexão; uma verificação ou atualização que falhe nunca faz o comando falhar. O horário da última verificação fica salvo em `update-check.json`, dentro do diretório de configuração (`MDCLI_CONFIG_DIR`, padrão `~/.config/mdcli`).
 
@@ -30,6 +30,12 @@ Para atualizar na hora (em primeiro plano, informando o resultado; funciona mesm
 
 ```bash
 mdcli update
+```
+
+Se uma atualização falhar depois de remover a instalação anterior (por exemplo, com uma mensagem de `dependency loop` do Bun no `mdcli update`, ou em silêncio na atualização automática), recupere manualmente com:
+
+```bash
+bun install -g github:fm1randa/mdcli#vYYYY.M.D
 ```
 
 Para desligar as atualizações automáticas, defina a variável de ambiente:

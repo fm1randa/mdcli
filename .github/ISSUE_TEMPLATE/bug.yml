@@ -1,13 +1,70 @@
 name: Relatório de bug
 description: Algo no mdcli não funciona como esperado
 title: "bug: "
-labels: ["bug"]
+labels: ["bug", "needs-triage"]
 body:
   - type: markdown
     attributes:
       value: |
         Obrigado por reportar. Preencha o máximo que puder — quanto mais contexto, mais rápido o diagnóstico.
         **Não cole tokens, senhas, nomes reais de contas, valores financeiros nem outros dados sensíveis.**
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist obrigatório
+      description: Confirme antes de enviar.
+      options:
+        - label: Procurei issues duplicadas (busca por título ou descrição).
+          required: true
+        - label: Incluí detalhe suficiente para reproduzir (comando exato, ambiente, saída de diagnóstico).
+          required: true
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Área
+      description: Qual parte do projeto está afetada?
+      options:
+        - auth
+        - entries
+        - import
+        - accounts
+        - cards
+        - saída / CLI
+        - CI / release
+        - docs
+        - não sei
+    validations:
+      required: true
+  - type: dropdown
+    id: impacto
+    attributes:
+      label: Impacto
+      description: Como o bug afeta seu uso?
+      options:
+        - bloqueia totalmente
+        - degradação grande ou falha frequente
+        - bug menor ou ocasional
+        - cosmético
+    validations:
+      required: true
+  - type: input
+    id: versao
+    attributes:
+      label: Versão ou commit
+      description: '`mdcli --version` ou o SHA do commit onde o problema ocorreu.'
+      placeholder: <versão> (main @ <commit-sha>)
+    validations:
+      required: true
+  - type: input
+    id: ambiente
+    attributes:
+      label: Ambiente
+      description: SO, versão do Bun, e qualquer detalhe relevante do ambiente.
+      placeholder: Linux 6.8, Bun 1.4.2
+    validations:
+      required: true
   - type: textarea
     id: comando
     attributes:
@@ -20,13 +77,13 @@ body:
     id: doctor-or-version
     attributes:
       label: Saída de diagnóstico
-      description: Cole a saída de `mdcli auth doctor` (não existe `mdcli doctor`) ou, se o auth doctor falhar, de `mdcli --version`.
+      description: "Cole a saída de `mdcli auth doctor` (não existe `mdcli doctor`) ou, se o auth doctor falhar, de `mdcli --version`."
       placeholder: |
         $ mdcli auth doctor
         ...
         # ou
         $ mdcli --version
-        2026.10.14
+        <versão>
     validations:
       required: true
   - type: textarea
@@ -53,3 +110,30 @@ body:
       description: O que aconteceu de fato (mensagem de erro, saída inesperada, etc.).
     validations:
       required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs ou saída de terminal
+      description: Cole as linhas mais relevantes apenas. Redija dados sensíveis.
+      render: shell
+      placeholder: |
+        $ mdcli entries create ...
+        erro: token expirado (linha 127 de src/auth/client.ts)
+    validations:
+      required: false
+  - type: textarea
+    id: workaround
+    attributes:
+      label: Workaround
+      description: Se encontrou uma solução temporária, descreva.
+      placeholder: Reiniciar com `mdcli auth refresh` e tentar novamente resolve até o próximo restart.
+    validations:
+      required: false
+  - type: upload
+    id: anexos
+    attributes:
+      label: Capturas, logs ou arquivos de apoio
+      description: Upload de capturas de tela, arquivos de log ou arquivos de reprodução. **Redija dados sensíveis antes de enviar.**
+    validations:
+      required: false
+      accept: ".png,.jpg,.jpeg,.gif,.webp,.svg,.mp4,.mov,.webm,.log,.txt,.json,.zip"
