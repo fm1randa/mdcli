@@ -4,8 +4,6 @@ import { overwrittenFields, type ExistingEntry } from './candidates.js';
 import type { ImportDocument } from './document.js';
 import type { Overwrite, RunDocument } from './plan.js';
 
-export type { Overwrite };
-
 /** The web default (`getConfig("conciliacao", {o: "d", s: false, sd: false})`), used when the preference cannot be read. */
 const DEFAULT_OVERWRITE: Overwrite = { value: false, description: false, valueSource: 'default', descriptionSource: 'default' };
 
