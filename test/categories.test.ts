@@ -62,6 +62,25 @@ describe('categories create', () => {
     expect(mutations(api)).toHaveLength(0);
   });
 
+  test('refuses a --parent that is inactive', async () => {
+    api.on('GET /v1/cadastros/categorias', {
+      ...CATEGORIES_RESPONSE,
+      items: [
+        ...CATEGORIES_RESPONSE.items,
+        { ...CATEGORIES_RESPONSE.items[4], id: 41, nome: 'Arquivado', status: false },
+      ],
+    });
+
+    const result = await runCli(
+      ['categories', 'create', '--name', 'X', '--parent', 'Arquivado'],
+      { home, api }
+    );
+
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain('is inactive');
+    expect(mutations(api)).toHaveLength(0);
+  });
+
   test('requires --type or --parent', async () => {
     const result = await runCli(['categories', 'create', '--name', 'X'], { home, api });
 
@@ -131,6 +150,85 @@ describe('categories delete', () => {
     );
 
     expect(result.exitCode).toBe(1);
+    expect(mutations(api)).toHaveLength(0);
+  });
+
+  test('refuses a --move-to name that only matches an inactive category', async () => {
+    api.on('GET /v1/cadastros/categorias', {
+      ...CATEGORIES_RESPONSE,
+      items: [
+        ...CATEGORIES_RESPONSE.items,
+        { ...CATEGORIES_RESPONSE.items[4], id: 41, nome: 'Arquivado', status: false },
+      ],
+    });
+
+    const result = await runCli(
+      ['categories', 'delete', '11', '--move-to', 'Arquivado', '--dangerously-skip-confirmation'],
+      { home, api }
+    );
+
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain('is inactive');
+    expect(mutations(api)).toHaveLength(0);
+  });
+
+  test('refuses a --move-to explicit ID that points at an inactive category', async () => {
+    api.on('GET /v1/cadastros/categorias', {
+      ...CATEGORIES_RESPONSE,
+      items: [
+        ...CATEGORIES_RESPONSE.items,
+        { ...CATEGORIES_RESPONSE.items[4], id: 41, nome: 'Arquivado', status: false },
+      ],
+    });
+
+    const result = await runCli(
+      ['categories', 'delete', '11', '--move-to', '41', '--dangerously-skip-confirmation'],
+      { home, api }
+    );
+
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain('is inactive');
+    expect(mutations(api)).toHaveLength(0);
+  });
+
+  test('a --move-to name shared by an active and an inactive category uses the active one', async () => {
+    api.on('GET /v1/cadastros/categorias', {
+      ...CATEGORIES_RESPONSE,
+      items: [
+        ...CATEGORIES_RESPONSE.items,
+        { ...CATEGORIES_RESPONSE.items[4], id: 42, nome: 'Moradia', status: true },
+        { ...CATEGORIES_RESPONSE.items[4], id: 41, nome: 'Moradia', status: false },
+      ],
+    });
+    api.on('DELETE /v1/cadastros/categorias/11', null);
+
+    const result = await runCli(
+      ['categories', 'delete', '11', '--move-to', 'moradia', '--dangerously-skip-confirmation'],
+      { home, api }
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(mutations(api)[0].query.get('idDestino')).toBe('42');
+  });
+
+  test('refuses a --move-to name that matches two active categories, listing their IDs', async () => {
+    api.on('GET /v1/cadastros/categorias', {
+      ...CATEGORIES_RESPONSE,
+      items: [
+        ...CATEGORIES_RESPONSE.items,
+        { ...CATEGORIES_RESPONSE.items[4], id: 42, nome: 'Duplicada', status: true },
+        { ...CATEGORIES_RESPONSE.items[4], id: 41, nome: 'Duplicada', status: true },
+      ],
+    });
+
+    const result = await runCli(
+      ['categories', 'delete', '11', '--move-to', 'duplicada', '--dangerously-skip-confirmation'],
+      { home, api }
+    );
+
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain('42');
+    expect(result.output).toContain('41');
     expect(mutations(api)).toHaveLength(0);
   });
 });

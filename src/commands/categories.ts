@@ -10,9 +10,10 @@ import {
   updateCategory,
   deleteCategory,
 } from '../lib/api.js';
-import { buildAliasCommand, resolveId } from '../lib/aliases.js';
+import { buildAliasCommand, getAliases, resolveId } from '../lib/aliases.js';
 import { invalidateNameCache } from '../lib/config.js';
 import { t } from '../lib/i18n/index.js';
+import { sameName } from '../lib/name-cache.js';
 import type { Category } from '../types/index.js';
 import { parseId } from '../utils/parse.js';
 import { newTable } from '../utils/table.js';
@@ -28,11 +29,31 @@ function parseTypeName(input: string): CategoryTypeName | null {
 
 async function resolveCategory(input: string, categories: Category[]): Promise<Category> {
   const id = await resolveId('categories', input);
-  const category = id === null ? undefined : categories.find((c) => c.id === id);
-  if (!category) {
+  const resolved = id === null ? undefined : categories.find((c) => c.id === id);
+  if (!resolved) {
     exitWithError(t('errorCategoryNotFound', input));
   }
-  return category;
+
+  // A bare name can match several categories. As in entries create/update
+  // (#77): a name that also matches an active category resolves to the active
+  // one, a name matching several active categories is refused with their IDs,
+  // and an inactive destination (id, alias, or name) is refused.
+  const explicit = parseId(input) !== undefined || getAliases('categories').some((a) => a.name === input);
+  if (!explicit) {
+    const active = categories.filter((c) => c.status && sameName(c.nome, input));
+    if (active.length > 1) {
+      exitWithError(t('errorCategoryNameAmbiguous', input, active.map((c) => c.id).join(', ')));
+    }
+    if (active.length === 1) {
+      return active[0];
+    }
+  }
+
+  if (!resolved.status) {
+    exitWithError(t('errorCategoryInactiveDestination', resolved.nome, resolved.id));
+  }
+
+  return resolved;
 }
 
 

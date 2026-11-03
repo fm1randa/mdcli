@@ -64,12 +64,21 @@ export async function checkEntryCategory(
 
   const items = await catalog();
   const category = items.find((c) => c.id === id);
-  if (!category || category.status) return { id, category: category ?? null };
 
+  // A bare name can match several categories. As in categories --move-to
+  // (#170): a name that also matches an active category resolves to the active
+  // one, and a name matching several active categories is refused with their IDs.
   if (!isExplicitReference(input)) {
-    const active = items.find((c) => c.status && sameName(c.nome, input));
-    if (active) return { id: active.id, category: active };
+    const active = items.filter((c) => c.status && sameName(c.nome, input));
+    if (active.length > 1) {
+      return { error: t('errorCategoryNameAmbiguous', input, active.map((c) => c.id).join(', ')) };
+    }
+    if (active.length === 1) {
+      return { id: active[0].id, category: active[0] };
+    }
   }
+
+  if (!category || category.status) return { id, category: category ?? null };
 
   return { error: t('errorCategoryInactive', category.nome, category.id) };
 }

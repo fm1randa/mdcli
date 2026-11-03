@@ -44,13 +44,16 @@ const CARD_DATE_ONLY = {
 };
 
 // Finanças report (2026-10-16): an inactive category (hidden in the web app)
-// listed after an active one with the same name.
+// listed after an active one with the same name. The two active "Casa" below
+// reproduce #170: a name that matches several active categories is ambiguous.
 const MOCK_CATEGORIES = {
   ...CATEGORIES_RESPONSE,
   items: [
     ...CATEGORIES_RESPONSE.items,
     { ...CATEGORIES_RESPONSE.items[4], id: 42, nome: 'Moradia', nomeRel: 'Moradia', _ordenacao: 'MORADIA' },
     { ...CATEGORIES_RESPONSE.items[4], id: 41, nome: 'Moradia', nomeRel: 'Moradia', _ordenacao: 'MORADIA', status: false },
+    { ...CATEGORIES_RESPONSE.items[4], id: 43, nome: 'Casa', nomeRel: 'Casa', _ordenacao: 'CASA' },
+    { ...CATEGORIES_RESPONSE.items[4], id: 44, nome: 'Casa', nomeRel: 'Casa', _ordenacao: 'CASA' },
   ],
 };
 
