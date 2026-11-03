@@ -69,7 +69,7 @@ describe('entries import run overwrite preference', () => {
     expect(result.stderr).toBe('');
     expect(result.exitCode).toBe(0);
     const document = JSON.parse(result.stdout);
-    expect(document.overwrite).toEqual({ value: true, description: true, source: 'preferences' });
+    expect(document.overwrite).toEqual({ value: true, description: true, valueSource: 'preferences', descriptionSource: 'preferences' });
     expect(document.conciliated).toEqual([
       {
         integrationId: TX1,
@@ -122,7 +122,7 @@ describe('entries import run overwrite preference', () => {
     const result = await run(['--yes', '--json']);
 
     expect(result.exitCode).toBe(0);
-    expect(JSON.parse(result.stdout).overwrite).toEqual({ value: false, description: true, source: 'preferences' });
+    expect(JSON.parse(result.stdout).overwrite).toEqual({ value: false, description: true, valueSource: 'preferences', descriptionSource: 'preferences' });
     expect(conciliationBody()).toMatchObject({ sobrescrever: false, sobrescreverDescr: true });
   });
 
@@ -146,7 +146,7 @@ describe('entries import run overwrite preference', () => {
     const result = await run(['--yes', '--json']);
 
     expect(result.exitCode).toBe(0);
-    expect(JSON.parse(result.stdout).overwrite).toEqual({ value: false, description: false, source: 'preferences' });
+    expect(JSON.parse(result.stdout).overwrite).toEqual({ value: false, description: false, valueSource: 'preferences', descriptionSource: 'preferences' });
     expect(conciliationBody()).toMatchObject({ sobrescrever: false, sobrescreverDescr: false });
   });
 
@@ -157,7 +157,7 @@ describe('entries import run overwrite preference', () => {
     const result = await run(['--dry-run', '--json']);
 
     expect(result.exitCode).toBe(0);
-    expect(JSON.parse(result.stdout).overwrite).toEqual({ value: true, description: false, source: 'preferences' });
+    expect(JSON.parse(result.stdout).overwrite).toEqual({ value: true, description: false, valueSource: 'preferences', descriptionSource: 'preferences' });
     const sessao = api.requests.filter((request) => request.path === '/v1/frontend/sessao');
     expect(sessao).toHaveLength(1);
     expect(sessao[0].query.get('uid')).toBe('42');
@@ -187,7 +187,7 @@ describe('entries import run overwrite preference', () => {
     const result = await run(['--dry-run', '--json']);
 
     expect(result.exitCode).toBe(0);
-    expect(JSON.parse(result.stdout).overwrite).toEqual({ value: false, description: false, source: 'default' });
+    expect(JSON.parse(result.stdout).overwrite).toEqual({ value: false, description: false, valueSource: 'default', descriptionSource: 'default' });
   });
 });
 
@@ -293,5 +293,91 @@ describe('entries import run overwrite: before and after of the overwritten fiel
     expect(text.exitCode).toBe(0);
     expect(text.stdout).not.toContain('Document number');
     expect(text.stdout).not.toContain('NSU 998');
+  });
+});
+
+// The --overwrite/--fill-description flags override the saved preference for one toggle only, without
+// writing it back (Filipe's call: follow the preference when no flag is given; never updateConfig).
+describe('entries import run overwrite flags', () => {
+  test('--overwrite turns sobrescrever on for this run, ignoring the saved off preference', async () => {
+    session({ o: 'd', s: false, sd: false });
+    linkedEntry();
+
+    const result = await run(['--yes', '--json', '--overwrite']);
+
+    expect(result.exitCode).toBe(0);
+    expect(JSON.parse(result.stdout).overwrite).toEqual({ value: true, description: false, valueSource: 'flag', descriptionSource: 'preferences' });
+    expect(conciliationBody()).toMatchObject({ sobrescrever: true, sobrescreverDescr: false });
+  });
+
+  test('--no-overwrite turns sobrescrever off for this run, ignoring the saved on preference', async () => {
+    session({ o: 'd', s: true, sd: false });
+    linkedEntry();
+
+    const result = await run(['--yes', '--json', '--no-overwrite']);
+
+    expect(result.exitCode).toBe(0);
+    expect(JSON.parse(result.stdout).overwrite).toEqual({ value: false, description: false, valueSource: 'flag', descriptionSource: 'preferences' });
+    expect(conciliationBody()).toMatchObject({ sobrescrever: false, sobrescreverDescr: false });
+  });
+
+  test('--fill-description turns sobrescreverDescr on for this run', async () => {
+    session({ o: 'd', s: false, sd: false });
+    linkedEntry();
+
+    const result = await run(['--yes', '--json', '--fill-description']);
+
+    expect(result.exitCode).toBe(0);
+    expect(JSON.parse(result.stdout).overwrite).toEqual({ value: false, description: true, valueSource: 'preferences', descriptionSource: 'flag' });
+    expect(conciliationBody()).toMatchObject({ sobrescrever: false, sobrescreverDescr: true });
+  });
+
+  test('--no-fill-description turns sobrescreverDescr off for this run, ignoring the saved on preference', async () => {
+    session({ o: 'd', s: false, sd: true });
+    linkedEntry();
+
+    const result = await run(['--yes', '--json', '--no-fill-description']);
+
+    expect(result.exitCode).toBe(0);
+    expect(JSON.parse(result.stdout).overwrite).toEqual({ value: false, description: false, valueSource: 'preferences', descriptionSource: 'flag' });
+    expect(conciliationBody()).toMatchObject({ sobrescrever: false, sobrescreverDescr: false });
+  });
+
+  test('--overwrite: the summary credits the flag, and the untouched description still credits the web preference', async () => {
+    session({ o: 'd', s: false, sd: false });
+    linkedEntry();
+
+    const result = await run(['--dry-run', '--overwrite']);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain(
+      "Overwrite on: linked entries that are not reconciled take the bank transaction's contact, category, cost center, project, tags and document number."
+    );
+    expect(result.stdout).toContain('Fill empty descriptions off (your web preference): linked entries keep their description.');
+    expect(mutations(api)).toHaveLength(0);
+  });
+
+  test('--overwrite: a reconciled entry keeps its fields, as the web', async () => {
+    session({ o: 'd', s: false, sd: false });
+    linkedEntry({ descricao: 'Padaria do bairro', dataPrevista: '2026-10-07', dataEfetiva: '2026-10-07', status: 'conciliado' });
+
+    const result = await run(['--dry-run', '--json', '--overwrite']);
+
+    expect(result.exitCode).toBe(0);
+    const [item] = JSON.parse(result.stdout).conciliated;
+    expect(item.after).toEqual(item.before);
+    expect(mutations(api)).toHaveLength(0);
+  });
+
+  test('--fill-description: an entry that already has a description keeps it', async () => {
+    session({ o: 'd', s: false, sd: false });
+    linkedEntry({ descricao: 'Padaria do bairro' });
+
+    const result = await run(['--dry-run', '--json', '--fill-description']);
+
+    expect(result.exitCode).toBe(0);
+    const [item] = JSON.parse(result.stdout).conciliated;
+    expect(item.after).toMatchObject({ value: -12.34, description: 'Padaria do bairro' });
+    expect(mutations(api)).toHaveLength(0);
   });
 });

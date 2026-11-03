@@ -30,14 +30,27 @@ interface ConciliatedItem extends RunReference {
   after: LinkedSide;
 }
 
+/** Where an overwrite toggle came from: a flag, the saved web preference, or the web default. */
+export type OverwriteSource = 'preferences' | 'default' | 'flag';
+
+/**
+ * The two overwrite toggles and the origin of each. `value` is the web's `s` (sobrescrever),
+ * `description` is `sd` (sobrescreverDescr); they are independent, so each keeps its own source.
+ */
+export interface Overwrite {
+  value: boolean;
+  description: boolean;
+  valueSource: OverwriteSource;
+  descriptionSource: OverwriteSource;
+}
+
 /** What `entries import run` would write (dry run) or wrote. */
 export interface RunDocument {
   dryRun: boolean;
   accountId: number;
   connectionAccount: number;
   statement: ImportDocument['statement'];
-  /** The web's `conciliacao` preference: `value` is `s` (sobrescrever), `description` is `sd`. */
-  overwrite: { value: boolean; description: boolean; source: 'preferences' | 'default' };
+  overwrite: Overwrite;
   imported: ImportedItem[];
   conciliated: ConciliatedItem[];
   rejected: RunReference[];
@@ -119,7 +132,7 @@ export function emptyRun(document: ImportDocument, dryRun: boolean): RunDocument
     accountId: document.account.id,
     connectionAccount: document.connection.connectionAccount,
     statement: document.statement,
-    overwrite: { value: false, description: false, source: 'default' },
+    overwrite: { value: false, description: false, valueSource: 'default', descriptionSource: 'default' },
     imported: [],
     conciliated: [],
     rejected: [],

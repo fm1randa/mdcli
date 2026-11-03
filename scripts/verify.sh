@@ -275,6 +275,22 @@ import_run_dry() {
   reads_and_ai_only "$fresh" "entries import run --dry-run"
 }
 step "cli entries import run --dry-run (mock)" import_run_dry
+# The --overwrite flag turns sobrescrever on for the run only, without writing it back: the --json
+# overwrite says where each toggle came from (a flag vs the saved preference).
+import_run_overwrite_dry() {
+  local log="$MDCLI_MOCK_LOG"
+  local before=0
+  [ -f "$log" ] && before=$(wc -l <"$log")
+  local out
+  out=$("${CLI[@]}" entries import run -a 1001 --since "$IMPORT_SINCE" --ids aaaaaaaa -c 10 --dry-run --overwrite --json </dev/null) \
+    || { echo "output: $out"; return 1; }
+  OUT="$out" bun -e 'const d = JSON.parse(process.env.OUT); const o = d.overwrite; if (o.value !== true || o.valueSource !== "flag" || o.description !== true || o.descriptionSource !== "preferences") process.exit(1)' \
+    || { echo "expected --overwrite to set sobrescrever from a flag in: $out"; return 1; }
+  local fresh
+  fresh=$(tail -n +"$((before + 1))" "$log")
+  reads_and_ai_only "$fresh" "entries import run --dry-run --overwrite"
+}
+step "cli entries import run --dry-run --overwrite (mock)" import_run_overwrite_dry
 # Rehearses an Import from a --plan file over the statement since the last statement date (no --since). No --yes.
 import_run_plan_dry() {
   local log="$MDCLI_MOCK_LOG"

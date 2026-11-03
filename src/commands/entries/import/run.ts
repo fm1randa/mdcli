@@ -7,7 +7,7 @@ import { logger } from '../../../utils/logger.js';
 import { promptConfirmation } from '../../../utils/prompt.js';
 import { categoryCatalog } from '../category.js';
 import { commitRun } from './commit.js';
-import { applyOverwrite, readOverwrite } from './overwrite.js';
+import { applyOverwrite, readOverwrite, resolveOverwrite } from './overwrite.js';
 import { editRun } from './edit.js';
 import { fillSuggestions, linkableOf, loadImport, nothingNewMessage, statementRows, type ImportLoadOptions, type LoadedImport } from './list.js';
 import type { ImportDocument } from './document.js';
@@ -23,6 +23,8 @@ interface ImportRunOptions extends ImportLoadOptions {
   plan?: string;
   edit?: boolean;
   includeDuplicates?: boolean;
+  overwrite?: boolean;
+  fillDescription?: boolean;
   dryRun?: boolean;
   yes?: boolean;
   json?: boolean;
@@ -46,7 +48,11 @@ export async function runAction(options: ImportRunOptions): Promise<void> {
     return;
   }
 
-  applyOverwrite(run, await readOverwrite(), { document, statementRows: statementRows(payload), existing: loaded.existing });
+  const overwrite = resolveOverwrite(await readOverwrite(), {
+    overwrite: options.overwrite,
+    fillDescription: options.fillDescription,
+  });
+  applyOverwrite(run, overwrite, { document, statementRows: statementRows(payload), existing: loaded.existing });
   const context = {
     accountName: document.account.name,
     categories,

@@ -41,6 +41,14 @@ export const ptBRImport = {
     'Escolher a ação, a categoria e a descrição de cada transação bancária no $EDITOR',
   importIncludeDuplicatesOption: () =>
     'Importar duplicatas em vez de pulá-las (--ids; --edit as abre como import)',
+  importOverwriteOption: () =>
+    'Atualizar os lançamentos vinculados não conciliados com o extrato (contato, categoria, centro de custo, projeto, tags e número do documento)',
+  importNoOverwriteOption: () =>
+    'Forçar a sobrescrita desligada nesta execução, ignorando a preferência salva',
+  importFillDescriptionOption: () =>
+    'Preencher a descrição vazia de lançamentos vinculados com a do extrato',
+  importNoFillDescriptionOption: () =>
+    'Forçar o preenchimento de descrição desligado nesta execução, ignorando a preferência salva',
   importDryRunOption: () => 'Mostrar o que seria importado sem gravar nada',
   importYesOption: () => 'Pular a confirmação',
   importJsonOption: () => 'Saída em JSON (requer --yes ou --dry-run)',
@@ -170,17 +178,19 @@ export const ptBRImport = {
   importOverwrittenHeader: () => 'Sobrescritos pelo banco',
   importOverwriteUnavailable: () =>
     'As preferências de sobrescrita não puderam ser lidas, então vale o padrão do app web: os lançamentos vinculados mantêm seus campos.',
-  importOverwriteOn: (fields: string) =>
-    `Sobrescrita ligada (sua preferência no app web): os lançamentos vinculados que não estão conciliados recebem ${fields} da transação bancária.`,
-  importOverwriteOff: (fields: string) =>
-    `Sobrescrita desligada (sua preferência no app web): os lançamentos vinculados mantêm ${fields}; ` +
+  importOverwriteOn: (fields: string, origin: string) =>
+    `Sobrescrita ligada${origin}: os lançamentos vinculados que não estão conciliados recebem ${fields} da transação bancária.`,
+  importOverwriteOff: (fields: string, origin: string) =>
+    `Sobrescrita desligada${origin}: os lançamentos vinculados mantêm ${fields}; ` +
     'com ela ligada, os que não estão conciliados receberiam os da transação bancária.',
   importOverwriteFields: () =>
     'contato, categoria, centro de custo, projeto, tags e número do documento',
-  importFillDescriptionOn: () =>
-    'Preencher descrições vazias ligado (sua preferência no app web): um lançamento vinculado sem descrição recebe a da transação bancária.',
-  importFillDescriptionOff: () =>
-    'Preencher descrições vazias desligado (sua preferência no app web): os lançamentos vinculados mantêm sua descrição.',
+  importOverwritePreferenceOrigin: () => ' (sua preferência no app web)',
+  importOverwriteDefaultOrigin: () => ' (padrão do app web)',
+  importFillDescriptionOn: (origin: string) =>
+    `Preencher descrições vazias ligado${origin}: um lançamento vinculado sem descrição recebe a da transação bancária.`,
+  importFillDescriptionOff: (origin: string) =>
+    `Preencher descrições vazias desligado${origin}: os lançamentos vinculados mantêm sua descrição.`,
   errorImportJsonRequires: () => 'entries import run --json requer --yes ou --dry-run',
   importNothingToDo: () =>
     'Nada a fazer: o arquivo não tem linhas de comando. Nada foi gravado.',
