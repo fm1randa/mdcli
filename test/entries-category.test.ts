@@ -92,6 +92,26 @@ describe('entries create with an inactive category', () => {
   });
 });
 
+describe('entries create with an ambiguous category name', () => {
+  test('a name matching two active categories is refused, listing their IDs', async () => {
+    api.on('GET /v1/cadastros/categorias', {
+      ...CATEGORIES_RESPONSE,
+      items: [
+        ...CATEGORIES_RESPONSE.items,
+        { ...CATEGORIES_RESPONSE.items[0], id: 51, nome: 'Duplicada', status: true },
+        { ...CATEGORIES_RESPONSE.items[0], id: 50, nome: 'Duplicada', status: true },
+      ],
+    });
+
+    const result = await runCli([...CREATE, '-c', 'duplicada'], { home, api });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain('51');
+    expect(result.output).toContain('50');
+    expect(mutations(api)).toHaveLength(0);
+  });
+});
+
 describe('entries update with an inactive category', () => {
   test('refuses to move an entry to an inactive category', async () => {
     const result = await runCli(['entries', 'update', '70', '-c', '52'], { home, api });
