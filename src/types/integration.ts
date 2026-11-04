@@ -31,7 +31,15 @@ interface BankTransaction {
   data?: string;
   moeda?: number;
   /** The AI category token for the row. */
-  _ca?: { ait?: Record<string, string> };
+  _ca?: {
+    ait?: Record<string, string>;
+    /** A transfer suggestion. */
+    st?: boolean;
+    /** The suggested description the web writes as the row's default. */
+    d?: string;
+    /** The suggested fields, by kind (d expense, r income, t transfer). */
+    c?: Partial<Record<'d' | 'r' | 't', Record<string, { v?: unknown }>>>;
+  };
 }
 
 /** A bank statement: one connection account's transactions for a period. */

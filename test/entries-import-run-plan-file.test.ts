@@ -106,24 +106,87 @@ describe('entries import run --plan file checks', () => {
     expect(api.requests).toHaveLength(0);
   });
 
-  test('a key that does not apply to the action, an unknown top-level key, or bad JSON fails', async () => {
-    const wrongKey = await run(['--plan', planFile({ transactions: [{ id: 'aaaa1111', action: 'skip', entry: 4242 }] }), '--yes']);
-    expect(wrongKey.stderr).toContain('transactions[0]: "entry" does not apply to skip.');
+  test('an unknown item or top-level key, or bad JSON, fails; the list fields are known', async () => {
+    statement([bank(TX1)]);
+    const wrongKey = await run(['--plan', planFile({ transactions: [{ id: 'aaaa1111', action: 'skip', memo: 'x' }] }), '--yes']);
+    expect(wrongKey.stderr).toContain('transactions[0]: unknown key "memo".');
 
-    const linked = await run([
-      '--plan',
-      planFile({ transactions: [{ id: 'aaaa1111', action: 'conciliate', description: 'Nova' }] }),
-      '--yes',
-    ]);
-    expect(linked.stderr).toContain('transactions[0]: "description" does not apply to conciliate.');
-
-    const topLevel = await run(['--plan', planFile({ account: 1001, transactions: [] }), '--yes']);
-    expect(topLevel.stderr).toContain('unknown key "account"');
+    const topLevel = await run(['--plan', planFile({ conta: 1001, transactions: [] }), '--yes']);
+    expect(topLevel.stderr).toContain('unknown key "conta"');
 
     const broken = await run(['--plan', planFile('{"transactions": ['), '--yes']);
     expect(broken.stderr).toContain('The --plan file is not valid JSON');
+    for (const result of [wrongKey, topLevel, broken]) expect(result.exitCode).toBe(1);
+    expect(api.requests).toHaveLength(0);
 
-    for (const result of [wrongKey, linked, topLevel, broken]) expect(result.exitCode).toBe(1);
+    const listShape = await run([
+      '--plan',
+      planFile({
+        account: { id: 1001, name: 'Nubank' },
+        connection: { id: 501, connectionAccount: 9001 },
+        source: 'statement',
+        since: SINCE,
+        statement: { start: '2026-10-01', end: '2026-10-10', balance: 0 },
+        search: { from: '2026-09-29', to: '2026-10-12' },
+        ai: 'unused',
+        transactions: [
+          {
+            id: 'aaaa1111',
+            integrationId: TX1,
+            date: '2026-10-07',
+            value: -12.34,
+            bankDescription: 'Padaria Ficticia',
+            description: 'Padaria Ficticia',
+            suggestedDescription: null,
+            suggestedTagIds: [],
+            suggestedCategory: null,
+            category: '10',
+            duplicateOf: null,
+            entry: null,
+            alreadyConciliated: false,
+            candidates: [],
+            action: 'import',
+          },
+        ],
+      }),
+      '--dry-run',
+      '--json',
+    ]);
+    // The list document is a plan: the diagnostic keys are known and only the selection fields run.
+    expect(listShape.stderr).toBe('');
+    expect(listShape.exitCode).toBe(0);
+  });
+
+  test('entry is refused on any action but conciliate, and null stays valid', async () => {
+    const imported = await refused({ transactions: [{ id: 'aaaa1111', action: 'import', category: 10, entry: 4242 }] });
+    expect(imported).toContain('transactions[0]: "entry" only applies to conciliate.');
+    expect(api.requests).toHaveLength(0);
+
+    const skipped = await refused({ transactions: [{ id: 'aaaa1111', action: 'skip', entry: 4242 }] });
+    expect(skipped).toContain('transactions[0]: "entry" only applies to conciliate.');
+    expect(api.requests).toHaveLength(0);
+
+    statement([bank(TX1)]);
+    const listRow = await run([
+      '--plan',
+      planFile({ transactions: [{ id: 'aaaa1111', action: 'import', category: 10, entry: null }] }),
+      '--dry-run',
+      '--json',
+    ]);
+    expect(listRow.stderr).toBe('');
+    expect(listRow.exitCode).toBe(0);
+  });
+
+  test('a plan whose account differs from -a, or has no id, is refused before any request', async () => {
+    const other = await refused({
+      account: { id: 1002, name: 'Cartão Azul' },
+      transactions: [{ id: 'aaaa1111', action: 'skip' }],
+    });
+    expect(other).toContain('the plan is for account 1002, but the run is for account 1001.');
+    expect(api.requests).toHaveLength(0);
+
+    const malformed = await refused({ account: { name: 'Nubank' }, transactions: [{ id: 'aaaa1111', action: 'skip' }] });
+    expect(malformed).toContain('"account" must be an object with a numeric "id".');
     expect(api.requests).toHaveLength(0);
   });
 
@@ -192,30 +255,30 @@ describe('entries import run --plan file checks', () => {
     expect(stderr).toContain('No bank transactions since');
   });
 
-  test('conciliateWith is a synonym for entry, and disagreeing values fail', async () => {
+  test('entry is the only name for the linked Entry; conciliateWith is not accepted', async () => {
     statement([bank(TX1)]);
     entries([{ id: 4242, dataPrevista: '2026-10-07', valor: -12.34, categoria: 11 }]);
 
+    const linked = await run([
+      '--plan',
+      planFile({ transactions: [{ id: 'aaaa1111', action: 'conciliate', entry: 4242 }] }),
+      '--dry-run',
+      '--json',
+    ]);
+    expect(linked.exitCode).toBe(0);
+    expect(linked.stderr).toBe('');
+    expect(JSON.parse(linked.stdout).conciliated).toMatchObject([{ prefix: 'aaaa1111', entryId: 4242 }]);
+
+    api.requests.length = 0;
     const synonym = await run([
       '--plan',
       planFile({ transactions: [{ id: 'aaaa1111', action: 'conciliate', conciliateWith: 4242 }] }),
       '--dry-run',
       '--json',
     ]);
-    expect(synonym.exitCode).toBe(0);
-    expect(synonym.stderr).toBe('');
-    expect(JSON.parse(synonym.stdout).conciliated).toMatchObject([{ prefix: 'aaaa1111', entryId: 4242 }]);
-
-    api.requests.length = 0;
-    const conflict = await run([
-      '--plan',
-      planFile({ transactions: [{ id: 'aaaa1111', action: 'conciliate', entry: 4242, conciliateWith: 9999 }] }),
-      '--dry-run',
-      '--json',
-    ]);
-    expect(conflict.exitCode).toBe(1);
-    expect(conflict.stdout).toBe('');
-    expect(JSON.parse(conflict.stderr).error).toContain('transactions[0]: "entry" and "conciliateWith" disagree');
+    expect(synonym.exitCode).toBe(1);
+    expect(synonym.stdout).toBe('');
+    expect(JSON.parse(synonym.stderr).error).toContain('transactions[0]: unknown key "conciliateWith".');
     expect(api.requests).toHaveLength(0);
   });
 
