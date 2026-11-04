@@ -102,7 +102,7 @@ export function printRun(
  * Tags are fetched only when a side has one.
  */
 export async function overwrittenNames(run: RunDocument): Promise<OverwrittenNames | null> {
-  const replaced = run.conciliated.filter((item) => item.reconciled === false);
+  const replaced = run.conciliated.filter((item) => item.wasReconciled === false);
   if (!run.overwrite.value || replaced.length === 0) return null;
   const hasTags = replaced.some((item) => (item.before.tagIds?.length ?? 0) + (item.after.tagIds?.length ?? 0) > 0);
   const [categories, tags] = await Promise.all([fetchCategories(), hasTags ? fetchTags() : Promise.resolve([])]);
@@ -124,9 +124,9 @@ const FIELD_LABELS: readonly [keyof OverwrittenFields, () => string][] = [
 
 /** With `sobrescrever` on: each replaced field before and after, and why a reconciled Entry keeps them. */
 function printOverwritten(items: readonly ConciliatedItem[], names: OverwrittenNames | null): void {
-  const replaced = items.filter((item) => item.reconciled === false);
+  const replaced = items.filter((item) => item.wasReconciled === false);
   for (const item of items) {
-    if (item.reconciled !== true) continue;
+    if (item.wasReconciled !== true) continue;
     logger.info(t('importReconciledKeepsFields', item.prefix, item.entryId));
   }
   if (replaced.length === 0) return;

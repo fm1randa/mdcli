@@ -62,7 +62,10 @@ export const enImport: typeof SectionType = {
   importNothingNew: (since) => `No bank transactions since ${since}.`,
   importNothingNewHint: (floor) =>
     ` To look further back, use --since <YYYY-MM-DD> (${floor} or later).`,
+  importRunNothingNew: (since) =>
+    `No bank transactions since ${since}. Repeat the --since you used in "entries import list" to load these transactions.`,
   importCandidateLinked: (id) => `${id} (linked)`,
+  importCandidateAlreadyConciliated: (id) => `${id} (already reconciled)`,
   importListSummaryHeader: (count, start, end) =>
     `New bank transactions (${count}), statement ${start} to ${end}`,
   importListStatementHeader: (count, since) =>
@@ -142,6 +145,8 @@ export const enImport: typeof SectionType = {
   errorPlanValue: () => '"value" must be a number.',
   errorPlanDescription: () => '"description" must be a string.',
   errorPlanEntry: () => '"entry" must be a numeric Entry id.',
+  errorPlanEntryConflict: () =>
+    '"entry" and "conciliateWith" disagree: use one, or give them the same Entry id.',
   errorPlanCategoryRequired: () => '"category" is required for import.',
   errorInvalidPlanFile: (problems) =>
     `Invalid --plan file. Nothing was imported.\n${problems}`,

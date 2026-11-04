@@ -147,6 +147,7 @@ describe('entries import run selection', () => {
     const error = JSON.parse(ids.stderr) as { error: string };
     expect(error.error).toContain('--ids aaaa1111 does not match any bank transaction.');
     expect(error.error).toContain(`No bank transactions since ${SINCE}.`);
+    expect(error.error).toContain('Repeat the --since you used in "entries import list"');
 
     const rejects = await run(['--reject', 'bbbb2222', '--yes']);
     expect(rejects.exitCode).toBe(1);

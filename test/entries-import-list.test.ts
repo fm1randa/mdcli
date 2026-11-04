@@ -58,6 +58,7 @@ function tx(
     suggestedCategory: null,
     duplicateOf: null,
     conciliateWith: null,
+    alreadyConciliated: false,
     candidates: [],
     defaultAction: 'needs-category',
   };

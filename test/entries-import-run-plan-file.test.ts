@@ -192,6 +192,33 @@ describe('entries import run --plan file checks', () => {
     expect(stderr).toContain('No bank transactions since');
   });
 
+  test('conciliateWith is a synonym for entry, and disagreeing values fail', async () => {
+    statement([bank(TX1)]);
+    entries([{ id: 4242, dataPrevista: '2026-10-07', valor: -12.34, categoria: 11 }]);
+
+    const synonym = await run([
+      '--plan',
+      planFile({ transactions: [{ id: 'aaaa1111', action: 'conciliate', conciliateWith: 4242 }] }),
+      '--dry-run',
+      '--json',
+    ]);
+    expect(synonym.exitCode).toBe(0);
+    expect(synonym.stderr).toBe('');
+    expect(JSON.parse(synonym.stdout).conciliated).toMatchObject([{ prefix: 'aaaa1111', entryId: 4242 }]);
+
+    api.requests.length = 0;
+    const conflict = await run([
+      '--plan',
+      planFile({ transactions: [{ id: 'aaaa1111', action: 'conciliate', entry: 4242, conciliateWith: 9999 }] }),
+      '--dry-run',
+      '--json',
+    ]);
+    expect(conflict.exitCode).toBe(1);
+    expect(conflict.stdout).toBe('');
+    expect(JSON.parse(conflict.stderr).error).toContain('transactions[0]: "entry" and "conciliateWith" disagree');
+    expect(api.requests).toHaveLength(0);
+  });
+
   test('unknown and ambiguous prefixes are listed together with every other problem', async () => {
     statement([bank(TX1), bank('aaaa9999-1111-4000-8000-000000000009', { valor: -5 }), bank(TX2, { valor: 30 })]);
 

@@ -190,8 +190,8 @@ describe('entries import list candidates', () => {
       { id: 5101, date: '2026-10-07', value: -12.34, description: 'Um', categoryId: 10 },
     ]);
     expect(Object.keys(row).sort()).toEqual([
-      'candidates', 'conciliateWith', 'date', 'defaultAction', 'description', 'duplicateOf', 'integrationId',
-      'prefix', 'suggestedCategory', 'suggestedDescription', 'suggestedTagIds', 'value',
+      'alreadyConciliated', 'candidates', 'conciliateWith', 'date', 'defaultAction', 'description', 'duplicateOf',
+      'integrationId', 'prefix', 'suggestedCategory', 'suggestedDescription', 'suggestedTagIds', 'value',
     ]);
   });
 

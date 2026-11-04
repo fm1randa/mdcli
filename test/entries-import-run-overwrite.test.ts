@@ -75,7 +75,7 @@ describe('entries import run overwrite preference', () => {
         integrationId: TX1,
         prefix: 'aaaa1111',
         entryId: 4242,
-        reconciled: false,
+        wasReconciled: false,
         // s on: the row has no contact, category, cost center, project, tags nor document number, so they stay.
         before: { value: -12.34, description: null, ...UNSET_FIELDS },
         after: { value: -12.34, description: 'Padaria Ficticia', ...UNSET_FIELDS },

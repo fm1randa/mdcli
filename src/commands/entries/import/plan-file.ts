@@ -7,11 +7,11 @@ import { readEntryId, SELECTION_ACTIONS, type SelectionAction, type SelectionIte
 /** Keys each action accepts besides `id` and `action`. Anything else fails the file. */
 const ACTION_KEYS: Record<SelectionAction, readonly string[]> = {
   import: ['category', 'value', 'description'],
-  conciliate: ['entry'],
+  conciliate: ['entry', 'conciliateWith'],
   reject: [],
   skip: [],
 };
-const ALL_KEYS = new Set(['id', 'action', 'category', 'value', 'description', 'entry']);
+const ALL_KEYS = new Set(['id', 'action', 'category', 'value', 'description', 'entry', 'conciliateWith']);
 
 /**
  * Reads a `--plan` file: UTF-8 JSON `{ "transactions": [ ... ] }`. An unknown key, an unknown
@@ -69,11 +69,11 @@ function readItem(input: unknown, report: (problem: string) => void): SelectionI
     counted(t('errorPlanActionOneOf', SELECTION_ACTIONS.join(', ')));
     return null;
   }
-  for (const key of ['category', 'value', 'description', 'entry']) {
+  for (const key of ['category', 'value', 'description', 'entry', 'conciliateWith']) {
     if (key in row && !ACTION_KEYS[action].includes(key)) counted(t('errorPlanKeyNotApplicable', quote(key), action));
   }
   const item: SelectionItem = { id: typeof id === 'string' ? id.trim() : '', action };
-  const { category, value, description, entry } = row;
+  const { category, value, description, entry, conciliateWith } = row;
   if (category !== undefined) {
     if (typeof category === 'string' && category.trim() !== '') item.category = category.trim();
     else if (isPositiveSafeInteger(category)) item.category = String(category);
@@ -87,8 +87,12 @@ function readItem(input: unknown, report: (problem: string) => void): SelectionI
     if (typeof description === 'string') item.description = description;
     else counted(t('errorPlanDescription'));
   }
-  if (entry !== undefined) {
-    const read = typeof entry === 'number' ? readEntryId(entry) : null;
+  if (entry !== undefined && conciliateWith !== undefined && entry !== conciliateWith) {
+    counted(t('errorPlanEntryConflict'));
+  }
+  const entryId = entry ?? conciliateWith;
+  if (entryId !== undefined) {
+    const read = typeof entryId === 'number' ? readEntryId(entryId) : null;
     if (read === null) counted(t('errorPlanEntry'));
     else if ('error' in read) counted(read.error);
     else item.entry = read.entry;

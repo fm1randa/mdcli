@@ -24,8 +24,8 @@ type LinkedSide = { value: number; description: string | null } & Partial<Overwr
 
 interface ConciliatedItem extends RunReference {
   entryId: number;
-  /** Set only with `sobrescrever` on: a reconciled Entry keeps its fields. */
-  reconciled?: boolean;
+  /** Set only with `sobrescrever` on: whether the linked Entry was already reconciled before this run. */
+  wasReconciled?: boolean;
   before: LinkedSide;
   after: LinkedSide;
 }

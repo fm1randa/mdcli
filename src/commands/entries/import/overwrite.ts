@@ -63,8 +63,8 @@ export function applyOverwrite(run: RunDocument, overwrite: Overwrite, sources: 
     if (!overwrite.value) continue;
     const entry = sources.existing.get(item.entryId);
     const before = entry?.fields ?? overwrittenFields(null);
-    item.reconciled = entry?.reconciled === true;
+    item.wasReconciled = entry?.reconciled === true;
     Object.assign(item.before, before);
-    Object.assign(item.after, item.reconciled ? before : overwrittenFields(asRecord(sources.statementRows[index]), before));
+    Object.assign(item.after, item.wasReconciled ? before : overwrittenFields(asRecord(sources.statementRows[index]), before));
   }
 }

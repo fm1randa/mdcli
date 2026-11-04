@@ -175,6 +175,7 @@ async function fillCandidates(
       .map((item) => item.candidate);
     linkable[index] = matched.map((item) => item.candidate);
     bankTransaction.conciliateWith = id;
+    bankTransaction.alreadyConciliated = id !== null && matched.some((item) => item.candidate.id === id && item.reconciled);
     if (id !== null) bankTransaction.defaultAction = 'conciliate';
   });
   return { linkable, existing: new Map(existing.map((item) => [item.candidate.id, item])) };
@@ -256,7 +257,12 @@ function printStatement(document: ImportDocument): void {
       cell(bankTransaction.suggestedDescription),
       listCell(bankTransaction.suggestedTagIds),
       cell(bankTransaction.duplicateOf),
-      listCell(bankTransaction.candidates, (item) => (item.id === bankTransaction.conciliateWith ? t('importCandidateLinked', item.id) : String(item.id))),
+      listCell(bankTransaction.candidates, (item) => {
+        if (item.id !== bankTransaction.conciliateWith) return String(item.id);
+        return bankTransaction.alreadyConciliated
+          ? t('importCandidateAlreadyConciliated', item.id)
+          : t('importCandidateLinked', item.id);
+      }),
       bankTransaction.defaultAction,
     ]);
   }

@@ -186,9 +186,11 @@ function nothingNew(loaded: LoadedImport, options: ImportRunOptions): PlannedRun
   return { run: emptyRun(loaded.document, options.dryRun === true), loaded, categories: [] };
 }
 
-/** Prefixes that match nothing in an empty statement: say why it is empty and how to load more. */
+/** Prefixes that match nothing in an empty statement: say why it is empty and how to load the plan's transactions. */
 function withNothingNew(problems: string[], document: ImportDocument): string[] {
-  return problems.length > 0 && document.transactions.length === 0 ? [...problems, nothingNewMessage(document)] : problems;
+  return problems.length > 0 && document.transactions.length === 0
+    ? [...problems, t('importRunNothingNew', document.since ?? '-')]
+    : problems;
 }
 
 /** `entries import list` for the same account and statement, as the user would type it. */
