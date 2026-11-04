@@ -1,4 +1,4 @@
-import { cpSync, mkdtempSync, rmSync, symlinkSync } from 'node:fs';
+import { cpSync, existsSync, mkdtempSync, rmSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -98,7 +98,7 @@ function runTests(root: string, base: string, files: string[]): RunResult[] {
     });
   } finally {
     try {
-      git(['worktree', 'remove', '--force', worktree], root);
+      if (existsSync(worktree)) git(['worktree', 'remove', '--force', worktree], root);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
