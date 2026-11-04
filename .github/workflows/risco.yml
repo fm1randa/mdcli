@@ -1,0 +1,45 @@
+name: risco
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # The risk classification diffs against the merge base with the base branch.
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+      - name: Classificar o diff e sincronizar a label `risco`
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE_REF: ${{ github.base_ref }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+          # A fork PR gets a read-only token, so it only reports the classification.
+          CAN_WRITE: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+        run: |
+          git fetch --no-tags origin "$BASE_REF"
+          status=0
+          bun scripts/risk.ts --base "origin/$BASE_REF" > "$RUNNER_TEMP/risk.json" || status=$?
+          if [ "$status" -eq 1 ]; then
+            echo "::error::scripts/risk.ts failed to classify the diff"
+            exit 1
+          fi
+          apply=()
+          if [ "$CAN_WRITE" = "true" ]; then apply=(--apply); fi
+          bun scripts/risk-label.ts \
+            --report "$RUNNER_TEMP/risk.json" \
+            --labels "$PR_LABELS" \
+            --pr "$PR_NUMBER" \
+            "${apply[@]}" >> "$GITHUB_STEP_SUMMARY"
