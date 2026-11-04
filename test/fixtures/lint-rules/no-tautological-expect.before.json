@@ -1,0 +1,7 @@
+{
+  "rule": "no-tautological-expect",
+  "origin": "2c62f35",
+  "source": "test/eslint-no-tautological-expect.test.ts",
+  "note": "Issue #186: #152 wrote expect(true).toBe(true) to 'prove' the fix. The squash merge removed that line from main's history, so this regression test keeps the exact line that motivated the rule.",
+  "code": "expect(true).toBe(true);"
+}

@@ -3,20 +3,20 @@ import { join } from 'node:path';
 import { createHome, MANUAL_AUTH, runCli, startMockApi } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, TAGS_RESPONSE, entriesPage } from './fixtures.js';
 
-// Issue #148: stdout truncated at exactly 65536 bytes when piped. This test
-// spawns the real CLI against the mock API with a large JSON response and
-// asserts the full, valid output is received even when stdout is piped to a
-// slow reader. It fails without flushStdout() because the process exits
-// before stdout drains to the pipe.
+// Issue #148: stdout truncated when piped. The CLI writes one large JSON with
+// console.log and then exits; without flushStdout the process exits while the
+// OS pipe still has the tail, and the reader gets invalid JSON. The payload is
+// far larger than any pipe buffer, so the truncation does not depend on load.
+// This guards the pinned runtime (package.json, bun 1.4.2): bun 1.4.4 flushes
+// stdout on a natural exit itself, so the old code passes there.
 
 describe('stdout flush guard', () => {
-  test('full JSON output reaches a slow reader (> 64 KiB)', async () => {
+  test('full JSON output reaches the reader (> 64 KiB)', async () => {
     const api = startMockApi();
     api.on('GET /v1/cadastros/contas', ACCOUNTS_RESPONSE);
     api.on('GET /v1/cadastros/categorias', CATEGORIES_RESPONSE);
     api.on('GET /v1/cadastros/tags', TAGS_RESPONSE);
-    // Large enough to exceed the kernel pipe buffer (65536 bytes).
-    const largeEntries = Array.from({ length: 250 }, (_, i) => ({
+    const largeEntries = Array.from({ length: 20000 }, (_, i) => ({
       id: i + 1,
       descricao: `Large entry ${i + 1} with enough text to make the JSON exceed 64KB easily`,
       conta: 201,
@@ -39,7 +39,8 @@ describe('stdout flush guard', () => {
 
       expect(result.exitCode).toBe(0);
       expect(result.stdout.length).toBeGreaterThan(65536);
-      expect(() => JSON.parse(result.stdout)).not.toThrow();
+      const parsed = JSON.parse(result.stdout) as unknown[];
+      expect(parsed.length).toBe(largeEntries.length);
     } finally {
       api.stop();
       home.cleanup();
