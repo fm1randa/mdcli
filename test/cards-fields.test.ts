@@ -22,6 +22,8 @@ describe('cards list --json', () => {
   // Dogfood 2026-10-19: the JSON lacked what the table and the web show.
   // Filipe (dogfood 2026-10-19): balance (saldoUltimoExtrato, Open Finance)
   // means nothing for a card, so it is gone; the card fields stay.
+  // Each card has a distinct due date: cards list pairs normalizeCards with
+  // the source item by index, so a mismatch would move a date to another card.
   test('--json has limit, due and closing dates and the payment account, and no balance', async () => {
     api.on('GET /v1/cadastros/contas', {
       ...ACCOUNTS_RESPONSE,
@@ -36,6 +38,13 @@ describe('cards list --json', () => {
           saldoUltimoExtrato: 16207,
         },
         { ...CREDIT_CARD_ACCOUNT, id: 1003, nome: 'Cartão Novo', proximoVencimento: undefined, proximoFechamento: undefined },
+        {
+          ...CREDIT_CARD_ACCOUNT,
+          id: 1004,
+          nome: 'Cartão Verde',
+          proximoVencimento: '2026-12-03',
+          proximoFechamento: '2026-11-20',
+        },
       ],
     });
 
@@ -69,6 +78,20 @@ describe('cards list --json', () => {
         dueDay: null,
         nextDueDate: null,
         nextClosingDate: null,
+        closingDaysBeforeDue: null,
+        paymentAccountId: null,
+      },
+      {
+        id: 1004,
+        name: 'Cartão Verde',
+        type: 'CARTAOCREDITO',
+        bank: null,
+        active: true,
+        closed: false,
+        limit: null,
+        dueDay: 3,
+        nextDueDate: '2026-12-03',
+        nextClosingDate: '2026-11-20',
         closingDaysBeforeDue: null,
         paymentAccountId: null,
       },
