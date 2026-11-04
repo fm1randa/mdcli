@@ -29,12 +29,22 @@ export function changedTestFiles(nameStatus: string): string[] {
   return files;
 }
 
+const PRODUCT_PATH = /^(?:src|bin)(?:\/|$)/;
+const COMMENT_LINE = /^(?:\/\/|\/\*|\*)/;
+
 /** True when the diff changes product code (src/ or bin/), the only case the gate requires. */
-export function changesProduct(nameStatus: string): boolean {
-  return nameStatus.split('\n').some((line) => {
+export function changesProduct(nameStatus: string, productDiff: string): boolean {
+  const touchesProduct = nameStatus.split('\n').some((line) => {
     const fields = line.split('\t');
-    const path = fields[fields.length - 1];
-    return path === 'src' || path.startsWith('src/') || path === 'bin' || path.startsWith('bin/');
+    return PRODUCT_PATH.test(fields[fields.length - 1] ?? '');
+  });
+  if (!touchesProduct) return false;
+  return productDiff.split('\n').some((line) => {
+    // Headers carry no content; an empty line and a comment are not behavior.
+    if (!line.startsWith('+') && !line.startsWith('-')) return false;
+    if (line.startsWith('+++ ') || line.startsWith('--- ')) return false;
+    const content = line.slice(1).trim();
+    return content !== '' && !COMMENT_LINE.test(content);
   });
 }
 
@@ -111,9 +121,14 @@ function main(): void {
     const root = repoRoot();
     const diff = git(['diff', '--name-status', '--no-renames', `${options.base}...HEAD`], root);
     // A test-only PR (like this gate's own fix to a flawed guard) has no new
-    // behavior to prove; the gate only guards PRs that change product code.
-    if (options.files === undefined && !changesProduct(diff)) {
-      console.log('fails-on-main: not required (no src/ or bin/ change)');
+    // behavior to prove, and a comment in src/ is not behavior either; the gate
+    // only guards PRs that change product code.
+    const productDiff = git(
+      ['diff', '-U0', '--no-renames', `${options.base}...HEAD`, '--', 'src', 'bin'],
+      root
+    );
+    if (options.files === undefined && !changesProduct(diff, productDiff)) {
+      console.log('fails-on-main: not required (no src/ or bin/ code change)');
       return;
     }
     const files = options.files ?? changedTestFiles(diff);
