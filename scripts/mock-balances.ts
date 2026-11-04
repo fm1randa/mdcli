@@ -1,8 +1,9 @@
 // GET /v2/lancamentos type=sum for scripts/mock-api.ts (the web's account balances, #67).
+import type { AccountBalancesResponse, AccountBalanceSum } from '../src/types/index.js';
 import { SEEDED_ENTRIES } from './mock-entries.js';
 
 const round = (value: number): number => Math.round(value * 100) / 100;
-const sum = (items: Array<Record<string, unknown>>): number => round(items.reduce((total, e) => total + Number(e.valor), 0));
+const sum = (items: ReadonlyArray<{ valor: unknown }>): number => round(items.reduce((total, e) => total + Number(e.valor), 0));
 
 const CONFIRMED_LABELS = ['conciliado', 'confirmado'];
 
@@ -15,7 +16,7 @@ export function balancesRoute(url: URL, isCreditCardId: (conta: unknown) => bool
   const ids = (JSON.parse(url.searchParams.get('contas') ?? '{}') as { ids?: number[] }).ids ?? [];
   const to = url.searchParams.get('fim') ?? '';
   const entries = Object.values(SEEDED_ENTRIES).filter((e) => String(e.dataPrevista) <= to);
-  const sumRows = ids.filter((id) => !isCreditCardId(id)).map((conta) => {
+  const sumRows: AccountBalanceSum[] = ids.filter((id) => !isCreditCardId(id)).map((conta) => {
     const own = entries.filter((e) => Number(e.conta) === conta);
     return {
       conta,
@@ -23,5 +24,6 @@ export function balancesRoute(url: URL, isCreditCardId: (conta: unknown) => bool
       confirmado: sum(own.filter((e) => CONFIRMED_LABELS.includes(String(e.status)))),
     };
   });
-  return Response.json({ sum: sumRows });
+  const response: AccountBalancesResponse = { sum: sumRows };
+  return Response.json(response);
 }
