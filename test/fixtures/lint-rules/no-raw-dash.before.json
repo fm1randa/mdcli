@@ -3,5 +3,5 @@
   "origin": "df07619^",
   "source": "src/commands/entries/import/list.ts",
   "note": "chalk.gray('-') repeated next to cell() before the empty-cell helper took over (#130).",
-  "code": "export const row = [\n  cell(bankTransaction.prefix),\n  cell(bankTransaction.date),\n  bankTransaction.value === null ? chalk.gray('-') : formatCurrency(bankTransaction.value),\n];"
+  "code": "    table.push([\n      cell(bankTransaction.prefix),\n      cell(bankTransaction.date),\n      bankTransaction.value === null ? chalk.gray('-') : formatCurrency(bankTransaction.value),\n      cell(bankTransaction.description),\n      cell(categoryLabel(bankTransaction.suggestedCategory)),\n      cell(bankTransaction.suggestedDescription),\n      bankTransaction.suggestedTagIds.length === 0 ? chalk.gray('-') : bankTransaction.suggestedTagIds.join(', '),\n      cell(bankTransaction.duplicateOf),\n      bankTransaction.candidates.length === 0\n        ? chalk.gray('-')\n        : bankTransaction.candidates\n          .map((item) => (item.id === bankTransaction.conciliateWith ? `${item.id} (linked)` : String(item.id)))\n          .join(', '),\n      bankTransaction.defaultAction,\n    ]);"
 }

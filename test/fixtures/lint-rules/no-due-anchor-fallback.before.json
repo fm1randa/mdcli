@@ -3,5 +3,5 @@
   "origin": "6d5c02b^",
   "source": "src/commands/cards.ts",
   "note": "One of the three `proximoVencimento ??` fallbacks #101 consolidated in cardDueAnchor.",
-  "code": "const anchor = (card.proximoVencimento ?? (await fetchFirstInvoiceDate(card.id))).slice(0, 10);"
+  "code": "  const dueDate = options.month\n    ? dueDateInMonth(options.month, account.proximoVencimento ?? '0000-00-10')\n    : (account.proximoVencimento ?? (await fetchFirstInvoiceDate(accountId)));"
 }

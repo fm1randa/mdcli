@@ -3,5 +3,5 @@
   "origin": "dabeb32^",
   "source": "bin/cli.ts",
   "note": "-v=value reached commander unprocessed until preprocessShortOptions (#152).",
-  "code": "const argv = stripLanguageFlag(process.argv);\nawait program.parseAsync(argv);"
+  "code": "await program.parseAsync(argv);"
 }

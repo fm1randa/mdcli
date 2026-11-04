@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test';
+import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { ESLint, Linter } from 'eslint';
@@ -53,6 +54,34 @@ function hasDescribe(rule: string): boolean {
   return sources.some((source) => pattern.test(source));
 }
 
+function git(args: string[]): string {
+  return execFileSync('git', args, { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+}
+
+function normalize(source: string): string {
+  return source.split('\n').map((line) => line.trim()).filter((line) => line !== '').join('\n');
+}
+
+// The fixture proves the rule catches real code only when that code is still
+// in the commit that motivated the rule. A hand-written approximation lets a
+// narrow selector pass while missing the shape it was built for.
+function assertOriginCode(rule: string, fixture: Fixture): void {
+  try {
+    git(['cat-file', '-e', `${fixture.origin}^{commit}`]);
+  } catch {
+    throw new Error(`${rule}: fixture origin ${fixture.origin} is not a commit in this repository`);
+  }
+  let blob: string;
+  try {
+    blob = git(['show', `${fixture.origin}:${fixture.source}`]);
+  } catch {
+    throw new Error(`${rule}: ${fixture.source} does not exist at ${fixture.origin}`);
+  }
+  if (!normalize(blob).includes(normalize(fixture.code))) {
+    throw new Error(`${rule}: fixture code is not verbatim from ${fixture.origin}:${fixture.source}`);
+  }
+}
+
 async function enabledOn(rule: string, filePath: string): Promise<boolean> {
   const config = await eslint.calculateConfigForFile(filePath);
   return config?.rules?.[`local/${rule}`] !== undefined;
@@ -72,6 +101,7 @@ describe('every local rule is proven against the code that motivated it', () => 
       expect(fixture!.origin).toMatch(/^[0-9a-f]{7,40}\^?$/);
       expect(fixture!.note.trim()).not.toBe('');
       expect(existsSync(join(ROOT, fixture!.source))).toBe(true);
+      assertOriginCode(rule, fixture!);
 
       // A plain Linter keeps this check off the typed-project startup in
       // eslint-local-rules.test.ts; the scope is proven by calculateConfigForFile above.
