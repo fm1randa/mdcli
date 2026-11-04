@@ -171,26 +171,9 @@ function cliEnv(
   return merged;
 }
 
-/**
- * Read a stream one chunk at a time, pausing between reads. A fast reader
- * drains the pipe before the CLI exits, hiding a lost stdout flush; a slow one
- * keeps the kernel pipe buffer full so the lost tail shows up.
- */
-async function readSlowly(stream: ReadableStream<Uint8Array>): Promise<string> {
-  const reader = stream.getReader();
-  const chunks: Uint8Array[] = [];
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    chunks.push(value);
-    await Bun.sleep(10);
-  }
-  return Buffer.concat(chunks.map((chunk) => Buffer.from(chunk))).toString('utf8');
-}
-
 export async function runCli(
   args: string[],
-  env: { home: TestHome; api: MockApi; stdin?: string; extraEnv?: Record<string, string | undefined>; slowStdout?: boolean }
+  env: { home: TestHome; api: MockApi; stdin?: string; extraEnv?: Record<string, string | undefined> }
 ): Promise<CliResult> {
   const proc = Bun.spawn(['bun', join(REPO_ROOT, 'bin', 'cli.ts'), ...args], {
     cwd: REPO_ROOT,
@@ -202,7 +185,7 @@ export async function runCli(
   });
 
   const [stdout, stderr, exitCode] = await Promise.all([
-    env.slowStdout ? readSlowly(proc.stdout) : new Response(proc.stdout).text(),
+    new Response(proc.stdout).text(),
     new Response(proc.stderr).text(),
     proc.exited,
   ]);
