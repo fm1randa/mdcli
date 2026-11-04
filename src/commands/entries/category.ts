@@ -1,10 +1,9 @@
 import { exitWithError } from '../../utils/action.js';
 import { t } from '../../lib/i18n/index.js';
 import { fetchCategories } from '../../lib/api.js';
-import { getAliases, resolveId } from '../../lib/aliases.js';
-import { sameName } from '../../lib/name-cache.js';
+import { resolveId } from '../../lib/aliases.js';
+import { resolveCategoryReference } from '../../lib/category-resolution.js';
 import type { Category } from '../../types/index.js';
-import { parseId } from '../../utils/parse.js';
 
 /** A reader of the Category catalog. */
 export type CategoryCatalog = () => Promise<readonly Category[]>;
@@ -16,11 +15,6 @@ export function categoryCatalog(): CategoryCatalog {
     loaded ??= fetchCategories().then((response) => response.items);
     return loaded;
   };
-}
-
-/** A bare number or an Alias points at one exact category; only a name can match several. */
-function isExplicitReference(input: string): boolean {
-  return parseId(input) !== undefined || getAliases('categories').some((a) => a.name === input);
 }
 
 /** A resolved category: its ID, and the catalog entry when the catalog lists it. */
@@ -58,29 +52,21 @@ export async function checkEntryCategory(
   catalog: CategoryCatalog = categoryCatalog(),
 ): Promise<{ id: number; category: Category | null } | { error: string }> {
   const id = await resolveId('categories', input);
-  if (id === null) {
-    return { error: t('errorUnknownCategoryForEntry', input) };
-  }
-
   const items = await catalog();
-  const category = items.find((c) => c.id === id);
+  const resolution = resolveCategoryReference(input, id, items);
 
-  // A bare name can match several categories. As in categories --move-to
-  // (#170): a name that also matches an active category resolves to the active
-  // one, and a name matching several active categories is refused with their IDs.
-  if (!isExplicitReference(input)) {
-    const active = items.filter((c) => c.status && sameName(c.nome, input));
-    if (active.length > 1) {
-      return { error: t('errorCategoryNameAmbiguous', input, active.map((c) => c.id).join(', ')) };
-    }
-    if (active.length === 1) {
-      return { id: active[0].id, category: active[0] };
-    }
+  switch (resolution.kind) {
+    case 'resolved':
+      return { id: resolution.id, category: resolution.category };
+    case 'unlisted':
+      return { id: resolution.id, category: null };
+    case 'ambiguous':
+      return { error: t('errorCategoryNameAmbiguous', input, resolution.ids.join(', ')) };
+    case 'inactive':
+      return { error: t('errorCategoryInactive', resolution.category.nome, resolution.category.id) };
+    case 'unresolved':
+      return { error: t('errorUnknownCategoryForEntry', input) };
   }
-
-  if (!category || category.status) return { id, category: category ?? null };
-
-  return { error: t('errorCategoryInactive', category.nome, category.id) };
 }
 
 /** How the entry-type messages name each type: `d` is "an expense". */

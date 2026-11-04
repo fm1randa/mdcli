@@ -8,6 +8,11 @@ import tseslint from 'typescript-eslint';
 // TS project, and lintText lints the given text instead of the file on disk.
 const eslint = new ESLint({ cwd: `${import.meta.dir}/..` });
 
+// Typed linting builds the TypeScript program on the first lintText call, which
+// under the parallel test run takes longer than a single test's timeout. Warm it
+// up before the tests so the cold start is not charged to the first one.
+await eslint.lintText('export const answer = 42;\n', { filePath: 'src/lib/normalize.ts' });
+
 const COMMAND = 'src/commands/cards.ts';
 const ALIASES = 'src/lib/aliases.ts';
 const OTHER_SRC = 'src/lib/normalize.ts';
@@ -194,6 +199,25 @@ describe('local/no-due-anchor-fallback', () => {
   test('names a const or a non-exported helper that reads the field', async () => {
     const extra = 'export const reader = (a: Account) => a.proximoVencimento;\nfunction helper(a: Account) { return a.proximoVencimento; }';
     expect(await readers(`${source}\n${extra}\n`)).toEqual(new Set(['cardDueAnchor', 'ownDueDate', 'reader', 'helper']));
+  });
+});
+
+describe('local/no-category-name-resolution', () => {
+  // The two copies #182 found: entries create/update (#77) and categories
+  // --move-to (#172) each filtered the catalog by active status and name.
+  const declarations = 'declare const items: { id: number; nome: string; status: boolean }[];\ndeclare const input: string;\ndeclare function sameName(a: string, b: string): boolean;';
+  const entriesCopy = `${declarations}\nexport const active = items.find((c) => c.status && sameName(c.nome, input));`;
+  const categoriesCopy = `${declarations}\nexport const active = items.filter((c) => c.status && sameName(c.nome, input));`;
+  const owner = 'src/lib/category-resolution.ts';
+
+  test('fires on both old name filters in src/commands', async () => {
+    expect(await localRules(entriesCopy, 'src/commands/entries/category.ts')).toEqual(['local/no-category-name-resolution']);
+    expect(await localRules(categoriesCopy, 'src/commands/categories.ts')).toEqual(['local/no-category-name-resolution']);
+  });
+
+  test('does not fire in the owner or on name matching without a status check', async () => {
+    expect(await localRules(categoriesCopy, owner)).toEqual([]);
+    expect(await localRules(`${declarations}\nexport const same = sameName('Moradia', input);`, 'src/commands/entries/import/edit-file.ts')).toEqual([]);
   });
 });
 
