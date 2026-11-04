@@ -1,0 +1,6 @@
+diff --git a/src/lib/config.ts b/src/lib/config.ts
+--- a/src/lib/config.ts
++++ b/src/lib/config.ts
+@@ -10,3 +10,3 @@ export function readValue(key: string): string | undefined {
+-  return value;
++  return value.trim();

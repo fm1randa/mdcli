@@ -1,66 +1,74 @@
 import { describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { classifyRisk, type FileChange } from '../scripts/risk.js';
+import { classifyRisk, type RiskReport } from '../scripts/risk.js';
 
 const root = join(import.meta.dir, '..');
+const fixtures = join(import.meta.dir, 'fixtures', 'risk');
 
-function change(path: string): FileChange {
-  return { path, content: readFileSync(join(root, path), 'utf8') };
+function diff(name: string): string {
+  return readFileSync(join(fixtures, `${name}.diff`), 'utf8');
 }
 
-function runRisk(files: string): { code: number; report: { risky: boolean; reasons: { topic: string; path: string }[] } } {
-  const result = Bun.spawnSync(['bun', join(root, 'scripts', 'risk.ts'), '--files', files], {
-    stdout: 'pipe',
-    stderr: 'pipe',
-  });
+function topics(report: RiskReport): string[] {
+  return report.reasons.map((reason) => reason.topic);
+}
+
+function runRisk(name: string): { code: number; report: RiskReport } {
+  const result = Bun.spawnSync(
+    ['bun', join(root, 'scripts', 'risk.ts'), '--diff', join(fixtures, `${name}.diff`)],
+    { stdout: 'pipe', stderr: 'pipe' },
+  );
   return { code: result.exitCode ?? 1, report: JSON.parse(result.stdout.toString()) };
 }
 
 describe('classifyRisk', () => {
-  test('flags an authentication change', () => {
-    const report = classifyRisk([change('src/commands/auth/login.ts')]);
-    expect(report.risky).toBe(true);
-    expect(report.reasons.map((reason) => reason.topic)).toContain('auth');
+  test('passes a type-only change in api.ts, captcha.ts and types/api.ts', () => {
+    expect(classifyRisk(diff('types-only'))).toEqual({ risky: false, reasons: [] });
   });
 
-  test('flags an entry create change as a data write', () => {
-    const report = classifyRisk([change('src/commands/entries/create.ts')]);
-    expect(report.risky).toBe(true);
-    expect(report.reasons.map((reason) => reason.topic)).toContain('write');
+  test('passes an output helper change in write commands', () => {
+    expect(classifyRisk(diff('output-helper'))).toEqual({ risky: false, reasons: [] });
   });
 
-  test('flags an import run change as a data write', () => {
-    const report = classifyRisk([change('src/commands/entries/import/run.ts')]);
-    expect(report.risky).toBe(true);
-    expect(report.reasons.map((reason) => reason.topic)).toContain('write');
-  });
-
-  test('flags the shared API client for both authentication and writes', () => {
-    const report = classifyRisk([change('src/lib/api.ts')]);
-    expect(new Set(report.reasons.map((reason) => reason.topic))).toEqual(new Set(['auth', 'write']));
+  test('passes comments in an auth file and test-only changes', () => {
+    expect(classifyRisk(diff('comments-and-tests-auth'))).toEqual({ risky: false, reasons: [] });
   });
 
   test('passes a docs-only change', () => {
-    expect(classifyRisk([change('README.md')])).toEqual({ risky: false, reasons: [] });
+    expect(classifyRisk(diff('docs-only'))).toEqual({ risky: false, reasons: [] });
   });
 
-  test('passes a read-only src change', () => {
-    expect(classifyRisk([change('src/commands/entries/list.ts')])).toEqual({ risky: false, reasons: [] });
+  test('flags a payload field, id or POST/PUT change as a data write', () => {
+    const report = classifyRisk(diff('write-behavior'));
+    expect(report.risky).toBe(true);
+    expect(topics(report)).toContain('write');
+  });
+
+  test('flags a login or credential change', () => {
+    const report = classifyRisk(diff('auth-behavior'));
+    expect(report.risky).toBe(true);
+    expect(topics(report)).toContain('auth');
+  });
+
+  test('flags an unclassified change in a sensitive file', () => {
+    const report = classifyRisk(diff('unclassified-sensitive'));
+    expect(report.risky).toBe(true);
+    expect(topics(report)).toContain('auth');
   });
 });
 
 describe('risk CLI', () => {
-  test('exits 2 and prints JSON for a risky change', () => {
-    const { code, report } = runRisk('src/commands/entries/create.ts');
+  test('exits 0 for a diff that only changes types', () => {
+    const { code, report } = runRisk('types-only');
+    expect(code).toBe(0);
+    expect(report).toEqual({ risky: false, reasons: [] });
+  });
+
+  test('exits 2 and prints the reason for a data write change', () => {
+    const { code, report } = runRisk('write-behavior');
     expect(code).toBe(2);
     expect(report.risky).toBe(true);
     expect(report.reasons.length).toBeGreaterThan(0);
-  });
-
-  test('exits 0 and prints JSON for a safe change', () => {
-    const { code, report } = runRisk('README.md');
-    expect(code).toBe(0);
-    expect(report).toEqual({ risky: false, reasons: [] });
   });
 });
