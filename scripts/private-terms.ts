@@ -110,9 +110,13 @@ const ALLOWED_PHRASE_HASHES: ReadonlySet<string> = new Set([
 
 const MAX_WORDS = 4;
 
-/** A pt-BR number: thousands dots with an optional comma, or a comma decimal. */
+/**
+ * A pt-BR number: thousands dots with an optional comma, or a comma decimal.
+ * The trailing guard rejects a longer number (a digit, or a separator followed
+ * by one) but not sentence punctuation, so `R$ 1.234,56.` still matches.
+ */
 const FORMATTED_NUMBER =
-  /(?<![\d.,])\d{1,3}(?:\.[0-9]{3})+(?:,[0-9]{1,2})?(?![\d.,])|(?<![\d.,])\d+(?:,[0-9]+)+(?![\d.,])/g;
+  /(?<![\d.,])\d{1,3}(?:\.[0-9]{3})+(?:,[0-9]{1,2})?(?!\d|[.,]\d)|(?<![\d.,])\d+(?:,\d+)+(?!\d|[.,]\d)/g;
 
 /** Lowercase, accent-free words separated by one space. */
 export function normalizeTerm(text: string): string {

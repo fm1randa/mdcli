@@ -43,6 +43,14 @@ test('finds a guarded number written with a thousands separator', () => {
   expect(findPrivateTerms('R$ 1.234,57', terms)).toEqual([]);
 });
 
+test('finds a guarded number followed by sentence punctuation', () => {
+  const terms = new Set([termHash('1234.56')]);
+
+  expect(findPrivateTerms('o saldo era R$ 1.234,56.', terms)).toHaveLength(1);
+  expect(findPrivateTerms('R$ 1.234,56, e depois outro', terms)).toHaveLength(1);
+  expect(findPrivateTerms('R$ 1.234,567', terms)).toEqual([]);
+});
+
 test('finds a guarded number whose separators are escaped for a regex', () => {
   const terms = new Set([termHash('1234.56'), termHash('7654.5')]);
 
