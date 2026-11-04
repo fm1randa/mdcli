@@ -105,6 +105,18 @@ review_notes_not_tracked() {
   fi
 }
 step "review notes not tracked" review_notes_not_tracked
+# A copied eslint-disable is a suppression, not a fix (#187): fail when the
+# branch adds more directives than it removes. A shallow checkout without a
+# base ref skips the comparison instead of failing on something it cannot see.
+eslint_disables() {
+  local base
+  if git rev-parse --verify --quiet origin/main >/dev/null; then base=origin/main
+  elif git rev-parse --verify --quiet main >/dev/null; then base=main
+  else echo "sem origin/main nem main: comparação de eslint-disable ignorada"; return 0
+  fi
+  bun scripts/check-eslint-disables.ts --base "$base"
+}
+start_step "eslint disables" eslint_disables
 start_step "typecheck" bun run typecheck
 start_step "lint"      bun run lint
 start_step "knip"      bun run knip

@@ -6,6 +6,10 @@ export default tseslint.config(
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
   {
+    // A disable that no longer suppresses anything is stale: remove it.
+    linterOptions: { reportUnusedDisableDirectives: "error" },
+  },
+  {
     languageOptions: {
       parserOptions: {
         projectService: {
@@ -32,6 +36,10 @@ export default tseslint.config(
   // Each ban is its own rule in eslint-rules/ (the "why" lives there), so a
   // block scopes one ban without replacing the others' options.
   { plugins: { local } },
+  {
+    // Every eslint-disable says why the exception is safe, after "--".
+    rules: { "local/disable-directive-description": "error" },
+  },
   {
     // Money is formatted and counted in cents in one place, signed by default.
     files: ["src/**/*.ts"],
@@ -89,7 +97,7 @@ export default tseslint.config(
     rules: { "local/no-short-option-equals": "error" },
   },
   {
-    // Flush stdout before exit so piped output isn't truncated at 65536 bytes.
+    // Exit only through exitAfterFlush(), which flushes stdout first.
     files: ["src/**/*.ts", "bin/**/*.ts"],
     rules: { "local/no-bare-process-exit": "error" },
   },

@@ -12,6 +12,7 @@ const COMMAND = 'src/commands/cards.ts';
 const ALIASES = 'src/lib/aliases.ts';
 const OTHER_SRC = 'src/lib/normalize.ts';
 const CARD_INVOICE = 'src/commands/entries/card-invoice.ts';
+const ACTION = 'src/utils/action.ts';
 const CURRENCY = 'src/utils/currency.ts';
 const PARSE = 'src/utils/parse.ts';
 const TEXT = 'src/utils/text.ts';
@@ -187,13 +188,52 @@ describe('local/no-due-anchor-fallback', () => {
 
   const source = readFileSync(`${import.meta.dir}/../${CARD_INVOICE}`, 'utf8');
 
-  test('only cardDueAnchor and ownDueDate read the field in card-invoice.ts', async () => {
-    expect(await readers(source)).toEqual(new Set(['cardDueAnchor', 'ownDueDate']));
+  test('only cardDueAnchor, ownDueDate and displayDueDate read the field in card-invoice.ts', async () => {
+    expect(await readers(source)).toEqual(new Set(['cardDueAnchor', 'ownDueDate', 'displayDueDate']));
   });
 
   test('names a const or a non-exported helper that reads the field', async () => {
     const extra = 'export const reader = (a: Account) => a.proximoVencimento;\nfunction helper(a: Account) { return a.proximoVencimento; }';
-    expect(await readers(`${source}\n${extra}\n`)).toEqual(new Set(['cardDueAnchor', 'ownDueDate', 'reader', 'helper']));
+    expect(await readers(`${source}\n${extra}\n`)).toEqual(new Set(['cardDueAnchor', 'ownDueDate', 'displayDueDate', 'reader', 'helper']));
+  });
+});
+
+describe('local/no-bare-process-exit', () => {
+  const bare = 'export function stop() { process.exit(1); }';
+  const sanctioned = 'export async function exitAfterFlush(code: number) { await Promise.resolve(); process.exit(code); }';
+
+  test('fires on process.exit outside exitAfterFlush, in src and bin', async () => {
+    expect(await localRules(bare, COMMAND)).toEqual(['local/no-bare-process-exit']);
+    expect(await localRules(bare, ACTION)).toEqual(['local/no-bare-process-exit']);
+    expect(await localRules(bare, 'bin/cli.ts')).toEqual(['local/no-bare-process-exit']);
+  });
+
+  test('does not fire on the process.exit owned by exitAfterFlush', async () => {
+    expect(await localRules(sanctioned, ACTION)).toEqual([]);
+  });
+
+  // A same-named helper elsewhere would own process.exit and skip the flush.
+  test('does not sanction a helper named exitAfterFlush outside action.ts', async () => {
+    expect(await localRules(sanctioned, OTHER_SRC)).toEqual(['local/no-bare-process-exit']);
+  });
+});
+
+describe('local/disable-directive-description', () => {
+  test('fires on a disable without a reason after --', async () => {
+    const code = '// eslint-disable-next-line local/no-raw-dash\nexport const s = 1;';
+    expect(await localRules(code, OTHER_SRC)).toEqual(['local/disable-directive-description']);
+    expect(await localRules('/* eslint-disable local/no-raw-dash */', OTHER_SRC)).toEqual([
+      'local/disable-directive-description',
+    ]);
+  });
+
+  test('accepts a disable that names why the exception is safe', async () => {
+    const code = '// eslint-disable-next-line local/no-raw-dash -- a dash is the column value here\nexport const s = 1;';
+    expect(await localRules(code, OTHER_SRC)).toEqual([]);
+  });
+
+  test('does not treat a directive inside a string as a comment', async () => {
+    expect(await localRules("export const s = '// eslint-disable-next-line local/no-raw-dash';", OTHER_SRC)).toEqual([]);
   });
 });
 

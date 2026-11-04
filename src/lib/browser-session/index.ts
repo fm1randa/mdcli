@@ -70,7 +70,7 @@ export async function extractSessionFromBrowser(
 
       // Capture loginconfig via setter trap - prevents losing it if page redirects to dashboard
       await page.addInitScript(() => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- the page's own global is untyped inside addInitScript
         const browserWindow = globalThis as any;
         Object.defineProperty(browserWindow, 'loginconfig', {
           set(value: unknown) {
@@ -110,7 +110,7 @@ export async function extractSessionFromBrowser(
         // until the deadline instead of failing the whole extraction.
         const hasLoginConfig = await page
           .evaluate(() => {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- the page's own global is untyped inside evaluate
             const browserWindow = globalThis as any;
             return Boolean(browserWindow.__captured_loginconfig || browserWindow.loginconfig);
           })
@@ -121,7 +121,7 @@ export async function extractSessionFromBrowser(
 
       const loginConfig = await page
         .evaluate((): LoginConfigRaw | null => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- the page's own global is untyped inside evaluate
           const browserWindow = globalThis as any;
           const config = browserWindow.__captured_loginconfig || browserWindow.loginconfig;
           if (!config) return null;

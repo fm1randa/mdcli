@@ -11,6 +11,7 @@ import noRawDash from "./no-raw-dash.js";
 import noRawCents from "./no-raw-cents.js";
 import noRawCurrency from "./no-raw-currency.js";
 import noShortOptionEquals from "./no-short-option-equals.js";
+import disableDirectiveDescription from "./disable-directive-description.js";
 
 export default {
   meta: { name: "local" },
@@ -26,5 +27,6 @@ export default {
     "no-raw-currency": noRawCurrency,
     "no-raw-dash": noRawDash,
     "no-short-option-equals": noShortOptionEquals,
+    "disable-directive-description": disableDirectiveDescription,
   },
 };

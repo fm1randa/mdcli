@@ -21,6 +21,15 @@ export function flushStdout(timeoutMs = 5000): Promise<void> {
   });
 }
 
+/**
+ * Flush stdout and exit. This is the only place allowed to call process.exit
+ * (local/no-bare-process-exit), so every exit drains the pipe first.
+ */
+export async function exitAfterFlush(code: number): Promise<never> {
+  await flushStdout(3000);
+  return process.exit(code);
+}
+
 // Set by action() for the command being run: with --json, errors are written
 // as JSON too, so a caller parsing the output never gets plain text.
 let jsonErrors = false;
@@ -67,9 +76,7 @@ export function action<Args extends unknown[]>(
       // Flush stdout so the error message and any prior output are fully drained
       // to the pipe before the process exits; without this, output can be truncated
       // at the kernel pipe buffer size (65536 bytes).
-      await flushStdout(3000);
-      // eslint-disable-next-line local/no-bare-process-exit
-      process.exit(1);
+      await exitAfterFlush(1);
     }
   };
 }
