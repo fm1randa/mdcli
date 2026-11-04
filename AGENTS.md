@@ -36,6 +36,7 @@ Each rule below names the check that fails when it breaks. A rule marked *text o
 | Tests pass a relative `--since` and read a pinned clock | `no-literal-since`, `no-ambient-clock`, restricted date imports; `TZ` and `MDCLI_TODAY` pinned | `eslint-rules/`, `eslint.config.js`, `test/setup.ts` |
 | Strings become numbers only through the strict helpers | `no-loose-number` | `eslint-rules/no-loose-number.js` |
 | Review notes never reach a commit (item 19) | `git ls-files 'REVIEW-*.md'` must be empty | `scripts/verify.sh`, `.gitignore` |
+| The mock answers with the API's response types, not what the CLI happens to read | `typecheck` (`tsc --noEmit`): every fixture and `scripts/mock-*.ts` payload carries its `src/types` response type | `test/fixtures.ts`, `scripts/mock-*.ts` |
 | Tests assert behavior, not a mock or a constant (item 12) | *text only* | review |
 | The CLI follows the web app, and a conflict with Filipe's decision is reported (items 9 and 10) | *text only* | review |
 

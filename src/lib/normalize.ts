@@ -1,4 +1,4 @@
-import type { CategoriesResponse, AccountsResponse, TagsResponse, NormalizedCategory, NormalizedAccount, NormalizedCard, NormalizedTag, NormalizedEntry, Entry, EntryRepetition, EntryStatus, CardInvoiceResponse, CardFutureResponse, NormalizedCardEntry, NormalizedCardInstallment } from '../types/index.js';
+import type { CategoriesResponse, AccountsResponse, TagsResponse, NormalizedCategory, NormalizedAccount, NormalizedCard, NormalizedTag, NormalizedEntry, Entry, EntryRepetition, EntryStatus, CardInvoiceResponse, CardFutureResponse, LegacyCardFutureResponse, NormalizedCardEntry, NormalizedCardInstallment } from '../types/index.js';
 import { parseInteger } from '../utils/parse.js';
 
 function mapCategoryType(tipo: 'd' | 'r' | 't'): 'expense' | 'income' | 'transfer' {
@@ -99,7 +99,7 @@ function mapEntryType(entry: Entry): NormalizedEntry['type'] {
 }
 
 /** The web app's Repetição: no parcela = única, "fixa" = fixa, "2/6" = parcelada. */
-function mapRepetition(parcela: string | undefined): EntryRepetition {
+function mapRepetition(parcela: string | null | undefined): EntryRepetition {
   if (!parcela) return 'single';
   return parcela === 'fixa' ? 'fixed' : 'installment';
 }
@@ -167,12 +167,13 @@ function remainingFromInstallment(parcela: string | undefined): number {
 
 /**
  * The real API returns a bare array from parcelasFuturas; older mocks wrapped
- * it in { parcelas }. Accept both. Derive remaining from "N/M" when the API
- * omits parcelasRestantes (it always does on the real endpoint).
+ * it in { parcelas }. Accept both. Derive remaining from "N/M": the real API
+ * does not send parcelasRestantes; only the legacy wrapper does.
  */
-export function normalizeCardInstallments(response: CardFutureResponse): NormalizedCardInstallment[] {
-  const items = Array.isArray(response) ? response : (response.parcelas ?? []);
-  if (!Array.isArray(items)) return [];
+export function normalizeCardInstallments(response: CardFutureResponse | LegacyCardFutureResponse): NormalizedCardInstallment[] {
+  const items: Array<CardFutureResponse[number] & { parcelasRestantes?: number }> = Array.isArray(response)
+    ? response
+    : response.parcelas;
   return items.map((item) => ({
     id: item.id,
     description: item.descricao,

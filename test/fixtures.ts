@@ -1,7 +1,9 @@
+import type { Account, AccountsResponse, CardInvoiceResponse, CategoriesResponse, Category, EntriesResponse, Entry, TagsResponse } from '../src/types/index.js';
+
 const editable = { visivel: true, acoes: { editar: true, excluir: true } };
 const locked = { visivel: true, acoes: { editar: false, excluir: false } };
 
-export const CHECKING_ACCOUNT = {
+export const CHECKING_ACCOUNT: Account = {
   id: 1001,
   nome: 'Nubank',
   tipo: 'CONTA CORRENTE',
@@ -23,7 +25,7 @@ export const CHECKING_ACCOUNT = {
   criptoGcap: 1,
 };
 
-export const CREDIT_CARD_ACCOUNT = {
+export const CREDIT_CARD_ACCOUNT: Account = {
   ...CHECKING_ACCOUNT,
   id: 1002,
   nome: 'Cartão Azul',
@@ -34,7 +36,7 @@ export const CREDIT_CARD_ACCOUNT = {
   proximoFechamento: '2026-01-08T00:00:00',
 };
 
-export const SAVINGS_ACCOUNT = {
+export const SAVINGS_ACCOUNT: Account = {
   ...CHECKING_ACCOUNT,
   id: 1004,
   nome: 'Poupança Nubank',
@@ -43,7 +45,7 @@ export const SAVINGS_ACCOUNT = {
   saldoUltimoExtrato: 0,
 };
 
-export const ACCOUNTS_RESPONSE = {
+export const ACCOUNTS_RESPONSE: AccountsResponse = {
   meta: {
     tipos: [
       { id: 100, nome: 'Conta Corrente', liquidez: 1, basico: true },
@@ -56,7 +58,7 @@ export const ACCOUNTS_RESPONSE = {
   items: [CHECKING_ACCOUNT, CREDIT_CARD_ACCOUNT],
 };
 
-function category(id: number, nome: string, tipo: 'd' | 'r' | 't', extra: Record<string, unknown> = {}) {
+function category(id: number, nome: string, tipo: 'd' | 'r' | 't', extra: Record<string, unknown> = {}): Category {
   const nomeRel = nome.split('/').at(-1) ?? nome;
   return {
     id,
@@ -71,7 +73,7 @@ function category(id: number, nome: string, tipo: 'd' | 'r' | 't', extra: Record
   };
 }
 
-export const CATEGORIES_RESPONSE = {
+export const CATEGORIES_RESPONSE: CategoriesResponse = {
   meta: { dfc: [], dre: [] },
   items: [
     category(10, 'Alimentação', 'd'),
@@ -82,11 +84,27 @@ export const CATEGORIES_RESPONSE = {
   ],
 };
 
-export const EMPTY_ENTRIES_RESPONSE = { list: [], meta: { total: 0, page: 1, pageSize: 200 } };
+export const EMPTY_ENTRIES_RESPONSE: EntriesResponse = { list: [], meta: { total: 0, page: 1, pageSize: 200 } };
 
-/** GET /frontend/sessao trimmed to what the CLI reads: the user's preferences
- * as the real account had them (2026-10-26). */
-export const SESSION_RESPONSE = {
+/** GET /v1/frontend/sessao, trimmed to what the CLI reads (2026-10-26). The
+ * CLI reads it as unknown (WebConfig), so there is no src/types response type:
+ * the fixture owns this envelope. */
+export interface SessionResponse {
+  branch: string;
+  payload: {
+    ngInit: {
+      mdUid?: number;
+      usuario: {
+        conta?: { config?: { pendentesPresente?: boolean; metasRD?: boolean; moeda?: number } };
+        config?: { mdweb?: { moeda?: { m?: number }; [key: string]: unknown } };
+        [key: string]: unknown;
+      };
+      [key: string]: unknown;
+    };
+  };
+}
+
+export const SESSION_RESPONSE: SessionResponse = {
   branch: 'app',
   payload: {
     ngInit: {
@@ -99,11 +117,11 @@ export const SESSION_RESPONSE = {
   },
 };
 
-function entry(id: number, conta: number, categoria: number | undefined, tipo: 'd' | 'r' | 't', valor: number, data: string, descricao = `Entry ${id}`) {
+function entry(id: number, conta: number, categoria: number | undefined, tipo: 'd' | 'r' | 't', valor: number, data: string, descricao = `Entry ${id}`): Entry {
   return { id, descricao, conta, categoria, tipo, valor, data, dataPrevista: data, status: 'conciliado' };
 }
 
-export const SAMPLE_ENTRIES = [
+export const SAMPLE_ENTRIES: Entry[] = [
   entry(1, 1001, 11, 'd', -100.5, '2026-01-05', 'Mercado'),
   entry(2, 1001, 11, 'd', -50.25, '2026-02-10', 'Mercado'),
   entry(3, 1001, 20, 'r', 5000, '2026-01-01', 'Salário'),
@@ -119,9 +137,9 @@ export function entriesPage(list: unknown[], total = list.length) {
 /** Card invoice as GET /v1/cartoes/:id/fatura/:dueDate returns it.
  * `valor` / `resumo.totalFatura` are the bill total (purchases only); a
  * payment (tipo p) may still appear in lancamentos without changing them. */
-export function cardInvoice(vencimento: string, fechamento: string, totalFatura = 0) {
+export function cardInvoice(vencimento: string, fechamento: string, totalFatura = 0): CardInvoiceResponse {
   return {
-    lancamentos: [] as unknown[],
+    lancamentos: [],
     vencimento,
     fechamento,
     valor: totalFatura,
@@ -129,7 +147,7 @@ export function cardInvoice(vencimento: string, fechamento: string, totalFatura 
   };
 }
 
-export const TAG_WORK = { id: 501, nome: 'Trabalho', status: true, cor: 'FF0000' };
-export const TAG_PERSONAL = { id: 502, nome: 'Pessoal', status: false, cor: '00FF00' };
+export const TAG_WORK: TagsResponse[number] = { id: 501, nome: 'Trabalho', status: true, cor: 'FF0000' };
+export const TAG_PERSONAL: TagsResponse[number] = { id: 502, nome: 'Pessoal', status: false, cor: '00FF00' };
 
-export const TAGS_RESPONSE = [TAG_WORK, TAG_PERSONAL];
+export const TAGS_RESPONSE: TagsResponse = [TAG_WORK, TAG_PERSONAL];
