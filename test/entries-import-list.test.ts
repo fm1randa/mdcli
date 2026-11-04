@@ -42,25 +42,27 @@ const STATEMENT = {
 
 function tx(
   integrationId: string,
-  prefix: string,
+  id: string,
   date: string,
   value: number | null,
   description: string | null,
 ) {
   return {
+    id,
     integrationId,
-    prefix,
     date,
     value,
+    bankDescription: description,
     description,
     suggestedDescription: null,
     suggestedTagIds: [],
     suggestedCategory: null,
+    category: null,
     duplicateOf: null,
-    conciliateWith: null,
+    entry: null,
     alreadyConciliated: false,
     candidates: [],
-    defaultAction: 'needs-category',
+    action: 'import',
   };
 }
 
@@ -77,9 +79,10 @@ const LIST_JSON = {
   transactions: [
     {
       ...tx(LONE, 'bbbbbbbb', '2026-10-07', -12.34, 'Padaria Ficticia'),
+      description: 'Descricao Sugerida',
       suggestedDescription: 'Descricao Sugerida',
       suggestedCategory: { id: 10, name: 'Alimentação', source: 'rule' },
-      defaultAction: 'import',
+      category: '10',
     },
     tx(SHARED_A, 'aaaaaaaa-1', '2026-10-08', 8.5, 'Credito Ficticio'),
     tx(SHARED_B, 'aaaaaaaa-2', '2026-10-09', -1, 'Taxi Ficticio'),

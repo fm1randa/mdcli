@@ -19,7 +19,7 @@ export const ptBRImport = {
     'são carregadas. Uma conexão lida sem uma sincronização raramente tem resumo; sem ele, o extrato é\n' +
     'carregado a partir da data padrão do diálogo de importação do app web: a última data de extrato da conta, ou 90 dias atrás\n' +
     'se for anterior ou estiver ausente. --since carrega o extrato a partir de outra data.\n' +
-    '\nCada transação bancária é vinculada a no máximo um lançamento existente (conciliateWith), como o app web faz:\n' +
+    '\nCada transação bancária é vinculada a no máximo um lançamento existente (entry), como o app web faz:\n' +
     'mesmo valor; primeiro um lançamento na data do banco, depois no dia anterior, no dia seguinte, 2 dias antes,\n' +
     '2 dias depois; primeiro o mesmo número de documento. Lançamentos conciliados não são listados como candidatos e são\n' +
     'vinculados apenas no mesmo dia, mas --plan ("entry") e --edit (conciliate <prefixo> <entryId>)\n' +
@@ -132,20 +132,16 @@ export const ptBRImport = {
     `O arquivo --plan não é um JSON válido: ${message}`,
   errorPlanNotObject: () => 'o arquivo deve ser um objeto JSON com "transactions".',
   errorPlanUnknownKey: (key: string) =>
-    `chave desconhecida ${key} (o arquivo só tem "transactions").`,
+    `chave desconhecida ${key} no arquivo --plan.`,
   errorPlanTransactionsMustBeList: () => '"transactions" deve ser uma lista.',
   errorPlanEmpty: () => '"transactions" está vazio. Não existe "importar tudo".',
   errorPlanIdMustBeString: () => '"id" deve ser um prefixo ou uma string UUID.',
   errorPlanActionOneOf: (actions: string) => `"action" deve ser uma de ${actions}.`,
-  errorPlanKeyNotApplicable: (key: string, action: string) =>
-    `${key} não se aplica a ${action}.`,
   errorPlanCategory: () =>
     '"category" deve ser um ID de categoria, alias ou nome.',
   errorPlanValue: () => '"value" deve ser um número.',
   errorPlanDescription: () => '"description" deve ser uma string.',
   errorPlanEntry: () => '"entry" deve ser um ID de lançamento numérico.',
-  errorPlanEntryConflict: () =>
-    '"entry" e "conciliateWith" discordam: use um só, ou dê a eles o mesmo ID de lançamento.',
   errorPlanCategoryRequired: () => '"category" é obrigatório para import.',
   errorInvalidPlanFile: (problems: string) =>
     `Arquivo --plan inválido. Nada foi importado.\n${problems}`,

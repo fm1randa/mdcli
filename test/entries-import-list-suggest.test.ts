@@ -73,19 +73,21 @@ describe('entries import list suggestions', () => {
     expect(body.account).toEqual({ id: 1001, name: 'Nubank' });
     expect(body.transactions).toEqual([
       {
+        id: 'eeeeeeee',
         integrationId: EXPENSE_ID,
-        prefix: 'eeeeeeee',
         date: '2026-10-07',
         value: -12.34,
+        bankDescription: 'Padaria do Bairro',
         description: 'Padaria do Bairro',
         suggestedDescription: null,
         suggestedTagIds: [],
         suggestedCategory: { id: 11, name: 'Alimentação/Mercado', source: 'rule' },
+        category: '11',
         duplicateOf: null,
-        conciliateWith: null,
+        entry: null,
         alreadyConciliated: false,
         candidates: [],
-        defaultAction: 'import',
+        action: 'import',
       },
     ]);
     const paths = api.requests.map((r) => `${r.method} ${r.path}`);
@@ -116,19 +118,21 @@ describe('entries import list suggestions', () => {
     expect(result.stderr).toBe('');
     expect(JSON.parse(result.stdout).transactions).toEqual([
       {
+        id: 'eeeeeeee',
         integrationId: INCOME_ID,
-        prefix: 'eeeeeeee',
         date: '2026-10-08',
         value: 8.5,
+        bankDescription: 'Credito Ficticio',
         description: 'Credito Ficticio',
         suggestedDescription: null,
         suggestedTagIds: [],
         suggestedCategory: { id: 20, name: 'Salário', source: 'rule' },
+        category: '20',
         duplicateOf: null,
-        conciliateWith: null,
+        entry: null,
         alreadyConciliated: false,
         candidates: [],
-        defaultAction: 'import',
+        action: 'import',
       },
     ]);
     expect(mutations(api)).toHaveLength(0);
@@ -159,8 +163,10 @@ describe('entries import list suggestions', () => {
     expect(row.suggestedCategory).toBeNull();
     expect(row.suggestedDescription).toBe('Texto do Zero');
     expect(row.suggestedTagIds).toEqual([]);
-    expect(row.description).toBe('Ajuste Zerado');
-    expect(row.defaultAction).toBe('needs-category');
+    expect(row.bankDescription).toBe('Ajuste Zerado');
+    expect(row.description).toBe('Texto do Zero');
+    expect(row.category).toBeNull();
+    expect(row.action).toBe('import');
     expect(row.value).toBe(0);
     expect(api.requests.some((r) => r.path === '/v1/cadastros/categorias')).toBe(false);
     expect(mutations(api)).toHaveLength(0);
@@ -192,8 +198,9 @@ describe('entries import list suggestions', () => {
     expect(row.suggestedCategory).toEqual({ id: 30, name: 'Transferência', source: 'rule' });
     expect(row.suggestedDescription).toBe('Transferencia Sugerida');
     expect(row.suggestedTagIds).toEqual([502]);
-    expect(row.description).toBe('Ted Ficticia');
-    expect(row.defaultAction).toBe('import');
+    expect(row.bankDescription).toBe('Ted Ficticia');
+    expect(row.description).toBe('Transferencia Sugerida');
+    expect(row.action).toBe('import');
     expect(mutations(api)).toHaveLength(0);
   });
 
@@ -236,13 +243,14 @@ describe('entries import list suggestions', () => {
     expect(result.exitCode).toBe(0);
     expect(result.stderr).toBe('');
     const rows = JSON.parse(result.stdout).transactions;
-    expect(rows.map((row: { description: string | null; suggestedDescription: string | null }) => ({
+    expect(rows.map((row: { description: string | null; bankDescription: string | null; suggestedDescription: string | null }) => ({
       description: row.description,
+      bankDescription: row.bankDescription,
       suggestedDescription: row.suggestedDescription,
     }))).toEqual([
-      { description: 'Texto do Banco', suggestedDescription: 'Descricao da Regra' },
-      { description: 'Outro Texto do Banco', suggestedDescription: 'Somente Ca D' },
-      { description: 'Fica no Banco', suggestedDescription: null },
+      { description: 'Descricao da Regra', bankDescription: 'Texto do Banco', suggestedDescription: 'Descricao da Regra' },
+      { description: 'Somente Ca D', bankDescription: 'Outro Texto do Banco', suggestedDescription: 'Somente Ca D' },
+      { description: 'Fica no Banco', bankDescription: 'Fica no Banco', suggestedDescription: null },
     ]);
     expect(mutations(api)).toHaveLength(0);
   });

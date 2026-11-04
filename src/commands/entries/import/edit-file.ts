@@ -2,9 +2,14 @@ import { sameName } from '../../../lib/name-cache.js';
 import { t } from '../../../lib/i18n/index.js';
 import type { Category } from '../../../types/index.js';
 import { parseAmount } from '../../../utils/parse.js';
-import type { ImportDocument, BankTransactionRow } from './document.js';
+import {
+  SELECTION_ACTIONS,
+  type ImportDocument,
+  type ImportSelectionItem,
+  type BankTransactionRow,
+} from './document.js';
 import { matchPrefix } from './plan.js';
-import { readEntryId, SELECTION_ACTIONS, type SelectionItem } from './selection.js';
+import { readEntryId } from './selection.js';
 
 const ERROR_MARK = '# error: ';
 
@@ -16,19 +21,19 @@ export function renderEditFile(document: ImportDocument, categories: readonly Ca
   const out: string[] = [];
   const unusable: string[] = [];
   for (const row of document.transactions) {
-    if (row.prefix === null || row.date === null || row.value === null) {
-      unusable.push(row.prefix ?? row.integrationId ?? '?');
+    if (row.id === null || row.date === null || row.value === null) {
+      unusable.push(row.id ?? row.integrationId ?? '?');
       continue;
     }
     if (row.candidates.length > 0) {
-      out.push(t('importEditCandidates', row.prefix));
+      out.push(t('importEditCandidates', row.id));
       for (const candidate of row.candidates) {
         const description = candidate.description === null ? '' : ` ${candidate.description}`;
         out.push(`# ${candidate.id} ${candidate.date} ${amount(candidate.value)}${description}`);
       }
     }
     const category = suggestedCategoryText(row, categories);
-    const description = row.suggestedDescription ?? row.description ?? '';
+    const description = row.description ?? '';
     out.push(`${defaultCommand(row)} ${row.date} ${amount(row.value)} ${category} | ${description}`);
   }
   if (unusable.length > 0) out.push('', t('importEditLeftOut', unusable.join(', ')));
@@ -58,11 +63,11 @@ function suggestedCategoryText(row: BankTransactionRow, categories: readonly Cat
   return same.length > 1 ? String(suggested.id) : name;
 }
 
-/** The command, the prefix and, on conciliate, the automatically linked Entry. */
+/** The command, the id and, on conciliate, the automatically linked Entry. */
 function defaultCommand(row: BankTransactionRow): string {
-  const prefix = row.prefix ?? '';
-  if (row.defaultAction === 'conciliate' && row.conciliateWith !== null) return `conciliate ${prefix} ${row.conciliateWith}`;
-  return `${row.defaultAction === 'needs-category' ? 'import' : row.defaultAction} ${prefix}`;
+  const id = row.id ?? '';
+  if (row.action === 'conciliate' && row.entry !== null) return `conciliate ${id} ${row.entry}`;
+  return `${row.action} ${id}`;
 }
 
 /**
@@ -97,8 +102,8 @@ const LINE = /^(\S+)\s+(\S+)(?:\s+(\d+))?\s+(\S+)\s+(\S+)(?:\s+(.*?))?\s*$/;
 export function parseEditFile(
   text: string,
   bankTransactions: readonly BankTransactionRow[],
-): { items: SelectionItem[]; errors: string[] } {
-  const items: SelectionItem[] = [];
+): { items: ImportSelectionItem[]; errors: string[] } {
+  const items: ImportSelectionItem[] = [];
   const errors: string[] = [];
   const seen = new Set<BankTransactionRow>();
   text.split('\n').forEach((raw, index) => {
@@ -108,7 +113,7 @@ export function parseEditFile(
     if (typeof parsed === 'string') {
       errors.push(parsed);
     } else if (seen.has(parsed.row)) {
-      errors.push(t('importEditMoreThanOneLine', parsed.item.id));
+      errors.push(t('importEditMoreThanOneLine', parsed.item.id ?? ''));
     } else {
       seen.add(parsed.row);
       items.push(parsed.item);
@@ -121,7 +126,7 @@ function parseLine(
   line: string,
   lineNumber: number,
   bankTransactions: readonly BankTransactionRow[],
-): { row: BankTransactionRow; item: SelectionItem } | string {
+): { row: BankTransactionRow; item: ImportSelectionItem } | string {
   const where = t('importEditLine', lineNumber);
   // The line is trimmed, so an empty description leaves the pipe last: "... |".
   const pipe = PIPE.exec(line);
@@ -136,12 +141,19 @@ function parseLine(
   if (action === undefined) return t('importEditUnknownCommand', where, command, SELECTION_ACTIONS.join(', '));
   const row = matchPrefix(bankTransactions, prefix, t('importEditPrefixFlag', where));
   if (typeof row === 'string') return row;
-  const id = row.prefix ?? prefix;
+  const id = row.id ?? prefix;
   if (entryText !== undefined && action !== 'conciliate') return t('importEditOnlyConciliateEntryId', id);
   if (date !== row.date) return t('importEditDateMustBeBankDate', id, row.date ?? '-');
   const value = parseAmount(valueText);
   if (value === undefined) return t('importEditValueNotNumber', id, valueText);
-  const item: SelectionItem = { id, action, value };
+  const item: ImportSelectionItem = {
+    id,
+    action,
+    category: null,
+    value,
+    description: null,
+    entry: null,
+  };
   if (action === 'import') {
     // Empty: the suggested description, then the bank text (planImport).
     if (description !== '') item.description = description;

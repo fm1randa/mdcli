@@ -186,13 +186,11 @@ export const enEntriesImportOutput: typeof SectionType = {
     `The --plan file is not valid JSON: ${message}`,
   errorPlanNotObject: () => 'the file must be a JSON object with "transactions".',
   errorPlanUnknownKey: (key) =>
-    `unknown key ${key} (the file only has "transactions").`,
+    `unknown key ${key} in the --plan file.`,
   errorPlanTransactionsMustBeList: () => '"transactions" must be a list.',
   errorPlanEmpty: () => '"transactions" is empty. There is no "import everything".',
   errorPlanIdMustBeString: () => '"id" must be a prefix or UUID string.',
   errorPlanActionOneOf: (actions) => `"action" must be one of ${actions}.`,
-  errorPlanKeyNotApplicable: (key, action) =>
-    `${key} does not apply to ${action}.`,
   errorPlanCategory: () =>
     '"category" must be a category ID, alias, or name.',
   errorPlanValue: () => '"value" must be a number.',

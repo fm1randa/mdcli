@@ -20,7 +20,7 @@ export const enImport: typeof SectionType = {
     'badge) are loaded. A connection read without a sync rarely has a summary; without one, the statement\n' +
     "loads from the web import dialog's default date: the account's last statement date, or 90 days ago\n" +
     'if that is earlier or missing. --since loads the statement from another date.\n' +
-    '\nEach bank transaction is linked to at most one existing entry (conciliateWith), as the web does:\n' +
+    '\nEach bank transaction is linked to at most one existing entry (entry), as the web does:\n' +
     'same value; an entry on the bank date first, then the day before, the day after, 2 days before,\n' +
     '2 days after; the same document number first. Reconciled entries are not listed as candidates and are\n' +
     'linked only on the same day, but --plan ("entry") and --edit (conciliate <prefix> <entryId>)\n' +
@@ -133,20 +133,16 @@ export const enImport: typeof SectionType = {
     `The --plan file is not valid JSON: ${message}`,
   errorPlanNotObject: () => 'the file must be a JSON object with "transactions".',
   errorPlanUnknownKey: (key) =>
-    `unknown key ${key} (the file only has "transactions").`,
+    `unknown key ${key} in the --plan file.`,
   errorPlanTransactionsMustBeList: () => '"transactions" must be a list.',
   errorPlanEmpty: () => '"transactions" is empty. There is no "import everything".',
   errorPlanIdMustBeString: () => '"id" must be a prefix or UUID string.',
   errorPlanActionOneOf: (actions) => `"action" must be one of ${actions}.`,
-  errorPlanKeyNotApplicable: (key, action) =>
-    `${key} does not apply to ${action}.`,
   errorPlanCategory: () =>
     '"category" must be a category ID, alias, or name.',
   errorPlanValue: () => '"value" must be a number.',
   errorPlanDescription: () => '"description" must be a string.',
   errorPlanEntry: () => '"entry" must be a numeric Entry id.',
-  errorPlanEntryConflict: () =>
-    '"entry" and "conciliateWith" disagree: use one, or give them the same Entry id.',
   errorPlanCategoryRequired: () => '"category" is required for import.',
   errorInvalidPlanFile: (problems) =>
     `Invalid --plan file. Nothing was imported.\n${problems}`,
