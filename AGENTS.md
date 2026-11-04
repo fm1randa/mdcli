@@ -23,6 +23,17 @@ After completing any request that changes code:
 3. Fix everything it reports. To iterate on one step, run it directly (`bun run typecheck`, `bun run lint`, `bun run knip`, `bun run test`), then finish with a full `scripts/verify.sh` run.
 4. Introduce no new warnings.
 
+## Merge by proof
+
+Every PR that changes `src/` fills the **Prova** section of the PR template. It shows the CLI commands run against the mock (`scripts/mock-api.ts`, fake config in `/tmp`), never against a real account, on `main` (before) and on the branch (after), with their outputs, proving the behavior the issue asks for. The `prova` CI check reads the PR body and fails when the section, the before block or the after block is missing; it runs on `opened`, `synchronize`, `reopened` and `edited`.
+
+`bun scripts/risk.ts` classifies the diff against `origin/main` and prints `{ "risky": bool, "reasons": [...] }`; it exits 2 when the PR touches authentication, session or credentials, or data writes (create, update, delete, `entries import run`, or any POST/PUT/DELETE call to the API). A risky PR:
+
+- runs `/blast-radius` and proves the security fact in a test or in `scripts/verify.sh`;
+- waits for the maintainer's decision before merge.
+
+`/code-review` is no longer the default merge path; use it for a targeted review when the proof or the risk analysis does not cover a change. After a session with three or more review rounds, or one that got stuck, run `/reflect` (read-only); its proposals land only with the maintainer's approval.
+
 ## Tests
 
 Do not write tautological tests: a test is tautological when it only re-asserts a mock or stub, re-implements the code under test, asserts constants or types, or cannot fail when the behavior breaks.
@@ -86,7 +97,7 @@ PR RESULT: pr=<number> pushed <sha>, verify=<OK or FAIL>
 ## Review rounds (round N of PR P)
 
 17. Confirm `HEAD` equals `origin/<branch>` (`git fetch origin && git status -sb`) and get context on GitHub (`gh pr view`, `gh issue view`, `git log origin/main..HEAD`).
-18. Follow the `/code-review` skill process on axes (a) repo standards (types, i18n, file size limits, CLI-boundary validation, non-tautological tests, no deleted/loosened assertions, no larger timeouts) and (b) spec (the issue resolved consistently and behavior matching the web).
+18. When a review round is requested, follow the `/code-review` skill process on axes (a) repo standards (types, i18n, file size limits, CLI-boundary validation, non-tautological tests, no deleted/loosened assertions, no larger timeouts) and (b) spec (the issue resolved consistently and behavior matching the web).
 19. Classify each finding as high, medium, low, or taste and write in `REVIEW-<P>-r<N>.md` at the repo root, without committing (add it to the local exclude file, `git rev-parse --git-path info/exclude`, if needed).
 20. Fix every high and medium finding and the cheap low ones, with commits in English (conventional commits). Run `verify.sh` as in item 3 and push non-force to the PR branch if there is a commit.
 21. Update the PR body in Brazilian Portuguese to match the final diff and evidence (`gh pr edit <P> --body-file <file>`; if the GraphQL call fails, use `gh api -X PATCH repos/fm1randa/mdcli/pulls/<P> -F body=@<file>`).
