@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
-import type { Page } from 'playwright';
 import { solveRecaptcha } from '../src/lib/captcha.js';
 
 const configDir = process.env.MDCLI_CONFIG_DIR!;
@@ -15,12 +14,12 @@ function fakePage(overrides: {
   evaluateResult?: unknown;
   content?: string;
   url?: string;
-}): Page {
+}) {
   return {
     evaluate: async () => overrides.evaluateResult ?? null,
     content: async () => overrides.content ?? '<html></html>',
     url: () => overrides.url ?? 'https://example.com/login',
-  } as unknown as Page;
+  };
 }
 
 beforeEach(() => {

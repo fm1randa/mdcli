@@ -6,6 +6,10 @@ export default tseslint.config(
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
   {
+    // A disable that no longer suppresses anything is stale: remove it.
+    linterOptions: { reportUnusedDisableDirectives: "error" },
+  },
+  {
     languageOptions: {
       parserOptions: {
         projectService: {
@@ -33,47 +37,60 @@ export default tseslint.config(
   // block scopes one ban without replacing the others' options.
   { plugins: { local } },
   {
+    // Every eslint-disable says why the exception is safe, after "--".
+    rules: { "local/disable-directive-description": "error" },
+  },
+  {
     // Money is formatted and counted in cents in one place, signed by default.
-    files: ["src/**/*.ts"],
+    files: ["src/**/*.ts", "test/**/*.ts"],
     ignores: ["src/utils/currency.ts"],
     rules: { "local/no-raw-currency": "error", "local/no-raw-cents": "error" },
   },
   {
     // Strings become numbers only through the strict parse helpers.
-    files: ["src/**/*.ts"],
+    files: ["src/**/*.ts", "test/**/*.ts"],
     ignores: ["src/utils/parse.ts"],
     rules: { "local/no-loose-number": "error" },
   },
   {
     // User input payloads match their types instead of being cast.
-    files: ["src/commands/**/*.ts", "src/lib/aliases.ts"],
+    files: ["src/**/*.ts", "test/**/*.ts"],
     rules: { "local/no-double-cast": "error" },
   },
   {
     // An empty table cell is written by cell() alone.
-    files: ["src/**/*.ts"],
+    files: ["src/**/*.ts", "test/**/*.ts"],
     ignores: ["src/utils/text.ts"],
     rules: { "local/no-raw-dash": "error" },
   },
   {
     // A card's due date is read only in card-invoice.ts (cardDueAnchor, ownDueDate).
+    // test/** is exempt in eslint-rules/scope-exemptions.json: fixtures name the field.
     files: ["src/**/*.ts"],
     ignores: ["src/commands/entries/card-invoice.ts"],
     rules: { "local/no-due-anchor-fallback": "error" },
   },
   {
     // "Today" comes from now()/today() in src/lib/dates.ts, which tests pin.
+    // The narrower scope is named in eslint-rules/scope-exemptions.json.
     files: ["src/commands/**/*.ts"],
     rules: { "local/no-ambient-clock": "error" },
   },
   {
     // Entry sign logic by type lives only in src/commands/entries/type.ts.
-    files: ["src/**/*.ts"],
+    files: ["src/**/*.ts", "test/**/*.ts"],
     ignores: ["src/commands/entries/type.ts"],
     rules: { "local/no-type-sign-ternary": "error" },
   },
   {
+    // A category name is resolved only in src/lib/category-resolution.ts.
+    files: ["src/**/*.ts"],
+    ignores: ["src/lib/category-resolution.ts"],
+    rules: { "local/no-category-name-resolution": "error" },
+  },
+  {
     // --since accepts only the last 90 days: tests pass a date relative to today.
+    // src/** is exempt in eslint-rules/scope-exemptions.json: commands read the flag value.
     files: ["test/**/*.ts"],
     ignores: ["test/dates.test.ts"],
     rules: {
@@ -91,12 +108,13 @@ export default tseslint.config(
   },
   {
     // Short options with = must be preprocessed before commander parses argv (#151).
+    // src/** and test/** are exempt in eslint-rules/scope-exemptions.json.
     files: ["bin/cli.ts"],
     rules: { "local/no-short-option-equals": "error" },
   },
   {
-    // Flush stdout before exit so piped output isn't truncated at 65536 bytes.
-    files: ["src/**/*.ts", "bin/**/*.ts"],
+    // Exit only through exitAfterFlush(), which flushes stdout first.
+    files: ["src/**/*.ts", "test/**/*.ts", "bin/**/*.ts"],
     rules: { "local/no-bare-process-exit": "error" },
   },
   {

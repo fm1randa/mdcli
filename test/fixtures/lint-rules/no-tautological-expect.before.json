@@ -1,0 +1,7 @@
+{
+  "rule": "no-tautological-expect",
+  "origin": "3614e0d",
+  "source": "test/cli-short-option-equals.test.ts",
+  "note": "Issue #186: #152 wrote expect(true).toBe(true) to 'prove' the fix, and a literal compared to itself can never fail. The same test file also asserted the text of bin/cli.ts.",
+  "code": "expect(true).toBe(true);"
+}

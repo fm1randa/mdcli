@@ -1,3 +1,20 @@
+declare const entryIdBrand: unique symbol;
+declare const entryIdTextBrand: unique symbol;
+declare const occurrenceIdBrand: unique symbol;
+
+/**
+ * The numeric ID GET/PUT/DELETE /v1/lancamentos/:id take. POST answers it for
+ * most creates, but an occurrence ID for a card purchase and for a future
+ * pending entry (#78, #166).
+ */
+export type EntryId = number & { readonly [entryIdBrand]: true };
+
+/** The same entry ID, answered as a decimal string; `entries create` keeps it as it came. */
+export type EntryIdText = string & { readonly [entryIdTextBrand]: true };
+
+/** "<series>A<date>", what POST answers for a card purchase or a future pending entry. */
+export type OccurrenceId = string & { readonly [occurrenceIdBrand]: true };
+
 interface EntryPermissions {
   visivel: boolean;
   acoes: {
@@ -187,8 +204,13 @@ export interface CreateEntryPayload {
 }
 
 export interface CreateEntryResponse {
-  /** Numeric, except for card purchases: see entries/entry-id.ts. */
-  id: number | string;
+  /**
+   * An entry ID, except for a card purchase or a future pending entry, where
+   * POST answers an occurrence ID: see entries/entry-id.ts. `entries create`
+   * resolves it before printing, and `ResolvedCreateEntry` is what its output
+   * accepts.
+   */
+  id: EntryId | OccurrenceId;
   descricao: string;
   conciliado: boolean;
   dataCompetencia: string;

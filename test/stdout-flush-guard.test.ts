@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test';
+import { join } from 'node:path';
 import { createHome, MANUAL_AUTH, runCli, startMockApi } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, TAGS_RESPONSE, entriesPage } from './fixtures.js';
 
@@ -44,5 +45,27 @@ describe('stdout flush guard', () => {
       api.stop();
       home.cleanup();
     }
+  });
+
+  // The old bin/cli.ts unhandledRejection body exited even when flushStdout
+  // rejected (`.catch(() => process.exit(1))`). A rejected flush must not
+  // re-enter the handler: exitAfterFlush has to reach process.exit anyway.
+  test('exitAfterFlush exits even when the flush throws', () => {
+    const helper = join(import.meta.dir, '..', 'src', 'utils', 'action.ts');
+    const script = `
+      const stdout = process.stdout;
+      const original = stdout.write.bind(stdout);
+      stdout.write = (chunk, ...rest) => {
+        if (chunk === '') throw new Error('EPIPE');
+        return original(chunk, ...rest);
+      };
+      const { exitAfterFlush } = await import(${JSON.stringify(helper)});
+      await exitAfterFlush(7);
+      process.exitCode = 3;
+    `;
+
+    const result = Bun.spawnSync(['bun', '-e', script], { stdout: 'pipe', stderr: 'pipe' });
+
+    expect(result.exitCode).toBe(7);
   });
 });
