@@ -96,6 +96,9 @@ export const PRIVATE_TERM_HASHES: ReadonlySet<string> = new Set([
   'aa1121a2ce6168ace4384d6a0df15cf096345c4bc43d193a7fa8653e4f686405',
   'f527a4c04b5fd3c056dbbd3d247792098a839731a7897e08b3aeb39352b207cc',
   '3574922c5fec718316711d9bbe50175f0f692a695cc9510f861a4b1ade0400b7',
+  '478c4ffb1cbcea37956a748e6c19d8eadd0a47e86f5e308d26cad39453b5d1ab',
+  '2c8b871e52d4e5f5db5ff84a82a45327e20df77edef961c4b6fa0e9c3d97ce5b',
+  '6ad4a6b1e5ea5569795e516d71909e0ce4809d9dc983d2c219144f684f816e12',
 ]);
 
 /** Generic phrases that contain a guarded word and are allowed as-is. */

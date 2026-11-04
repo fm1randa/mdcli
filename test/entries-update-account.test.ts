@@ -59,7 +59,7 @@ describe('entries update --account', () => {
     test(`refuses ${option} on an invoice payment, which always involves a credit card`, async () => {
       api.on('GET /v1/lancamentos/95', { ...TRANSFER_DESTINATION_HALF, id: 95, tipo: 'p', conta: 201, contaT: 202, transferencia: 9 });
 
-      const result = await runCli(['entries', 'update', '95', option, '1006'], { home, api });
+      const result = await runCli(['entries', 'update', '95', option, '210'], { home, api });
 
       expect(result.exitCode).toBe(1);
       expect(result.stderr).toContain('invoice payment involves a credit card');
@@ -110,7 +110,7 @@ describe('entries update --account between regular accounts, as the web edit for
     const result = await runCli(['entries', 'update', '70', '--account', 'Antiga'], { home, api });
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain('Account "Antiga" (1007) is inactive');
+    expect(result.stderr).toContain('Account "Antiga" (211) is inactive');
     expect(mutations(api)).toEqual([]);
   });
 
@@ -133,22 +133,22 @@ describe('entries update --account on a transfer', () => {
     expect(result.exitCode).toBe(0);
     expect(putBody()).toMatchObject({
       transferencia: true,
-      contaOrigem: 1006,
+      contaOrigem: 210,
       contaDestino: 201,
-      conta: 1006,
+      conta: 210,
       contaT: 201,
       valor: -300,
       valorT: 300,
     });
-    expect(JSON.parse(result.stdout)).toMatchObject({ conta: 1006, contaT: 201 });
+    expect(JSON.parse(result.stdout)).toMatchObject({ conta: 210, contaT: 201 });
   });
 
   test('--to-account alone keeps the origin', async () => {
     const result = await runCli(['entries', 'update', '51', '--to-account', 'Conta Teste Dois'], { home, api });
 
     expect(result.exitCode).toBe(0);
-    expect(putBody()).toMatchObject({ contaOrigem: 201, contaDestino: 1006 });
-    expect(result.stdout).toContain('To account: 1006');
+    expect(putBody()).toMatchObject({ contaOrigem: 201, contaDestino: 210 });
+    expect(result.stdout).toContain('To account: 210');
   });
 
   test('refuses the same account on both sides, as the web app does', async () => {
@@ -169,10 +169,10 @@ describe('entries update --account on a transfer', () => {
 
   test('refuses moving either side to an inactive account', async () => {
     for (const option of ['--account', '--to-account']) {
-      const result = await runCli(['entries', 'update', '51', option, '1007'], { home, api });
+      const result = await runCli(['entries', 'update', '51', option, '211'], { home, api });
 
       expect(result.exitCode).toBe(1);
-      expect(result.stderr).toContain('Account "Antiga" (1007) is inactive');
+      expect(result.stderr).toContain('Account "Antiga" (211) is inactive');
     }
     expect(mutations(api)).toEqual([]);
   });

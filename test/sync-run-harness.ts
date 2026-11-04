@@ -29,7 +29,7 @@ export const AFTER_SYNC = [
   },
 ];
 
-// 501 is listed twice: all must PUT that id once. 1009 is an Account named "all".
+// 501 is listed twice: all must PUT that id once. 213 is an Account named "all".
 export const MANY_CONNECTIONS = [
   {
     id: 501,
@@ -42,7 +42,7 @@ export const MANY_CONNECTIONS = [
   {
     id: 502,
     status: 'UPDATED',
-    accounts: [{ id: 303, type: 'CONTA CORRENTE', conta: 1009 }],
+    accounts: [{ id: 303, type: 'CONTA CORRENTE', conta: 213 }],
   },
   {
     id: 501,
@@ -68,13 +68,13 @@ export const MANY_AFTER = [
   {
     id: 502,
     status: 'UPDATING',
-    accounts: [{ id: 303, type: 'CONTA CORRENTE', conta: 1009 }],
+    accounts: [{ id: 303, type: 'CONTA CORRENTE', conta: 213 }],
   },
 ];
 
 export const ACCOUNTS_WITH_ALL = {
   ...ACCOUNTS_RESPONSE,
-  items: [...ACCOUNTS_RESPONSE.items, { ...CHECKING_ACCOUNT, id: 1009, nome: 'all' }],
+  items: [...ACCOUNTS_RESPONSE.items, { ...CHECKING_ACCOUNT, id: 213, nome: 'all' }],
 };
 
 export interface SyncRun {

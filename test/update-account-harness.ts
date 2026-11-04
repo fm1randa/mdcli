@@ -39,9 +39,9 @@ export const CONFIRMED_ENTRY = {
   tags: [],
 };
 
-export const SECOND_ACCOUNT = { ...CHECKING_ACCOUNT, id: 1006, nome: 'Conta Teste Dois' };
+export const SECOND_ACCOUNT = { ...CHECKING_ACCOUNT, id: 210, nome: 'Conta Teste Dois' };
 // Archived: the web app's account selectors leave it out.
-export const ARCHIVED_ACCOUNT = { ...CHECKING_ACCOUNT, id: 1007, nome: 'Antiga', status: false };
+export const ARCHIVED_ACCOUNT = { ...CHECKING_ACCOUNT, id: 211, nome: 'Antiga', status: false };
 // fechamento: the invoice closes that many days before it is due.
 export const BASE_CARD = { ...CREDIT_CARD_ACCOUNT, fechamento: 8 };
 export const OTHER_CARD = { ...CREDIT_CARD_ACCOUNT, id: 205, nome: 'Cartão Teste Dois', proximoVencimento: '2026-01-10T00:00:00', fechamento: 8 };

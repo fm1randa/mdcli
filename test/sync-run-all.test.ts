@@ -46,7 +46,7 @@ describe('sync run all', () => {
             id: 502,
             status: 'UPDATING',
             accounts: [
-              { connectionAccount: 303, accountId: 1009, accountName: 'all', type: 'CONTA CORRENTE' },
+              { connectionAccount: 303, accountId: 213, accountName: 'all', type: 'CONTA CORRENTE' },
             ],
           },
         ],
@@ -78,7 +78,7 @@ describe('sync run all', () => {
     api.on('GET /v1/cadastros/contas', ACCOUNTS_WITH_ALL);
     connections(MANY_CONNECTIONS, MANY_AFTER);
 
-    const byId = await runCli(['sync', 'run', '1009', '--yes', '--json'], { home, api });
+    const byId = await runCli(['sync', 'run', '213', '--yes', '--json'], { home, api });
 
     expect(byId.exitCode).toBe(0);
     expect(byId.stderr).toContain('Connection 502 is UPDATING. Run sync list again to see the result.');
@@ -90,7 +90,7 @@ describe('sync run all', () => {
           id: 502,
           status: 'UPDATING',
           accounts: [
-            { connectionAccount: 303, accountId: 1009, accountName: 'all', type: 'CONTA CORRENTE' },
+            { connectionAccount: 303, accountId: 213, accountName: 'all', type: 'CONTA CORRENTE' },
           ],
         },
       ],

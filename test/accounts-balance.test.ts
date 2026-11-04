@@ -117,25 +117,25 @@ describe('accounts list balances', () => {
   // Review of #128 round 2: the web asks a balance only of the accounts in the
   // currency moedaService picked (carregarContasPR, mdb.js 4392-4399).
   test('only the accounts in the currency picked in the web get a balance', async () => {
-    const dollar = { ...CHECKING_ACCOUNT, id: 1007, nome: 'Conta Dólar Teste', moeda: 2 };
+    const dollar = { ...CHECKING_ACCOUNT, id: 211, nome: 'Conta Dólar Teste', moeda: 2 };
     api.on('GET /v1/cadastros/contas', { ...ACCOUNTS_RESPONSE, items: [...ACCOUNTS_RESPONSE.items, dollar] });
     const usuario = SESSION_RESPONSE.payload.ngInit.usuario;
     api.on('GET /v1/frontend/sessao', {
       ...SESSION_RESPONSE,
       payload: { ngInit: { ...SESSION_RESPONSE.payload.ngInit, usuario: { ...usuario, config: { mdweb: { moeda: { m: 2 } } } } } },
     });
-    api.on('GET /v2/lancamentos', { sum: [{ conta: 1007, projetado: 80, confirmado: 100 }] });
+    api.on('GET /v2/lancamentos', { sum: [{ conta: 211, projetado: 80, confirmado: 100 }] });
 
     const result = await runCli(['accounts', 'list', '--json', '--at', '2026-10-16'], { home, api });
 
     expect(result.exitCode).toBe(0);
     const [sum] = sumRequests();
     expect(sum.query.get('moeda')).toBe('2');
-    expect(JSON.parse(sum.query.get('contas') ?? '').ids).toEqual([1007]);
+    expect(JSON.parse(sum.query.get('contas') ?? '').ids).toEqual([211]);
     expect(api.requests.filter((r) => r.path === '/v1/frontend/sessao')).toHaveLength(1);
     const accounts = JSON.parse(result.stdout) as Array<Record<string, unknown>>;
     expect(accounts.find((a) => a.id === 201)).toMatchObject({ balance: null, projectedBalance: null, bankBalance: 250.5 });
-    expect(accounts.find((a) => a.id === 1007)).toMatchObject({ balance: 100, projectedBalance: 80 });
+    expect(accounts.find((a) => a.id === 211)).toMatchObject({ balance: 100, projectedBalance: 80 });
   });
 
   test('when every account is in the picked currency, all of them are asked for', async () => {
@@ -153,7 +153,7 @@ describe('accounts list balances', () => {
   // Review of #128 round 6 (S1): the web leaves investment portfolios out
   // and keeps closed accounts (carregarContasPR, mdb.js 4392-4399).
   test('an active investment portfolio has no balance and is not asked for', async () => {
-    const portfolio = { ...CHECKING_ACCOUNT, id: 1009, nome: 'Carteira Teste', tipo: 'CARTEIRA_INVEST' };
+    const portfolio = { ...CHECKING_ACCOUNT, id: 213, nome: 'Carteira Teste', tipo: 'CARTEIRA_INVEST' };
     api.on('GET /v1/cadastros/contas', { ...ACCOUNTS_RESPONSE, items: [...ACCOUNTS_RESPONSE.items, portfolio] });
 
     const result = await runCli(['accounts', 'list', '--json', '--at', '2026-10-16'], { home, api });
@@ -161,7 +161,7 @@ describe('accounts list balances', () => {
     expect(result.exitCode).toBe(0);
     expect(JSON.parse(sumRequests()[0].query.get('contas') ?? '').ids).toEqual([201]);
     const accounts = JSON.parse(result.stdout) as Array<Record<string, unknown>>;
-    expect(accounts.find((a) => a.id === 1009)).toMatchObject({ balance: null, projectedBalance: null });
+    expect(accounts.find((a) => a.id === 213)).toMatchObject({ balance: null, projectedBalance: null });
   });
 
   test('an inactive account that is closed still gets its balance', async () => {

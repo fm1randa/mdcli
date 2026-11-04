@@ -51,6 +51,12 @@ test('finds a guarded number whose separators are escaped for a regex', () => {
   expect(findPrivateTerms(String.raw`R$ 1\.234,57`, terms)).toEqual([]);
 });
 
+test('matches a hash in the stored normalized form, not one recomputed from the text', () => {
+  const stored = new Set(['b45f4536f9e5072382394c5a2e64a864548f6d80c5a828243f1abe4175c7a794']);
+
+  expect(findPrivateTerms('  São JOÃO ', stored)).toHaveLength(1);
+});
+
 test('fails on a versioned file carrying a prohibited term and passes without it', () => {
   const root = mkdtempSync(join(tmpdir(), 'mdcli-private-terms-'));
   try {

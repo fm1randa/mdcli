@@ -162,10 +162,10 @@ describe('entries update --account to or from a credit card', () => {
   });
 
   test('to a card: the due day clamped at a month end stays clamped month after month, as moment adds months', async () => {
-    const endOfMonthCard = { ...BASE_CARD, id: 1007, nome: 'Cartão Fim', proximoVencimento: '2026-01-31T00:00:00' };
+    const endOfMonthCard = { ...BASE_CARD, id: 211, nome: 'Cartão Fim', proximoVencimento: '2026-01-31T00:00:00' };
     api.on('GET /v1/cadastros/contas', { ...ACCOUNTS_RESPONSE, items: [CHECKING_ACCOUNT, endOfMonthCard] });
 
-    const result = await runCli(['entries', 'update', '70', '-a', '1007', '-D', '2026-03-30'], { home, api });
+    const result = await runCli(['entries', 'update', '70', '-a', '211', '-D', '2026-03-30'], { home, api });
 
     expect(result.exitCode).toBe(0);
     expect(putBody()).toMatchObject({ dataPrevista: '2026-04-28' });

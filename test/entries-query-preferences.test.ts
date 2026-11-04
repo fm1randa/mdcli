@@ -32,7 +32,7 @@ function session({ config, mdwebMoeda }: SessionPreferences): object {
   };
 }
 
-const DOLLAR_ACCOUNT = { ...CHECKING_ACCOUNT, id: 1007, nome: 'Conta Dólar Teste', moeda: 2 };
+const DOLLAR_ACCOUNT = { ...CHECKING_ACCOUNT, id: 211, nome: 'Conta Dólar Teste', moeda: 2 };
 
 const lancamentos = (type: string) =>
   api.requests.filter((r) => r.path === '/v2/lancamentos' && r.query.get('type') === type);
@@ -137,7 +137,7 @@ describe('GET /v2/lancamentos sends the user preferences, as the web does', () =
   // Review of #128 round 6 (S1): moedaService skips investment portfolios
   // (mdb.js 17336): one in the picked currency does not make it usable.
   test('an investment portfolio in the picked currency does not make it the moeda sent', async () => {
-    const portfolio = { ...CHECKING_ACCOUNT, id: 1009, nome: 'Carteira Euro Teste', tipo: 'CARTEIRA_INVEST', moeda: 3 };
+    const portfolio = { ...CHECKING_ACCOUNT, id: 213, nome: 'Carteira Euro Teste', tipo: 'CARTEIRA_INVEST', moeda: 3 };
     api.on('GET /v1/cadastros/contas', { ...ACCOUNTS_RESPONSE, items: [...ACCOUNTS_RESPONSE.items, portfolio] });
     api.on('GET /v1/frontend/sessao', session({ config: { pendentesPresente: true, metasRD: false, moeda: 1 }, mdwebMoeda: 3 }));
 
