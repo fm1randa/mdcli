@@ -1,0 +1,7 @@
+{
+  "rule": "no-ambient-clock",
+  "origin": "8058541^",
+  "source": "src/commands/entries/import/run.ts",
+  "note": "The argument-less new Date() the rule was added to keep out of commands (#131).",
+  "code": "const today = toLocalDateString(new Date());"
+}

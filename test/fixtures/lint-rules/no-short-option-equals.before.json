@@ -1,0 +1,7 @@
+{
+  "rule": "no-short-option-equals",
+  "origin": "dabeb32^",
+  "source": "bin/cli.ts",
+  "note": "-v=value reached commander unprocessed until preprocessShortOptions (#152).",
+  "code": "await program.parseAsync(argv);"
+}

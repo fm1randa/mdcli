@@ -1,0 +1,7 @@
+{
+  "rule": "no-double-cast",
+  "origin": "906efce^",
+  "source": "src/commands/entries/update.ts",
+  "note": "The `as unknown as` update payload cast #102 removed; the rule came in #117 (#101).",
+  "code": "const response = await updateEntry(entryId, payload as unknown as UpdateEntryPayload);"
+}
