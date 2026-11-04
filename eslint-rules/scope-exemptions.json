@@ -12,5 +12,8 @@
   "no-short-option-equals": {
     "src/**": "preprocessShortOptions runs only in bin/cli.ts, before commander parses argv.",
     "test/**": "Tests exercise the preprocessing through the real CLI (test/cli-short-option-equals.test.ts), not by importing it."
+  },
+  "no-category-name-resolution": {
+    "test/**": "Tests build name/status shapes as data to prove resolveCategoryReference; production resolution stays in src/lib/category-resolution.ts."
   }
 }

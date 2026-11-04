@@ -1,0 +1,7 @@
+{
+  "rule": "no-category-name-resolution",
+  "origin": "2b00f68^",
+  "source": "src/commands/categories.ts",
+  "note": "The categories --move-to copy #198 consolidated: an active-name filter next to the inactive-destination check, duplicated with entries create/update.",
+  "code": "async function resolveCategory(input: string, categories: Category[]): Promise<Category> {\n  const id = await resolveId('categories', input);\n  const resolved = id === null ? undefined : categories.find((c) => c.id === id);\n  if (!resolved) {\n    exitWithError(t('errorCategoryNotFound', input));\n  }\n\n  // A bare name can match several categories. As in entries create/update\n  // (#77): a name that also matches an active category resolves to the active\n  // one, a name matching several active categories is refused with their IDs,\n  // and an inactive destination (id, alias, or name) is refused.\n  const explicit = parseId(input) !== undefined || getAliases('categories').some((a) => a.name === input);\n  if (!explicit) {\n    const active = categories.filter((c) => c.status && sameName(c.nome, input));\n    if (active.length > 1) {\n      exitWithError(t('errorCategoryNameAmbiguous', input, active.map((c) => c.id).join(', ')));\n    }\n    if (active.length === 1) {\n      return active[0];\n    }\n  }\n\n  if (!resolved.status) {\n    exitWithError(t('errorCategoryInactiveDestination', resolved.nome, resolved.id));\n  }\n\n  return resolved;\n}\n"
+}
