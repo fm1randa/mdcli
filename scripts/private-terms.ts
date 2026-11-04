@@ -58,6 +58,14 @@ export const PRIVATE_TERM_HASHES: ReadonlySet<string> = new Set([
   '0b42640883b40bfa0ab83ea7d150a1baed683bdb3260ed83a915146482acd7c8',
   '0aa65c3870245921ff532f9750b50d14274376542f5cff258cd88d873ecaa697',
   '5183c8b7dd83b30cc6271cf55e0b633ee8a3618b404ef038795964fae8d2f102',
+  'df985c086f21bcc7498f549f5e3eeae4ccdf5d8b8f3adb02e138604ccd00a113',
+  '94ba7d0513ce6855b4a385c6dd33e50eae11103d9c85a365d181f3150749af28',
+  '7dd0248d9fb95913a88fc477c7ab52b47aefec982dc4747fe8c299e4b37925b0',
+  'e94cffcc2bbc263fe4dbd9b64131e6493b8f03f33fe97ec199230b0c2062461c',
+  'd337f6a3bea61673294ed2a0bede31ef2c85f1ac9536847b3c1da4219b4c1020',
+  'acd66bf1ef08c53e9d85e873a77b770400796a478ba3c878bcb598ef054b4e5c',
+  'cdb10524fce49103a90e698af06ca6e5fe43113a6e9da09ec6172e968ff00ae0',
+  'ad8e346676e04c492b086124f53e2477ca1316df27abd4a552163c33e59b980e',
 ]);
 
 /** Generic phrases that contain a guarded word and are allowed as-is. */
@@ -66,6 +74,10 @@ const ALLOWED_PHRASE_HASHES: ReadonlySet<string> = new Set([
 ]);
 
 const MAX_WORDS = 4;
+
+/** A pt-BR number: thousands dots with an optional comma, or a comma decimal. */
+const FORMATTED_NUMBER =
+  /(?<![\d.,])\d{1,3}(?:\.[0-9]{3})+(?:,[0-9]{1,2})?(?![\d.,])|(?<![\d.,])\d+(?:,[0-9]+)+(?![\d.,])/g;
 
 /** Lowercase, accent-free words separated by one space. */
 export function normalizeTerm(text: string): string {
@@ -81,14 +93,35 @@ export function termHash(term: string): string {
   return createHash('sha256').update(normalizeTerm(term)).digest('hex');
 }
 
+/**
+ * A guarded number can be written as `1234.56`, `1.234,56` or `7.654,5`, so
+ * every spelling of the same value is tried against the hashes.
+ */
+function formattedNumberCandidates(text: string): string[] {
+  const candidates: string[] = [];
+  for (const cluster of text.match(FORMATTED_NUMBER) ?? []) {
+    const groups = cluster.split(/[.,]/);
+    const head = groups.slice(0, -1).join('');
+    const cents = groups[groups.length - 1]!;
+    candidates.push(groups.join(''), head, `${head} ${cents}`);
+    const trimmed = cents.replace(/0+$/, '');
+    if (trimmed) candidates.push(`${head} ${trimmed}`);
+  }
+  return candidates;
+}
+
 /** Hashes of the guarded terms found in `text`, up to four words each. */
 export function findPrivateTerms(
   text: string,
   terms: ReadonlySet<string> = PRIVATE_TERM_HASHES,
   allowed: ReadonlySet<string> = ALLOWED_PHRASE_HASHES
 ): string[] {
+  const hits = new Set<string>();
+  for (const candidate of formattedNumberCandidates(text)) {
+    const hash = termHash(candidate);
+    if (terms.has(hash) && !allowed.has(hash)) hits.add(hash);
+  }
   const tokens = normalizeTerm(text).split(' ').filter(Boolean);
-  const hits: string[] = [];
   for (let i = 0; i < tokens.length; i++) {
     const max = Math.min(MAX_WORDS, tokens.length - i);
     let allowedHere = false;
@@ -101,10 +134,10 @@ export function findPrivateTerms(
     if (allowedHere) continue;
     for (let n = 1; n <= max; n++) {
       const hash = termHash(tokens.slice(i, i + n).join(' '));
-      if (terms.has(hash)) hits.push(hash);
+      if (terms.has(hash)) hits.add(hash);
     }
   }
-  return hits;
+  return [...hits];
 }
 
 /**
@@ -130,7 +163,11 @@ export interface PrivateTermHit {
 }
 
 /** Versioned files, from `git ls-files`, that currently carry a guarded term. */
-export function scanTrackedFiles(root: string = join(import.meta.dirname, '..')): PrivateTermHit[] {
+export function scanTrackedFiles(
+  root: string = join(import.meta.dirname, '..'),
+  terms: ReadonlySet<string> = PRIVATE_TERM_HASHES,
+  allowed: ReadonlySet<string> = ALLOWED_PHRASE_HASHES
+): PrivateTermHit[] {
   const listed = Bun.spawnSync(['git', 'ls-files', '-z'], { cwd: root });
   if (listed.exitCode !== 0) throw new Error(`git ls-files failed in ${root}`);
   const files = listed.stdout.toString().split('\0').filter(Boolean);
@@ -140,7 +177,7 @@ export function scanTrackedFiles(root: string = join(import.meta.dirname, '..'))
     if (statSync(path).size > 1_000_000) continue;
     const text = readFileSync(path, 'utf8');
     if (text.includes('\u0000')) continue;
-    for (const line of scanText(text)) hits.push({ file, line });
+    for (const line of scanText(text, terms, allowed)) hits.push({ file, line });
   }
   return hits;
 }

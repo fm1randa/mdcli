@@ -1,4 +1,4 @@
-<!-- traduzido de README.md @ 3de829b (base: 3de829bf2677009588aa832f00beb411ef273fc4; readme-blob: 055c38868d710abe7a63354290c1d313e65f7db4); ao atualizar o README.md, sincronize este arquivo e atualize o SHA e o readme-blob (git hash-object README.md) -->
+<!-- traduzido de README.md @ 3de829b (base: 3de829bf2677009588aa832f00beb411ef273fc4; readme-blob: a8be5dcee31ef140ddef0d613be728ea2f60f79f); ao atualizar o README.md, sincronize este arquivo e atualize o SHA e o readme-blob (git hash-object README.md) -->
 [Português (Brasil)](README.md) · **English**
 
 > The Portuguese [README.md](README.md) is the reference version; this English translation may lag behind it.
@@ -218,7 +218,7 @@ mdcli accounts update 201 --name "Conta Teste PF"
 # --balance keeps the current sign (like the web's Credor/Devedor), except a
 # negative value, which is debtor; --debtor or --creditor alone only flip the
 # sign of the initial balance
-mdcli accounts update 201 --balance 82.09 --balance-date 2026-01-01
+mdcli accounts update 201 --balance 123.45 --balance-date 2026-01-01
 mdcli accounts update 201 --debtor
 
 # Leave the account out of net worth, or include it again
@@ -238,8 +238,8 @@ mdcli accounts alias add --id 201 --name mp
 
 # List, change, or remove aliases (stored on this computer only)
 mdcli accounts alias list
-mdcli accounts alias update --id 201 --name mercadopago
-mdcli accounts alias rm --name mercadopago
+mdcli accounts alias update --id 201 --name carteira
+mdcli accounts alias rm --name carteira
 
 # Categories and tags have the same alias commands
 mdcli categories alias add --id 12345 --name food
@@ -305,7 +305,7 @@ mdcli entries create --account mp --description "Groceries" --value 150 --catego
 mdcli entries create --account <cardId> --description "Voo" --value 900 --category travel
 
 # Create an entry using the account name instead of an alias
-mdcli entries create --account "Mercado Pago" --description "Groceries" --value 150 --category food
+mdcli entries create --account "Conta Teste" --description "Groceries" --value 150 --category food
 
 # Transfer between two accounts (--account is the origin); the category
 # defaults to the system transfer category, as in the web app. Transfers to or
@@ -432,7 +432,7 @@ mdcli cards list --active
 mdcli cards invoice --account <cardId> --month 2026-02
 
 # Show a credit card invoice using the card's exact name
-mdcli cards invoice --account "Itaú Personalité" --month 2026-02
+mdcli cards invoice --account "Cartão Teste" --month 2026-02
 
 # In --json (an array of items), date is the invoice due date, the same date
 # entries list --json shows for the item; purchaseDate is when it was bought,

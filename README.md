@@ -215,7 +215,7 @@ mdcli accounts update 201 --name "Conta Teste PF"
 # --balance mantém o sinal atual (como o Credor/Devedor da web), salvo um valor
 # negativo, que é devedor; --debtor ou --creditor sozinhos só trocam o sinal do
 # saldo inicial
-mdcli accounts update 201 --balance 82.09 --balance-date 2026-01-01
+mdcli accounts update 201 --balance 123.45 --balance-date 2026-01-01
 mdcli accounts update 201 --debtor
 
 # Tira do patrimônio ou volta a incluir
@@ -235,8 +235,8 @@ mdcli accounts alias add --id 201 --name mp
 
 # Lista, troca ou remove aliases (salvos só neste computador)
 mdcli accounts alias list
-mdcli accounts alias update --id 201 --name mercadopago
-mdcli accounts alias rm --name mercadopago
+mdcli accounts alias update --id 201 --name carteira
+mdcli accounts alias rm --name carteira
 
 # Categorias e tags têm os mesmos comandos de alias
 mdcli categories alias add --id 12345 --name food
@@ -302,7 +302,7 @@ mdcli entries create --account mp --description "Groceries" --value 150 --catego
 mdcli entries create --account <cardId> --description "Voo" --value 900 --category travel
 
 # Cria um lançamento usando o nome da conta em vez de um alias
-mdcli entries create --account "Mercado Pago" --description "Groceries" --value 150 --category food
+mdcli entries create --account "Conta Teste" --description "Groceries" --value 150 --category food
 
 # Transferência entre duas contas (--account é a origem); a categoria padrão é
 # a categoria de transferência do sistema, como no app web. Transferências de ou
@@ -429,7 +429,7 @@ mdcli cards list --active
 mdcli cards invoice --account <cardId> --month 2026-02
 
 # Mostra uma fatura do cartão de crédito usando o nome exato do cartão
-mdcli cards invoice --account "Itaú Personalité" --month 2026-02
+mdcli cards invoice --account "Cartão Teste" --month 2026-02
 
 # No --json (um array de itens), date é o vencimento da fatura, a mesma data que
 # entries list --json mostra para o item; purchaseDate é quando foi comprado,

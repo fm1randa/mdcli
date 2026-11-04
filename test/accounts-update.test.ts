@@ -85,16 +85,16 @@ describe('accounts update', () => {
   });
 
   test('--debtor alone flips the stored balance to negative', async () => {
-    withChecking({ saldoInicial: 82.09 });
+    withChecking({ saldoInicial: 123.45 });
 
     const { result, body } = await update('--debtor');
 
     expect(result.exitCode).toBe(0);
-    expect(body?.saldoInicial).toBe(-82.09);
+    expect(body?.saldoInicial).toBe(-123.45);
   });
 
   test('--balance 0 with --debtor zeroes the balance instead of being refused', async () => {
-    withChecking({ saldoInicial: 82.09 });
+    withChecking({ saldoInicial: 123.45 });
 
     const { result, body } = await update('--balance', '0', '--debtor');
 

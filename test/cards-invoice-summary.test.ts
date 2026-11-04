@@ -49,11 +49,11 @@ describe('cards invoice summary (text)', () => {
         pagamentosAgen: 200,
         totalFatura: -1000.00,
         totalPagar: -800.00,
-        conciliado: -120,
-        nconciliado: -860.75,
-        receitas: 35.1,
-        despesas: -1015.85,
-        disponivel: 4019.25,
+        conciliado: -150,
+        nconciliado: -850,
+        receitas: 40,
+        despesas: -1040,
+        disponivel: 4000,
       },
     });
 
@@ -67,14 +67,14 @@ describe('cards invoice summary (text)', () => {
     expect(out).toMatch(/Previous invoice\s+-R\$ 1\.500,00\n/);
     expect(out).toMatch(/Paid\s+R\$ 1\.500,00\n/);
     expect(out).toMatch(/Scheduled payments\s+R\$ 200,00\n/);
-    expect(out).toMatch(/Expenses\s+-R\$ 1\.015,85\n/);
-    expect(out).toMatch(/Income\s+R\$ 35,10\n/);
+    expect(out).toMatch(/Expenses\s+-R\$ 1\.040,00\n/);
+    expect(out).toMatch(/Income\s+R\$ 40,00\n/);
     expect(out).toMatch(/Invoice total\s+-R\$ 1.000,00\n/);
     expect(out).toMatch(/To pay\s+-R\$ 800,00\n/);
-    expect(out).toMatch(/Reconciled\s+-R\$ 120,00\n/);
-    expect(out).toMatch(/Unreconciled\s+-R\$ 860,75\n/);
+    expect(out).toMatch(/Reconciled\s+-R\$ 150,00\n/);
+    expect(out).toMatch(/Unreconciled\s+-R\$ 850,00\n/);
     expect(out).toMatch(/Limit\s+R\$ 5\.000,00\n/);
-    expect(out).toMatch(/Available\s+R\$ 4\.019,25\n/);
+    expect(out).toMatch(/Available\s+R\$ 4\.000,00\n/);
     // The table lists items by purchase date, as the web does.
     expect(out).toMatch(/Purchase\s+│ Description/);
     expect(out).toMatch(/2025-11-19\s+│ Item Parcelado/);
@@ -168,11 +168,11 @@ describe('cards invoice --json --summary', () => {
         pagamentosAgen: 200,
         totalFatura: -1000.00,
         totalPagar: -800.00,
-        conciliado: -120,
-        nconciliado: -860.75,
-        receitas: 35.1,
-        despesas: -1015.85,
-        disponivel: 4019.25,
+        conciliado: -150,
+        nconciliado: -850,
+        receitas: 40,
+        despesas: -1040,
+        disponivel: 4000,
       },
     });
 
@@ -189,14 +189,14 @@ describe('cards invoice --json --summary', () => {
       previousInvoice: -1500,
       paid: 1500,
       scheduledPayments: 200,
-      expenses: -1015.85,
-      income: 35.1,
+      expenses: -1040,
+      income: 40,
       total: -1000.00,
       toPay: -800.00,
-      reconciled: -120,
-      unreconciled: -860.75,
+      reconciled: -150,
+      unreconciled: -850,
       limit: 5000,
-      available: 4019.25,
+      available: 4000,
     });
     // Same items as --json alone, payment included.
     expect(out.entries.map((e: { id: number }) => e.id)).toEqual([123456, 9]);
