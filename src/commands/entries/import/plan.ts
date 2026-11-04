@@ -177,7 +177,7 @@ export function planReject(row: BankTransactionRow, run: RunDocument): string | 
 
 /** The candidate the web linked on its own, or null. */
 export function linkedCandidate(row: BankTransactionRow): ImportCandidate | null {
-  return row.candidates.find((candidate) => candidate.id === row.conciliateWith) ?? null;
+  return row.candidates.find((candidate) => candidate.id === row.entry) ?? null;
 }
 
 /** Links the row to `entry`. `after` keeps the Entry's value and description until `applyOverwrite`. */
@@ -241,11 +241,11 @@ export function planImport(row: BankTransactionRow, choice: ImportChoice, run: R
 
 export function reference(row: BankTransactionRow): RunReference {
   const integrationId = row.integrationId ?? '';
-  return { integrationId, prefix: row.prefix ?? integrationId };
+  return { integrationId, prefix: row.id ?? integrationId };
 }
 
 export function label(row: BankTransactionRow): string {
-  return row.prefix ?? row.integrationId ?? '?';
+  return row.id ?? row.integrationId ?? '?';
 }
 
 export function formatIds(candidates: readonly { id: number }[]): string {

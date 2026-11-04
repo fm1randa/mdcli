@@ -186,18 +186,20 @@ export const enEntriesImportOutput: typeof SectionType = {
     `The --plan file is not valid JSON: ${message}`,
   errorPlanNotObject: () => 'the file must be a JSON object with "transactions".',
   errorPlanUnknownKey: (key) =>
-    `unknown key ${key} (the file only has "transactions").`,
+    `unknown key ${key} in the --plan file.`,
   errorPlanTransactionsMustBeList: () => '"transactions" must be a list.',
   errorPlanEmpty: () => '"transactions" is empty. There is no "import everything".',
   errorPlanIdMustBeString: () => '"id" must be a prefix or UUID string.',
   errorPlanActionOneOf: (actions) => `"action" must be one of ${actions}.`,
-  errorPlanKeyNotApplicable: (key, action) =>
-    `${key} does not apply to ${action}.`,
   errorPlanCategory: () =>
     '"category" must be a category ID, alias, or name.',
   errorPlanValue: () => '"value" must be a number.',
   errorPlanDescription: () => '"description" must be a string.',
   errorPlanEntry: () => '"entry" must be a numeric Entry id.',
+  errorPlanEntryOnlyConciliate: () => '"entry" only applies to conciliate.',
+  errorPlanAccount: () => '"account" must be an object with a numeric "id".',
+  errorPlanAccountMismatch: (plan, run) =>
+    `the plan is for account ${plan}, but the run is for account ${run}.`,
   errorPlanCategoryRequired: () => '"category" is required for import.',
   errorInvalidPlanFile: (problems) =>
     `Invalid --plan file. Nothing was imported.\n${problems}`,

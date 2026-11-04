@@ -2,22 +2,54 @@ import { readFileSync } from 'node:fs';
 import { asRecord } from '../../../lib/payload.js';
 import { t } from '../../../lib/i18n/index.js';
 import { isPositiveSafeInteger } from '../../../utils/parse.js';
-import { readEntryId, SELECTION_ACTIONS, type SelectionAction, type SelectionItem } from './selection.js';
+import {
+  SELECTION_ACTIONS,
+  type ImportSelectionItem,
+  type SelectionAction,
+} from './document.js';
+import { readEntryId } from './selection.js';
 
-/** Keys each action accepts besides `id` and `action`. Anything else fails the file. */
-const ACTION_KEYS: Record<SelectionAction, readonly string[]> = {
-  import: ['category', 'value', 'description'],
-  conciliate: ['entry', 'conciliateWith'],
-  reject: [],
-  skip: [],
-};
-const ALL_KEYS = new Set(['id', 'action', 'category', 'value', 'description', 'entry', 'conciliateWith']);
+/** A `--plan` file: the account it was built for, when the document names one, and the selection. */
+interface PlanFile {
+  accountId: number | null;
+  transactions: ImportSelectionItem[];
+}
 
 /**
- * Reads a `--plan` file: UTF-8 JSON `{ "transactions": [ ... ] }`. An unknown key, an unknown
- * action, or a wrong type fails the whole file, listing every problem, before any request.
+ * The keys a plan item carries. The selection keys are what the run reads; the diagnostic keys come
+ * from `import list --json`, so its output is already a valid `--plan` file. Anything else fails.
  */
-export function readPlanFile(path: string): SelectionItem[] {
+const SELECTION_KEYS = new Set(['id', 'action', 'category', 'value', 'description', 'entry']);
+const DIAGNOSTIC_KEYS = new Set([
+  'integrationId',
+  'date',
+  'bankDescription',
+  'suggestedDescription',
+  'suggestedTagIds',
+  'suggestedCategory',
+  'duplicateOf',
+  'alreadyConciliated',
+  'candidates',
+]);
+const ITEM_KEYS = new Set([...SELECTION_KEYS, ...DIAGNOSTIC_KEYS]);
+/** `import list --json` writes the whole document; a hand-written plan only needs `transactions`. */
+const DOCUMENT_KEYS = new Set([
+  'account',
+  'connection',
+  'source',
+  'since',
+  'statement',
+  'search',
+  'ai',
+  'transactions',
+]);
+
+/**
+ * Reads a `--plan` file: UTF-8 JSON `{ "transactions": [ ... ] }`, or the whole document
+ * `import list --json` writes. An unknown key, an unknown action, or a wrong type fails the whole
+ * file, listing every problem, before any request.
+ */
+export function readPlanFile(path: string): PlanFile {
   let text: string;
   try {
     text = readFileSync(path, 'utf8');
@@ -32,24 +64,33 @@ export function readPlanFile(path: string): SelectionItem[] {
   }
   const plan = asRecord(parsed);
   if (plan === null) throw invalid([t('errorPlanNotObject')]);
-  const extra = Object.keys(plan).filter((key) => key !== 'transactions');
+  const extra = Object.keys(plan).filter((key) => !DOCUMENT_KEYS.has(key));
   if (extra.length > 0) throw invalid([t('errorPlanUnknownKey', quote(extra[0]))]);
+  const accountId = readAccount(plan.account);
   const rows = plan.transactions;
   if (!Array.isArray(rows)) throw invalid([t('errorPlanTransactionsMustBeList')]);
   if (rows.length === 0) throw invalid([t('errorPlanEmpty')]);
 
   const problems: string[] = [];
-  const items: SelectionItem[] = [];
+  const items: ImportSelectionItem[] = [];
   rows.forEach((row: unknown, index) => {
     const where = `transactions[${index}]`;
     const item = readItem(row, (problem) => problems.push(`${where}: ${problem}`));
     if (item !== null) items.push(item);
   });
   if (problems.length > 0) throw invalid(problems);
-  return items;
+  return { accountId, transactions: items };
 }
 
-function readItem(input: unknown, report: (problem: string) => void): SelectionItem | null {
+/** The Account the document was built for (`account.id` from `import list --json`); null when absent. */
+function readAccount(input: unknown): number | null {
+  if (input === undefined) return null;
+  const account = asRecord(input);
+  if (account === null || !isPositiveSafeInteger(account.id)) throw invalid([t('errorPlanAccount')]);
+  return account.id;
+}
+
+function readItem(input: unknown, report: (problem: string) => void): ImportSelectionItem | null {
   const row = asRecord(input);
   if (row === null) {
     report('must be an object.');
@@ -61,7 +102,7 @@ function readItem(input: unknown, report: (problem: string) => void): SelectionI
     report(problem);
   };
   for (const key of Object.keys(row)) {
-    if (!ALL_KEYS.has(key)) counted(`unknown key ${quote(key)}.`);
+    if (!ITEM_KEYS.has(key)) counted(`unknown key ${quote(key)}.`);
   }
   const { id, action } = row;
   if (typeof id !== 'string' || id.trim() === '') counted(t('errorPlanIdMustBeString'));
@@ -69,36 +110,53 @@ function readItem(input: unknown, report: (problem: string) => void): SelectionI
     counted(t('errorPlanActionOneOf', SELECTION_ACTIONS.join(', ')));
     return null;
   }
-  for (const key of ['category', 'value', 'description', 'entry', 'conciliateWith']) {
-    if (key in row && !ACTION_KEYS[action].includes(key)) counted(t('errorPlanKeyNotApplicable', quote(key), action));
-  }
-  const item: SelectionItem = { id: typeof id === 'string' ? id.trim() : '', action };
-  const { category, value, description, entry, conciliateWith } = row;
-  if (category !== undefined) {
-    if (typeof category === 'string' && category.trim() !== '') item.category = category.trim();
-    else if (isPositiveSafeInteger(category)) item.category = String(category);
-    else counted(t('errorPlanCategory'));
-  }
-  if (value !== undefined) {
-    if (typeof value === 'number' && Number.isFinite(value)) item.value = value;
-    else counted(t('errorPlanValue'));
-  }
-  if (description !== undefined) {
-    if (typeof description === 'string') item.description = description;
-    else counted(t('errorPlanDescription'));
-  }
-  if (entry !== undefined && conciliateWith !== undefined && entry !== conciliateWith) {
-    counted(t('errorPlanEntryConflict'));
-  }
-  const entryId = entry ?? conciliateWith;
-  if (entryId !== undefined) {
-    const read = typeof entryId === 'number' ? readEntryId(entryId) : null;
-    if (read === null) counted(t('errorPlanEntry'));
-    else if ('error' in read) counted(read.error);
-    else item.entry = read.entry;
-  }
-  if (action === 'import' && category === undefined) counted(t('errorPlanCategoryRequired'));
+  const item: ImportSelectionItem = {
+    id: typeof id === 'string' ? id.trim() : null,
+    action,
+    category: readCategory(row.category, counted),
+    value: readValue(row.value, counted),
+    description: readDescription(row.description, counted),
+    entry: readEntry(row.entry, counted),
+  };
+  if (action !== 'conciliate' && item.entry !== null) counted(t('errorPlanEntryOnlyConciliate'));
+  if (action === 'import' && item.category === null) counted(t('errorPlanCategoryRequired'));
   return failed ? null : item;
+}
+
+function readCategory(input: unknown, report: (problem: string) => void): string | null {
+  if (input === undefined || input === null) return null;
+  if (typeof input === 'string' && input.trim() !== '') return input.trim();
+  if (isPositiveSafeInteger(input)) return String(input);
+  report(t('errorPlanCategory'));
+  return null;
+}
+
+function readValue(input: unknown, report: (problem: string) => void): number | null {
+  if (input === undefined || input === null) return null;
+  if (typeof input === 'number' && Number.isFinite(input)) return input;
+  report(t('errorPlanValue'));
+  return null;
+}
+
+function readDescription(input: unknown, report: (problem: string) => void): string | null {
+  if (input === undefined || input === null) return null;
+  if (typeof input === 'string') return input;
+  report(t('errorPlanDescription'));
+  return null;
+}
+
+function readEntry(input: unknown, report: (problem: string) => void): number | null {
+  if (input === undefined || input === null) return null;
+  const read = typeof input === 'number' ? readEntryId(input) : null;
+  if (read === null) {
+    report(t('errorPlanEntry'));
+    return null;
+  }
+  if ('error' in read) {
+    report(read.error);
+    return null;
+  }
+  return read.entry;
 }
 
 function invalid(problems: readonly string[]): Error {

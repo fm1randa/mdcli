@@ -66,7 +66,7 @@ describe('entries import run --plan --yes', () => {
     ]);
     const listed = await cli(['list', '--json']);
     expect(listed.exitCode).toBe(0);
-    const prefixes: string[] = JSON.parse(listed.stdout).transactions.map((row: { prefix: string }) => row.prefix);
+    const prefixes: string[] = JSON.parse(listed.stdout).transactions.map((row: { id: string }) => row.id);
     expect(prefixes).toEqual(['aaaa1111', 'bbbb2222', 'cccc3333', 'dddd4444']);
 
     const plan = planFile({
