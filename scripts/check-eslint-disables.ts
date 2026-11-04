@@ -2,21 +2,27 @@ import { readFileSync } from 'node:fs';
 import tseslint from 'typescript-eslint';
 
 // A copied eslint-disable is how the bare-exit pattern spread (#155, #187).
-// Compare the branch with main and fail when the diff adds more directives
-// than it removes, so a new suppression is a deliberate, reviewed choice.
-// Only real comments count: a directive inside a test string is not one.
+// Compare the branch with main and fail on any added directive without a
+// reason after "--" (the same reason local/disable-directive-description
+// requires), independent of removals: removing one never excuses a new bare
+// suppression. Only real comments count: a directive inside a test string is
+// not one.
 const DIRECTIVE = /^\s*eslint-disable(?:-next-line|-line)?\b/;
+const REASON = /\s--\s+\S/;
 const LINTED = /\.(?:[cm]?[jt]sx?)$/;
 
 export interface AddedDisable {
   path: string;
   line: number;
   text: string;
+  hasReason: boolean;
 }
 
 export interface DiffCount {
   added: AddedDisable[];
   removed: number;
+  /** Added directives without a reason: the step fails on any of them. */
+  undocumented: AddedDisable[];
 }
 
 interface DiffLine {
@@ -70,34 +76,50 @@ interface ParsedComment {
   loc?: { start: { line: number } };
 }
 
-/** Line numbers where an eslint-disable directive starts, read from the parsed comments. */
-export function directiveLines(content: string): Set<number> {
+interface Directive {
+  hasReason: boolean;
+}
+
+/** Directives by starting line, read from the parsed comments. */
+function directives(content: string): Map<number, Directive> {
   const { ast } = tseslint.parser.parseForESLint(content);
   const comments = (ast as typeof ast & { comments?: ParsedComment[] }).comments ?? [];
-  const lines = new Set<number>();
+  const found = new Map<number, Directive>();
   for (const comment of comments) {
-    if (comment.loc && DIRECTIVE.test(comment.value)) lines.add(comment.loc.start.line);
+    if (comment.loc && DIRECTIVE.test(comment.value)) {
+      found.set(comment.loc.start.line, { hasReason: REASON.test(comment.value) });
+    }
   }
-  return lines;
+  return found;
+}
+
+/** Line numbers where an eslint-disable directive starts, read from the parsed comments. */
+export function directiveLines(content: string): Set<number> {
+  return new Set(directives(content).keys());
 }
 
 /** Counts the directives a diff adds and removes, reading the file at each side. */
 export function countDisables(diff: string, read: ContentReader): DiffCount {
   const { added, removed } = parseDiff(diff);
-  const cache = new Map<string, Set<number>>();
-  const isDirective = (path: string, line: number, side: Side): boolean => {
+  const cache = new Map<string, Map<number, Directive>>();
+  const directiveAt = (path: string, line: number, side: Side): Directive | undefined => {
     const key = `${side}:${path}`;
-    let lines = cache.get(key);
-    if (lines === undefined) {
+    let byLine = cache.get(key);
+    if (byLine === undefined) {
       const content = read(path, side);
-      lines = content === undefined ? new Set() : directiveLines(content);
-      cache.set(key, lines);
+      byLine = content === undefined ? new Map() : directives(content);
+      cache.set(key, byLine);
     }
-    return lines.has(line);
+    return byLine.get(line);
   };
+  const addedDisables = added.flatMap((line) => {
+    const directive = directiveAt(line.path, line.line, 'new');
+    return directive ? [{ ...line, hasReason: directive.hasReason }] : [];
+  });
   return {
-    added: added.filter((line) => isDirective(line.path, line.line, 'new')),
-    removed: removed.filter((line) => isDirective(line.path, line.line, 'old')).length,
+    added: addedDisables,
+    removed: removed.filter((line) => directiveAt(line.path, line.line, 'old') !== undefined).length,
+    undocumented: addedDisables.filter((directive) => !directive.hasReason),
   };
 }
 
@@ -156,17 +178,19 @@ function main(): void {
     const options = parseOptions(process.argv.slice(2));
     const base = options.base ?? 'origin/main';
     const range = `${base}${options.head ? `..${options.head}` : ''}`;
-    const { added, removed } = countDisables(gitDiff(base, options.head), reader(base, options.head));
-    if (added.length > removed) {
+    const { added, removed, undocumented } = countDisables(gitDiff(base, options.head), reader(base, options.head));
+    if (undocumented.length > 0) {
       console.error(
-        `✗ eslint-disable: o diff contra ${range} adiciona ${added.length} e remove ${removed}. ` +
-          'A supressão copiada não é a correção (#187); use a saída sancionada (exitAfterFlush, card-invoice) ou remova o disable.',
+        `✗ eslint-disable: o diff contra ${range} adiciona ${undocumented.length} directive(s) sem motivo depois de "--" ` +
+          `(remove ${removed}). A supressão copiada não é a correção (#187); use a saída sancionada ` +
+          '(exitAfterFlush, card-invoice), explique o motivo ou remova o disable.',
       );
-      for (const directive of added) console.error(`  ${directive.path}:${directive.line}: ${directive.text.trim()}`);
+      for (const directive of undocumented) console.error(`  ${directive.path}:${directive.line}: ${directive.text.trim()}`);
       process.exitCode = 1;
       return;
     }
-    console.log(`✓ eslint-disable: ${added.length} added, ${removed} removed (${range})`);
+    const addedText = added.length === 0 ? '0 added' : `${added.length} added, all with a reason`;
+    console.log(`✓ eslint-disable: ${addedText}, ${removed} removed (${range})`);
   } catch (error) {
     console.error(`eslint-disable: ${error instanceof Error ? error.message : String(error)}`);
     process.exitCode = 1;

@@ -18,7 +18,7 @@
 
 After completing any request that changes code:
 
-1. Run `scripts/verify.sh`. It is the official verification and the same script the `verify` CI job runs, which branch protection on `main` requires. It runs install, readme sync, typecheck, lint, knip, the test suite, a dependency audit, a check that no `REVIEW-*.md` is tracked, a check that the diff adds no `eslint-disable`, and an end-to-end run of the real CLI against a local mock API.
+1. Run `scripts/verify.sh`. It is the official verification and the same script the `verify` CI job runs, which branch protection on `main` requires. It runs install, readme sync, typecheck, lint, knip, the test suite, a dependency audit, a check that no `REVIEW-*.md` is tracked, a check that every `eslint-disable` the diff adds says why after `--`, and an end-to-end run of the real CLI against a local mock API.
 2. Treat the run as passing only when it exits 0 and its last line is `VERIFICAÇÃO OK`. A failure ends with `VERIFICAÇÃO FALHOU: <steps>`.
 3. Fix everything it reports. To iterate on one step, run it directly (`bun run typecheck`, `bun run lint`, `bun run knip`, `bun run test`), then finish with a full `scripts/verify.sh` run.
 4. Introduce no new warnings.
