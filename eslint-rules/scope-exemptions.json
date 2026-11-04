@@ -4,7 +4,7 @@
     "test/**": "Tests build fixtures and timeouts from the real clock; the pinned day comes from localDay() in test/helpers.ts."
   },
   "no-category-name-resolution": {
-    "test/**": "Tests exercise the shared resolver through the real CLI; test/eslint-local-rules.test.ts proves the rule against copies of the src files."
+    "test/**": "Tests drive category resolution through the CLI or the single owner; fixtures name categories but do not reimplement the lookup."
   },
   "no-due-anchor-fallback": {
     "test/**": "Tests build card fixtures that name proximoVencimento to prove the missing-date behavior; production reads go through card-invoice.ts."

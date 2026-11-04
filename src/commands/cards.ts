@@ -7,7 +7,7 @@ import { fetchAccounts, fetchAccountById, normalizeCards, isCreditCard, fetchCar
 import { resolveAccountOrExit } from './account-id.js';
 import { formatCurrency } from '../utils/currency.js';
 import { cell, truncate } from '../utils/text.js';
-import { cardDueAnchor } from './entries/card-invoice.js';
+import { cardDueAnchor, displayDueDate } from './entries/card-invoice.js';
 import { dueDateInMonth, parseInvoiceMonth } from '../lib/dates.js';
 import { normalizeInvoiceSummary } from '../lib/invoice-summary.js';
 import type { Account, NormalizedInvoiceSummary } from '../types/index.js';
@@ -29,7 +29,10 @@ async function listAction(options: { json?: boolean; active?: boolean }): Promis
   }
 
   if (options.json) {
-    const normalized = normalizeCards({ items: creditCards, meta: response.meta });
+    const normalized = normalizeCards({ items: creditCards, meta: response.meta }).map((card, i) => ({
+      ...card,
+      ...displayDueDate(creditCards[i]),
+    }));
     console.log(JSON.stringify(normalized, null, 2));
     return;
   }
@@ -45,8 +48,7 @@ async function listAction(options: { json?: boolean; active?: boolean }): Promis
       card.nome,
       cell(card.banco?.nome),
       cell(card.limite || null, formatCurrency),
-      // eslint-disable-next-line local/no-due-anchor-fallback -- display only (Next Due column), not an invoice anchor (see cardDueAnchor)
-      cell(card.proximoVencimento),
+      cell(displayDueDate(card).nextDueDate),
       formatStatus(card.status, card.encerrada),
     ]);
   }
