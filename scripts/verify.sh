@@ -342,13 +342,14 @@ step "cli entries import run --plan --dry-run (mock)" import_run_plan_dry
 # At 255dceb the list wrote conciliateWith and the plan only read entry, so this failed.
 import_list_roundtrip() {
   local log="$MDCLI_MOCK_LOG"
-  local before=0
-  [ -f "$log" ] && before=$(wc -l <"$log")
   local plan="$SANDBOX/import-list-plan.json"
   "${CLI[@]}" entries import list -a 1001 --since "$IMPORT_SINCE" --json >"$plan" </dev/null \
     || { echo "entries import list --json failed"; return 1; }
+  # Only the run's requests, so the start it sent is the plan's since and not the list's.
+  local before=0
+  [ -f "$log" ] && before=$(wc -l <"$log")
   local out
-  out=$("${CLI[@]}" entries import run -a 1001 --since "$IMPORT_SINCE" --plan "$plan" --dry-run --json </dev/null) \
+  out=$("${CLI[@]}" entries import run -a 1001 --plan "$plan" --dry-run --json </dev/null) \
     || { echo "entries import run --plan rejected the list output: $out"; return 1; }
   OUT="$out" bun -e '
     const d = JSON.parse(process.env.OUT);
@@ -362,6 +363,8 @@ import_list_roundtrip() {
   ' || { echo "expected the listed import, conciliation and skip in: $out"; return 1; }
   local fresh
   fresh=$(tail -n +"$((before + 1))" "$log")
+  grep -Fq "\"path\":\"/api/v1/integracao/account/9001/transactions\",\"query\":\"start=$IMPORT_SINCE\"" <<<"$fresh" \
+    || { echo "the --plan run must load the statement since the plan's since ($IMPORT_SINCE): $fresh"; return 1; }
   reads_and_ai_only "$fresh" "entries import list --json > --plan"
 }
 step "cli entries import list --json is a --plan (mock)" import_list_roundtrip
