@@ -52,6 +52,7 @@ export async function checkEntryCategory(
   catalog: CategoryCatalog = categoryCatalog(),
 ): Promise<{ id: number; category: Category | null } | { error: string }> {
   const id = await resolveId('categories', input);
+  if (id === null) return { error: t('errorUnknownCategoryForEntry', input) };
   const items = await catalog();
   const resolution = resolveCategoryReference(input, id, items);
 
