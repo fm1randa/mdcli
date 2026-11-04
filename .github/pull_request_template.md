@@ -33,7 +33,13 @@ Closes #n
 <!-- Obrigatória quando o PR muda arquivos em `src/`. Rode os mesmos comandos
      contra o mock (`bun scripts/mock-api.ts`) e uma config falsa em `/tmp`,
      nunca contra uma conta real. Cole o comando e a saída em cada bloco de
-     código. O check `prova` reprova o PR sem os dois blocos preenchidos. -->
+     código. O check `prova` reprova o PR sem a linha `Web:` e sem os dois
+     blocos preenchidos. -->
+
+<!-- Paridade com a web (AGENTS.md, item 9): cite o trecho do bundle
+     `$HOME/.mdcli-team/ref/mdb.js` que mostra o comportamento, ou escreva
+     `Web: sem equivalente na web`. -->
+Web:
 
 ### Antes (main)
 
