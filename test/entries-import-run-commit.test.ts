@@ -194,12 +194,12 @@ describe('entries import run linking and status', () => {
     expect(result.exitCode).toBe(0);
     expect(routes()).toEqual(COMMIT);
     const mutationsList = mutations(api);
-    const conciliation = mutationsList[1] as { body: { lancamentos: unknown } };
+    const conciliation = mutationsList[1] as { body: { lancamentos: unknown; maxDate: string } };
     const importing = mutationsList[2] as { body: { lancamentos: unknown } };
     expect((conciliation.body as { lancamentos: unknown }).lancamentos).toEqual([
       { data: '2026-10-07', valor: -12.34, descricao: 'Padaria Ficticia', ndocumento: 'NSU 998', ids: [4242] },
     ]);
-    expect((conciliation.body as unknown as { maxDate: string }).maxDate).toBe('2026-10-07');
+    expect(conciliation.body.maxDate).toBe('2026-10-07');
     expect((importing.body as { lancamentos: unknown }).lancamentos).toEqual([]);
     expect(JSON.parse(result.stdout).conciliated[0].entryId).toBe(4242);
   });

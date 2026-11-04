@@ -4,10 +4,3 @@ export interface AuthConfig {
   /** Optional bearer token (JWT). The app only sends Authorization when it has one. */
   token?: string;
 }
-
-export interface ApiHeaders {
-  Mdapikey: string;
-  Mduid: string;
-  Authorization?: string;
-  Cookie?: string;
-}

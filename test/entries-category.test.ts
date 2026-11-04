@@ -112,6 +112,17 @@ describe('entries create with an ambiguous category name', () => {
   });
 });
 
+describe('entries create with an unknown category', () => {
+  test('reads the category catalog once', async () => {
+    const result = await runCli([...CREATE, '-c', 'naoexiste'], { home, api });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain('Unknown category');
+    const reads = api.requests.filter((r) => r.method === 'GET' && r.path === '/v1/cadastros/categorias');
+    expect(reads).toHaveLength(1);
+  });
+});
+
 describe('entries update with an inactive category', () => {
   test('refuses to move an entry to an inactive category', async () => {
     const result = await runCli(['entries', 'update', '70', '-c', '52'], { home, api });

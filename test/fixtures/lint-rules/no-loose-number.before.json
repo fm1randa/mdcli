@@ -1,0 +1,7 @@
+{
+  "rule": "no-loose-number",
+  "origin": "df07619^",
+  "source": "src/commands/entries/card-entries.ts",
+  "note": "Number.parseInt on an API id that the strict parseInteger helper replaced (#130).",
+  "code": "  const ids = (invoice.lancamentos ?? [])\n    .filter((e) => e.descricao === card.description && toCents(e.valor) === toCents(card.value) && isEntryId(e.id))\n    .map((e) => (typeof e.id === 'number' ? e.id : Number.parseInt(e.id, 10)));"
+}
