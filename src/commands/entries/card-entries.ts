@@ -1,12 +1,11 @@
 import { fetchAccounts, fetchAllEntries, fetchCardInvoice, isCreditCard } from '../../lib/api.js';
 import { t } from '../../lib/i18n/index.js';
 import { shiftDueDate } from '../../lib/dates.js';
-import type { Account, CardInvoiceEntry, CreateEntryResponse, EntriesParams, Entry } from '../../types/index.js';
-import { isEntryId } from './entry-id.js';
+import type { Account, CardInvoiceEntry, EntriesParams, Entry } from '../../types/index.js';
+import { asEntryId, type CreatedEntryLookup } from './entry-id.js';
 import { cardDueAnchor } from './card-invoice.js';
 import { statusBit, typeBit } from './filters.js';
 import { toCents } from '../../utils/currency.js';
-import { parseInteger } from '../../utils/parse.js';
 import { mapConcurrent } from '../../utils/concurrency.js';
 
 // Invoice requests in flight at once for entries list/summary: enough to cut
@@ -110,29 +109,34 @@ export async function fetchListEntries(params: ListParams): Promise<Entry[]> {
 }
 
 /**
- * A card purchase comes back from POST with an occurrence ID (see
- * entry-id.ts); its entry ID only shows up in the invoice. Take the purchase
- * with that description and value there, the newest (highest ID) if an older
- * identical one exists. The CLI's answer keeps the API's ID as occurrenceId.
+ * Where the entry ID of a card purchase shows up: POST answers an occurrence
+ * ID (see entry-id.ts) and the entry ID is only in the invoice. The purchase
+ * is found there by description and value; an older identical one gives a
+ * lower ID, so the resolver keeps the newest (highest).
  */
-export async function withCardEntryId(
-  response: CreateEntryResponse,
-  card: { id: number; dueDate: string; description: string; value: number }
-): Promise<CreateEntryResponse & { occurrenceId?: string }> {
-  if (isEntryId(response.id)) return response;
-  const invoice = await fetchCardInvoice(card.id, card.dueDate);
-  const ids = (invoice.lancamentos ?? [])
-    .filter((e) => e.descricao === card.description && toCents(e.valor) === toCents(card.value) && isEntryId(e.id))
-    .flatMap((e) => {
-      const id = typeof e.id === 'number' ? e.id : parseInteger(e.id);
-      return id === undefined ? [] : [id];
-    });
-  if (ids.length === 0) {
-    // stderr: stdout stays machine-readable under --json.
-    console.error(
-      t('warningCardEntryIdNotFound', String(response.id), card.dueDate, card.id, card.dueDate.slice(0, 7))
-    );
-    return response;
-  }
-  return { ...response, id: Math.max(...ids), occurrenceId: String(response.id) };
+export function cardEntryLookup(card: {
+  id: number;
+  dueDate: string;
+  description: string;
+  value: number;
+}): CreatedEntryLookup {
+  return {
+    find: async () => {
+      const invoice = await fetchCardInvoice(card.id, card.dueDate);
+      return (invoice.lancamentos ?? [])
+        .filter((e) => e.descricao === card.description && toCents(e.valor) === toCents(card.value))
+        .flatMap((e) => {
+          const id = asEntryId(e.id);
+          return id === undefined ? [] : [id];
+        });
+    },
+    notFound: (occurrenceId) =>
+      t(
+        'warningCardEntryIdNotFound',
+        String(occurrenceId),
+        card.dueDate,
+        card.id,
+        card.dueDate.slice(0, 7)
+      ),
+  };
 }
