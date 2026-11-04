@@ -4,7 +4,7 @@ import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, CREDIT_CARD_ACCOUNT, SAVINGS_AC
 import { plasticsRoute } from './mock-plastics.js';
 import { SEEDED_ENTRIES, checkCreatePayload, checkUpdateAccounts, createCardPurchase, createdEntry, invoiceItems, statusLabel } from './mock-entries.js';
 import { connectionsRoute, recordMockRequest } from './mock-connections.js';
-import { importRoute, withRecentStatement } from './mock-import.js';
+import { IMPORT_CANDIDATES, importRoute, withRecentStatement } from './mock-import.js';
 import { balancesRoute } from './mock-balances.js';
 import { sessionRoute } from './mock-session.js';
 
@@ -227,7 +227,8 @@ function entriesListRoute(url: URL): Response {
   const from = url.searchParams.get('inicio') ?? '';
   const to = url.searchParams.get('fim') ?? '';
   const repetition = Number(url.searchParams.get('tipoRepeticao') ?? 7);
-  const list = Object.values(SEEDED_ENTRIES).filter((e) => {
+  const candidates = url.searchParams.get('finalidade') === '3' ? IMPORT_CANDIDATES : [];
+  const list = [...Object.values(SEEDED_ENTRIES), ...candidates].filter((e) => {
     const date = String(e.dataPrevista);
     // Like the real statement list (finalidade 1), card purchases are left out:
     // they only show up in the card's invoices.
