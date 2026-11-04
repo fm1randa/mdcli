@@ -5,7 +5,7 @@ import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE } from './fixtures.js';
 import { FakeEditor } from './import-edit-harness.js';
 import { CONNECTIONS, mockStatement, SINCE } from './import-harness.js';
 
-// Fictional ids. 1001 is Nubank (connection account 9001).
+// Fictional ids. 201 is Conta Teste (connection account 301).
 // Categories: 10 Alimentação (d), 20 Salário (r), 60 Antiga (d, inactive).
 const INACTIVE = { ...CATEGORIES_RESPONSE.items[4], id: 60, nome: 'Antiga', nomeRel: 'Antiga', status: false };
 const COMMIT = [
@@ -57,7 +57,7 @@ function entries(list: unknown[]) {
 }
 
 function run(args: string[], editor: string, stdin?: string) {
-  return runCli(['entries', 'import', 'run', '-a', '1001', '--since', SINCE, '--edit', ...args], {
+  return runCli(['entries', 'import', 'run', '-a', '201', '--since', SINCE, '--edit', ...args], {
     home,
     api,
     stdin,
@@ -117,7 +117,7 @@ describe('entries import run --edit', () => {
   test('opens each default action: rule, AI, needs-category, duplicate, and conciliate with the linked entry', async () => {
     statement([
       bank(TX1, { _ca: RULE_10 }),
-      bank(TX2, { valor: 3000, data: '2026-10-05', descricao: 'Empresa', _ca: { ait: { r: 'tok-r' } } }),
+      bank(TX2, { valor: 3000, data: '2026-10-05', descricao: 'Empresa Teste', _ca: { ait: { r: 'tok-r' } } }),
       bank(TX3, { valor: -7, data: '2026-10-06', descricao: 'Mercado' }),
       bank(TX4, { valor: -40, data: '2026-10-08', descricao: 'Posto' }),
     ]);
@@ -133,7 +133,7 @@ describe('entries import run --edit', () => {
     expect(result.exitCode).toBe(0);
     const file = fake.seen(1);
     expect(file).toContain('import aaaa1111 2026-10-07 -12.34 Alimentação | Padaria\n');
-    expect(file).toContain('import bbbb2222 2026-10-05 3000.00 Salário | Empresa\n');
+    expect(file).toContain('import bbbb2222 2026-10-05 3000.00 Salário | Empresa Teste\n');
     expect(file).toContain('skip cccc3333 2026-10-06 -7.00  | Mercado\n');
     expect(file).toContain('# candidates dddd4444\n# 501 2026-10-08 -40.00 Posto A\n# 502 2026-10-09 -40.00 Posto B\n');
     expect(file).toContain('conciliate dddd4444 501 2026-10-08 -40.00  | Posto\n');

@@ -3,7 +3,7 @@ import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi,
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE } from './fixtures.js';
 import { CONNECTIONS, mockStatement, SINCE } from './import-harness.js';
 
-// Fictional ids. 1001 is Nubank, 9001 its connection account. Category 10 is Alimentação (d), 20 Salário (r).
+// Fictional ids. 201 is Conta Teste, 301 its connection account. Category 10 is Alimentação (d), 20 Salário (r).
 
 const TX1 = 'aaaa1111-1111-4000-8000-000000000001';
 const TX2 = 'bbbb2222-2222-4000-8000-000000000002';
@@ -35,7 +35,7 @@ function statement(rows: unknown[]) {
 }
 
 function run(args: string[], stdin?: string) {
-  return runCli(['entries', 'import', 'run', '-a', '1001', '--since', SINCE, ...args], { home, api, stdin });
+  return runCli(['entries', 'import', 'run', '-a', '201', '--since', SINCE, ...args], { home, api, stdin });
 }
 
 describe('entries import run --dry-run', () => {
@@ -51,8 +51,8 @@ describe('entries import run --dry-run', () => {
     expect(result.exitCode).toBe(0);
     expect(JSON.parse(result.stdout)).toEqual({
       dryRun: true,
-      accountId: 1001,
-      connectionAccount: 9001,
+      accountId: 201,
+      connectionAccount: 301,
       statement: { start: '2026-10-01', end: '2026-10-10', balance: 250.5 },
       overwrite: { value: false, description: false, valueSource: 'preferences', descriptionSource: 'preferences' }, // test/helpers.ts serves the logged-in session, with no conciliacao saved.
       imported: [
@@ -112,17 +112,17 @@ describe('entries import run selection', () => {
     const result = await run(['--dry-run']);
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain(`To see what would be imported, with the suggested categories and actions, use: mdcli entries import list -a 1001 --since ${SINCE}`);
+    expect(result.stderr).toContain(`To see what would be imported, with the suggested categories and actions, use: mdcli entries import list -a 201 --since ${SINCE}`);
     expect(api.requests.some((r) => r.path.includes('/transactions'))).toBe(false);
   });
 
   test('--dry-run without a selection and without --since points at entries import list without it', async () => {
-    const result = await runCli(['entries', 'import', 'run', '-a', 'Nubank', '--dry-run', '--json'], { home, api });
+    const result = await runCli(['entries', 'import', 'run', '-a', 'Conta Teste', '--dry-run', '--json'], { home, api });
 
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toBe('');
     const error = JSON.parse(result.stderr) as { error: string };
-    expect(error.error).toEndWith('use: mdcli entries import list -a Nubank');
+    expect(error.error).toEndWith('use: mdcli entries import list -a "Conta Teste"');
   });
 
   test('every --ids and --reject prefix that matches nothing is named, in the --json error format, and nothing is written', async () => {

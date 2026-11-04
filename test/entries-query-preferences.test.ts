@@ -32,7 +32,7 @@ function session({ config, mdwebMoeda }: SessionPreferences): object {
   };
 }
 
-const DOLLAR_ACCOUNT = { ...CHECKING_ACCOUNT, id: 1007, nome: 'Wise USD', moeda: 2 };
+const DOLLAR_ACCOUNT = { ...CHECKING_ACCOUNT, id: 1007, nome: 'Conta Dólar Teste', moeda: 2 };
 
 const lancamentos = (type: string) =>
   api.requests.filter((r) => r.path === '/v2/lancamentos' && r.query.get('type') === type);
@@ -85,7 +85,7 @@ describe('GET /v2/lancamentos sends the user preferences, as the web does', () =
   test('entries list: pending entries in the present off', async () => {
     api.on('GET /v1/frontend/sessao', session({ config: { pendentesPresente: false, metasRD: false, moeda: 1 } }));
 
-    const result = await runCli(['entries', 'list', '-a', '1001', '-f', '2026-01-01', '-t', '2026-01-31', '--json'], { home, api });
+    const result = await runCli(['entries', 'list', '-a', '201', '-f', '2026-01-01', '-t', '2026-01-31', '--json'], { home, api });
 
     expect(result.exitCode).toBe(0);
     expect(sentPreferences('list')).toEqual({ pendentesPresente: 'false', apenasMetasDefinidas: 'false', moeda: '1' });
@@ -100,7 +100,7 @@ describe('GET /v2/lancamentos sends the user preferences, as the web does', () =
       return { list: [page === 1 ? first : second], meta: { total: 2, page, pageSize: 200 } };
     });
 
-    const result = await runCli(['entries', 'list', '-a', '1001', '-f', '2026-01-01', '-t', '2026-02-28', '--json'], { home, api });
+    const result = await runCli(['entries', 'list', '-a', '201', '-f', '2026-01-01', '-t', '2026-02-28', '--json'], { home, api });
 
     expect(result.exitCode).toBe(0);
     expect(lancamentos('list')).toHaveLength(2);
@@ -137,7 +137,7 @@ describe('GET /v2/lancamentos sends the user preferences, as the web does', () =
   // Review of #128 round 6 (S1): moedaService skips investment portfolios
   // (mdb.js 17336): one in the picked currency does not make it usable.
   test('an investment portfolio in the picked currency does not make it the moeda sent', async () => {
-    const portfolio = { ...CHECKING_ACCOUNT, id: 1009, nome: 'Carteira EUR', tipo: 'CARTEIRA_INVEST', moeda: 3 };
+    const portfolio = { ...CHECKING_ACCOUNT, id: 1009, nome: 'Carteira Euro Teste', tipo: 'CARTEIRA_INVEST', moeda: 3 };
     api.on('GET /v1/cadastros/contas', { ...ACCOUNTS_RESPONSE, items: [...ACCOUNTS_RESPONSE.items, portfolio] });
     api.on('GET /v1/frontend/sessao', session({ config: { pendentesPresente: true, metasRD: false, moeda: 1 }, mdwebMoeda: 3 }));
 
@@ -159,7 +159,7 @@ describe('GET /v2/lancamentos sends the user preferences, as the web does', () =
   test('a session state that cannot be read: the list still runs, with the web defaults', async () => {
     api.on('GET /v1/frontend/sessao', { message: 'no' }, 500);
 
-    const result = await runCli(['entries', 'list', '-a', '1001', '-f', '2026-01-01', '-t', '2026-01-31', '--json'], { home, api });
+    const result = await runCli(['entries', 'list', '-a', '201', '-f', '2026-01-01', '-t', '2026-01-31', '--json'], { home, api });
 
     expect(result.exitCode).toBe(0);
     expect(sentPreferences('list')).toEqual({ pendentesPresente: null, apenasMetasDefinidas: null, moeda: '1' });

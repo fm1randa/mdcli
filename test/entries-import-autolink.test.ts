@@ -5,8 +5,8 @@ import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi,
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE } from './fixtures.js';
 import { SINCE } from './import-harness.js';
 
-// Fictional ids. 1001 is Nubank (connection account 9001); 1002 is Cartão Azul (connection
-// account 9002, proximoVencimento 2026-01-16). Statement 2026-10-01 to 2026-10-28, so the
+// Fictional ids. 201 is Conta Teste (connection account 301); 202 is Cartão Teste (connection
+// account 302, proximoVencimento 2026-01-16). Statement 2026-10-01 to 2026-10-28, so the
 // search window is 2026-09-29 to 2026-10-30.
 //
 // The web links one existing Entry to one Bank Transaction on its own (mdb.js `rt`): Entries in
@@ -20,8 +20,8 @@ const CONNECTIONS = [
     id: 501,
     status: 'UPDATED',
     accounts: [
-      { id: 9001, type: 'CONTA CORRENTE', conta: 1001 },
-      { id: 9002, type: 'CARTAOCREDITO', conta: 1002 },
+      { id: 301, type: 'CONTA CORRENTE', conta: 201 },
+      { id: 302, type: 'CARTAOCREDITO', conta: 202 },
     ],
   },
 ];
@@ -83,7 +83,7 @@ beforeEach(() => {
   api.on('GET /v1/cadastros/contas', ACCOUNTS_RESPONSE);
   api.on('GET /v1/cadastros/categorias', CATEGORIES_RESPONSE);
   api.on('GET /v1/lancamentos/duplicidade', {});
-  api.on('GET /v1/integracao/account/9001/transactions', STATEMENT);
+  api.on('GET /v1/integracao/account/301/transactions', STATEMENT);
   api.on('GET /v2/lancamentos', { list: ENTRIES, meta: { total: ENTRIES.length, page: 1, pageSize: 500 } });
   api.on('POST /v1/smartmatch/ai', [null]);
   api.on('POST /v1/integracao/transactions/markImported', {});
@@ -110,7 +110,7 @@ interface Row {
 }
 
 async function listed(): Promise<Map<string, Row>> {
-  const result = await cli(['entries', 'import', 'list', '-a', '1001', '--since', SINCE, '--json']);
+  const result = await cli(['entries', 'import', 'list', '-a', '201', '--since', SINCE, '--json']);
   expect(result.exitCode).toBe(0);
   const rows = JSON.parse(result.stdout).transactions as Row[];
   return new Map(rows.map((row) => [row.integrationId, row]));
@@ -170,7 +170,7 @@ describe('entries import: one Entry linked automatically, like the web', () => {
 
   test('run --ids conciliates each row with its linked Entry', async () => {
     const result = await cli([
-      'entries', 'import', 'run', '-a', '1001', '--since', SINCE,
+      'entries', 'import', 'run', '-a', '201', '--since', SINCE,
       '--ids', '10000000,20000000,30000000', '-c', '40', '--yes', '--json',
     ]);
 
@@ -193,7 +193,7 @@ describe('entries import: one Entry linked automatically, like the web', () => {
     writeFileSync(editor, `cp "$1" "${seen}"\n`);
 
     const result = await cli(
-      ['entries', 'import', 'run', '-a', '1001', '--since', SINCE, '--edit', '--dry-run', '--json'],
+      ['entries', 'import', 'run', '-a', '201', '--since', SINCE, '--edit', '--dry-run', '--json'],
       { EDITOR: `sh ${editor}` },
     );
     const file = await Bun.file(seen).text();
@@ -217,7 +217,7 @@ describe('entries import: one Entry linked automatically, like the web', () => {
     writeFileSync(plan, JSON.stringify({ transactions: [{ id: '50000000', action: 'conciliate', entry: 708 }] }));
 
     const result = await cli([
-      'entries', 'import', 'run', '-a', '1001', '--since', SINCE, '--plan', plan, '--dry-run', '--json',
+      'entries', 'import', 'run', '-a', '201', '--since', SINCE, '--plan', plan, '--dry-run', '--json',
     ]);
 
     expect(result.exitCode).toBe(0);
@@ -225,13 +225,13 @@ describe('entries import: one Entry linked automatically, like the web', () => {
   });
 
   test('a card links by dataCompetencia, not the purchase date', async () => {
-    api.on('GET /v1/integracao/account/9002/transactions', {
+    api.on('GET /v1/integracao/account/302/transactions', {
       inicio: '2026-10-01',
       fim: '2026-10-10',
       saldo: 0,
       lancamentos: [bank(B1, '2026-10-07', -30)],
     });
-    api.on('GET /v1/cartoes/1002/fatura/2026-01-16', {
+    api.on('GET /v1/cartoes/202/fatura/2026-01-16', {
       vencimento: '2026-01-16',
       fechamento: '2026-01-08',
       valor: -30,
@@ -241,7 +241,7 @@ describe('entries import: one Entry linked automatically, like the web', () => {
       ],
     });
 
-    const result = await cli(['entries', 'import', 'list', '-a', '1002', '--since', SINCE, '--json']);
+    const result = await cli(['entries', 'import', 'list', '-a', '202', '--since', SINCE, '--json']);
 
     expect(result.exitCode).toBe(0);
     const row = JSON.parse(result.stdout).transactions[0];

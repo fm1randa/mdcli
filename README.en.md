@@ -1,4 +1,4 @@
-<!-- traduzido de README.md @ a39c2a6 (base: a39c2a6181a5ac245b93da0d85798a2030628d8a; readme-blob: f45a3d8c3dfb8714eb672819e7ac62840b8811d6); ao atualizar o README.md, sincronize este arquivo e atualize o SHA e o readme-blob (git hash-object README.md) -->
+<!-- traduzido de README.md @ 3de829b (base: 3de829bf2677009588aa832f00beb411ef273fc4; readme-blob: 055c38868d710abe7a63354290c1d313e65f7db4); ao atualizar o README.md, sincronize este arquivo e atualize o SHA e o readme-blob (git hash-object README.md) -->
 [Português (Brasil)](README.md) · **English**
 
 > The Portuguese [README.md](README.md) is the reference version; this English translation may lag behind it.
@@ -171,7 +171,7 @@ mdcli auth logout --all
 
 `--account`, `--category`, and `--tag` accept three forms, tried in this order:
 
-1. **Numeric ID** — e.g. `--account 1167419`. Fastest, no network needed.
+1. **Numeric ID** — e.g. `--account 201`. Fastest, no network needed.
 2. **Alias** — a short name you've mapped to an ID via `mdcli accounts alias add`. Stored locally in `~/.config/mdcli/mdcli.config.json`.
 3. **Exact name** — the entity's real name as shown by `mdcli accounts list`, matched case-insensitively. Names are looked up via a 30-day on-disk cache and auto-invalidated when a request using a cached ID returns a non-2xx.
 
@@ -204,7 +204,7 @@ mdcli accounts list --json
 mdcli accounts types
 
 # Create an account (--type accepts the ID or the name from "accounts types")
-mdcli accounts create --name "Nubank" --type "Conta Corrente" --bank nubank --balance 0
+mdcli accounts create --name "Conta Teste" --type "Conta Corrente" --bank teste --balance 0
 
 # Fields of the web "Nova conta" form: initial balance date (default:
 # yesterday, like the web), Credor/Devedor (a negative --balance is debtor too)
@@ -213,32 +213,32 @@ mdcli accounts create --name "Nubank" --type "Conta Corrente" --bank nubank --ba
 mdcli accounts create --name "Empréstimo" --type "Conta Corrente" --balance 500 --debtor --balance-date 2026-10-01 --liquidity future
 
 # Update an account (only the fields you pass are changed)
-mdcli accounts update 1167419 --name "Nubank PF"
+mdcli accounts update 201 --name "Conta Teste PF"
 
 # --balance keeps the current sign (like the web's Credor/Devedor), except a
 # negative value, which is debtor; --debtor or --creditor alone only flip the
 # sign of the initial balance
-mdcli accounts update 1167419 --balance 82.09 --balance-date 2026-01-01
-mdcli accounts update 1167419 --debtor
+mdcli accounts update 201 --balance 82.09 --balance-date 2026-01-01
+mdcli accounts update 201 --debtor
 
 # Leave the account out of net worth, or include it again
-mdcli accounts update 1167419 --hide-net-worth
-mdcli accounts update 1167419 --show-net-worth
+mdcli accounts update 201 --hide-net-worth
+mdcli accounts update 201 --show-net-worth
 
 # Archive (deactivate) or reactivate an account; --close also closes it
-mdcli accounts update 1167419 --inactive
-mdcli accounts update 1167419 --inactive --close
-mdcli accounts update 1167419 --active
+mdcli accounts update 201 --inactive
+mdcli accounts update 201 --inactive --close
+mdcli accounts update 201 --active
 
 # Delete an account (asks for confirmation)
-mdcli accounts delete 1167419
+mdcli accounts delete 201
 
 # Create an alias for quick access
-mdcli accounts alias add --id 1167419 --name mp
+mdcli accounts alias add --id 201 --name mp
 
 # List, change, or remove aliases (stored on this computer only)
 mdcli accounts alias list
-mdcli accounts alias update --id 1167419 --name mercadopago
+mdcli accounts alias update --id 201 --name mercadopago
 mdcli accounts alias rm --name mercadopago
 
 # Categories and tags have the same alias commands
@@ -255,7 +255,7 @@ mdcli tags alias rm --name trip
 mdcli entries list --account mp --from 2024-01-01 --to 2024-01-31
 
 # List entries using the account's exact name (case-insensitive)
-mdcli entries list --account "Nubank - Conta Corrente" --from 2024-01-01 --to 2024-01-31
+mdcli entries list --account "Conta Teste - Conta Corrente" --from 2024-01-01 --to 2024-01-31
 
 # Meu Dinheiro loads entries up to 2031-12-31; a later --to is refused before
 # any request. Errors go to stderr with exit code 1; under --json they are
@@ -285,15 +285,15 @@ mdcli entries show 12345
 mdcli entries show 12345 --raw
 
 # Income vs. expenses by category for the current month (transfers left out)
-mdcli entries summary --account mp,nubank
+mdcli entries summary --account mp,conta
 
 # Month by month for a quarter, or per account; --json/--csv also work here
 mdcli entries summary --account mp --from 2026-01-01 --to 2026-03-31 --by month
-mdcli entries summary --account mp,nubank --by account --include-transfers
+mdcli entries summary --account mp,conta --by account --include-transfers
 
 # Leave out categories (and their subcategories), e.g. a card bill paid from
 # checking that would double-count the purchases already on the card
-mdcli entries summary --account mp,nubank --exclude-category "Pagamento de cartão"
+mdcli entries summary --account mp,conta --exclude-category "Pagamento de cartão"
 
 # Create an entry. The type (-T, expense by default) and the category have to
 # match: the web app only lists categories of the entry's type, so a category
@@ -310,7 +310,7 @@ mdcli entries create --account "Mercado Pago" --description "Groceries" --value 
 # Transfer between two accounts (--account is the origin); the category
 # defaults to the system transfer category, as in the web app. Transfers to or
 # from a credit card, or between currencies, are not supported yet.
-mdcli entries create --account mp --type transfer --to-account nubank --description "Reserva" --value 500
+mdcli entries create --account mp --type transfer --to-account conta --description "Reserva" --value 500
 
 # Installments (parcelada): 1200 split into 10 monthly installments; the first
 # one absorbs the rounding cent. --per-installment makes --value each one's,
@@ -353,7 +353,7 @@ mdcli entries update 12345 --date 2027-01-25 --scope following
 # Change the account (ID, alias, or name, as in create); in a series, with --scope.
 # Passing the current account is not an error: the entry is saved as is, as in the web.
 # An inactive account is refused (the web does not offer it).
-mdcli entries update 12345 --account nubank --scope following
+mdcli entries update 12345 --account conta --scope following
 # To a credit card, as in the web: the purchase goes to the invoice of the
 # entry's date (or --date) counted from the card's next due date (an earlier
 # date lands on the next invoice), without an effective date, on the entry's

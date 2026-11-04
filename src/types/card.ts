@@ -123,7 +123,7 @@ export interface NormalizedCardInstallment {
 }
 
 /**
- * The invoice summary in `cards invoice --json --summary` (Filipe, option B,
+ * The invoice summary in `cards invoice --json --summary` (option B,
  * 2026-10-19). Amounts are R$ with the API's signs (reconciled/unreconciled
  * are the R$ parts of the bill, not counts). A field the API leaves out is
  * null, never a guessed zero; limit comes from the card, as in the web.

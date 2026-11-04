@@ -135,7 +135,7 @@ async function invoiceAction(options: { account: string; month?: string; json?: 
   const entries = normalizeCardEntries(invoiceResponse);
   const summary = normalizeInvoiceSummary(invoiceResponse, account);
 
-  // --json alone stays the bare array of items (Filipe, option B, 2026-10-19);
+  // --json alone stays the bare array of items (option B, 2026-10-19);
   // --summary adds the bill: { invoice, entries }.
   if (options.json) {
     console.log(JSON.stringify(options.summary ? { invoice: summary, entries } : entries, null, 2));

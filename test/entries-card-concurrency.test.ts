@@ -30,7 +30,7 @@ beforeEach(() => {
   api.on('GET /v1/cadastros/categorias', CATEGORIES_RESPONSE);
   api.on('GET /v2/lancamentos', EMPTY_ENTRIES_RESPONSE);
   for (const month of MONTHS) {
-    for (const [card, day] of [[1002, '16'], [1006, '05']] as const) {
+    for (const [card, day] of [[202, '16'], [1006, '05']] as const) {
       const due = `2026-${month}-${day}`;
       api.on(`GET /v1/cartoes/${card}/fatura/${due}`, slowInvoice(due, [], 20));
     }
@@ -43,7 +43,7 @@ afterEach(() => {
   home.cleanup();
 });
 
-const LIST = ['entries', 'list', '-a', '1002,1006', '-f', '2026-01-01', '-t', '2026-12-31', '--json'];
+const LIST = ['entries', 'list', '-a', '202,1006', '-f', '2026-01-01', '-t', '2026-12-31', '--json'];
 
 describe('entries list on two cards over a year', () => {
   test('reads the 24 invoices a few at a time, at most 4 in flight', async () => {
@@ -57,8 +57,8 @@ describe('entries list on two cards over a year', () => {
 
   test('an item in two invoices is listed once, from the earlier invoice, even when that one answers last', async () => {
     const item = { id: 500, descricao: 'Assinatura', valor: -30, data: '2026-01-02' };
-    api.on('GET /v1/cartoes/1002/fatura/2026-01-16', slowInvoice('2026-01-16', [item], 150));
-    api.on('GET /v1/cartoes/1002/fatura/2026-02-16', slowInvoice('2026-02-16', [item, { ...item, id: 501, descricao: 'Livro' }], 5));
+    api.on('GET /v1/cartoes/202/fatura/2026-01-16', slowInvoice('2026-01-16', [item], 150));
+    api.on('GET /v1/cartoes/202/fatura/2026-02-16', slowInvoice('2026-02-16', [item, { ...item, id: 501, descricao: 'Livro' }], 5));
     api.on('GET /v1/cartoes/1006/fatura/2026-03-05', slowInvoice('2026-03-05', [{ ...item, id: 502, descricao: 'Padaria' }], 5));
 
     const result = await runCli(LIST, { home, api });

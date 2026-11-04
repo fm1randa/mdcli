@@ -3,7 +3,7 @@ import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi,
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE } from './fixtures.js';
 import { CONNECTIONS, mockStatement, SINCE } from './import-harness.js';
 
-// Fictional ids. 1001 is Nubank. 9001 is its connection account, not the Account id.
+// Fictional ids. 201 is Conta Teste. 301 is its connection account, not the Account id.
 // Statement 2026-10-01..2026-10-10, so the search window is 2026-09-29..2026-10-12.
 
 const RULE = 'a1a1a1a1-1111-4000-8000-000000000001';
@@ -47,7 +47,7 @@ function entries(list: unknown[]) {
 
 function list(json = true) {
   return runCli(
-    ['entries', 'import', 'list', '-a', '1001', '--since', SINCE, ...(json ? ['--json'] : [])],
+    ['entries', 'import', 'list', '-a', '201', '--since', SINCE, ...(json ? ['--json'] : [])],
     { home, api },
   );
 }

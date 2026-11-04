@@ -5,7 +5,7 @@ import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi,
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE } from './fixtures.js';
 import { CONNECTIONS, mockStatement, SINCE } from './import-harness.js';
 
-// Fictional ids. 1001 is Nubank (connection account 9001). 10 Alimentação (d), 20 Salário (r).
+// Fictional ids. 201 is Conta Teste (connection account 301). 10 Alimentação (d), 20 Salário (r).
 const FONTE = 'Importado via Integração bancária automática';
 
 const TX1 = 'aaaa1111-1111-4000-8000-000000000001';
@@ -49,7 +49,7 @@ function planFile(content: unknown): string {
 }
 
 function cli(args: string[], stdin?: string) {
-  return runCli(['entries', 'import', ...args, '-a', '1001', '--since', SINCE], { home, api, stdin });
+  return runCli(['entries', 'import', ...args, '-a', '201', '--since', SINCE], { home, api, stdin });
 }
 
 function routes(): string[] {
@@ -88,7 +88,7 @@ describe('entries import run --plan --yes', () => {
     ]);
     const [mark, conciliation, importing] = mutations(api);
     // The skipped transaction is not marked, and the page date ignores it.
-    expect(mark.body).toEqual({ account: 9001, ids: [TX4], date: '2026-10-10' });
+    expect(mark.body).toEqual({ account: 301, ids: [TX4], date: '2026-10-10' });
     expect(conciliation.body).toMatchObject({ lancamentos: [], maxDate: '2026-10-10', saldo: 80, fonte: FONTE });
     const imported = (importing.body as { lancamentos: Record<string, unknown>[] }).lancamentos;
     expect(imported.map((entry) => [entry.integrationId, entry.valorPrevisto, entry.descricao, entry.categoria])).toEqual([

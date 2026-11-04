@@ -3,7 +3,7 @@ import { createHome, localDay, MANUAL_AUTH, mutations, runCli, startMockApi, typ
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE } from './fixtures.js';
 import { SINCE } from './import-harness.js';
 
-// Fictional ids. 1001 is Nubank in the account fixture; 9001 is its connection account.
+// Fictional ids. 201 is Conta Teste in the account fixture; 301 is its connection account.
 // Without --since the new Bank Transactions come from accounts[].summary of GET /integracao/connections,
 // like the web's "Importar novos lançamentos" badge. Without a summary (a GET rarely has one: the web gets it
 // from the sync PUT, which the CLI never sends on its own), the statement loads from the web's import dialog
@@ -30,7 +30,7 @@ const STATEMENT = {
 };
 
 function connections(summary: unknown) {
-  const account: Record<string, unknown> = { id: 9001, type: 'CONTA CORRENTE', conta: 1001 };
+  const account: Record<string, unknown> = { id: 301, type: 'CONTA CORRENTE', conta: 201 };
   if (summary !== undefined) account.summary = summary;
   return [{ id: 501, status: 'UPDATED', accounts: [account] }];
 }
@@ -42,7 +42,7 @@ beforeEach(() => {
   api = startMockApi();
   api.on('GET /v1/integracao/connections', connections(SUMMARY));
   api.on('GET /v1/cadastros/contas', ACCOUNTS_RESPONSE);
-  api.on('GET /v1/integracao/account/9001/transactions', STATEMENT);
+  api.on('GET /v1/integracao/account/301/transactions', STATEMENT);
   api.on('GET /v1/cadastros/categorias', CATEGORIES_RESPONSE);
   api.on('GET /v1/lancamentos/duplicidade', {});
   api.on('GET /v2/lancamentos', { list: [], meta: { total: 0, page: 1, pageSize: 500 } });
@@ -64,7 +64,7 @@ function startQueries(): (string | null)[] {
 
 /** The account fixture with some fields replaced; undefined removes the field. */
 function accountsWith(extra: Record<string, unknown>): void {
-  const items = ACCOUNTS_RESPONSE.items.map((item) => (item.id === 1001 ? { ...item, ...extra } : item));
+  const items = ACCOUNTS_RESPONSE.items.map((item) => (item.id === 201 ? { ...item, ...extra } : item));
   api.on('GET /v1/cadastros/contas', { ...ACCOUNTS_RESPONSE, items });
 }
 
@@ -74,7 +74,7 @@ function loadedStatement(): boolean {
 
 describe('entries import list without --since: the new bank transactions', () => {
   test('lists the connection summary, with its period and balance as the statement, and does not load the full statement', async () => {
-    const result = await cli(['entries', 'import', 'list', '-a', '1001', '--json']);
+    const result = await cli(['entries', 'import', 'list', '-a', '201', '--json']);
 
     expect(result.exitCode).toBe(0);
     expect(result.stderr).toBe('');
@@ -90,7 +90,7 @@ describe('entries import list without --since: the new bank transactions', () =>
   });
 
   test('--since loads the full statement from that date, as the web manual import dialog does', async () => {
-    const result = await cli(['entries', 'import', 'list', '-a', '1001', '--since', SINCE, '--json']);
+    const result = await cli(['entries', 'import', 'list', '-a', '201', '--since', SINCE, '--json']);
 
     expect(result.exitCode).toBe(0);
     const document = JSON.parse(result.stdout);
@@ -110,7 +110,7 @@ describe('entries import list without --since: the new bank transactions', () =>
       const lastStatement = localDay(-3);
       accountsWith({ dataUltimoExtrato: `${lastStatement}T00:00:00` });
 
-      const result = await cli(['entries', 'import', 'list', '-a', '1001', '--json']);
+      const result = await cli(['entries', 'import', 'list', '-a', '201', '--json']);
 
       expect(result.exitCode).toBe(0);
       expect(result.stderr).toBe('');
@@ -131,7 +131,7 @@ describe('entries import list without --since: the new bank transactions', () =>
       api.on('GET /v1/integracao/connections', connections(undefined));
       accountsWith(extra);
 
-      const result = await cli(['entries', 'import', 'list', '-a', '1001', '--json']);
+      const result = await cli(['entries', 'import', 'list', '-a', '201', '--json']);
 
       expect(result.exitCode).toBe(0);
       expect(JSON.parse(result.stdout).since).toBe(localDay(-90));
@@ -143,16 +143,16 @@ describe('entries import list without --since: the new bank transactions', () =>
     api.on('GET /v1/integracao/connections', connections(undefined));
     const lastStatement = localDay(-3);
     accountsWith({ dataUltimoExtrato: lastStatement });
-    api.on('GET /v1/integracao/account/9001/transactions', { inicio: lastStatement, fim: localDay(0), saldo: 1, lancamentos: [] });
+    api.on('GET /v1/integracao/account/301/transactions', { inicio: lastStatement, fim: localDay(0), saldo: 1, lancamentos: [] });
 
-    const json = await cli(['entries', 'import', 'list', '-a', '1001', '--json']);
+    const json = await cli(['entries', 'import', 'list', '-a', '201', '--json']);
     expect(json.exitCode).toBe(0);
     const document = JSON.parse(json.stdout);
     expect(document.source).toBe('statement');
     expect(document.since).toBe(lastStatement);
     expect(document.transactions).toEqual([]);
 
-    const text = await cli(['entries', 'import', 'list', '-a', '1001']);
+    const text = await cli(['entries', 'import', 'list', '-a', '201']);
     expect(text.exitCode).toBe(0);
     expect(text.stdout).toContain(`No bank transactions since ${lastStatement}.`);
     expect(text.stdout).toContain(`--since <YYYY-MM-DD> (${localDay(-90)} or later)`);
@@ -162,9 +162,9 @@ describe('entries import list without --since: the new bank transactions', () =>
 
   test('an empty statement from 90 days ago does not suggest looking further back', async () => {
     api.on('GET /v1/integracao/connections', connections(undefined));
-    api.on('GET /v1/integracao/account/9001/transactions', { inicio: null, fim: null, saldo: 1, lancamentos: [] });
+    api.on('GET /v1/integracao/account/301/transactions', { inicio: null, fim: null, saldo: 1, lancamentos: [] });
 
-    const text = await cli(['entries', 'import', 'list', '-a', '1001']);
+    const text = await cli(['entries', 'import', 'list', '-a', '201']);
 
     expect(text.exitCode).toBe(0);
     expect(text.stdout).toContain(`No bank transactions since ${localDay(-90)}.`);
@@ -173,9 +173,9 @@ describe('entries import list without --since: the new bank transactions', () =>
 
   test('import run with nothing new exits 0 without writing', async () => {
     api.on('GET /v1/integracao/connections', connections(undefined));
-    api.on('GET /v1/integracao/account/9001/transactions', { inicio: null, fim: null, saldo: 1, lancamentos: [] });
+    api.on('GET /v1/integracao/account/301/transactions', { inicio: null, fim: null, saldo: 1, lancamentos: [] });
 
-    const json = await cli(['entries', 'import', 'run', '-a', '1001', '--edit', '--dry-run', '--json']);
+    const json = await cli(['entries', 'import', 'run', '-a', '201', '--edit', '--dry-run', '--json']);
     expect(json.exitCode).toBe(0);
     expect(json.stderr).toBe('');
     const run = JSON.parse(json.stdout);
@@ -189,7 +189,7 @@ describe('entries import list without --since: the new bank transactions', () =>
     const lastStatement = localDay(-3);
     accountsWith({ dataUltimoExtrato: lastStatement });
 
-    const result = await cli(['entries', 'import', 'run', '-a', '1001', '--ids', 'ffffffff', '-c', '10', '--dry-run', '--json']);
+    const result = await cli(['entries', 'import', 'run', '-a', '201', '--ids', 'ffffffff', '-c', '10', '--dry-run', '--json']);
 
     expect(result.exitCode).toBe(0);
     const run = JSON.parse(result.stdout);
@@ -199,7 +199,7 @@ describe('entries import list without --since: the new bank transactions', () =>
   });
 
   test('import run without --since imports from the summary', async () => {
-    const result = await cli(['entries', 'import', 'run', '-a', '1001', '--ids', 'eeeeeeee', '-c', '20', '--dry-run', '--json']);
+    const result = await cli(['entries', 'import', 'run', '-a', '201', '--ids', 'eeeeeeee', '-c', '20', '--dry-run', '--json']);
 
     expect(result.exitCode).toBe(0);
     const run = JSON.parse(result.stdout);

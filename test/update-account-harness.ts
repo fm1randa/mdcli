@@ -2,10 +2,10 @@ import { createHome, MANUAL_AUTH, mutations, type MockApi, startMockApi, type Te
 import { ACCOUNTS_RESPONSE, CHECKING_ACCOUNT, CREDIT_CARD_ACCOUNT, SAVINGS_ACCOUNT } from './fixtures.js';
 
 // Shared by the entries update --account tests (#123).
-// NuCel (#123): a fixed monthly series on Nubank (1001), scheduled.
+// Assinatura Teste (#123): a fixed monthly series on Conta Teste (201), scheduled.
 export const FIXED_OCCURRENCE = {
   id: 80,
-  descricao: 'NuCel',
+  descricao: 'Assinatura Teste',
   tipo: 'd',
   valor: -45,
   valorPrevisto: -45,
@@ -13,7 +13,7 @@ export const FIXED_OCCURRENCE = {
   dataPrevista: '2027-01-10',
   status: 'agendado',
   conciliado: false,
-  conta: 1001,
+  conta: 201,
   categoria: 10,
   parcela: 'fixa',
   agendaId: 77,
@@ -21,7 +21,7 @@ export const FIXED_OCCURRENCE = {
   tags: [],
 };
 
-// Confirmed on Nubank, not reconciled.
+// Confirmed on Conta Teste, not reconciled.
 export const CONFIRMED_ENTRY = {
   id: 70,
   descricao: 'Café',
@@ -34,19 +34,19 @@ export const CONFIRMED_ENTRY = {
   dataEfetiva: '2026-01-05',
   status: 'confirmado',
   conciliado: false,
-  conta: 1001,
+  conta: 201,
   categoria: 10,
   tags: [],
 };
 
-export const INTER_ACCOUNT = { ...CHECKING_ACCOUNT, id: 1006, nome: 'Inter' };
+export const SECOND_ACCOUNT = { ...CHECKING_ACCOUNT, id: 1006, nome: 'Conta Teste Dois' };
 // Archived: the web app's account selectors leave it out.
 export const ARCHIVED_ACCOUNT = { ...CHECKING_ACCOUNT, id: 1007, nome: 'Antiga', status: false };
 // fechamento: the invoice closes that many days before it is due.
 export const BLUE_CARD = { ...CREDIT_CARD_ACCOUNT, fechamento: 8 };
-export const GOLD_CARD = { ...CREDIT_CARD_ACCOUNT, id: 1005, nome: 'Cartão Ouro', proximoVencimento: '2026-01-10T00:00:00', fechamento: 8 };
+export const GOLD_CARD = { ...CREDIT_CARD_ACCOUNT, id: 205, nome: 'Cartão Teste Dois', proximoVencimento: '2026-01-10T00:00:00', fechamento: 8 };
 
-// On Cartão Azul (1002): bought on 2026-01-05, on the invoice due 2026-01-16.
+// On Cartão Teste (202): bought on 2026-01-05, on the invoice due 2026-01-16.
 export const CARD_PURCHASE = {
   id: 90,
   descricao: 'Livro',
@@ -58,13 +58,13 @@ export const CARD_PURCHASE = {
   dataCompetencia: '2026-01-05',
   status: 'nconciliado',
   conciliado: false,
-  conta: 1002,
+  conta: 202,
   categoria: 10,
-  plastico: 7,
+  plastico: 62,
   tags: [],
 };
 
-// Nubank (1001) -> Poupança (1004), seen from the destination half: the API
+// Conta Teste (201) -> Poupança (204), seen from the destination half: the API
 // hands back either half of the pair.
 export const TRANSFER_DESTINATION_HALF = {
   id: 51,
@@ -77,25 +77,25 @@ export const TRANSFER_DESTINATION_HALF = {
   dataEfetiva: '2026-01-15',
   status: 'conciliado',
   conciliado: true,
-  conta: 1004,
-  contaT: 1001,
+  conta: 204,
+  contaT: 201,
   categoria: 30,
   tags: [],
 };
 
-/** A mock API with the accounts and entries above, and a home with the alias reserva -> 1004. */
+/** A mock API with the accounts and entries above, and a home with the alias reserva -> 204. */
 export function startUpdateAccountApi(): { api: MockApi; home: TestHome } {
   const api = startMockApi();
-  api.on('GET /v1/cadastros/contas', { ...ACCOUNTS_RESPONSE, items: [CHECKING_ACCOUNT, BLUE_CARD, SAVINGS_ACCOUNT, INTER_ACCOUNT, GOLD_CARD, ARCHIVED_ACCOUNT] });
+  api.on('GET /v1/cadastros/contas', { ...ACCOUNTS_RESPONSE, items: [CHECKING_ACCOUNT, BLUE_CARD, SAVINGS_ACCOUNT, SECOND_ACCOUNT, GOLD_CARD, ARCHIVED_ACCOUNT] });
   for (const entry of [TRANSFER_DESTINATION_HALF, FIXED_OCCURRENCE, CONFIRMED_ENTRY, CARD_PURCHASE]) {
     api.on(`GET /v1/lancamentos/${entry.id}`, entry);
     api.on(`PUT /v1/lancamentos/${entry.id}`, (req) => ({ ...entry, ...(req.body as object) }));
   }
-  // Cartão Azul has a holder plastic; Cartão Ouro has none.
-  api.on('GET /v1/cadastros/plasticos', [{ id: 21, conta: 1002, tipo: 'T', titular: true, nome: 'Bia', status: true }]);
+  // Cartão Teste has a holder plastic; Cartão Teste Dois has none.
+  api.on('GET /v1/cadastros/plasticos', [{ id: 21, conta: 202, tipo: 'T', titular: true, nome: 'Titular Teste', status: true }]);
   const home = createHome({
     ...MANUAL_AUTH,
-    aliases: { accounts: [{ id: 1004, name: 'reserva' }], categories: [], tags: [] },
+    aliases: { accounts: [{ id: 204, name: 'reserva' }], categories: [], tags: [] },
   });
   return { api, home };
 }

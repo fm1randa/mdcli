@@ -168,7 +168,7 @@ mdcli auth logout --all
 
 `--account`, `--category` e `--tag` aceitam três formas, tentadas nesta ordem:
 
-1. **ID numérico** — ex.: `--account 1167419`. O mais rápido, sem precisar de rede.
+1. **ID numérico** — ex.: `--account 201`. O mais rápido, sem precisar de rede.
 2. **Alias** — um nome curto que você associou a um ID com `mdcli accounts alias add`. Fica salvo localmente em `~/.config/mdcli/mdcli.config.json`.
 3. **Nome exato** — o nome real da entidade, como mostrado por `mdcli accounts list`, comparado sem diferenciar maiúsculas de minúsculas. Os nomes são buscados em um cache em disco de 30 dias, invalidado automaticamente quando uma requisição que usou um ID do cache retorna um status fora da faixa 2xx.
 
@@ -201,7 +201,7 @@ mdcli accounts list --json
 mdcli accounts types
 
 # Cria uma conta (--type aceita o ID ou o nome mostrado em "accounts types")
-mdcli accounts create --name "Nubank" --type "Conta Corrente" --bank nubank --balance 0
+mdcli accounts create --name "Conta Teste" --type "Conta Corrente" --bank teste --balance 0
 
 # Campos do formulário "Nova conta" da web: data do saldo inicial (padrão:
 # ontem, como na web), Credor/Devedor (--balance negativo também é devedor) e
@@ -210,32 +210,32 @@ mdcli accounts create --name "Nubank" --type "Conta Corrente" --bank nubank --ba
 mdcli accounts create --name "Empréstimo" --type "Conta Corrente" --balance 500 --debtor --balance-date 2026-10-01 --liquidity future
 
 # Atualiza uma conta (só os campos informados são alterados)
-mdcli accounts update 1167419 --name "Nubank PF"
+mdcli accounts update 201 --name "Conta Teste PF"
 
 # --balance mantém o sinal atual (como o Credor/Devedor da web), salvo um valor
 # negativo, que é devedor; --debtor ou --creditor sozinhos só trocam o sinal do
 # saldo inicial
-mdcli accounts update 1167419 --balance 82.09 --balance-date 2026-01-01
-mdcli accounts update 1167419 --debtor
+mdcli accounts update 201 --balance 82.09 --balance-date 2026-01-01
+mdcli accounts update 201 --debtor
 
 # Tira do patrimônio ou volta a incluir
-mdcli accounts update 1167419 --hide-net-worth
-mdcli accounts update 1167419 --show-net-worth
+mdcli accounts update 201 --hide-net-worth
+mdcli accounts update 201 --show-net-worth
 
 # Arquiva (desativa) ou reativa uma conta; --close também encerra a conta
-mdcli accounts update 1167419 --inactive
-mdcli accounts update 1167419 --inactive --close
-mdcli accounts update 1167419 --active
+mdcli accounts update 201 --inactive
+mdcli accounts update 201 --inactive --close
+mdcli accounts update 201 --active
 
 # Exclui uma conta (pede confirmação)
-mdcli accounts delete 1167419
+mdcli accounts delete 201
 
 # Cria um alias para acesso rápido
-mdcli accounts alias add --id 1167419 --name mp
+mdcli accounts alias add --id 201 --name mp
 
 # Lista, troca ou remove aliases (salvos só neste computador)
 mdcli accounts alias list
-mdcli accounts alias update --id 1167419 --name mercadopago
+mdcli accounts alias update --id 201 --name mercadopago
 mdcli accounts alias rm --name mercadopago
 
 # Categorias e tags têm os mesmos comandos de alias
@@ -252,7 +252,7 @@ mdcli tags alias rm --name trip
 mdcli entries list --account mp --from 2024-01-01 --to 2024-01-31
 
 # Lista lançamentos usando o nome exato da conta (sem diferenciar maiúsculas de minúsculas)
-mdcli entries list --account "Nubank - Conta Corrente" --from 2024-01-01 --to 2024-01-31
+mdcli entries list --account "Conta Teste - Conta Corrente" --from 2024-01-01 --to 2024-01-31
 
 # O Meu Dinheiro carrega lançamentos até 2031-12-31; um --to posterior é recusado
 # antes de qualquer requisição. Erros vão para o stderr com código de saída 1; com
@@ -282,15 +282,15 @@ mdcli entries show 12345
 mdcli entries show 12345 --raw
 
 # Receitas x despesas por categoria no mês atual (transferências ficam de fora)
-mdcli entries summary --account mp,nubank
+mdcli entries summary --account mp,conta
 
 # Mês a mês em um trimestre, ou por conta; --json/--csv também funcionam aqui
 mdcli entries summary --account mp --from 2026-01-01 --to 2026-03-31 --by month
-mdcli entries summary --account mp,nubank --by account --include-transfers
+mdcli entries summary --account mp,conta --by account --include-transfers
 
 # Deixa categorias (e suas subcategorias) de fora, ex.: uma fatura de cartão paga
 # pela conta corrente, que contaria em dobro as compras já lançadas no cartão
-mdcli entries summary --account mp,nubank --exclude-category "Pagamento de cartão"
+mdcli entries summary --account mp,conta --exclude-category "Pagamento de cartão"
 
 # Cria um lançamento. O tipo (-T, despesa por padrão) e a categoria têm de
 # combinar: a web só lista categorias do tipo do lançamento, então uma
@@ -307,7 +307,7 @@ mdcli entries create --account "Mercado Pago" --description "Groceries" --value 
 # Transferência entre duas contas (--account é a origem); a categoria padrão é
 # a categoria de transferência do sistema, como no app web. Transferências de ou
 # para um cartão de crédito, ou entre moedas, ainda não são suportadas.
-mdcli entries create --account mp --type transfer --to-account nubank --description "Reserva" --value 500
+mdcli entries create --account mp --type transfer --to-account conta --description "Reserva" --value 500
 
 # Parcelado: 1200 dividido em 10 parcelas mensais; a primeira absorve o centavo
 # do arredondamento. --per-installment faz de --value o valor de cada parcela,
@@ -350,7 +350,7 @@ mdcli entries update 12345 --date 2027-01-25 --scope following
 # Muda a conta (ID, alias ou nome, como no create); numa série, junto com --scope.
 # Passar a conta atual não é erro: o lançamento é salvo como está, como na web.
 # Conta inativa é recusada (a web não a oferece).
-mdcli entries update 12345 --account nubank --scope following
+mdcli entries update 12345 --account conta --scope following
 # Para um cartão de crédito, como na web: a compra vai para a fatura da data do
 # lançamento (ou de --date) contada a partir do próximo vencimento do cartão
 # (uma data anterior cai na próxima fatura), sem data efetiva, no plástico do

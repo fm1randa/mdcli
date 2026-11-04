@@ -19,7 +19,7 @@ beforeEach(() => {
   api.on('GET /v1/cadastros/categorias', CATEGORIES_RESPONSE);
   api.on('GET /v1/lancamentos/duplicidade', {});
   api.on('GET /v2/lancamentos', { list: [], meta: { total: 0, page: 1, pageSize: 500 } });
-  api.on('GET /v1/integracao/account/9001/transactions', {
+  api.on('GET /v1/integracao/account/301/transactions', {
     inicio: '2026-10-01',
     fim: '2026-10-10',
     saldo: 0,
@@ -45,7 +45,7 @@ function cli(args: string[]) {
 }
 
 function list(args: string[] = []) {
-  return cli(['entries', 'import', 'list', '-a', '1001', '--since', SINCE, '--json', ...args]);
+  return cli(['entries', 'import', 'list', '-a', '201', '--since', SINCE, '--json', ...args]);
 }
 
 function expectCandidateQuery(request: RecordedRequest, from: string, to: string, page: number) {
@@ -56,11 +56,11 @@ function expectCandidateQuery(request: RecordedRequest, from: string, to: string
   expect(request.query.getAll('finalidade')).toEqual(['3']);
   expect(request.query.get('inicio')).toBe(from);
   expect(request.query.get('fim')).toBe(to);
-  expect(JSON.parse(request.query.get('contas') ?? 'null')).toEqual({ ids: [1001] });
+  expect(JSON.parse(request.query.get('contas') ?? 'null')).toEqual({ ids: [201] });
   expect(JSON.parse(request.query.get('list') ?? 'null')).toEqual({ page, pageSize: 500 });
   expect(request.query.toString()).not.toContain('finalidade=1');
-  expect(request.query.get('contas')).not.toContain('1002');
-  expect(request.query.get('contas')).not.toContain('9001');
+  expect(request.query.get('contas')).not.toContain('202');
+  expect(request.query.get('contas')).not.toContain('301');
   for (const key of FORBIDDEN) expect(request.query.has(key)).toBe(false);
 }
 
@@ -151,7 +151,7 @@ describe('entries import list candidate query', () => {
   });
 
   test('does not search candidates when the statement has no transactions', async () => {
-    api.on('GET /v1/integracao/account/9001/transactions', {
+    api.on('GET /v1/integracao/account/301/transactions', {
       inicio: '2026-10-01', fim: '2026-10-10', saldo: 0, lancamentos: [],
     });
 
@@ -166,7 +166,7 @@ describe('entries import list candidate query', () => {
   });
 
   test('does not invent a window when the statement has no dates', async () => {
-    api.on('GET /v1/integracao/account/9001/transactions', {
+    api.on('GET /v1/integracao/account/301/transactions', {
       saldo: 1,
       lancamentos: [{
         integrationId: TX, descricao: 'Pagamento Ficticio', valor: -12.34, data: '2026-10-07', moeda: 1,
@@ -219,7 +219,7 @@ describe('entries import list candidate query', () => {
   });
 
   test('prints candidate ids, marks the linked one, and conciliate, or a dash when there are none', async () => {
-    api.on('GET /v1/integracao/account/9001/transactions', {
+    api.on('GET /v1/integracao/account/301/transactions', {
       inicio: '2026-10-01',
       fim: '2026-10-10',
       saldo: 0,
@@ -242,7 +242,7 @@ describe('entries import list candidate query', () => {
       meta: { total: 2, page: 1, pageSize: 500 },
     });
 
-    const result = await cli(['entries', 'import', 'list', '-a', '1001', '--since', SINCE]);
+    const result = await cli(['entries', 'import', 'list', '-a', '201', '--since', SINCE]);
 
     expect(result.exitCode).toBe(0);
     expect(result.stderr).toBe('');
@@ -257,7 +257,7 @@ describe('entries import list candidate query', () => {
 
   test('a checking account stays on /v2/lancamentos even when the connection says credit card', async () => {
     api.on('GET /v1/integracao/connections', [
-      { id: 501, accounts: [{ id: 9001, type: 'CARTAOCREDITO', conta: 1001 }] },
+      { id: 501, accounts: [{ id: 301, type: 'CARTAOCREDITO', conta: 201 }] },
     ]);
     api.on('GET /v2/lancamentos', {
       list: [{ id: 4309, dataPrevista: '2026-10-09', valor: -12.34, descricao: 'Padaria', categoria: 10 }],

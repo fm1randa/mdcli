@@ -113,7 +113,7 @@ export interface AccountWithBalance extends NormalizedAccount {
 }
 
 /** No balance: saldoUltimoExtrato is an Open Finance statement figure that
- * means nothing as a card balance (Filipe, dogfood 2026-10-19). */
+ * means nothing as a card balance (real use 2026-10-19). */
 export interface NormalizedCard extends NormalizedAccount {
   limit: number | null;
   /** Day of the month the invoice is due. */

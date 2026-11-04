@@ -13,7 +13,7 @@ describe('parseId', () => {
 
   test('accepts plain positive integers', () => {
     expect(parseId('1')).toBe(1);
-    expect(parseId('1167419')).toBe(1167419);
+    expect(parseId('201')).toBe(201);
     expect(parseId('007')).toBe(7);
   });
 });

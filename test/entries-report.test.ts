@@ -5,16 +5,16 @@ import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, SAMPLE_ENTRIES, cardInvoice, en
 let api: MockApi;
 let home: TestHome;
 
-const PERIOD = ['-a', '1001,1002', '--from', '2026-01-01', '--to', '2026-02-28'];
+const PERIOD = ['-a', '201,202', '--from', '2026-01-01', '--to', '2026-02-28'];
 
 beforeEach(() => {
   api = startMockApi();
   api.on('GET /v1/cadastros/contas', ACCOUNTS_RESPONSE);
   api.on('GET /v1/cadastros/categorias', CATEGORIES_RESPONSE);
   api.on('GET /v2/lancamentos', entriesPage(SAMPLE_ENTRIES));
-  // 1002 is a card: list also reads its invoices due in the period (empty here).
-  api.on('GET /v1/cartoes/1002/fatura/2026-01-16', cardInvoice('2026-01-16', '2026-01-08'));
-  api.on('GET /v1/cartoes/1002/fatura/2026-02-16', cardInvoice('2026-02-16', '2026-02-08'));
+  // 202 is a card: list also reads its invoices due in the period (empty here).
+  api.on('GET /v1/cartoes/202/fatura/2026-01-16', cardInvoice('2026-01-16', '2026-01-08'));
+  api.on('GET /v1/cartoes/202/fatura/2026-02-16', cardInvoice('2026-02-16', '2026-02-08'));
   home = createHome(MANUAL_AUTH);
 });
 
@@ -70,9 +70,9 @@ describe('entries list --csv', () => {
     expect(lines[0]).toBe(
       'id,date,description,value,type,status,account,category,installment,repetition,effective_date,competence_date,transfer_account,tags,notes,document_number'
     );
-    expect(lines[1]).toBe('1,2026-01-05,Mercado,-100.5,expense,reconciled,Nubank,Alimentação/Mercado,,single,,,,,,');
-    expect(lines).toContain('6,2026-02-01,"Café, ""especial""",-10,expense,reconciled,Nubank,,,single,,,,,,');
-    expect(lines).toContain('4,2026-01-20,Restaurante,-200,expense,reconciled,Cartão Azul,Alimentação,,single,,,,,,');
+    expect(lines[1]).toBe('1,2026-01-05,Mercado,-100.5,expense,reconciled,Conta Teste,Alimentação/Mercado,,single,,,,,,');
+    expect(lines).toContain('6,2026-02-01,"Café, ""especial""",-10,expense,reconciled,Conta Teste,,,single,,,,,,');
+    expect(lines).toContain('4,2026-01-20,Restaurante,-200,expense,reconciled,Cartão Teste,Alimentação,,single,,,,,,');
   });
 
   test('refuses --json together with --csv', async () => {
@@ -115,7 +115,7 @@ describe('entries summary', () => {
   test('--by account labels rows with account names', async () => {
     const report = await summary('--by', 'account');
 
-    expect(report.rows.map((r: { label: string }) => r.label)).toEqual(['Cartão Azul', 'Nubank']);
+    expect(report.rows.map((r: { label: string }) => r.label)).toEqual(['Cartão Teste', 'Conta Teste']);
   });
 
   test('--include-transfers counts them', async () => {

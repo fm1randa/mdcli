@@ -3,7 +3,7 @@ import { createHome, localDay, MANUAL_AUTH, mutations, runCli, startMockApi, typ
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, cardInvoice, entriesPage } from './fixtures.js';
 import { statusLabel } from '../scripts/mock-entries.js';
 
-// Finanças 2026-10-19: `entries create -p` on checking account 1167419 (date
+// Real use 2026-10-19: `entries create -p` on checking account 201 (date
 // today) came back as id 363895476, "Status: Confirmed". In the web app
 // (md.js, the entry form's save and its toast) the two toggles give three
 // states: Confirmado off = no effective date or value, which the API labels
@@ -42,7 +42,7 @@ function sentBody(): Record<string, unknown> {
 
 describe('entries create status flags', () => {
   test('-p dated today leaves Confirmado off and comes back Pending (the reported case)', async () => {
-    const result = await runCli(['entries', 'create', '-a', '1001', '-d', 'Farmácia', '-v', '42.9', '-c', '10', '-p'], { home, api });
+    const result = await runCli(['entries', 'create', '-a', '201', '-d', 'Farmácia', '-v', '42.9', '-c', '10', '-p'], { home, api });
 
     expect(result.exitCode).toBe(0);
     expect(sentBody()).toMatchObject({
@@ -58,7 +58,7 @@ describe('entries create status flags', () => {
   });
 
   test('-p with a future date is the same payload, which the API calls Scheduled', async () => {
-    const result = await runCli(['entries', 'create', '-a', '1001', '-d', 'IPVA', '-v', '800', '-c', '10', '-p', '-D', '2031-01-20'], { home, api });
+    const result = await runCli(['entries', 'create', '-a', '201', '-d', 'IPVA', '-v', '800', '-c', '10', '-p', '-D', '2031-01-20'], { home, api });
 
     expect(result.exitCode).toBe(0);
     expect(sentBody()).toMatchObject({ status: { confirmado: false, conciliado: false }, dataEfetiva: null, valorEfetivo: null, dataPrevista: '2031-01-20' });
@@ -66,7 +66,7 @@ describe('entries create status flags', () => {
   });
 
   test('--confirmed sends Confirmado on and Conciliado off, with the effective date and value', async () => {
-    const result = await runCli(['entries', 'create', '-a', '1001', '-d', 'Feira', '-v', '30', '-c', '10', '--confirmed', '-D', '2026-01-05'], { home, api });
+    const result = await runCli(['entries', 'create', '-a', '201', '-d', 'Feira', '-v', '30', '-c', '10', '--confirmed', '-D', '2026-01-05'], { home, api });
 
     expect(result.exitCode).toBe(0);
     expect(sentBody()).toMatchObject({
@@ -79,7 +79,7 @@ describe('entries create status flags', () => {
   });
 
   test('no status flag still creates a reconciled entry', async () => {
-    const result = await runCli(['entries', 'create', '-a', '1001', '-d', 'Feira', '-v', '30', '-c', '10', '-D', '2026-01-05'], { home, api });
+    const result = await runCli(['entries', 'create', '-a', '201', '-d', 'Feira', '-v', '30', '-c', '10', '-D', '2026-01-05'], { home, api });
 
     expect(result.exitCode).toBe(0);
     expect(sentBody()).toMatchObject({ status: { confirmado: true, conciliado: true }, conciliado: true, dataEfetiva: '2026-01-05' });
@@ -87,7 +87,7 @@ describe('entries create status flags', () => {
   });
 
   test('--scheduled still works as an alias of -p and says so on stderr', async () => {
-    const result = await runCli(['entries', 'create', '-a', '1001', '-d', 'IPVA', '-v', '800', '-c', '10', '-S', '-D', '2031-01-20', '--json'], { home, api });
+    const result = await runCli(['entries', 'create', '-a', '201', '-d', 'IPVA', '-v', '800', '-c', '10', '-S', '-D', '2031-01-20', '--json'], { home, api });
 
     expect(result.exitCode).toBe(0);
     expect(sentBody()).toMatchObject({ status: { confirmado: false, conciliado: false }, dataEfetiva: null, valorEfetivo: null });
@@ -96,7 +96,7 @@ describe('entries create status flags', () => {
   });
 
   test('refuses -p with --confirmed before calling the API', async () => {
-    const result = await runCli(['entries', 'create', '-a', '1001', '-d', 'X', '-v', '9', '-c', '10', '-p', '--confirmed'], { home, api });
+    const result = await runCli(['entries', 'create', '-a', '201', '-d', 'X', '-v', '9', '-c', '10', '-p', '--confirmed'], { home, api });
 
     expect(result.exitCode).toBe(1);
     expect(result.output).toContain('either --pending or --confirmed');
@@ -105,10 +105,10 @@ describe('entries create status flags', () => {
 
   test('-p on a credit card keeps the unreconciled purchase payload and warns on stderr only', async () => {
     api.on('POST /v1/lancamentos', { id: 9, descricao: 'Voo', valor: -10, data: '2026-01-05', status: 'nconciliado', conciliado: false });
-    api.on('GET /v1/cartoes/1002/fatura/2026-01-16', cardInvoice('2026-01-16', '2026-01-08'));
-    api.on('GET /v1/cartoes/1002/fatura/2025-12-16', cardInvoice('2025-12-16', '2025-12-08'));
+    api.on('GET /v1/cartoes/202/fatura/2026-01-16', cardInvoice('2026-01-16', '2026-01-08'));
+    api.on('GET /v1/cartoes/202/fatura/2025-12-16', cardInvoice('2025-12-16', '2025-12-08'));
 
-    const json = await runCli(['entries', 'create', '-a', '1002', '-d', 'Voo', '-v', '10', '-c', '10', '-D', '2026-01-05', '-p', '--json'], { home, api });
+    const json = await runCli(['entries', 'create', '-a', '202', '-d', 'Voo', '-v', '10', '-c', '10', '-D', '2026-01-05', '-p', '--json'], { home, api });
 
     expect(json.exitCode).toBe(0);
     expect(sentBody()).toMatchObject({
@@ -123,7 +123,7 @@ describe('entries create status flags', () => {
     expect(json.stderr).toContain('Card purchases have no pending or confirmed state');
 
     // nconciliado is the card label for an unreconciled purchase; the web app calls it Confirmado.
-    const text = await runCli(['entries', 'create', '-a', '1002', '-d', 'Voo', '-v', '10', '-c', '10', '-D', '2026-01-05'], { home, api });
+    const text = await runCli(['entries', 'create', '-a', '202', '-d', 'Voo', '-v', '10', '-c', '10', '-D', '2026-01-05'], { home, api });
     expect(text.exitCode).toBe(0);
     expect(text.stdout).toContain('Status: Confirmed');
   });
@@ -143,7 +143,7 @@ const reported = {
   dataEfetiva: today,
   status: 'confirmado',
   conciliado: false,
-  conta: 1167419,
+  conta: 201,
   categoria: 10,
   tags: [],
 };
@@ -206,7 +206,7 @@ describe('entries update status flags', () => {
 });
 
 describe('entries create resolves the numeric id of a future pending entry', () => {
-  // Finanças report (2026-10-31): `entries create -p -D <future>` on a regular
+  // Real use (2026-10-31): `entries create -p -D <future>` on a regular
   // account came back with an occurrence id "<agenda>A<date>" instead of the
   // entry id, so chained show/update/delete got a useless id.
   const OCCURRENCE_ID = '123456A2031-01-20';
@@ -221,13 +221,13 @@ describe('entries create resolves the numeric id of a future pending entry', () 
       status: 'agendado',
     });
     api.on('GET /v2/lancamentos', entriesPage([
-      { id: 999, descricao: 'IPVA', valor: -800, conta: 1001, dataPrevista: '2031-01-20', status: 'agendado' },
+      { id: 999, descricao: 'IPVA', valor: -800, conta: 201, dataPrevista: '2031-01-20', status: 'agendado' },
     ]));
   });
 
   test('--json answers with the numeric id and keeps the occurrence id', async () => {
     const result = await runCli(
-      ['entries', 'create', '-a', '1001', '-d', 'IPVA', '-v', '800', '-c', '10', '-p', '-D', '2031-01-20', '--json'],
+      ['entries', 'create', '-a', '201', '-d', 'IPVA', '-v', '800', '-c', '10', '-p', '-D', '2031-01-20', '--json'],
       { home, api }
     );
 
@@ -239,7 +239,7 @@ describe('entries create resolves the numeric id of a future pending entry', () 
     api.on('POST /v1/lancamentos', { id: 555, descricao: 'IPVA', valor: -800, data: '2031-01-20', dataPrevista: '2031-01-20', status: 'agendado' });
 
     const result = await runCli(
-      ['entries', 'create', '-a', '1001', '-d', 'IPVA', '-v', '800', '-c', '10', '-p', '-D', '2031-01-20', '--json'],
+      ['entries', 'create', '-a', '201', '-d', 'IPVA', '-v', '800', '-c', '10', '-p', '-D', '2031-01-20', '--json'],
       { home, api }
     );
 
@@ -252,13 +252,13 @@ describe('entries create resolves the numeric id of a future pending entry', () 
     api.on('GET /v2/lancamentos', { list: [], meta: { total: 0, page: 1, pageSize: 200 } });
 
     const result = await runCli(
-      ['entries', 'create', '-a', '1001', '-d', 'IPVA', '-v', '800', '-c', '10', '-p', '-D', '2031-01-20', '--json'],
+      ['entries', 'create', '-a', '201', '-d', 'IPVA', '-v', '800', '-c', '10', '-p', '-D', '2031-01-20', '--json'],
       { home, api }
     );
 
     expect(result.exitCode).toBe(0);
     expect(JSON.parse(result.stdout).id).toBe(OCCURRENCE_ID);
     expect(result.stderr).toContain('is not an entry ID');
-    expect(result.stderr).toContain('entries list -a 1001');
+    expect(result.stderr).toContain('entries list -a 201');
   });
 });

@@ -2,14 +2,14 @@ const editable = { visivel: true, acoes: { editar: true, excluir: true } };
 const locked = { visivel: true, acoes: { editar: false, excluir: false } };
 
 export const CHECKING_ACCOUNT = {
-  id: 1001,
-  nome: 'Nubank',
+  id: 201,
+  nome: 'Conta Teste',
   tipo: 'CONTA CORRENTE',
   tipoNovo: 100,
   classificacaobp: 'ativo',
   status: true,
   encerrada: false,
-  banco: { id: 'nubank', nome: 'Nubank', img: 'nubank2', tipo: ['CONTA CORRENTE'] },
+  banco: { id: 'teste', nome: 'Banco Teste', img: 'teste', tipo: ['CONTA CORRENTE'] },
   exibirBP: true,
   apenasTransferencia: false,
   dataUltimoExtrato: '2026-01-10',
@@ -25,8 +25,8 @@ export const CHECKING_ACCOUNT = {
 
 export const CREDIT_CARD_ACCOUNT = {
   ...CHECKING_ACCOUNT,
-  id: 1002,
-  nome: 'Cartão Azul',
+  id: 202,
+  nome: 'Cartão Teste',
   tipo: 'CARTAOCREDITO',
   tipoNovo: 102,
   banco: undefined,
@@ -36,8 +36,8 @@ export const CREDIT_CARD_ACCOUNT = {
 
 export const SAVINGS_ACCOUNT = {
   ...CHECKING_ACCOUNT,
-  id: 1004,
-  nome: 'Poupança Nubank',
+  id: 204,
+  nome: 'Poupança Teste',
   tipo: 'POUPANCA',
   tipoNovo: 122,
   saldoUltimoExtrato: 0,
@@ -84,8 +84,7 @@ export const CATEGORIES_RESPONSE = {
 
 export const EMPTY_ENTRIES_RESPONSE = { list: [], meta: { total: 0, page: 1, pageSize: 200 } };
 
-/** GET /frontend/sessao trimmed to what the CLI reads: the user's preferences
- * as the real account had them (2026-10-26). */
+/** GET /frontend/sessao trimmed to what the CLI reads: the user's preferences. */
 export const SESSION_RESPONSE = {
   branch: 'app',
   payload: {
@@ -104,12 +103,12 @@ function entry(id: number, conta: number, categoria: number | undefined, tipo: '
 }
 
 export const SAMPLE_ENTRIES = [
-  entry(1, 1001, 11, 'd', -100.5, '2026-01-05', 'Mercado'),
-  entry(2, 1001, 11, 'd', -50.25, '2026-02-10', 'Mercado'),
-  entry(3, 1001, 20, 'r', 5000, '2026-01-01', 'Salário'),
-  entry(4, 1002, 10, 'd', -200, '2026-01-20', 'Restaurante'),
-  entry(5, 1001, 30, 't', -1000, '2026-01-15', 'Transferência para poupança'),
-  entry(6, 1001, undefined, 'd', -10, '2026-02-01', 'Café, "especial"'),
+  entry(1, 201, 11, 'd', -100.5, '2026-01-05', 'Mercado'),
+  entry(2, 201, 11, 'd', -50.25, '2026-02-10', 'Mercado'),
+  entry(3, 201, 20, 'r', 5000, '2026-01-01', 'Salário'),
+  entry(4, 202, 10, 'd', -200, '2026-01-20', 'Restaurante'),
+  entry(5, 201, 30, 't', -1000, '2026-01-15', 'Transferência para poupança'),
+  entry(6, 201, undefined, 'd', -10, '2026-02-01', 'Café, "especial"'),
 ];
 
 export function entriesPage(list: unknown[], total = list.length) {

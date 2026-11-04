@@ -18,7 +18,7 @@ beforeEach(() => {
   api.on('GET /v1/cadastros/contas', ACCOUNTS_RESPONSE);
   home = createHome({
     ...MANUAL_AUTH,
-    nameCache: { accounts: { byName: { nubank: 1001 }, cachedAt: new Date().toISOString() } },
+    nameCache: { accounts: { byName: { conta: 201 }, cachedAt: new Date().toISOString() } },
   });
 });
 
@@ -27,30 +27,30 @@ afterEach(() => {
   home.cleanup();
 });
 
-/** Serves CHECKING_ACCOUNT (1001) with these fields changed. */
+/** Serves CHECKING_ACCOUNT (201) with these fields changed. */
 function withChecking(changes: Record<string, unknown>): void {
   api.on('GET /v1/cadastros/contas', { ...ACCOUNTS_RESPONSE, items: [{ ...CHECKING_ACCOUNT, ...changes }] });
 }
 
 async function update(...args: string[]) {
-  api.on('PUT /v1/cadastros/contas/1001', (req) => ({ ...CHECKING_ACCOUNT, ...(req.body as object), banco: undefined }));
-  const result = await runCli(['accounts', 'update', '1001', ...args], { home, api });
+  api.on('PUT /v1/cadastros/contas/201', (req) => ({ ...CHECKING_ACCOUNT, ...(req.body as object), banco: undefined }));
+  const result = await runCli(['accounts', 'update', '201', ...args], { home, api });
   return { result, body: mutations(api)[0]?.body as Record<string, unknown> | undefined };
 }
 
 describe('accounts update', () => {
   test('round-trips the full account, unwrapping banco to its ID', async () => {
-    api.on('PUT /v1/cadastros/contas/1001', { ...CHECKING_ACCOUNT, nome: 'Nubank PF' });
+    api.on('PUT /v1/cadastros/contas/201', { ...CHECKING_ACCOUNT, nome: 'Conta Teste PF' });
 
-    const result = await runCli(['accounts', 'update', '1001', '--name', 'Nubank PF'], { home, api });
+    const result = await runCli(['accounts', 'update', '201', '--name', 'Conta Teste PF'], { home, api });
 
     expect(result.exitCode).toBe(0);
     const [put] = mutations(api);
-    expect(put.path).toBe('/v1/cadastros/contas/1001');
+    expect(put.path).toBe('/v1/cadastros/contas/201');
     expect(put.body).toMatchObject({
-      id: 1001,
-      nome: 'Nubank PF',
-      banco: 'nubank',
+      id: 201,
+      nome: 'Conta Teste PF',
+      banco: 'teste',
       saldoUltimoExtrato: 250.5,
       permissoes: CHECKING_ACCOUNT.permissoes,
       status: true,
@@ -58,13 +58,13 @@ describe('accounts update', () => {
   });
 
   test('--inactive archives by setting status to false', async () => {
-    api.on('PUT /v1/cadastros/contas/1001', { ...CHECKING_ACCOUNT, status: false });
+    api.on('PUT /v1/cadastros/contas/201', { ...CHECKING_ACCOUNT, status: false });
 
-    const result = await runCli(['accounts', 'update', '1001', '--inactive'], { home, api });
+    const result = await runCli(['accounts', 'update', '201', '--inactive'], { home, api });
 
     expect(result.exitCode).toBe(0);
     const body = mutations(api)[0].body;
-    expect(body).toMatchObject({ status: false, nome: 'Nubank' });
+    expect(body).toMatchObject({ status: false, nome: 'Conta Teste' });
     expect(body).not.toHaveProperty('encerrada');
   });
 
@@ -201,29 +201,29 @@ describe('accounts update', () => {
   });
 
   test('never sends banco 0 for a credit card, as the web card form does not', async () => {
-    api.on('PUT /v1/cadastros/contas/1002', (req) => ({ ...CREDIT_CARD_ACCOUNT, ...(req.body as object) }));
+    api.on('PUT /v1/cadastros/contas/202', (req) => ({ ...CREDIT_CARD_ACCOUNT, ...(req.body as object) }));
 
-    const result = await runCli(['accounts', 'update', '1002', '--name', 'Cartão Verde'], { home, api });
+    const result = await runCli(['accounts', 'update', '202', '--name', 'Cartão Verde'], { home, api });
 
     expect(result.exitCode).toBe(0);
     const body = mutations(api)[0].body;
-    expect(body).toMatchObject({ id: 1002, nome: 'Cartão Verde' });
+    expect(body).toMatchObject({ id: 202, nome: 'Cartão Verde' });
     expect(body).not.toHaveProperty('banco');
   });
 
   test('sends banco 0 when --type turns a bankless credit card into a non-card account', async () => {
-    api.on('PUT /v1/cadastros/contas/1002', (req) => ({ ...CREDIT_CARD_ACCOUNT, ...(req.body as object) }));
+    api.on('PUT /v1/cadastros/contas/202', (req) => ({ ...CREDIT_CARD_ACCOUNT, ...(req.body as object) }));
 
-    const result = await runCli(['accounts', 'update', '1002', '--type', '100'], { home, api });
+    const result = await runCli(['accounts', 'update', '202', '--type', '100'], { home, api });
 
     expect(result.exitCode).toBe(0);
-    expect(mutations(api)[0].body).toMatchObject({ id: 1002, tipoNovo: 100, banco: 0 });
+    expect(mutations(api)[0].body).toMatchObject({ id: 202, tipoNovo: 100, banco: 0 });
   });
 
   test('refuses --liquidity on a credit card whose type is not listed', async () => {
     api.on('GET /v1/cadastros/contas', { ...ACCOUNTS_RESPONSE, items: [{ ...CREDIT_CARD_ACCOUNT, tipoNovo: 999 }] });
 
-    const result = await runCli(['accounts', 'update', '1002', '--liquidity', 'fixed'], { home, api });
+    const result = await runCli(['accounts', 'update', '202', '--liquidity', 'fixed'], { home, api });
 
     expect(result.exitCode).toBe(1);
     expect(result.output).toContain('--liquidity does not apply');
@@ -263,7 +263,7 @@ describe('accounts update', () => {
   });
 
   test('lists --close in the no-changes message, so the flag is discoverable', async () => {
-    const result = await runCli(['accounts', 'update', '1001'], { home, api });
+    const result = await runCli(['accounts', 'update', '201'], { home, api });
 
     expect(result.exitCode).toBe(1);
     expect(result.output).toContain('--close');
@@ -271,7 +271,7 @@ describe('accounts update', () => {
   });
 
   test('refuses --active together with --inactive', async () => {
-    const result = await runCli(['accounts', 'update', '1001', '--active', '--inactive'], { home, api });
+    const result = await runCli(['accounts', 'update', '201', '--active', '--inactive'], { home, api });
 
     expect(result.exitCode).toBe(1);
     expect(mutations(api)).toHaveLength(0);

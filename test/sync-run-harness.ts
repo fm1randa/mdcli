@@ -1,16 +1,16 @@
 import { createHome, MANUAL_AUTH, startMockApi, type MockApi, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CHECKING_ACCOUNT } from './fixtures.js';
 
-// Fictional ids. 1001 and 1002 are Nubank and Cartão Azul in the account fixture.
+// Fictional ids. 201 and 202 are Conta Teste and Cartão Teste in the account fixture.
 export const ONE_CONNECTION = [
   {
     id: 501,
     status: 'UPDATED',
     accounts: [
-      { id: 9001, type: 'CONTA CORRENTE', conta: 1001 },
-      { id: 9002, type: 'CARTAOCREDITO', conta: 1002 },
+      { id: 301, type: 'CONTA CORRENTE', conta: 201 },
+      { id: 302, type: 'CARTAOCREDITO', conta: 202 },
       // In the registry this id does not exist; the last row has no Account at all.
-      { id: 9003, conta: 4242 },
+      { id: 303, conta: 4242 },
       { id: 9004 },
     ],
   },
@@ -21,9 +21,9 @@ export const AFTER_SYNC = [
     id: 501,
     status: 'UPDATING',
     accounts: [
-      { id: 9001, type: 'CONTA CORRENTE', conta: 1001 },
-      { id: 9002, type: 'CARTAOCREDITO', conta: 1002 },
-      { id: 9003, conta: 4242 },
+      { id: 301, type: 'CONTA CORRENTE', conta: 201 },
+      { id: 302, type: 'CARTAOCREDITO', conta: 202 },
+      { id: 303, conta: 4242 },
       { id: 9004 },
     ],
   },
@@ -35,19 +35,19 @@ export const MANY_CONNECTIONS = [
     id: 501,
     status: 'UPDATED',
     accounts: [
-      { id: 9001, type: 'CONTA CORRENTE', conta: 1001 },
-      { id: 9002, type: 'CARTAOCREDITO', conta: 1002 },
+      { id: 301, type: 'CONTA CORRENTE', conta: 201 },
+      { id: 302, type: 'CARTAOCREDITO', conta: 202 },
     ],
   },
   {
     id: 502,
     status: 'UPDATED',
-    accounts: [{ id: 9003, type: 'CONTA CORRENTE', conta: 1009 }],
+    accounts: [{ id: 303, type: 'CONTA CORRENTE', conta: 1009 }],
   },
   {
     id: 501,
     status: 'UPDATED',
-    accounts: [{ id: 9001, type: 'CONTA CORRENTE', conta: 1001 }],
+    accounts: [{ id: 301, type: 'CONTA CORRENTE', conta: 201 }],
   },
 ];
 
@@ -55,20 +55,20 @@ export const MANY_AFTER = [
   {
     id: 503,
     status: 'UPDATED',
-    accounts: [{ id: 9005, type: 'CONTA CORRENTE', conta: 1004 }],
+    accounts: [{ id: 9005, type: 'CONTA CORRENTE', conta: 204 }],
   },
   {
     id: 501,
     status: 'UPDATING',
     accounts: [
-      { id: 9001, type: 'CONTA CORRENTE', conta: 1001 },
-      { id: 9002, type: 'CARTAOCREDITO', conta: 1002 },
+      { id: 301, type: 'CONTA CORRENTE', conta: 201 },
+      { id: 302, type: 'CARTAOCREDITO', conta: 202 },
     ],
   },
   {
     id: 502,
     status: 'UPDATING',
-    accounts: [{ id: 9003, type: 'CONTA CORRENTE', conta: 1009 }],
+    accounts: [{ id: 303, type: 'CONTA CORRENTE', conta: 1009 }],
   },
 ];
 

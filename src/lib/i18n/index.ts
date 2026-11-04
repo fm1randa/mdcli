@@ -8,7 +8,7 @@ const LANGUAGES = ['pt-BR', 'en'] as const;
 
 export type Language = (typeof LANGUAGES)[number];
 
-/** Filipe's choice: Brazilian Portuguese, never inferred from the system locale. */
+/** The maintainer's choice: Brazilian Portuguese, never inferred from the system locale. */
 const DEFAULT_LANGUAGE: Language = 'pt-BR';
 
 /**

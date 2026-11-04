@@ -5,7 +5,7 @@ import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, EMPTY_ENTRIES_RESPONSE } from '
 let api: MockApi;
 let home: TestHome;
 
-// Finanças report (2026-10-16): `-c Moradia` resolved to an inactive category
+// Real use (2026-10-16): `-c Moradia` resolved to an inactive category
 // hidden in the web app. The inactive one comes last, so a plain name index
 // (last name wins) points at it.
 const activeMoradia = { ...CATEGORIES_RESPONSE.items[0], id: 51, nome: 'Moradia', nomeRel: 'Moradia', _ordenacao: 'MORADIA' };
@@ -21,7 +21,7 @@ const existing = {
   dataPrevista: '2026-01-12',
   status: 'conciliado',
   conciliado: true,
-  conta: 1001,
+  conta: 201,
   categoria: 10,
   tags: [],
 };
@@ -48,7 +48,7 @@ afterEach(() => {
   home.cleanup();
 });
 
-const CREATE = ['entries', 'create', '-a', '1001', '-d', 'Aluguel', '-v', '10', '-D', '2026-01-05'];
+const CREATE = ['entries', 'create', '-a', '201', '-d', 'Aluguel', '-v', '10', '-D', '2026-01-05'];
 
 describe('entries create with an inactive category', () => {
   test('a name shared by an active and an inactive category uses the active one', async () => {
@@ -131,7 +131,7 @@ describe('entries update with an inactive category', () => {
 
 describe('entries list with an inactive category', () => {
   test('still filters by it, since old entries keep their category', async () => {
-    const result = await runCli(['entries', 'list', '-a', '1001', '-c', '52', '--json'], { home, api });
+    const result = await runCli(['entries', 'list', '-a', '201', '-c', '52', '--json'], { home, api });
 
     expect(result.exitCode).toBe(0);
     const request = api.requests.find((r) => r.path === '/v2/lancamentos');

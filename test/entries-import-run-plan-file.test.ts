@@ -6,7 +6,7 @@ import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE } from './fixtures.js';
 import { CONNECTIONS, mockStatement, SINCE } from './import-harness.js';
 
 // The --plan file itself: its keys and types, the flags it combines with, and its prefixes.
-// Fictional ids. 1001 is Nubank (connection account 9001).
+// Fictional ids. 201 is Conta Teste (connection account 301).
 // Categories: 10 Alimentação (d), 20 Salário (r), 30 Transferência (t), 60 Antiga (d, inactive).
 const INACTIVE = { ...CATEGORIES_RESPONSE.items[4], id: 60, nome: 'Antiga', nomeRel: 'Antiga', status: false };
 
@@ -54,7 +54,7 @@ function planFile(content: unknown): string {
 }
 
 function run(args: string[], stdin?: string) {
-  return runCli(['entries', 'import', 'run', '-a', '1001', '--since', SINCE, ...args], { home, api, stdin });
+  return runCli(['entries', 'import', 'run', '-a', '201', '--since', SINCE, ...args], { home, api, stdin });
 }
 
 async function refused(plan: unknown) {
@@ -85,7 +85,7 @@ describe('entries import run --plan file checks', () => {
         transactions: [
           { id: 'aaaa1111', action: 'ignore' },
           { id: 'bbbb2222', action: 'import', category: 10, value: '-12.34' },
-          { id: 'cccc3333', action: 'conciliate', entry: '9001' },
+          { id: 'cccc3333', action: 'conciliate', entry: '301' },
           { id: 'dddd4444', action: 'import' },
           { id: 42, action: 'skip' },
           { id: 'aaaa1111', action: 'conciliate', entry: 0 },
@@ -117,7 +117,7 @@ describe('entries import run --plan file checks', () => {
     ]);
     expect(linked.stderr).toContain('transactions[0]: "description" does not apply to conciliate.');
 
-    const topLevel = await run(['--plan', planFile({ account: 1001, transactions: [] }), '--yes']);
+    const topLevel = await run(['--plan', planFile({ account: 201, transactions: [] }), '--yes']);
     expect(topLevel.stderr).toContain('unknown key "account"');
 
     const broken = await run(['--plan', planFile('{"transactions": ['), '--yes']);

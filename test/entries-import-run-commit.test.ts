@@ -3,7 +3,7 @@ import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi,
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE } from './fixtures.js';
 import { CONNECTIONS, mockStatement, SINCE } from './import-harness.js';
 
-// Fictional ids. 1001 is Nubank (connection account 9001). Category 10 is Alimentação (d).
+// Fictional ids. 201 is Conta Teste (connection account 301). Category 10 is Alimentação (d).
 const FONTE = 'Importado via Integração bancária automática';
 
 const TX1 = 'aaaa1111-1111-4000-8000-000000000001';
@@ -43,7 +43,7 @@ function entries(list: unknown[]) {
 }
 
 function run(args: string[], stdin?: string) {
-  return runCli(['entries', 'import', 'run', '-a', '1001', '--since', SINCE, ...args], { home, api, stdin });
+  return runCli(['entries', 'import', 'run', '-a', '201', '--since', SINCE, ...args], { home, api, stdin });
 }
 
 function routes(): string[] {
@@ -70,17 +70,17 @@ describe('entries import run --yes', () => {
     expect(result.exitCode).toBe(0);
     expect(routes()).toEqual(COMMIT);
     const [mark, conciliation, importing] = mutations(api);
-    expect(mark.body).toEqual({ account: 9001, ids: [TX2], date: '2026-10-08' });
+    expect(mark.body).toEqual({ account: 301, ids: [TX2], date: '2026-10-08' });
     expect(conciliation.body).toEqual({
       sobrescrever: false,
       sobrescreverDescr: false,
       inicio: '2026-10-01',
       fim: '2026-10-10',
       saldo: 250.5,
-      conta: 1001,
+      conta: 201,
       lancamentos: [],
       considerarObservacoes: false,
-      connectionAccount: 9001,
+      connectionAccount: 301,
       maxDate: '2026-10-08',
       fonte: FONTE,
     });
@@ -93,7 +93,7 @@ describe('entries import run --yes', () => {
           integrationId: TX1,
           moeda: 1,
           descricao: 'Padaria',
-          conta: 1001,
+          conta: 201,
           categoria: 10,
           tags: [7],
           tipo: 'd',
@@ -106,7 +106,7 @@ describe('entries import run --yes', () => {
           valorEfetivo: -12.34,
         },
       ],
-      connectionAccount: 9001,
+      connectionAccount: 301,
       maxDate: '2026-10-08',
       fonte: FONTE,
       importId: body.importId,

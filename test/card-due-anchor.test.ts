@@ -19,7 +19,7 @@ beforeEach(() => {
     items: [{ ...CREDIT_CARD_ACCOUNT, proximoVencimento: undefined, proximoFechamento: undefined }],
   });
   api.on('GET /v1/cadastros/categorias', CATEGORIES_RESPONSE);
-  api.on('GET /v1/cartoes/1002/primeiraFatura', () => '2026-02-21');
+  api.on('GET /v1/cartoes/202/primeiraFatura', () => '2026-02-21');
   home = createHome(MANUAL_AUTH);
 });
 
@@ -30,42 +30,42 @@ afterEach(() => {
 
 describe('card without a next due date', () => {
   test('cards invoice --month takes the due day of the first invoice, not 10', async () => {
-    api.on('GET /v1/cartoes/1002/fatura/2026-05-21', cardInvoice('2026-05-21', '2026-05-11'));
+    api.on('GET /v1/cartoes/202/fatura/2026-05-21', cardInvoice('2026-05-21', '2026-05-11'));
 
-    const result = await runCli(['cards', 'invoice', '-a', '1002', '--month', '2026-05'], { home, api });
+    const result = await runCli(['cards', 'invoice', '-a', '202', '--month', '2026-05'], { home, api });
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain('Invoice for Cartão Azul - 2026-05-21');
-    expect(cardPaths()).toEqual(['/v1/cartoes/1002/primeiraFatura', '/v1/cartoes/1002/fatura/2026-05-21']);
+    expect(result.stdout).toContain('Invoice for Cartão Teste - 2026-05-21');
+    expect(cardPaths()).toEqual(['/v1/cartoes/202/primeiraFatura', '/v1/cartoes/202/fatura/2026-05-21']);
   });
 
   test('cards invoice without --month shows the first invoice', async () => {
-    api.on('GET /v1/cartoes/1002/fatura/2026-02-21', cardInvoice('2026-02-21', '2026-02-11'));
+    api.on('GET /v1/cartoes/202/fatura/2026-02-21', cardInvoice('2026-02-21', '2026-02-11'));
 
-    const result = await runCli(['cards', 'invoice', '-a', '1002', '--json'], { home, api });
+    const result = await runCli(['cards', 'invoice', '-a', '202', '--json'], { home, api });
 
     expect(result.exitCode).toBe(0);
-    expect(cardPaths()).toEqual(['/v1/cartoes/1002/primeiraFatura', '/v1/cartoes/1002/fatura/2026-02-21']);
+    expect(cardPaths()).toEqual(['/v1/cartoes/202/primeiraFatura', '/v1/cartoes/202/fatura/2026-02-21']);
   });
 
   test('entries list reads the invoices due on that day', async () => {
     api.on('GET /v2/lancamentos', EMPTY_ENTRIES_RESPONSE);
-    api.on('GET /v1/cartoes/1002/fatura/2026-03-21', {
+    api.on('GET /v1/cartoes/202/fatura/2026-03-21', {
       ...cardInvoice('2026-03-21', '2026-03-11'),
       lancamentos: [{ id: 91, descricao: 'Padaria', valor: -12, data: '2026-03-02' }],
     });
 
-    const result = await runCli(['entries', 'list', '-a', '1002', '-f', '2026-03-01', '-t', '2026-03-31', '--json'], { home, api });
+    const result = await runCli(['entries', 'list', '-a', '202', '-f', '2026-03-01', '-t', '2026-03-31', '--json'], { home, api });
 
     expect(result.exitCode).toBe(0);
     expect(JSON.parse(result.stdout)).toEqual([expect.objectContaining({ id: 91, date: '2026-03-21' })]);
   });
 
   test('entries create --invoice puts the purchase on the invoice due that day, where it used to refuse', async () => {
-    api.on('POST /v1/lancamentos', { id: 555, descricao: 'Voo', valor: -10, data: '2026-04-05', status: 'confirmado', conta: 1002 });
+    api.on('POST /v1/lancamentos', { id: 555, descricao: 'Voo', valor: -10, data: '2026-04-05', status: 'confirmado', conta: 202 });
 
     const result = await runCli(
-      ['entries', 'create', '-a', '1002', '-d', 'Voo', '-v', '10', '-c', '10', '-D', '2026-04-05', '--invoice', '2026-04', '--json'],
+      ['entries', 'create', '-a', '202', '-d', 'Voo', '-v', '10', '-c', '10', '-D', '2026-04-05', '--invoice', '2026-04', '--json'],
       { home, api }
     );
 
@@ -76,15 +76,15 @@ describe('card without a next due date', () => {
 
   describe('entries create without --invoice walks from the first invoice using each invoice closing date', () => {
     beforeEach(() => {
-      api.on('GET /v1/cartoes/1002/fatura/2026-01-21', cardInvoice('2026-01-21', '2026-01-11'));
-      api.on('GET /v1/cartoes/1002/fatura/2026-02-21', cardInvoice('2026-02-21', '2026-02-11'));
-      api.on('GET /v1/cartoes/1002/fatura/2026-03-21', cardInvoice('2026-03-21', '2026-03-11'));
-      api.on('GET /v1/cartoes/1002/fatura/2026-04-21', cardInvoice('2026-04-21', '2026-04-11'));
-      api.on('POST /v1/lancamentos', { id: 556, descricao: 'Voo', valor: -10, status: 'confirmado', conta: 1002 });
+      api.on('GET /v1/cartoes/202/fatura/2026-01-21', cardInvoice('2026-01-21', '2026-01-11'));
+      api.on('GET /v1/cartoes/202/fatura/2026-02-21', cardInvoice('2026-02-21', '2026-02-11'));
+      api.on('GET /v1/cartoes/202/fatura/2026-03-21', cardInvoice('2026-03-21', '2026-03-11'));
+      api.on('GET /v1/cartoes/202/fatura/2026-04-21', cardInvoice('2026-04-21', '2026-04-11'));
+      api.on('POST /v1/lancamentos', { id: 556, descricao: 'Voo', valor: -10, status: 'confirmado', conta: 202 });
     });
 
     async function createPurchase(date: string): Promise<unknown> {
-      const result = await runCli(['entries', 'create', '-a', '1002', '-d', 'Voo', '-v', '10', '-c', '10', '-D', date, '--json'], { home, api });
+      const result = await runCli(['entries', 'create', '-a', '202', '-d', 'Voo', '-v', '10', '-c', '10', '-D', date, '--json'], { home, api });
       expect(result.exitCode).toBe(0);
       return api.requests.find((r) => r.method === 'POST')?.body;
     }
