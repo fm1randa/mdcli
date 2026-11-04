@@ -16,6 +16,10 @@ não apenas adicionar compatibilidade. Escopo pequeno, evidência de verificaç�
 <!-- Link para a issue resolvida (`Closes #n`). Se não há issue prévia, explique por que o escopo é pequeno e óbvio. -->
 Closes #n
 
+## Checklist
+
+- [ ] Se a mudança introduz ou altera um termo do domínio, o `GLOSSARY.md` foi atualizado neste PR.
+
 ## Verificação
 
 <!-- Resultado observado (reprodução antes/depois, saída de `scripts/verify.sh`). "Testes passam" sozinho não basta. -->

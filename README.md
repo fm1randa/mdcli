@@ -209,6 +209,9 @@ mdcli accounts create --name "Conta Teste" --type "Conta Corrente" --bank teste 
 # imobilizado; padrão: o do tipo, senão disponível; não vale para cartões)
 mdcli accounts create --name "Empréstimo" --type "Conta Corrente" --balance 500 --debtor --balance-date 2026-10-01 --liquidity future
 
+# --currency escolhe a moeda pelo ID (padrão 1, BRL); também no update
+mdcli accounts create --name "Conta em outra moeda" --type "Conta Corrente" --currency <id>
+
 # Atualiza uma conta (só os campos informados são alterados)
 mdcli accounts update 201 --name "Conta Teste PF"
 
@@ -229,6 +232,9 @@ mdcli accounts update 201 --active
 
 # Exclui uma conta (pede confirmação)
 mdcli accounts delete 201
+
+# --dangerously-skip-confirmation pula a confirmação (para scripts); vale para todo delete
+mdcli accounts delete 201 --dangerously-skip-confirmation
 
 # Cria um alias para acesso rápido
 mdcli accounts alias add --id 201 --name principal
@@ -277,6 +283,11 @@ mdcli entries list --account principal --from 2026-11-01 --to 2026-11-30 --no-in
 # também no summary. Valores: single, installment, fixed
 mdcli entries list --account principal --repetition installment,fixed
 
+# Filtra por status (pending, confirmed, reconciled, scheduled) ou busca por palavras-chave;
+# também no summary
+mdcli entries list --account principal --status pending
+mdcli entries list --account principal --keywords "mercado"
+
 # Todos os campos de um lançamento; --json é o formato da listagem, --raw a resposta da API
 mdcli entries show 12345
 mdcli entries show 12345 --raw
@@ -296,6 +307,9 @@ mdcli entries summary --account principal,conta --exclude-category "Pagamento de
 # combinar: a web só lista categorias do tipo do lançamento, então uma
 # categoria de outro tipo é recusada antes de chamar a API
 mdcli entries create --account principal --description "Groceries" --value 150 --category food
+
+# Tags e observações (--tags aceita IDs, aliases ou nomes)
+mdcli entries create --account principal --description "Groceries" --value 150 --category food --tags food --notes "Compra do mês"
 
 # Uma compra no cartão vai para a fatura aberta (ou --invoice YYYY-MM); o ID
 # impresso é o do lançamento na fatura, que serve para update/show/delete
@@ -330,6 +344,8 @@ mdcli entries create --account principal --description "Feira" --value 30 --cate
 # estorno, como no app web; -c tem de ser do mesmo tipo, e trocar -T num
 # lançamento cuja categoria é de outro tipo pede -c do novo tipo junto
 mdcli entries update 12345 --value 200 --category food
+
+mdcli entries update 12345 --tags food --notes "Ajustado"
 
 # Volta um lançamento confirmado para pendente (limpa a data e o valor
 # efetivos); --confirmed o confirma de novo, --reconciled o concilia
@@ -383,13 +399,17 @@ mdcli entries import list --account principal --since 2026-10-01 --json
 # Amplia a busca de lançamentos para conciliar (o "Alterar busca" da web; o
 # padrão é o período do extrato ±2 dias). Num cartão, os candidatos são a fatura
 # inteira do próximo vencimento; um cartão sem próximo vencimento não importa
-mdcli entries import list --account principal --search-to 2026-10-20
+mdcli entries import list --account principal --search-from 2026-10-01 --search-to 2026-10-20
 
 # Importa transações escolhidas pelo prefixo, todas na mesma categoria;
 # --reject marca outras como não importadas. Pede confirmação (y/N), e
 # --dry-run mostra o que seria feito sem gravar nada
 mdcli entries import run --account principal --ids 1a2b3c4d,5e6f7a8b --category food --dry-run
 mdcli entries import run --account principal --ids 1a2b3c4d --category food --reject 9c0d1e2f --yes
+
+# --include-duplicates importa também as transações que o servidor marcou como duplicadas;
+# --search-from/--search-to ampliam a busca de conciliação, como no list
+mdcli entries import run --account principal --ids 1a2b3c4d --category food --include-duplicates --search-from 2026-10-01 --search-to 2026-10-20 --yes
 
 # A conciliação segue a preferência salva no app web. --overwrite liga a
 # sobrescrita só nesta execução (atualiza contato, categoria, centro de custo,
