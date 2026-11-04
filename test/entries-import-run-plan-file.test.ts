@@ -157,6 +157,39 @@ describe('entries import run --plan file checks', () => {
     expect(listShape.exitCode).toBe(0);
   });
 
+  test('entry is refused on any action but conciliate, and null stays valid', async () => {
+    const imported = await refused({ transactions: [{ id: 'aaaa1111', action: 'import', category: 10, entry: 4242 }] });
+    expect(imported).toContain('transactions[0]: "entry" only applies to conciliate.');
+    expect(api.requests).toHaveLength(0);
+
+    const skipped = await refused({ transactions: [{ id: 'aaaa1111', action: 'skip', entry: 4242 }] });
+    expect(skipped).toContain('transactions[0]: "entry" only applies to conciliate.');
+    expect(api.requests).toHaveLength(0);
+
+    statement([bank(TX1)]);
+    const listRow = await run([
+      '--plan',
+      planFile({ transactions: [{ id: 'aaaa1111', action: 'import', category: 10, entry: null }] }),
+      '--dry-run',
+      '--json',
+    ]);
+    expect(listRow.stderr).toBe('');
+    expect(listRow.exitCode).toBe(0);
+  });
+
+  test('a plan whose account differs from -a, or has no id, is refused before any request', async () => {
+    const other = await refused({
+      account: { id: 1002, name: 'Cartão Azul' },
+      transactions: [{ id: 'aaaa1111', action: 'skip' }],
+    });
+    expect(other).toContain('the plan is for account 1002, but the run is for account 1001.');
+    expect(api.requests).toHaveLength(0);
+
+    const malformed = await refused({ account: { name: 'Nubank' }, transactions: [{ id: 'aaaa1111', action: 'skip' }] });
+    expect(malformed).toContain('"account" must be an object with a numeric "id".');
+    expect(api.requests).toHaveLength(0);
+  });
+
   test('--include-duplicates is accepted with --plan, where each explicit action still rules', async () => {
     statement([bank(TX1), bank(TX2, { valor: -7 })]);
     api.on('GET /v1/lancamentos/duplicidade', { '2026-10-07': [{ id: 77, valor: -12.34 }, { id: 78, valor: -7 }] });
