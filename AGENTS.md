@@ -36,7 +36,7 @@ Each rule below names the check that fails when it breaks. A rule marked *text o
 | Tests pass a relative `--since` and read a pinned clock | `no-literal-since`, `no-ambient-clock`, restricted date imports; `TZ` and `MDCLI_TODAY` pinned | `eslint-rules/`, `eslint.config.js`, `test/setup.ts` |
 | Strings become numbers only through the strict helpers | `no-loose-number` | `eslint-rules/no-loose-number.js` |
 | Review notes never reach a commit (item 19) | `git ls-files 'REVIEW-*.md'` must be empty | `scripts/verify.sh`, `.gitignore` |
-| Tests assert behavior, not a mock or a constant (item 12) | *text only* | review |
+| Tests assert behavior, not a mock or a constant (item 12) | `no-tautological-expect` (literal vs itself, assertions over src/bin text) and the `fails-on-main` CI job (every new or changed test must fail against `origin/main`) | `eslint-rules/no-tautological-expect.js`, `.github/workflows/fails-on-main.yml`, `scripts/new-tests-fail-on-main.ts` |
 | The CLI follows the web app, and a conflict with Filipe's decision is reported (items 9 and 10) | *text only* | review |
 
 ## Merge by proof
@@ -60,7 +60,7 @@ A PR labeled `risco` follows the two rules above.
 
 ## Tests
 
-Do not write tautological tests: a test is tautological when it only re-asserts a mock or stub, re-implements the code under test, asserts constants or types, or cannot fail when the behavior breaks.
+Do not write tautological tests: a test is tautological when it only re-asserts a mock or stub, re-implements the code under test, asserts constants or types, or cannot fail when the behavior breaks. The `fails-on-main` CI job runs every new or changed test against `origin/main` and fails when it passes there.
 
 ## Versioning
 
