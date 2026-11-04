@@ -69,7 +69,7 @@ describe('cards invoice summary (text)', () => {
     expect(out).toMatch(/Scheduled payments\s+R\$ 200,00\n/);
     expect(out).toMatch(/Expenses\s+-R\$ 1\.040,00\n/);
     expect(out).toMatch(/Income\s+R\$ 40,00\n/);
-    expect(out).toMatch(/Invoice total\s+-R\$ 1.000,00\n/);
+    expect(out).toMatch(/Invoice total\s+-R\$ 1\.000,00\n/);
     expect(out).toMatch(/To pay\s+-R\$ 800,00\n/);
     expect(out).toMatch(/Reconciled\s+-R\$ 150,00\n/);
     expect(out).toMatch(/Unreconciled\s+-R\$ 850,00\n/);
