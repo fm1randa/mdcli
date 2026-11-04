@@ -6,13 +6,13 @@ import { createEntry, fetchAccountById, isCreditCard } from '../../lib/api.js';
 import { resolveAccountOrExit } from '../account-id.js';
 import { resolveTags } from './tags.js';
 import { describeCategoryTypeMismatch, resolveEntryCategory } from './category.js';
-import type { CreateEntryPayload, CreateEntryResponse } from '../../types/index.js';
+import type { CreateEntryPayload } from '../../types/index.js';
 import { describeStatus } from './format.js';
 import { formatCurrency } from '../../utils/currency.js';
 import { getCurrentMonthRange, isCalendarDate, now, toLocalDateString } from '../../lib/dates.js';
 import { resolveCardDueDate } from './card-invoice.js';
-import { withCardEntryId } from './card-entries.js';
-import { withScheduledEntryId } from './entry-id.js';
+import { cardEntryLookup } from './card-entries.js';
+import { resolveCreatedEntryId, scheduledEntryLookup, type ResolvedCreateEntry } from './entry-id.js';
 import { signForType } from './type.js';
 import { defaultTransferCategory, resolveTransferDestination } from './create-transfer.js';
 import { intervalLabel, parseSchedule, type Schedule, type ScheduleOptions } from './schedule.js';
@@ -200,9 +200,10 @@ export async function createAction(options: CreateOptions): Promise<void> {
   };
 
   const created = await createEntry(payload);
-  const response = cardDueDate
-    ? await withCardEntryId(created, { id: accountId, dueDate: cardDueDate, description: options.description, value: effectiveValue })
-    : await withScheduledEntryId(created, { accountId, date: dateStr, description: options.description, value: effectiveValue });
+  const lookup = cardDueDate
+    ? cardEntryLookup({ id: accountId, dueDate: cardDueDate, description: options.description, value: effectiveValue })
+    : scheduledEntryLookup({ accountId, date: dateStr, description: options.description, value: effectiveValue });
+  const response = await resolveCreatedEntryId(created, lookup);
   if (options.json) {
     console.log(JSON.stringify(response, null, 2));
     return;
@@ -230,7 +231,7 @@ function describeSchedule(schedule: Schedule): string {
   return `${split} (${every}${start})`;
 }
 
-function reportCreate(response: CreateEntryResponse, schedule: Schedule | undefined, destinationId: number | null): void {
+function reportCreate(response: ResolvedCreateEntry, schedule: Schedule | undefined, destinationId: number | null): void {
   logger.success(t('entryCreated'));
   console.log(`  ${chalk.gray(`${t('labelId')}:`)} ${response.id}`);
   console.log(`  ${chalk.gray(`${t('labelDescription')}:`)} ${response.descricao}`);

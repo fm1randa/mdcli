@@ -18,10 +18,26 @@
 
 After completing any request that changes code:
 
-1. Run `scripts/verify.sh`. It is the official verification and the same script the `verify` CI job runs, which branch protection on `main` requires. It runs install, readme sync, typecheck, lint, knip, the test suite, a dependency audit, and an end-to-end run of the real CLI against a local mock API.
+1. Run `scripts/verify.sh`. It is the official verification and the same script the `verify` CI job runs, which branch protection on `main` requires. It runs install, readme sync, typecheck, lint, knip, the test suite, a dependency audit, a check that no `REVIEW-*.md` is tracked, and an end-to-end run of the real CLI against a local mock API.
 2. Treat the run as passing only when it exits 0 and its last line is `VERIFICAÇÃO OK`. A failure ends with `VERIFICAÇÃO FALHOU: <steps>`.
 3. Fix everything it reports. To iterate on one step, run it directly (`bun run typecheck`, `bun run lint`, `bun run knip`, `bun run test`), then finish with a full `scripts/verify.sh` run.
 4. Introduce no new warnings.
+
+## Rule coverage
+
+Each rule below names the check that fails when it breaks. A rule marked *text only* is enforced by review; add a check here when one becomes cheap. The table starts with the error classes that already repeated in this repository, plus the review-note guard.
+
+| Rule | Check | Where |
+| --- | --- | --- |
+| `README.en.md` translates the current `README.md` | `readme sync` step (CI `verify`) | `scripts/verify.sh` |
+| Both i18n catalogs carry the same keys | `catalog-keys` test | `test/catalog-keys.test.ts` |
+| Files stay small | `max-lines` (300) | `eslint.config.js` |
+| The suite gives the same result on any terminal | environment normalization, guard test, and a hostile `TERM` in CI | `test/setup.ts`, `test/terminal-env.test.ts`, `.github/workflows/ci.yml` |
+| Tests pass a relative `--since` and read a pinned clock | `no-literal-since`, `no-ambient-clock`, restricted date imports; `TZ` and `MDCLI_TODAY` pinned | `eslint-rules/`, `eslint.config.js`, `test/setup.ts` |
+| Strings become numbers only through the strict helpers | `no-loose-number` | `eslint-rules/no-loose-number.js` |
+| Review notes never reach a commit (item 19) | `git ls-files 'REVIEW-*.md'` must be empty | `scripts/verify.sh`, `.gitignore` |
+| Tests assert behavior, not a mock or a constant (item 12) | *text only* | review |
+| The CLI follows the web app, and a conflict with Filipe's decision is reported (items 9 and 10) | *text only* | review |
 
 ## Merge by proof
 
@@ -110,7 +126,7 @@ PR RESULT: pr=<number> pushed <sha>, verify=<OK or FAIL>
 
 17. Confirm `HEAD` equals `origin/<branch>` (`git fetch origin && git status -sb`) and get context on GitHub (`gh pr view`, `gh issue view`, `git log origin/main..HEAD`).
 18. When a review round is requested, follow the `/code-review` skill process on axes (a) repo standards (types, i18n, file size limits, CLI-boundary validation, non-tautological tests, no deleted/loosened assertions, no larger timeouts) and (b) spec (the issue resolved consistently and behavior matching the web).
-19. Classify each finding as high, medium, low, or taste and write in `REVIEW-<P>-r<N>.md` at the repo root, without committing (add it to the local exclude file, `git rev-parse --git-path info/exclude`, if needed).
+19. Classify each finding as high, medium, low, or taste and write in `REVIEW-<P>-r<N>.md` at the repo root, without committing (`.gitignore` ignores `REVIEW-*.md`, and `scripts/verify.sh` fails when one is tracked).
 20. Fix every high and medium finding and the cheap low ones, with commits in English (conventional commits). Run `verify.sh` as in item 3 and push non-force to the PR branch if there is a commit.
 21. Update the PR body in Brazilian Portuguese to match the final diff and evidence (`gh pr edit <P> --body-file <file>`; if the GraphQL call fails, use `gh api -X PATCH repos/fm1randa/mdcli/pulls/<P> -F body=@<file>`).
 22. At the end, list findings with severity (or say the round came out fully clean), what was fixed, and the `verify.sh` result. The last line is exactly (the maintainer automation depends on this format):
