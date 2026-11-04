@@ -121,6 +121,7 @@ export function cardEntryLookup(card: {
   value: number;
 }): CreatedEntryLookup {
   return {
+    looksUpAnyId: true,
     find: async () => {
       const invoice = await fetchCardInvoice(card.id, card.dueDate);
       return (invoice.lancamentos ?? [])
@@ -130,10 +131,10 @@ export function cardEntryLookup(card: {
           return id === undefined ? [] : [id];
         });
     },
-    notFound: (occurrenceId) =>
+    notFound: (id) =>
       t(
         'warningCardEntryIdNotFound',
-        String(occurrenceId),
+        id,
         card.dueDate,
         card.id,
         card.dueDate.slice(0, 7)

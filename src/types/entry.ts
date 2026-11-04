@@ -1,4 +1,5 @@
 declare const entryIdBrand: unique symbol;
+declare const entryIdTextBrand: unique symbol;
 declare const occurrenceIdBrand: unique symbol;
 
 /**
@@ -7,6 +8,9 @@ declare const occurrenceIdBrand: unique symbol;
  * pending entry (#78, #166).
  */
 export type EntryId = number & { readonly [entryIdBrand]: true };
+
+/** The same entry ID, answered as a decimal string; `entries create` keeps it as it came. */
+export type EntryIdText = string & { readonly [entryIdTextBrand]: true };
 
 /** "<series>A<date>", what POST answers for a card purchase or a future pending entry. */
 export type OccurrenceId = string & { readonly [occurrenceIdBrand]: true };

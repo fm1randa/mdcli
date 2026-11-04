@@ -4,7 +4,7 @@ import { parseId, parseInteger } from '../../utils/parse.js';
 import { fetchAllEntries } from '../../lib/api.js';
 import { toCents } from '../../utils/currency.js';
 import { shiftDueDate } from '../../lib/dates.js';
-import type { CreateEntryResponse, EntryId, OccurrenceId } from '../../types/index.js';
+import type { CreateEntryResponse, EntryId, EntryIdText, OccurrenceId } from '../../types/index.js';
 
 /**
  * What POST /v1/lancamentos answered for a card purchase (Finanças,
@@ -19,6 +19,11 @@ export function asEntryId(id: unknown): EntryId | undefined {
   if (typeof id !== 'string') return undefined;
   const entryId = parseInteger(id);
   return entryId === undefined ? undefined : (entryId as EntryId);
+}
+
+/** True when the API already answered an entry ID, as a number or a decimal string. */
+function isEntryId(id: unknown): boolean {
+  return (typeof id === 'number' && Number.isInteger(id)) || (typeof id === 'string' && /^\d+$/.test(id));
 }
 
 /** True for the occurrence ID the API answers for a card purchase or a future pending entry. */
@@ -39,45 +44,53 @@ export function parseEntryId(id: string): number {
 /**
  * The answer of `entries create`: the raw response once its ID is resolved.
  * Splitting the two types is what keeps a new create path from printing an
- * occurrence ID: only this type reaches stdout.
+ * occurrence ID: only this type reaches stdout. The id stays two union members
+ * rather than one union property, which is what makes a raw CreateEntryResponse
+ * unassignable here.
  */
 export type ResolvedCreateEntry = Omit<CreateEntryResponse, 'id'> &
   (
-    | { id: EntryId; occurrenceId?: OccurrenceId }
-    | { id: OccurrenceId; occurrenceId: OccurrenceId }
+    | { id: EntryId | EntryIdText; occurrenceId?: OccurrenceId }
+    | { id: OccurrenceId; occurrenceId?: OccurrenceId }
   );
 
 /** Where the numeric ID of a created entry can be found when POST answers an occurrence ID. */
 export interface CreatedEntryLookup {
+  /**
+   * Whether an ID that is neither an entry ID nor an occurrence is looked up
+   * too. A card purchase can answer anything; a future pending entry answers
+   * an occurrence ID or nothing to look up.
+   */
+  looksUpAnyId: boolean;
   /** IDs of the entries the source lists for this create, or none. */
   find: () => Promise<EntryId[]>;
   /** stderr warning when find answers none. */
-  notFound: (occurrenceId: OccurrenceId) => string;
+  notFound: (id: string) => string;
 }
 
 /**
  * The one place `entries create` turns the ID the API answered into the ID the
- * next command accepts (#78, #166). A numeric ID already is the entry's. An
- * occurrence ID is looked up where the created entry lands (the card invoice
- * or the entries list) and kept in occurrenceId. When the lookup finds nothing
- * the API's ID stays and a warning goes to stderr, so stdout stays valid JSON.
+ * next command accepts (#78, #166). An ID that is already an entry's comes back
+ * untouched, number or decimal string. An occurrence ID is looked up where the
+ * created entry lands (the card invoice or the entries list) and kept in
+ * occurrenceId. When the lookup finds nothing the API's ID stays, without
+ * occurrenceId, and a warning goes to stderr, so stdout stays valid JSON.
  */
 export async function resolveCreatedEntryId(
   response: CreateEntryResponse,
   lookup: CreatedEntryLookup
 ): Promise<ResolvedCreateEntry> {
-  const entryId = asEntryId(response.id);
-  if (entryId !== undefined) return { ...response, id: entryId };
-  // Only an occurrence ID needs resolving. Anything else is already the
-  // entry's ID, so leave it untouched (the old resolvers were as lenient).
-  if (!isOccurrenceId(response.id)) return { ...response, id: response.id };
-  const occurrenceId = response.id;
-  const ids = await lookup.find();
-  if (ids.length === 0) {
-    console.error(lookup.notFound(occurrenceId));
-    return { ...response, id: occurrenceId, occurrenceId };
+  const rawId: unknown = response.id;
+  if (isEntryId(rawId)) return { ...response, id: rawId as EntryId | EntryIdText };
+  if (isOccurrenceId(rawId) || lookup.looksUpAnyId) {
+    const ids = await lookup.find();
+    if (ids.length === 0) {
+      console.error(lookup.notFound(String(rawId)));
+      return { ...response, id: rawId as OccurrenceId };
+    }
+    return { ...response, id: Math.max(...ids) as EntryId, occurrenceId: rawId as OccurrenceId };
   }
-  return { ...response, id: Math.max(...ids) as EntryId, occurrenceId };
+  return { ...response, id: rawId as OccurrenceId };
 }
 
 /**
@@ -93,6 +106,7 @@ export function scheduledEntryLookup(scheduled: {
   value: number;
 }): CreatedEntryLookup {
   return {
+    looksUpAnyId: false,
     find: async () => {
       // The list's date range filters on dataPrevista (normalize.ts), so one
       // month around the planned date covers the entry wherever its `data`
@@ -115,7 +129,6 @@ export function scheduledEntryLookup(scheduled: {
           return id === undefined ? [] : [id];
         });
     },
-    notFound: (occurrenceId) =>
-      t('warningScheduledEntryIdNotFound', String(occurrenceId), scheduled.accountId),
+    notFound: (id) => t('warningScheduledEntryIdNotFound', id, scheduled.accountId),
   };
 }
