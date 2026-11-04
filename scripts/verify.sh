@@ -92,6 +92,19 @@ readme_sync() {
   '
 }
 step "readme sync" readme_sync
+
+# Review notes (AGENTS.md item 19) live in the working tree only: a tracked
+# REVIEW-*.md turns a local finding into a stale, leaked document.
+review_notes_not_tracked() {
+  local tracked
+  tracked=$(git ls-files 'REVIEW-*.md')
+  if [ -n "$tracked" ]; then
+    echo "REVIEW-*.md must not be committed: $tracked"
+    echo "Remove them from the index with git rm --cached; .gitignore already ignores them."
+    return 1
+  fi
+}
+step "review notes not tracked" review_notes_not_tracked
 start_step "typecheck" bun run typecheck
 start_step "lint"      bun run lint
 start_step "knip"      bun run knip
