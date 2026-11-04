@@ -29,6 +29,15 @@ export function changedTestFiles(nameStatus: string): string[] {
   return files;
 }
 
+/** True when the diff changes product code (src/ or bin/), the only case the gate requires. */
+export function changesProduct(nameStatus: string): boolean {
+  return nameStatus.split('\n').some((line) => {
+    const fields = line.split('\t');
+    const path = fields[fields.length - 1];
+    return path === 'src' || path.startsWith('src/') || path === 'bin' || path.startsWith('bin/');
+  });
+}
+
 /** The gate passes only when every changed test file fails against main. */
 export function evaluate(results: RunResult[]): Verdict {
   const passedOnMain = results.filter((result) => result.exitCode === 0).map((result) => result.file);
@@ -100,9 +109,14 @@ function main(): void {
   try {
     const options = parseOptions(process.argv.slice(2));
     const root = repoRoot();
-    const files =
-      options.files ??
-      changedTestFiles(git(['diff', '--name-status', '--no-renames', `${options.base}...HEAD`], root));
+    const diff = git(['diff', '--name-status', '--no-renames', `${options.base}...HEAD`], root);
+    // A test-only PR (like this gate's own fix to a flawed guard) has no new
+    // behavior to prove; the gate only guards PRs that change product code.
+    if (options.files === undefined && !changesProduct(diff)) {
+      console.log('fails-on-main: not required (no src/ or bin/ change)');
+      return;
+    }
+    const files = options.files ?? changedTestFiles(diff);
 
     if (files.length === 0) {
       console.log('fails-on-main: no new or changed test file');
