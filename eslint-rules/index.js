@@ -2,6 +2,7 @@
 // files/ignores (no-restricted-syntax blocks replaced each other's options).
 import noAmbientClock from "./no-ambient-clock.js";
 import noBareProcessExit from "./no-bare-process-exit.js";
+import noCategoryNameResolution from "./no-category-name-resolution.js";
 import noTypeSignTernary from "./no-type-sign-ternary.js";
 import noDoubleCast from "./no-double-cast.js";
 import noDueAnchorFallback from "./no-due-anchor-fallback.js";
@@ -18,6 +19,7 @@ export default {
   rules: {
     "no-ambient-clock": noAmbientClock,
     "no-bare-process-exit": noBareProcessExit,
+    "no-category-name-resolution": noCategoryNameResolution,
     "no-type-sign-ternary": noTypeSignTernary,
     "no-double-cast": noDoubleCast,
     "no-due-anchor-fallback": noDueAnchorFallback,

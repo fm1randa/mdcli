@@ -83,6 +83,12 @@ export default tseslint.config(
     rules: { "local/no-type-sign-ternary": "error" },
   },
   {
+    // A category name is resolved only in src/lib/category-resolution.ts.
+    files: ["src/**/*.ts"],
+    ignores: ["src/lib/category-resolution.ts"],
+    rules: { "local/no-category-name-resolution": "error" },
+  },
+  {
     // --since accepts only the last 90 days: tests pass a date relative to today.
     // src/** is exempt in eslint-rules/scope-exemptions.json: commands read the flag value.
     files: ["test/**/*.ts"],
