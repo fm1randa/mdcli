@@ -42,8 +42,8 @@ export interface ImportSelectionItem {
   entry: number | null;
 }
 
-/** The document `import list --json` writes and `import run --plan` reads. */
-export interface ImportSelectionDocument {
+/** The transactions contract `import list --json` writes and `import run --plan` reads. */
+interface ImportSelectionDocument {
   transactions: ImportSelectionItem[];
 }
 

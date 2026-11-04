@@ -4,11 +4,16 @@ import { t } from '../../../lib/i18n/index.js';
 import { isPositiveSafeInteger } from '../../../utils/parse.js';
 import {
   SELECTION_ACTIONS,
-  type ImportSelectionDocument,
   type ImportSelectionItem,
   type SelectionAction,
 } from './document.js';
 import { readEntryId } from './selection.js';
+
+/** A `--plan` file: the account it was built for, when the document names one, and the selection. */
+interface PlanFile {
+  accountId: number | null;
+  transactions: ImportSelectionItem[];
+}
 
 /**
  * The keys a plan item carries. The selection keys are what the run reads; the diagnostic keys come
@@ -44,7 +49,7 @@ const DOCUMENT_KEYS = new Set([
  * `import list --json` writes. An unknown key, an unknown action, or a wrong type fails the whole
  * file, listing every problem, before any request.
  */
-export function readPlanFile(path: string): ImportSelectionDocument {
+export function readPlanFile(path: string): PlanFile {
   let text: string;
   try {
     text = readFileSync(path, 'utf8');
@@ -61,6 +66,7 @@ export function readPlanFile(path: string): ImportSelectionDocument {
   if (plan === null) throw invalid([t('errorPlanNotObject')]);
   const extra = Object.keys(plan).filter((key) => !DOCUMENT_KEYS.has(key));
   if (extra.length > 0) throw invalid([t('errorPlanUnknownKey', quote(extra[0]))]);
+  const accountId = readAccount(plan.account);
   const rows = plan.transactions;
   if (!Array.isArray(rows)) throw invalid([t('errorPlanTransactionsMustBeList')]);
   if (rows.length === 0) throw invalid([t('errorPlanEmpty')]);
@@ -73,7 +79,15 @@ export function readPlanFile(path: string): ImportSelectionDocument {
     if (item !== null) items.push(item);
   });
   if (problems.length > 0) throw invalid(problems);
-  return { transactions: items };
+  return { accountId, transactions: items };
+}
+
+/** The Account the document was built for (`account.id` from `import list --json`); null when absent. */
+function readAccount(input: unknown): number | null {
+  if (input === undefined) return null;
+  const account = asRecord(input);
+  if (account === null || !isPositiveSafeInteger(account.id)) throw invalid([t('errorPlanAccount')]);
+  return account.id;
 }
 
 function readItem(input: unknown, report: (problem: string) => void): ImportSelectionItem | null {
@@ -104,6 +118,7 @@ function readItem(input: unknown, report: (problem: string) => void): ImportSele
     description: readDescription(row.description, counted),
     entry: readEntry(row.entry, counted),
   };
+  if (action !== 'conciliate' && item.entry !== null) counted(t('errorPlanEntryOnlyConciliate'));
   if (action === 'import' && item.category === null) counted(t('errorPlanCategoryRequired'));
   return failed ? null : item;
 }

@@ -199,6 +199,10 @@ export const ptBREntriesImportOutput = {
   errorPlanValue: () => '"value" deve ser um número.',
   errorPlanDescription: () => '"description" deve ser uma string.',
   errorPlanEntry: () => '"entry" deve ser um ID de lançamento numérico.',
+  errorPlanEntryOnlyConciliate: () => '"entry" só vale para conciliate.',
+  errorPlanAccount: () => '"account" deve ser um objeto com "id" numérico.',
+  errorPlanAccountMismatch: (plan: string, run: string) =>
+    `o plano é da conta ${plan}, mas o run é da conta ${run}.`,
   errorPlanCategoryRequired: () => '"category" é obrigatório para import.',
   errorInvalidPlanFile: (problems: string) =>
     `Arquivo --plan inválido. Nada foi importado.\n${problems}`,

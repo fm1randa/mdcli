@@ -196,6 +196,10 @@ export const enEntriesImportOutput: typeof SectionType = {
   errorPlanValue: () => '"value" must be a number.',
   errorPlanDescription: () => '"description" must be a string.',
   errorPlanEntry: () => '"entry" must be a numeric Entry id.',
+  errorPlanEntryOnlyConciliate: () => '"entry" only applies to conciliate.',
+  errorPlanAccount: () => '"account" must be an object with a numeric "id".',
+  errorPlanAccountMismatch: (plan, run) =>
+    `the plan is for account ${plan}, but the run is for account ${run}.`,
   errorPlanCategoryRequired: () => '"category" is required for import.',
   errorInvalidPlanFile: (problems) =>
     `Invalid --plan file. Nothing was imported.\n${problems}`,

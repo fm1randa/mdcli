@@ -1,4 +1,5 @@
 import { isCreditCard } from '../../../lib/api.js';
+import { resolveAccountOrExit } from '../../account-id.js';
 import { today } from '../../../lib/dates.js';
 import type { Category } from '../../../types/index.js';
 import { exitWithError, flushStdout } from '../../../utils/action.js';
@@ -147,7 +148,11 @@ async function fromFlags(options: ImportRunOptions, today: string): Promise<Plan
 
 /** --plan <file>: each item says its own action. The file is checked before any request. */
 async function fromPlan(options: ImportRunOptions, path: string, today: string): Promise<PlannedRun> {
-  const { transactions: items } = readPlanFile(path);
+  const { accountId: planAccountId, transactions: items } = readPlanFile(path);
+  const accountId = await resolveAccountOrExit(options.account);
+  if (planAccountId !== null && planAccountId !== accountId) {
+    exitWithError(t('errorPlanAccountMismatch', String(planAccountId), String(accountId)));
+  }
   const { categories, problems } = await selectionCategories(items);
   failOnProblems(problems);
   const loaded = await loadImport(options);
