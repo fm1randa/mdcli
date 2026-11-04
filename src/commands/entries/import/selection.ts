@@ -4,7 +4,7 @@ import { t } from '../../../lib/i18n/index.js';
 import { isPositiveSafeInteger, parseId } from '../../../utils/parse.js';
 import { categoryCatalog, checkEntryCategory, type CategoryCatalog } from '../category.js';
 import type { ImportCandidate } from './candidates.js';
-import type { ImportDocument, BankTransactionRow } from './document.js';
+import type { ImportDocument, BankTransactionRow, ImportSelectionItem } from './document.js';
 import {
   checkWrittenValue,
   emptyRun,
@@ -19,24 +19,6 @@ import {
   reference,
   type RunDocument,
 } from './plan.js';
-
-export const SELECTION_ACTIONS = ['import', 'skip', 'reject', 'conciliate'] as const;
-export type SelectionAction = (typeof SELECTION_ACTIONS)[number];
-
-/** One Bank Transaction chosen by hand (`--plan`, `--edit`): what to do with it and how. */
-export interface SelectionItem {
-  /** integrationId prefix or the whole UUID. */
-  id: string;
-  action: SelectionAction;
-  /** Category ID, alias, or exact name. Required by `import`. */
-  category?: string;
-  /** The written value. Only the sign may differ from the bank; `import` writes it. */
-  value?: number;
-  /** Replaces the suggested description on `import`. */
-  description?: string;
-  /** The Entry to link on `conciliate`. Optional when the row has an automatically linked Entry. */
-  entry?: number;
-}
 
 /** An Entry id read for `conciliate`, or why it is not one: the caller has to handle both. */
 type EntryIdRead = { entry: number } | { error: string };
@@ -83,7 +65,7 @@ export async function importCategory(input: string): Promise<Category> {
  * problem per item whose category is refused. Items with a refused category are left out of `categories`.
  */
 export async function selectionCategories(
-  items: readonly SelectionItem[],
+  items: readonly ImportSelectionItem[],
   catalog: CategoryCatalog = categoryCatalog(),
 ): Promise<{ categories: Map<string, Category>; problems: string[] }> {
   const categories = new Map<string, Category>();
@@ -91,7 +73,7 @@ export async function selectionCategories(
   const problems: string[] = [];
   for (const item of items) {
     const input = item.category;
-    if (input === undefined) continue;
+    if (input === null) continue;
     if (!categories.has(input) && !refused.has(input)) {
       const checked = await checkImportCategory(input, catalog);
       if ('error' in checked) refused.set(input, checked.error);
@@ -111,13 +93,17 @@ export async function selectionCategories(
  */
 export function planSelection(
   document: ImportDocument,
-  items: readonly SelectionItem[],
+  items: readonly ImportSelectionItem[],
   options: SelectionOptions & { dryRun: boolean; source: string },
 ): RunDocument {
   const run = emptyRun(document, options.dryRun);
   const problems: string[] = [];
   const seen = new Map<BankTransactionRow, string>();
   for (const item of items) {
+    if (item.id === null) {
+      problems.push(t('errorPlanIdMustBeString'));
+      continue;
+    }
     const row = matchPrefix(document.transactions, item.id, options.source);
     if (typeof row === 'string') {
       problems.push(row);
@@ -129,7 +115,7 @@ export function planSelection(
       continue;
     }
     seen.set(row, item.id);
-    const problem = checkWrittenValue(row, item.value) ?? planItem(row, item, options, run);
+    const problem = checkWrittenValue(row, item.value ?? undefined) ?? planItem(row, item, options, run);
     if (problem !== null) problems.push(`${label(row)}: ${problem}`);
   }
   failOnProblems(problems);
@@ -145,7 +131,7 @@ interface SelectionOptions {
   linkable: (row: BankTransactionRow) => readonly ImportCandidate[];
 }
 
-function planItem(row: BankTransactionRow, item: SelectionItem, options: SelectionOptions, run: RunDocument): string | null {
+function planItem(row: BankTransactionRow, item: ImportSelectionItem, options: SelectionOptions, run: RunDocument): string | null {
   switch (item.action) {
     case 'skip':
       run.skipped.push({ ...reference(row), reason: 'plan' });
@@ -153,15 +139,20 @@ function planItem(row: BankTransactionRow, item: SelectionItem, options: Selecti
     case 'reject':
       return planReject(row, run);
     case 'conciliate':
-      return planLink(row, item.entry, options, run);
+      return planLink(row, item.entry ?? undefined, options, run);
     case 'import': {
       // Only the automatically linked Entry already records it; another candidate is linked by hand or not at all.
       const linked = linkedCandidate(row);
       if (linked !== null) {
         return t('errorEntryAlreadyRecords', linked.id);
       }
-      const category = item.category === undefined ? null : (options.categories.get(item.category) ?? null);
-      return planImport(row, { category, today: options.today, value: item.value, description: item.description }, run);
+      const category = item.category === null ? null : (options.categories.get(item.category) ?? null);
+      return planImport(row, {
+        category,
+        today: options.today,
+        value: item.value ?? undefined,
+        description: item.description ?? undefined,
+      }, run);
     }
   }
 }

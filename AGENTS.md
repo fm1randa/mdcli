@@ -39,7 +39,7 @@ Each rule below names the check that fails when it breaks. A rule marked *text o
 | Review notes never reach a commit (item 19) | `git ls-files 'REVIEW-*.md'` must be empty | `scripts/verify.sh`, `.gitignore` |
 | An `eslint-disable` is a described exception, never a copied pattern | `disable-directive-description`, unused-directive reporting, and the `eslint disables` step (CI `verify`) | `eslint-rules/`, `eslint.config.js`, `scripts/check-eslint-disables.ts`, `scripts/verify.sh` |
 | The mock answers with the API's response types, not what the CLI happens to read | `typecheck` (`tsc --noEmit`): every fixture and `scripts/mock-*.ts` payload carries its `src/types` response type | `test/fixtures.ts`, `scripts/mock-*.ts` |
-| Tests assert behavior, not a mock or a constant (item 12) | *text only* | review |
+| Tests assert behavior, not a mock or a constant (item 12) | `no-tautological-expect` (literal vs itself, assertions over src/bin text) and the `fails-on-main` CI job (in a PR that changes `src/` or `bin/`, every new or changed test must fail against `origin/main`) | `eslint-rules/no-tautological-expect.js`, `.github/workflows/fails-on-main.yml`, `scripts/new-tests-fail-on-main.ts` |
 | The CLI follows the web app, and a conflict with Filipe's decision is reported (items 9 and 10) | *text only* | review |
 
 ## Merge by proof
@@ -63,7 +63,7 @@ A PR labeled `risco` follows the two rules above.
 
 ## Tests
 
-Do not write tautological tests: a test is tautological when it only re-asserts a mock or stub, re-implements the code under test, asserts constants or types, or cannot fail when the behavior breaks.
+Do not write tautological tests: a test is tautological when it only re-asserts a mock or stub, re-implements the code under test, asserts constants or types, or cannot fail when the behavior breaks. The `fails-on-main` CI job runs every new or changed test in a PR that changes `src/` or `bin/` against `origin/main` and fails when it passes there.
 
 ## Versioning
 

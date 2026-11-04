@@ -1,0 +1,33 @@
+name: fails-on-main
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  fails-on-main:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # The gate diffs against the merge base and checks out origin/main in
+          # a second worktree.
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+      - uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
+      - name: Install
+        run: bun install --frozen-lockfile
+      - name: Every new or changed test must fail against origin/main
+        # A test that passes without the change proves nothing (#155).
+        run: |
+          git fetch --no-tags origin main
+          bun scripts/new-tests-fail-on-main.ts --base origin/main

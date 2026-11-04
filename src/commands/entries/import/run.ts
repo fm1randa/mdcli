@@ -1,4 +1,5 @@
 import { isCreditCard } from '../../../lib/api.js';
+import { resolveAccountOrExit } from '../../account-id.js';
 import { today } from '../../../lib/dates.js';
 import type { Category } from '../../../types/index.js';
 import { exitAfterFlush, exitWithError } from '../../../utils/action.js';
@@ -130,7 +131,7 @@ async function fromFlags(options: ImportRunOptions, today: string): Promise<Plan
   failOnProblems(withNothingNew(problems, loaded.document));
   const both = picked.find((row) => rejected.includes(row));
   if (both !== undefined) {
-    exitWithError(t('errorSelectedByBoth', String(both.prefix ?? both.integrationId)));
+    exitWithError(t('errorSelectedByBoth', String(both.id ?? both.integrationId)));
   }
   const run = planRun(loaded.document, {
     toImport: picked,
@@ -145,12 +146,16 @@ async function fromFlags(options: ImportRunOptions, today: string): Promise<Plan
 
 /** --plan <file>: each item says its own action. The file is checked before any request. */
 async function fromPlan(options: ImportRunOptions, path: string, today: string): Promise<PlannedRun> {
-  const items = readPlanFile(path);
+  const { accountId: planAccountId, transactions: items } = readPlanFile(path);
+  const accountId = await resolveAccountOrExit(options.account);
+  if (planAccountId !== null && planAccountId !== accountId) {
+    exitWithError(t('errorPlanAccountMismatch', String(planAccountId), String(accountId)));
+  }
   const { categories, problems } = await selectionCategories(items);
   failOnProblems(problems);
   const loaded = await loadImport(options);
   if (loaded.document.transactions.length === 0) {
-    failOnProblems(withNothingNew(items.map((item) => unmatchedPrefix(item.id, '--plan')), loaded.document));
+    failOnProblems(withNothingNew(items.map((item) => unmatchedPrefix(item.id ?? '', '--plan')), loaded.document));
   }
   const run = planSelection(loaded.document, items, {
     categories,
@@ -201,8 +206,8 @@ function listCommand(options: ImportRunOptions): string {
 /** A duplicate the listing would skip opens as import (or without a category) instead. A linked one stays linked. */
 function includeDuplicates(document: ImportDocument): void {
   for (const row of document.transactions) {
-    if (row.duplicateOf === null || row.defaultAction !== 'skip') continue;
-    row.defaultAction = row.suggestedCategory === null ? 'needs-category' : 'import';
+    if (row.duplicateOf === null || row.action !== 'skip') continue;
+    row.action = 'import';
   }
 }
 

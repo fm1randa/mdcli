@@ -6,10 +6,10 @@ import { t } from '../../../lib/i18n/index.js';
 import type { Category } from '../../../types/index.js';
 import type { CategoryCatalog } from '../category.js';
 import type { ImportCandidate } from './candidates.js';
-import type { ImportDocument, BankTransactionRow } from './document.js';
+import type { ImportDocument, BankTransactionRow, ImportSelectionItem } from './document.js';
 import { parseEditFile, renderEditFile, withErrors } from './edit-file.js';
 import { PlanError, type RunDocument } from './plan.js';
-import { planSelection, selectionCategories, type SelectionItem } from './selection.js';
+import { planSelection, selectionCategories } from './selection.js';
 
 /** The edited run and the categories it imports with. */
 export interface EditedRun {
@@ -79,12 +79,12 @@ function openEditor(editor: string, file: string): void {
  */
 async function planItems(
   document: ImportDocument,
-  items: readonly SelectionItem[],
+  items: readonly ImportSelectionItem[],
   options: EditOptions,
 ): Promise<EditedRun | { errors: string[] }> {
   const { categories, problems } = await selectionCategories(items, options.catalog);
   // A refused category is already reported; planning that line again would only add "it has no category".
-  const usable = items.filter((item) => item.category === undefined || categories.has(item.category));
+  const usable = items.filter((item) => item.category === null || categories.has(item.category));
   try {
     const run = planSelection(document, usable, {
       categories,

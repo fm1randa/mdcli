@@ -15,5 +15,9 @@
   "no-short-option-equals": {
     "src/**": "preprocessShortOptions runs only in bin/cli.ts, before commander parses argv.",
     "test/**": "Tests exercise the preprocessing through the real CLI (test/cli-short-option-equals.test.ts), not by importing it."
+  },
+  "no-tautological-expect": {
+    "src/**": "The rule guards test assertions; src/ has no expect() calls.",
+    "test/**": "Only test/**/*.test.ts is linted; helpers and fixtures hold no assertions."
   }
 }

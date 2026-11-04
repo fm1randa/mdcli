@@ -101,6 +101,12 @@ export default tseslint.config(
     },
   },
   {
+    // A test that compares a literal to itself, or asserts the text of a
+    // src/ or bin/ file, cannot fail when the behavior breaks (issue #186).
+    files: ["test/**/*.test.ts"],
+    rules: { "local/no-tautological-expect": "error" },
+  },
+  {
     // Short options with = must be preprocessed before commander parses argv (#151).
     // src/** and test/** are exempt in eslint-rules/scope-exemptions.json.
     files: ["bin/cli.ts"],
