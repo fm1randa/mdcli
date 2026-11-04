@@ -95,7 +95,7 @@ describe('accounts list balances', () => {
   });
 
   test('a card has no balance, and with only cards no sum is asked for', async () => {
-    api.on('GET /v1/cadastros/contas', { ...ACCOUNTS_RESPONSE, items: [{ ...CREDIT_CARD_ACCOUNT, saldoUltimoExtrato: 160.99 }] });
+    api.on('GET /v1/cadastros/contas', { ...ACCOUNTS_RESPONSE, items: [{ ...CREDIT_CARD_ACCOUNT, saldoUltimoExtrato: 321.45 }] });
 
     const result = await runCli(['accounts', 'list', '--json'], { home, api });
 

@@ -19,9 +19,9 @@ afterEach(() => {
 });
 
 describe('cards list --json', () => {
-  // Real use 2026-10-19: the JSON lacked what the table and the web show.
-  // Real use 2026-10-19: balance (saldoUltimoExtrato, Open Finance)
-  // means nothing for a card, so it is gone; the card fields stay.
+  // Real use 2026-10-19: the JSON lacked what the table and the web show;
+  // balance (saldoUltimoExtrato, Open Finance) means nothing for a card, so
+  // it is gone and the card fields stay.
   test('--json has limit, due and closing dates and the payment account, and no balance', async () => {
     api.on('GET /v1/cadastros/contas', {
       ...ACCOUNTS_RESPONSE,
@@ -33,7 +33,7 @@ describe('cards list --json', () => {
           contada: 201,
           proximoVencimento: '2026-11-16',
           proximoFechamento: '2026-11-05',
-          saldoUltimoExtrato: 160.99,
+          saldoUltimoExtrato: 321.45,
         },
         { ...CREDIT_CARD_ACCOUNT, id: 203, nome: 'Cartão Novo', proximoVencimento: undefined, proximoFechamento: undefined },
       ],

@@ -166,12 +166,12 @@ describe('sync run', () => {
   test('resolves an alias offline and an exact account name', async () => {
     const aliased = createHome({
       ...MANUAL_AUTH,
-      aliases: { accounts: [{ id: 202, name: 'azul' }], categories: [], tags: [] },
+      aliases: { accounts: [{ id: 202, name: 'cartao' }], categories: [], tags: [] },
     });
     try {
       connections(ONE_CONNECTION, AFTER_SYNC);
 
-      const alias = await runCli(['sync', 'run', 'azul', '--yes', '--json'], { home: aliased, api });
+      const alias = await runCli(['sync', 'run', 'cartao', '--yes', '--json'], { home: aliased, api });
       expect(alias.exitCode).toBe(0);
       expect(alias.stderr).toContain('Connection 501 is UPDATING. Run sync list again to see the result.');
       expect(alias.stdout).not.toContain('Run sync list again');

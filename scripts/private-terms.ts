@@ -4,8 +4,8 @@ import { join } from 'node:path';
 
 /**
  * SHA-256 of the normalized real-account terms this repository must never
- * carry again: account, card and entry names, their API ids, and the agent
- * that used the real account. The terms themselves are deliberately absent;
+ * carry again: account, card and entry names, their aliases and API ids, and
+ * the agent that used the real account. The terms themselves are deliberately absent;
  * regenerate a hash from the lowercase, accent-free term with `termHash`.
  */
 export const PRIVATE_TERM_HASHES: ReadonlySet<string> = new Set([
@@ -75,6 +75,13 @@ export const PRIVATE_TERM_HASHES: ReadonlySet<string> = new Set([
   '8813d406421e0063ef8ec81fc45170338b4cfd9547ee1ab157b90b46bcb6e2a7',
   '33129567e0bd787efb15a26307e5311e06ba66e3b8dbc2206ad59f99780a4d78',
   '23b11a7ca9488f4094d29eee7d1c22076448630a816724e5b7d84aa55b605600',
+  '68dbf73d03d3a5107edad3b05676eee240e68c280296e52b6986873c54cef3cb',
+  '3086cf468ccca87cc7840e0755947526a039eea35f486002d7f1c53d7c58686a',
+  'a4bd1d3a69aa0ea6ffb1298c8c26be4b333526cae7d27f2362f89857157701ce',
+  'b90f4994c4675589617d546a2364d97a26dd97a57ca5983598b2b68d7899bbcd',
+  'e59a9de16c717ce6b094544d33c223f70aef6edede63025cd6c9bb8aefde8f9d',
+  '2b78da3dc866654e6ea7cb2f654df44746b6f02876acbb2a05726ab3d915e47e',
+  'cfe062be1bbee227d288296c3e8c07367716a6e3da5ffffbcdb9304457e3ef3f',
 ]);
 
 /** Generic phrases that contain a guarded word and are allowed as-is. */

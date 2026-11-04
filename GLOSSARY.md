@@ -94,7 +94,7 @@ Aliases intentionally win over names so that short user-chosen shortcuts are nev
 > **Dev:** "If a user types `--account 201`, does that hit the network?"
 > **Domain expert:** "No — numeric Identifiers are taken at face value as the API ID. No Alias lookup, no Name cache."
 >
-> **Dev:** "What if they type `--account mp` and they have an Alias `mp` for account `201` but also own a real account named 'mp'?"
+> **Dev:** "What if they type `--account principal` and they have an Alias `principal` for account `201` but also own a real account named 'principal'?"
 > **Domain expert:** "The Alias wins. The user can rename or remove the Alias to fall through to name resolution."
 >
 > **Dev:** "What if they rename an account in the Meu Dinheiro web UI and the cached name still points to the old ID?"

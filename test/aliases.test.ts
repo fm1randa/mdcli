@@ -13,7 +13,7 @@ function writeConfig(config: object): void {
 beforeEach(() => {
   writeConfig({
     aliases: {
-      accounts: [{ id: 201, name: 'nu' }],
+      accounts: [{ id: 201, name: 'principal' }],
       categories: [],
       tags: [],
     },
@@ -26,7 +26,7 @@ afterEach(() => {
 
 describe('getAliases / addAlias / updateAlias / removeAlias', () => {
   test('lists aliases for a type', () => {
-    expect(getAliases('accounts')).toEqual([{ id: 201, name: 'nu' }]);
+    expect(getAliases('accounts')).toEqual([{ id: 201, name: 'principal' }]);
     expect(getAliases('tags')).toEqual([]);
   });
 
@@ -36,13 +36,13 @@ describe('getAliases / addAlias / updateAlias / removeAlias', () => {
   });
 
   test('addAlias refuses a duplicate name or id', () => {
-    expect(addAlias('accounts', 202, 'nu')).toEqual({
+    expect(addAlias('accounts', 202, 'principal')).toEqual({
       success: false,
-      error: 'O alias "nu" já existe',
+      error: 'O alias "principal" já existe',
     });
     expect(addAlias('accounts', 201, 'other')).toEqual({
       success: false,
-      error: 'O ID 201 já tem o alias "nu"',
+      error: 'O ID 201 já tem o alias "principal"',
     });
   });
 
@@ -56,10 +56,10 @@ describe('getAliases / addAlias / updateAlias / removeAlias', () => {
       success: false,
       error: 'Nenhum alias encontrado para o ID 999',
     });
-    addAlias('accounts', 202, 'itau');
-    expect(updateAlias('accounts', 201, 'itau')).toEqual({
+    addAlias('accounts', 202, 'outro');
+    expect(updateAlias('accounts', 201, 'outro')).toEqual({
       success: false,
-      error: 'O alias "itau" já existe',
+      error: 'O alias "outro" já existe',
     });
   });
 
@@ -67,8 +67,8 @@ describe('getAliases / addAlias / updateAlias / removeAlias', () => {
     expect(removeAlias('accounts', '201')).toEqual({ success: true });
     expect(getAliases('accounts')).toEqual([]);
 
-    addAlias('accounts', 201, 'nu');
-    expect(removeAlias('accounts', 'nu')).toEqual({ success: true });
+    addAlias('accounts', 201, 'principal');
+    expect(removeAlias('accounts', 'principal')).toEqual({ success: true });
     expect(removeAlias('accounts', 'missing')).toEqual({
       success: false,
       error: 'Nenhum alias encontrado para "missing"',
@@ -84,11 +84,11 @@ describe('resolveId / resolveIds (offline paths)', () => {
   });
 
   test('aliases resolve offline', async () => {
-    expect(await resolveId('accounts', 'nu')).toBe(201);
+    expect(await resolveId('accounts', 'principal')).toBe(201);
   });
 
   test('resolveIds splits a comma list of ids and aliases', async () => {
-    expect(await resolveIds('accounts', '201, nu, 203')).toEqual({
+    expect(await resolveIds('accounts', '201, principal, 203')).toEqual({
       ids: [201, 201, 203],
       unresolved: [],
     });

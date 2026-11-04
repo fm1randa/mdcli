@@ -10,7 +10,7 @@ beforeEach(() => {
   api.on('GET /v1/cadastros/contas', ACCOUNTS_RESPONSE);
   home = createHome({
     ...MANUAL_AUTH,
-    aliases: { accounts: [{ id: 202, name: 'azul' }], categories: [], tags: [] },
+    aliases: { accounts: [{ id: 202, name: 'cartao' }], categories: [], tags: [] },
   });
 });
 
@@ -70,7 +70,7 @@ describe('cards invoice', () => {
     });
 
     const result = await runCli(
-      ['cards', 'invoice', '--account', 'azul', '--month', '2026-01', '--json'],
+      ['cards', 'invoice', '--account', 'cartao', '--month', '2026-01', '--json'],
       { home, api }
     );
 

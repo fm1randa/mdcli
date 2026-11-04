@@ -1,4 +1,4 @@
-<!-- traduzido de README.md @ 3de829b (base: 3de829bf2677009588aa832f00beb411ef273fc4; readme-blob: a8be5dcee31ef140ddef0d613be728ea2f60f79f); ao atualizar o README.md, sincronize este arquivo e atualize o SHA e o readme-blob (git hash-object README.md) -->
+<!-- traduzido de README.md @ 3de829b (base: 3de829bf2677009588aa832f00beb411ef273fc4; readme-blob: 65fad686230f25cb28384890689a0d8f6b3e2d8b); ao atualizar o README.md, sincronize este arquivo e atualize o SHA e o readme-blob (git hash-object README.md) -->
 [Português (Brasil)](README.md) · **English**
 
 > The Portuguese [README.md](README.md) is the reference version; this English translation may lag behind it.
@@ -234,7 +234,7 @@ mdcli accounts update 201 --active
 mdcli accounts delete 201
 
 # Create an alias for quick access
-mdcli accounts alias add --id 201 --name mp
+mdcli accounts alias add --id 201 --name principal
 
 # List, change, or remove aliases (stored on this computer only)
 mdcli accounts alias list
@@ -252,7 +252,7 @@ mdcli tags alias update --id 678 --name trip
 mdcli tags alias rm --name trip
 
 # List entries using alias
-mdcli entries list --account mp --from 2024-01-01 --to 2024-01-31
+mdcli entries list --account principal --from 2024-01-01 --to 2024-01-31
 
 # List entries using the account's exact name (case-insensitive)
 mdcli entries list --account "Conta Teste - Conta Corrente" --from 2024-01-01 --to 2024-01-31
@@ -260,12 +260,12 @@ mdcli entries list --account "Conta Teste - Conta Corrente" --from 2024-01-01 --
 # Meu Dinheiro loads entries up to 2031-12-31; a later --to is refused before
 # any request. Errors go to stderr with exit code 1; under --json they are
 # JSON too ({"error": "..."}), so stdout only ever holds the result.
-mdcli entries list --account mp --from 2026-11-01 --to 2031-12-31 --json
+mdcli entries list --account principal --from 2026-11-01 --to 2031-12-31 --json
 
 # Export entries to CSV (all pages, with account, category, transfer-account and tag names,
 # effective/competence dates, repetition, notes and document number;
 # date is the planned date, the one --from/--to filter on)
-mdcli entries list --account mp --from 2026-01-01 --to 2026-03-31 --csv > entries.csv
+mdcli entries list --account principal --from 2026-01-01 --to 2026-03-31 --csv > entries.csv
 
 # A credit card's purchases, read from its invoices due in the range (the
 # statement list leaves card purchases out); dated by the invoice due date,
@@ -274,31 +274,31 @@ mdcli entries list --account <cardId> --from 2026-10-01 --to 2026-12-31 --json
 
 # Checking account without the card bill projection (type invoice, no ID) the
 # API adds for each card it pays; also on summary
-mdcli entries list --account mp --from 2026-11-01 --to 2026-11-30 --no-invoices
+mdcli entries list --account principal --from 2026-11-01 --to 2026-11-30 --no-invoices
 
 # Only installments and fixed series (the web app's Repetição filter);
 # also on summary. Values: single, installment, fixed
-mdcli entries list --account mp --repetition installment,fixed
+mdcli entries list --account principal --repetition installment,fixed
 
 # Every field of one entry; --json is the list shape, --raw the API answer
 mdcli entries show 12345
 mdcli entries show 12345 --raw
 
 # Income vs. expenses by category for the current month (transfers left out)
-mdcli entries summary --account mp,conta
+mdcli entries summary --account principal,conta
 
 # Month by month for a quarter, or per account; --json/--csv also work here
-mdcli entries summary --account mp --from 2026-01-01 --to 2026-03-31 --by month
-mdcli entries summary --account mp,conta --by account --include-transfers
+mdcli entries summary --account principal --from 2026-01-01 --to 2026-03-31 --by month
+mdcli entries summary --account principal,conta --by account --include-transfers
 
 # Leave out categories (and their subcategories), e.g. a card bill paid from
 # checking that would double-count the purchases already on the card
-mdcli entries summary --account mp,conta --exclude-category "Pagamento de cartão"
+mdcli entries summary --account principal,conta --exclude-category "Pagamento de cartão"
 
 # Create an entry. The type (-T, expense by default) and the category have to
 # match: the web app only lists categories of the entry's type, so a category
 # of another type is refused before the API is called
-mdcli entries create --account mp --description "Groceries" --value 150 --category food
+mdcli entries create --account principal --description "Groceries" --value 150 --category food
 
 # A card purchase goes to the open invoice (or --invoice YYYY-MM); the ID
 # printed is the entry ID from the invoice, usable with update/show/delete
@@ -310,23 +310,23 @@ mdcli entries create --account "Conta Teste" --description "Groceries" --value 1
 # Transfer between two accounts (--account is the origin); the category
 # defaults to the system transfer category, as in the web app. Transfers to or
 # from a credit card, or between currencies, are not supported yet.
-mdcli entries create --account mp --type transfer --to-account conta --description "Reserva" --value 500
+mdcli entries create --account principal --type transfer --to-account conta --description "Reserva" --value 500
 
 # Installments (parcelada): 1200 split into 10 monthly installments; the first
 # one absorbs the rounding cent. --per-installment makes --value each one's,
 # --repeat/--frequency set the spacing, --first-installment the starting number.
-mdcli entries create --account mp --description "Notebook" --value 1200 --category tech --installments 10
+mdcli entries create --account principal --description "Notebook" --value 1200 --category tech --installments 10
 
 # Fixed series every 2 months, 6 times (--frequency and --times can be combined)
-mdcli entries create --account mp --description "Academia" --value 90 --category gym --repeat monthly --frequency 2 --times 6
+mdcli entries create --account principal --description "Academia" --value 90 --category gym --repeat monthly --frequency 2 --times 6
 
 # Pending (Confirmado off, no effective date yet). The API shows it as pending
 # up to today and as scheduled (agendado) for a future date.
-mdcli entries create --account mp --description "IPVA" --value 800 --category car --date 2027-01-20 --pending
+mdcli entries create --account principal --description "IPVA" --value 800 --category car --date 2027-01-20 --pending
 
 # Confirmed but not reconciled (without a status flag, create reconciles).
 # Credit card purchases are always left unreconciled on the invoice.
-mdcli entries create --account mp --description "Feira" --value 30 --category food --confirmed
+mdcli entries create --account principal --description "Feira" --value 30 --category food --confirmed
 
 # Update an entry (only the fields you pass are changed). -T sets the type, and
 # with it the sign of the value (income positive, expense negative) and
@@ -380,19 +380,19 @@ mdcli entries delete 12345 --scope following
 # connection reports as new; without that, the statement since the account's
 # last statement date (at most 90 days ago). The prefix identifies each
 # transaction in the commands below, like a git commit prefix
-mdcli entries import list --account mp
-mdcli entries import list --account mp --since 2026-10-01 --json
+mdcli entries import list --account principal
+mdcli entries import list --account principal --since 2026-10-01 --json
 
 # Widens the search for entries to reconcile (the web's "Alterar busca"; the
 # default is the statement period ±2 days). On a card, the candidates are the
 # whole invoice of the next due date; a card without a next due date cannot be imported
-mdcli entries import list --account mp --search-to 2026-10-20
+mdcli entries import list --account principal --search-to 2026-10-20
 
 # Imports transactions chosen by prefix, all in one category; --reject marks
 # others as not imported. Asks for confirmation (y/N), and --dry-run shows what
 # would be done without writing anything
-mdcli entries import run --account mp --ids 1a2b3c4d,5e6f7a8b --category food --dry-run
-mdcli entries import run --account mp --ids 1a2b3c4d --category food --reject 9c0d1e2f --yes
+mdcli entries import run --account principal --ids 1a2b3c4d,5e6f7a8b --category food --dry-run
+mdcli entries import run --account principal --ids 1a2b3c4d --category food --reject 9c0d1e2f --yes
 
 # Conciliation follows the preference saved in the web app. --overwrite turns
 # overwriting on for this run only (it updates the contact, category, cost
@@ -400,23 +400,23 @@ mdcli entries import run --account mp --ids 1a2b3c4d --category food --reject 9c
 # entries) and --no-overwrite turns it off; --fill-description fills the empty
 # description of linked entries and --no-fill-description turns it off. Nothing
 # is written back to the preference
-mdcli entries import run --account mp --ids 1a2b3c4d --category food --overwrite --fill-description --yes
+mdcli entries import run --account principal --ids 1a2b3c4d --category food --overwrite --fill-description --yes
 
 # One action per transaction (import, conciliate, skip, reject) in a JSON file:
 # {"transactions": [{"id": "1a2b3c4d", "action": "conciliate", "entry": 12345}]}
-mdcli entries import run --account mp --plan plan.json --yes
+mdcli entries import run --account principal --plan plan.json --yes
 
 # Or in $EDITOR, in the style of git rebase -i: one line per transaction
 # (<command> <prefix> <date> <value> <category> | <description>). An error
 # reopens the editor with the message; deleting every line cancels
-mdcli entries import run --account mp --edit
+mdcli entries import run --account principal --edit
 
 # Lists the bank connections and the accounts linked to each one
 mdcli sync list
 
 # Requests an update (sync) of an account's connection, or of all of them. Each
 # connector accepts at most 3 per day, so it asks for confirmation
-mdcli sync run mp
+mdcli sync run principal
 mdcli sync run all --yes
 
 # List credit cards (--json has limit, dueDay, nextDueDate, nextClosingDate,

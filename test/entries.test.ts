@@ -12,7 +12,7 @@ beforeEach(() => {
   api.on('GET /v2/lancamentos', EMPTY_ENTRIES_RESPONSE);
   home = createHome({
     ...MANUAL_AUTH,
-    aliases: { accounts: [{ id: 201, name: 'nu' }], categories: [], tags: [] },
+    aliases: { accounts: [{ id: 201, name: 'conta' }], categories: [], tags: [] },
   });
 });
 
@@ -41,7 +41,7 @@ describe('entries list', () => {
 
   test('resolves account aliases and category names', async () => {
     const result = await runCli(
-      ['entries', 'list', '-a', 'nu', '-c', 'alimentação/mercado', '--from', '2026-01-01', '--to', '2026-01-31', '--json'],
+      ['entries', 'list', '-a', 'conta', '-c', 'alimentação/mercado', '--from', '2026-01-01', '--to', '2026-01-31', '--json'],
       { home, api }
     );
 

@@ -104,7 +104,7 @@ beforeEach(() => {
   api.on('GET /v2/lancamentos', { list: [], meta: { total: 0, page: 1, pageSize: 500 } });
   home = createHome({
     ...MANUAL_AUTH,
-    aliases: { accounts: [{ id: 201, name: 'nu' }], categories: [], tags: [] },
+    aliases: { accounts: [{ id: 201, name: 'conta' }], categories: [], tags: [] },
   });
 });
 
@@ -192,7 +192,7 @@ describe('entries import list', () => {
   });
 
   test('resolves an alias and an exact account name to the same connection account', async () => {
-    const alias = await cli(['entries', 'import', 'list', '-a', 'nu', '--since', SINCE, '--json']);
+    const alias = await cli(['entries', 'import', 'list', '-a', 'conta', '--since', SINCE, '--json']);
     expect(alias.exitCode).toBe(0);
     expect(JSON.parse(alias.stdout).account).toEqual({ id: 201, name: 'Conta Teste' });
 
