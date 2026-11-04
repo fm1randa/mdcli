@@ -59,7 +59,8 @@ describe('entries import list duplicates', () => {
       name: null,
       source: 'rule',
     });
-    expect(JSON.parse(result.stdout).transactions[0].defaultAction).toBe('import');
+    expect(JSON.parse(result.stdout).transactions[0].action).toBe('import');
+    expect(JSON.parse(result.stdout).transactions[0].category).toBe('999');
     expect(api.requests.some((r) => r.path === '/v1/cadastros/categorias')).toBe(true);
     expect(mutations(api)).toHaveLength(0);
   });
@@ -108,9 +109,9 @@ describe('entries import list duplicates', () => {
     const body = JSON.parse(result.stdout);
     expect(body.account).toEqual({ id: 201, name: 'Conta Teste' });
     expect(body.connection).toEqual({ id: 501, connectionAccount: 301 });
-    expect(body.transactions.map((row: { duplicateOf: number | null; defaultAction: string; suggestedCategory: { id: number } | null }) => ({
+    expect(body.transactions.map((row: { duplicateOf: number | null; action: string; category: string | null; suggestedCategory: { id: number } | null }) => ({
       duplicateOf: row.duplicateOf,
-      defaultAction: row.defaultAction,
+      defaultAction: row.action === 'import' && row.category === null ? 'needs-category' : row.action,
       categoryId: row.suggestedCategory?.id ?? null,
     }))).toEqual([
       { duplicateOf: 77, defaultAction: 'skip', categoryId: 11 },

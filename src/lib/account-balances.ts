@@ -1,6 +1,6 @@
 import type { Account, AccountBalanceSum, AccountBalancesResponse } from '../types/index.js';
 import { setEntriesPreferences, type EntriesPreferences } from './entries-preferences.js';
-import { asRecord } from './payload.js';
+import { asRecord, idOrNull } from './payload.js';
 import type { WebConfig } from './web-session.js';
 
 /**
@@ -22,15 +22,14 @@ function hasWebBalance(account: Account, currency: number | undefined, restricte
 
 /**
  * usuarioService.hasRest("contas", id) (mdb.js 60168-60188): an account is
- * restricted when its id is in usuario.permissoes.restricoes.contas, compared
- * loosely like the web's ==; without that list no account is.
+ * restricted when its id is in usuario.permissoes.restricoes.contas, which may
+ * hold the id as a number or a string; without that list no account is.
  */
 function accountRestriction(config: WebConfig | null): (id: number) => boolean {
   const user = asRecord(config?.usuario);
   const ids = asRecord(asRecord(asRecord(user?.permissoes)?.restricoes))?.contas;
   if (!Array.isArray(ids)) return () => false;
-  // eslint-disable-next-line local/no-loose-number -- API data (number or string), coerced like the web's ==, not user input
-  return (id) => ids.some((restricted) => Number(restricted) === id);
+  return (id) => ids.some((restricted) => idOrNull(restricted) === id);
 }
 
 /**

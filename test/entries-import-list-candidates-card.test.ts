@@ -88,8 +88,8 @@ describe('entries import list card candidates', () => {
     expect(body.search).toEqual({ from: null, to: null });
     expect(body.ai).toBe('unused');
     expect(body.transactions[0].duplicateOf).toBe(77);
-    expect(body.transactions[0].conciliateWith).toBe(777);
-    expect(body.transactions[0].defaultAction).toBe('conciliate');
+    expect(body.transactions[0].entry).toBe(777);
+    expect(body.transactions[0].action).toBe('conciliate');
     expect(body.transactions[0].candidates).toEqual([
       { id: 778, date: '2026-01-02', value: -12.34, description: 'So Compra', categoryId: 11 },
       { id: 780, date: '2026-10-07', value: 12.34, description: 'Sinal Trocado', categoryId: 20 },
@@ -113,8 +113,8 @@ describe('entries import list card candidates', () => {
     expect(row.candidates).toEqual([
       { id: 781, date: '2026-10-04', value: -12.34, description: 'Longe', categoryId: 10 },
     ]);
-    expect(row.conciliateWith).toBeNull();
-    expect(row.defaultAction).toBe('import');
+    expect(row.entry).toBeNull();
+    expect(row.action).toBe('import');
     expect(api.requests.some((r) => r.path === '/v2/lancamentos')).toBe(false);
   });
 
@@ -130,7 +130,7 @@ describe('entries import list card candidates', () => {
     expect(row.candidates).toEqual([
       { id: 783, date: '2026-09-22', value: -12.34, description: 'Antes do extrato', categoryId: 10 },
     ]);
-    expect(row.conciliateWith).toBeNull();
+    expect(row.entry).toBeNull();
 
     const plan = join(home.dir, 'plan.json');
     writeFileSync(plan, JSON.stringify({ transactions: [{ id: TX.slice(0, 8), action: 'conciliate', entry: 783 }] }));
@@ -156,7 +156,7 @@ describe('entries import list card candidates', () => {
     expect(row.candidates).toEqual([
       { id: 784, date: '2026-10-07', value: -12.34, description: 'Sem periodo', categoryId: 10 },
     ]);
-    expect(row.conciliateWith).toBe(784);
+    expect(row.entry).toBe(784);
   });
 
   test('reads a dataCompetencia that carries a time', async () => {
@@ -171,7 +171,7 @@ describe('entries import list card candidates', () => {
     expect(row.candidates).toEqual([
       { id: 782, date: '2026-10-06', value: -12.34, description: 'Com hora', categoryId: 10 },
     ]);
-    expect(row.defaultAction).toBe('conciliate');
+    expect(row.action).toBe('conciliate');
   });
 
   test('rejects --search-from or --search-to on a card as not specified', async () => {

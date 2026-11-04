@@ -21,7 +21,7 @@ export async function fillAiCategories(
   const eligible: { index: number; kind: AiRequest['kind'] }[] = [];
   document.transactions.forEach((row, index) => {
     const request = requests[index] ?? null;
-    if (row.suggestedCategory !== null || request === null || row.conciliateWith !== null) return;
+    if (row.suggestedCategory !== null || request === null || row.entry !== null) return;
     eligible.push({ index, kind: request.kind });
   });
   if (eligible.length === 0) {
@@ -47,6 +47,6 @@ export async function fillAiCategories(
     const row = document.transactions[index];
     if (category === undefined || category.status === false || category.tipo !== kind || row === undefined) continue;
     row.suggestedCategory = { id, name: null, source: 'ai' };
-    if (row.defaultAction === 'needs-category') row.defaultAction = 'import';
+    row.category = String(id);
   }
 }

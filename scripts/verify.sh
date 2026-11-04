@@ -336,6 +336,35 @@ JSON
   reads_and_ai_only "$fresh" "entries import run --plan --dry-run"
 }
 step "cli entries import run --plan --dry-run (mock)" import_run_plan_dry
+# The --json contract is one type: what `import list --json` writes is a `--plan` file as is,
+# for each action the list emits: import (Padaria), conciliate (Mercado, linked to Entry 4321)
+# and skip (Cafe, duplicate of Entry 77).
+# At 255dceb the list wrote conciliateWith and the plan only read entry, so this failed.
+import_list_roundtrip() {
+  local log="$MDCLI_MOCK_LOG"
+  local before=0
+  [ -f "$log" ] && before=$(wc -l <"$log")
+  local plan="$SANDBOX/import-list-plan.json"
+  "${CLI[@]}" entries import list -a 201 --since "$IMPORT_SINCE" --json >"$plan" </dev/null \
+    || { echo "entries import list --json failed"; return 1; }
+  local out
+  out=$("${CLI[@]}" entries import run -a 201 --since "$IMPORT_SINCE" --plan "$plan" --dry-run --json </dev/null) \
+    || { echo "entries import run --plan rejected the list output: $out"; return 1; }
+  OUT="$out" bun -e '
+    const d = JSON.parse(process.env.OUT);
+    const i = d.imported[0];
+    const c = d.conciliated[0];
+    const s = d.skipped[0];
+    if (d.dryRun !== true) process.exit(1);
+    if (d.imported.length !== 1 || i.description !== "Padaria Ficticia" || i.categoryId !== 10 || i.value !== -12.34) process.exit(1);
+    if (d.conciliated.length !== 1 || c.prefix !== "bbbbbbbb" || c.entryId !== 4321) process.exit(1);
+    if (d.skipped.length !== 1 || s.prefix !== "cccccccc" || s.reason !== "plan") process.exit(1);
+  ' || { echo "expected the listed import, conciliation and skip in: $out"; return 1; }
+  local fresh
+  fresh=$(tail -n +"$((before + 1))" "$log")
+  reads_and_ai_only "$fresh" "entries import list --json > --plan"
+}
+step "cli entries import list --json is a --plan (mock)" import_list_roundtrip
 # Rehearses an Import chosen in $EDITOR. A fake editor checks the line the file
 # opened with (the AI category included) and rewrites the description. The
 # temporary file must be gone afterwards.

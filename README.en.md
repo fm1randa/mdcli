@@ -1,4 +1,4 @@
-<!-- traduzido de README.md @ a699eaa (base: a699eaa6ee878976f58680a59345d23ccdb27094; readme-blob: b1a4d9d070e290f7996fb1fbd01ef088295eebff); ao atualizar o README.md, sincronize este arquivo e atualize o SHA e o readme-blob (git hash-object README.md) -->
+<!-- traduzido de README.md @ a699eaa (base: a699eaa6ee878976f58680a59345d23ccdb27094; readme-blob: 96bf6ee6b2e1dfcf406c288fa624a7af29b452e1); ao atualizar o README.md, sincronize este arquivo e atualize o SHA e o readme-blob (git hash-object README.md) -->
 [Português (Brasil)](README.md) · **English**
 
 > The Portuguese [README.md](README.md) is the reference version; this English translation may lag behind it.
@@ -425,6 +425,9 @@ mdcli entries import run --account principal --ids 1a2b3c4d --category food --ov
 # One action per transaction (import, conciliate, skip, reject) in a JSON file:
 # {"transactions": [{"id": "1a2b3c4d", "action": "conciliate", "entry": 12345}]}
 mdcli entries import run --account principal --plan plan.json --yes
+# The output of "entries import list --json" is already a valid plan: edit action,
+# category, value, description or entry and pass the file to --plan. A row without
+# a category (AI unavailable or --no-ai) makes the whole plan be refused.
 
 # Or in $EDITOR, in the style of git rebase -i: one line per transaction
 # (<command> <prefix> <date> <value> <category> | <description>). An error

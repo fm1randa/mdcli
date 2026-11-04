@@ -79,7 +79,7 @@ describe('entries import list candidate query', () => {
     expect(api.requests.filter((r) => r.path === '/v2/lancamentos')).toHaveLength(25);
     const [row] = JSON.parse(result.stdout).transactions;
     expect(row.candidates.map((item: { id: number }) => item.id)).toEqual([7025]);
-    expect(row.defaultAction).toBe('conciliate');
+    expect(row.action).toBe('conciliate');
   });
 
   test('a candidate search that never ends fails instead of listing a truncated result', async () => {
@@ -126,7 +126,7 @@ describe('entries import list candidate query', () => {
       { id: 7101, date: '2026-10-07', value: -12.34, description: 'Pagina 1', categoryId: 10 },
       { id: 7102, date: '2026-10-08', value: -12.34, description: 'Pagina 2', categoryId: 11 },
     ]);
-    expect(JSON.parse(result.stdout).transactions[0].defaultAction).toBe('conciliate');
+    expect(JSON.parse(result.stdout).transactions[0].action).toBe('conciliate');
     expect(JSON.parse(result.stdout).ai).toBe('unused');
     expect(api.requests.some((r) => /smartmatch|markImported|importar|conciliacao|regras/.test(r.path))).toBe(false);
     expect(mutations(api)).toHaveLength(0);
@@ -144,7 +144,7 @@ describe('entries import list candidate query', () => {
     const body = JSON.parse(result.stdout);
     expect(body.search).toEqual({ from: '2026-10-07', to: '2026-10-08' });
     expect(body.transactions[0].candidates).toEqual([]);
-    expect(body.transactions[0].defaultAction).toBe('import');
+    expect(body.transactions[0].action).toBe('import');
     const calls = api.requests.filter((r) => r.path === '/v2/lancamentos');
     expect(calls).toHaveLength(1);
     expectCandidateQuery(calls[0], '2026-10-07', '2026-10-08', 1);
@@ -198,7 +198,7 @@ describe('entries import list candidate query', () => {
     expect(body.transactions[0].candidates).toEqual([
       { id: 4242, date: '2026-10-07', value: -12.34, description: null, categoryId: null },
     ]);
-    expect(body.transactions[0].defaultAction).toBe('conciliate');
+    expect(body.transactions[0].action).toBe('conciliate');
     const calls = api.requests.filter((r) => r.path === '/v2/lancamentos');
     expect(calls).toHaveLength(1);
     expectCandidateQuery(calls[0], '2026-09-29', '2026-10-20', 1);
@@ -267,7 +267,7 @@ describe('entries import list candidate query', () => {
     const result = await list();
 
     expect(result.exitCode).toBe(0);
-    expect(JSON.parse(result.stdout).transactions[0].defaultAction).toBe('conciliate');
+    expect(JSON.parse(result.stdout).transactions[0].action).toBe('conciliate');
     expect(api.requests.some((r) => r.path === '/v2/lancamentos')).toBe(true);
     expect(api.requests.some((r) => r.path.includes('/fatura') || r.path.includes('primeiraFatura'))).toBe(false);
     expect(mutations(api)).toHaveLength(0);

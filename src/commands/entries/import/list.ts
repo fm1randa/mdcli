@@ -142,13 +142,13 @@ async function fillDuplicates(document: ImportDocument, accountId: number): Prom
   for (const row of document.transactions) {
     const id = duplicateId(row.date, row.value, payload);
     row.duplicateOf = id;
-    if (id !== null) row.defaultAction = 'skip';
+    if (id !== null) row.action = 'skip';
   }
 }
 
 /**
  * Same value inside the search window (a card: anywhere in its invoice), and the one Entry the web
- * links on its own (`conciliateWith`). A linked row conciliates, and that wins over a duplicate. Reconciled Entries stay out of
+ * links on its own (`entry`). A linked row conciliates, and that wins over a duplicate. Reconciled Entries stay out of
  * `candidates` unless linked, but a plan or the editor may still link one (`linkable`).
  */
 async function fillCandidates(
@@ -174,9 +174,9 @@ async function fillCandidates(
       .filter((item) => !item.reconciled || item.candidate.id === id)
       .map((item) => item.candidate);
     linkable[index] = matched.map((item) => item.candidate);
-    bankTransaction.conciliateWith = id;
+    bankTransaction.entry = id;
     bankTransaction.alreadyConciliated = id !== null && matched.some((item) => item.candidate.id === id && item.reconciled);
-    if (id !== null) bankTransaction.defaultAction = 'conciliate';
+    if (id !== null) bankTransaction.action = 'conciliate';
   });
   return { linkable, existing: new Map(existing.map((item) => [item.candidate.id, item])) };
 }
@@ -249,21 +249,21 @@ function printStatement(document: ImportDocument): void {
   });
   for (const bankTransaction of document.transactions) {
     table.push([
-      cell(bankTransaction.prefix),
+      cell(bankTransaction.id),
       cell(bankTransaction.date),
       cell(bankTransaction.value, formatCurrency),
-      cell(bankTransaction.description),
+      cell(bankTransaction.bankDescription),
       cell(categoryLabel(bankTransaction.suggestedCategory)),
       cell(bankTransaction.suggestedDescription),
       listCell(bankTransaction.suggestedTagIds),
       cell(bankTransaction.duplicateOf),
       listCell(bankTransaction.candidates, (item) => {
-        if (item.id !== bankTransaction.conciliateWith) return String(item.id);
+        if (item.id !== bankTransaction.entry) return String(item.id);
         return bankTransaction.alreadyConciliated
           ? t('importCandidateAlreadyConciliated', item.id)
           : t('importCandidateLinked', item.id);
       }),
-      bankTransaction.defaultAction,
+      actionLabel(bankTransaction),
     ]);
   }
   const { start, end } = document.statement;
@@ -276,6 +276,11 @@ function printStatement(document: ImportDocument): void {
   if (document.ai === 'unavailable') {
     logger.warning(t('warningAiUnavailable'));
   }
+}
+
+/** The default action; `import` without a category is the old `needs-category` state. */
+function actionLabel(row: BankTransactionRow): string {
+  return row.action === 'import' && row.category === null ? 'needs-category' : row.action;
 }
 
 function categoryLabel(category: SuggestedCategory | null): string | null {
