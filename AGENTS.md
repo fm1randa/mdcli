@@ -32,6 +32,14 @@ Every PR that changes `src/` fills the **Prova** section of the PR template. It 
 - runs `/blast-radius` and proves the security fact in a test or in `scripts/verify.sh`;
 - waits for the maintainer's decision before merge.
 
+The `risco` label mirrors that classification in the PR list. `.github/workflows/risco.yml` runs `scripts/risk.ts` on `opened`, `synchronize`, `reopened` and `edited`, then `scripts/risk-label.ts` adds the label when the PR is risky and removes it when a push leaves the PR safe. The job writes the reasons to its summary, and a PR from a fork only gets the summary: its read-only token cannot change labels, so the job does not fail over the label. The workflow declares only `contents: read` and `pull-requests: write`; creating a repository label needs `issues: write`, so the label is created once and kept in sync by the workflow. Create it (or restore it after deletion) with:
+
+```sh
+gh label create risco --force --color B60205 --description "PR arriscado: exige /blast-radius e decisão do mantenedor"
+```
+
+A PR labeled `risco` follows the two rules above.
+
 `/code-review` is no longer the default merge path; use it for a targeted review when the proof or the risk analysis does not cover a change. After a session with three or more review rounds, or one that got stuck, run `/reflect` (read-only); its proposals land only with the maintainer's approval.
 
 ## Tests
