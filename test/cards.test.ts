@@ -169,6 +169,15 @@ describe('cards future', () => {
       },
     ]);
   });
+
+  test('treats a payload that is not a list as no installments', async () => {
+    api.on('GET /v1/cartoes/1002/parcelasFuturas', {});
+
+    const result = await runCli(['cards', 'future', '-a', '1002', '--json'], { home, api });
+
+    expect(result.exitCode).toBe(0);
+    expect(JSON.parse(result.stdout)).toEqual([]);
+  });
 });
 
 describe('cards invoice total', () => {
