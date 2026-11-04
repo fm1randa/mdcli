@@ -16,6 +16,8 @@ const CURRENCY = 'src/utils/currency.ts';
 const PARSE = 'src/utils/parse.ts';
 const TEXT = 'src/utils/text.ts';
 const TEST = 'test/import-harness.ts';
+const BIN = 'bin/cli.ts';
+const TYPE = 'src/commands/entries/type.ts';
 
 async function localRules(code: string, filePath: string): Promise<string[]> {
   const [result] = await eslint.lintText(`${code}\n`, { filePath });
@@ -126,14 +128,15 @@ describe('local/no-loose-number', () => {
 });
 
 describe('local/no-double-cast', () => {
-  test('fires in src/commands (including card-invoice.ts) and src/lib/aliases.ts', async () => {
+  test('fires across src and test, including the helpers and library files', async () => {
     expect(await localRules(DOUBLE_CAST, COMMAND)).toEqual(['local/no-double-cast']);
     expect(await localRules(DOUBLE_CAST, CARD_INVOICE)).toEqual(['local/no-double-cast']);
     expect(await localRules(DOUBLE_CAST, ALIASES)).toEqual(['local/no-double-cast']);
+    expect(await localRules(DOUBLE_CAST, PARSE)).toEqual(['local/no-double-cast']);
+    expect(await localRules(DOUBLE_CAST, TEST)).toEqual(['local/no-double-cast']);
   });
 
-  test('does not fire outside its scope or for a single cast', async () => {
-    expect(await localRules(DOUBLE_CAST, PARSE)).toEqual([]);
+  test('does not fire for a single cast', async () => {
     expect(await localRules('export const v = ({ a: 1 } as { a: number }).a;', COMMAND)).toEqual([]);
   });
 });
@@ -251,6 +254,46 @@ describe('local/no-literal-since', () => {
     expect(await localRules("export const args = ['--search-from', '2026-10-01'];", TEST)).toEqual([]);
     expect(await localRules("declare const SINCE: string;\nexport const args = [`--since=${SINCE}`];\nargs.push('--since', SINCE);", TEST)).toEqual([]);
     expect(await localRules("export const args = ['--since=yesterday'];\nargs.push('--json', '2026-10-01');", TEST)).toEqual([]);
+  });
+});
+
+describe('local/no-bare-process-exit', () => {
+  test('fires on process.exit in src, test and bin, with or without a flush nearby', async () => {
+    expect(await localRules('process.exit(1);', COMMAND)).toEqual(['local/no-bare-process-exit']);
+    expect(await localRules('process.exit(0);\nawait flushStdout();', TEST)).toEqual(['local/no-bare-process-exit']);
+    expect(await localRules('process.exit(1);', BIN)).toEqual(['local/no-bare-process-exit']);
+    expect(await localRules('flushStdout(3000).then(() => process.exit(1));', BIN)).toEqual(['local/no-bare-process-exit']);
+  });
+
+  test('does not fire on another exit helper or a local exit function', async () => {
+    expect(await localRules('exitWithError("nope");', COMMAND)).toEqual([]);
+    expect(await localRules('declare const shell: { exit(code: number): void };\nshell.exit(1);', BIN)).toEqual([]);
+  });
+});
+
+describe('local/no-type-sign-ternary', () => {
+  test('fires on a ternary comparing the type to r outside type.ts', async () => {
+    expect(await localRules("declare const tipo: string;\nexport const sign = tipo === 'r' ? 1 : -1;", COMMAND)).toEqual(['local/no-type-sign-ternary']);
+    expect(await localRules("declare const tipo: string;\nexport const sign = tipo !== 'r' ? -1 : 1;", OTHER_SRC)).toEqual(['local/no-type-sign-ternary']);
+    expect(await localRules("declare const tipo: string;\nexport const sign = tipo == 'r' ? 1 : -1;", COMMAND)).toEqual(['local/no-type-sign-ternary']);
+  });
+
+  test('does not fire in type.ts or on other comparisons', async () => {
+    expect(await localRules("declare const tipo: string;\nexport const sign = tipo === 'r' ? 1 : -1;", TYPE)).toEqual([]);
+    expect(await localRules("declare const tipo: string;\nexport const sign = tipo === 'd' ? -1 : 1;", COMMAND)).toEqual([]);
+    expect(await localRules("declare const ok: boolean;\nexport const label = ok ? 'yes' : 'no';", COMMAND)).toEqual([]);
+  });
+});
+
+describe('local/no-short-option-equals', () => {
+  test('fires in bin/cli.ts when argv reaches parseAsync without preprocessing', async () => {
+    expect(await localRules("declare const program: { parseAsync(argv: string[]): Promise<unknown> };\nconst argv: string[] = [];\nawait program.parseAsync(argv);", BIN)).toEqual(['local/no-short-option-equals']);
+    expect(await localRules("declare const program: { parseAsync(argv: string[]): Promise<unknown> };\nawait program.parseAsync(process.argv);", BIN)).toEqual(['local/no-short-option-equals']);
+  });
+
+  test('does not fire when argv passes through preprocessShortOptions first', async () => {
+    expect(await localRules("declare const program: { parseAsync(argv: string[]): Promise<unknown> };\ndeclare function preprocessShortOptions(argv: string[]): string[];\nawait program.parseAsync(preprocessShortOptions(process.argv));", BIN)).toEqual([]);
+    expect(await localRules("declare const program: { parseAsync(argv: string[]): Promise<unknown> };\ndeclare function preprocessShortOptions(argv: string[]): string[];\nconst argv = preprocessShortOptions(process.argv);\nawait program.parseAsync(argv);", BIN)).toEqual([]);
   });
 });
 

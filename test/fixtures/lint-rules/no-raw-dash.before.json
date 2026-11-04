@@ -1,0 +1,7 @@
+{
+  "rule": "no-raw-dash",
+  "origin": "df07619^",
+  "source": "src/commands/entries/import/list.ts",
+  "note": "chalk.gray('-') repeated next to cell() before the empty-cell helper took over (#130).",
+  "code": "export const row = [\n  cell(bankTransaction.prefix),\n  cell(bankTransaction.date),\n  bankTransaction.value === null ? chalk.gray('-') : formatCurrency(bankTransaction.value),\n];"
+}

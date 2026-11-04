@@ -1,0 +1,7 @@
+{
+  "rule": "no-bare-process-exit",
+  "origin": "d76a000^",
+  "source": "bin/cli.ts",
+  "note": "Bare process.exit(1) truncated piped output at 65536 bytes (#155).",
+  "code": "process.exit(1);"
+}
