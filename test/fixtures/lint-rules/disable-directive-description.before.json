@@ -1,0 +1,7 @@
+{
+  "rule": "disable-directive-description",
+  "origin": "d76a000",
+  "source": "src/commands/entries/delete.ts",
+  "note": "A bare eslint-disable with no reason silenced process.exit(0) before the stdout flush (#155, #187).",
+  "code": "// eslint-disable-next-line local/no-bare-process-exit\nprocess.exit(0);"
+}

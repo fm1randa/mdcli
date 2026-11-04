@@ -71,6 +71,16 @@ describe('tags create', () => {
   });
 });
 
+describe('tags delete', () => {
+  test('answering no cancels with exit 0 and sends no DELETE', async () => {
+    const result = await runCli(['tags', 'delete', '501'], { home, api, stdin: 'n\n' });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain('Deletion cancelled.');
+    expect(mutations(api)).toHaveLength(0);
+  });
+});
+
 describe('tags alias', () => {
   test('add / list / update / rm round-trip', async () => {
     const add = await runCli(['tags', 'alias', 'add', '--id', '501', '--name', 'trab'], { home, api });

@@ -1,6 +1,5 @@
-import type { CategoriesResponse, AccountsResponse, TagsResponse, NormalizedCategory, NormalizedAccount, NormalizedCard, NormalizedTag, NormalizedEntry, Entry, EntryRepetition, EntryStatus, CardInvoiceResponse, CardFutureResponse, LegacyCardFutureResponse, NormalizedCardEntry, NormalizedCardInstallment } from '../types/index.js';
 import { parseInteger } from '../utils/parse.js';
-
+import type { CategoriesResponse, AccountsResponse, TagsResponse, NormalizedCategory, NormalizedAccount, NormalizedCard, NormalizedTag, NormalizedEntry, Entry, EntryRepetition, EntryStatus, CardInvoiceResponse, CardFutureResponse, LegacyCardFutureResponse, NormalizedCardEntry, NormalizedCardInstallment } from '../types/index.js';
 function mapCategoryType(tipo: 'd' | 'r' | 't'): 'expense' | 'income' | 'transfer' {
   const typeMap: Record<string, 'expense' | 'income' | 'transfer'> = {
     d: 'expense',
@@ -37,16 +36,14 @@ export function normalizeAccounts(response: AccountsResponse): NormalizedAccount
  * account that pays the invoice). No balance: for a card it is the Open
  * Finance statement figure (saldoUltimoExtrato), not what is owed.
  */
-export function normalizeCards(response: AccountsResponse): NormalizedCard[] {
+export function normalizeCards(
+  response: AccountsResponse,
+): Omit<NormalizedCard, 'dueDay' | 'nextDueDate'>[] {
   return normalizeAccounts(response).map((normalized, i) => {
     const card = response.items[i];
-    // eslint-disable-next-line local/no-due-anchor-fallback -- display only (cards list --json nextDueDate), not an invoice anchor (see cardDueAnchor)
-    const nextDueDate = card.proximoVencimento?.slice(0, 10) ?? null;
     return {
       ...normalized,
       limit: card.limite ?? null,
-      dueDay: nextDueDate ? (parseInteger(nextDueDate.slice(8, 10)) ?? null) : null,
-      nextDueDate,
       nextClosingDate: card.proximoFechamento?.slice(0, 10) ?? null,
       closingDaysBeforeDue: card.fechamento ?? null,
       paymentAccountId: card.contada ?? null,

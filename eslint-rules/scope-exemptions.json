@@ -3,6 +3,9 @@
     "src/**": "Only command behavior is pinned by the test preload; src/lib owns the real clock and reads it directly (dates.ts, name-cache, self-update).",
     "test/**": "Tests build fixtures and timeouts from the real clock; the pinned day comes from localDay() in test/helpers.ts."
   },
+  "no-category-name-resolution": {
+    "test/**": "Tests drive category resolution through the CLI or the single owner; fixtures name categories but do not reimplement the lookup."
+  },
   "no-due-anchor-fallback": {
     "test/**": "Tests build card fixtures that name proximoVencimento to prove the missing-date behavior; production reads go through card-invoice.ts."
   },
@@ -12,8 +15,5 @@
   "no-short-option-equals": {
     "src/**": "preprocessShortOptions runs only in bin/cli.ts, before commander parses argv.",
     "test/**": "Tests exercise the preprocessing through the real CLI (test/cli-short-option-equals.test.ts), not by importing it."
-  },
-  "no-category-name-resolution": {
-    "test/**": "Tests build name/status shapes as data to prove resolveCategoryReference; production resolution stays in src/lib/category-resolution.ts."
   }
 }

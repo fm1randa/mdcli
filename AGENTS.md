@@ -18,7 +18,7 @@
 
 After completing any request that changes code:
 
-1. Run `scripts/verify.sh`. It is the official verification and the same script the `verify` CI job runs, which branch protection on `main` requires. It runs install, readme sync, typecheck, lint, knip, the test suite, a dependency audit, a check that no `REVIEW-*.md` is tracked, and an end-to-end run of the real CLI against a local mock API.
+1. Run `scripts/verify.sh`. It is the official verification and the same script the `verify` CI job runs, which branch protection on `main` requires. It runs install, readme sync, typecheck, lint, knip, the test suite, a dependency audit, a check that no `REVIEW-*.md` is tracked, a check that every `eslint-disable` the diff adds says why after `--`, and an end-to-end run of the real CLI against a local mock API.
 2. Treat the run as passing only when it exits 0 and its last line is `VERIFICAÇÃO OK`. A failure ends with `VERIFICAÇÃO FALHOU: <steps>`.
 3. Fix everything it reports. To iterate on one step, run it directly (`bun run typecheck`, `bun run lint`, `bun run knip`, `bun run test`), then finish with a full `scripts/verify.sh` run.
 4. Introduce no new warnings.
@@ -37,6 +37,7 @@ Each rule below names the check that fails when it breaks. A rule marked *text o
 | Strings become numbers only through the strict helpers | `no-loose-number` | `eslint-rules/no-loose-number.js` |
 | A category name resolves through its single owner (active wins, ambiguous and inactive refused) | `no-category-name-resolution` | `eslint-rules/no-category-name-resolution.js` |
 | Review notes never reach a commit (item 19) | `git ls-files 'REVIEW-*.md'` must be empty | `scripts/verify.sh`, `.gitignore` |
+| An `eslint-disable` is a described exception, never a copied pattern | `disable-directive-description`, unused-directive reporting, and the `eslint disables` step (CI `verify`) | `eslint-rules/`, `eslint.config.js`, `scripts/check-eslint-disables.ts`, `scripts/verify.sh` |
 | The mock answers with the API's response types, not what the CLI happens to read | `typecheck` (`tsc --noEmit`): every fixture and `scripts/mock-*.ts` payload carries its `src/types` response type | `test/fixtures.ts`, `scripts/mock-*.ts` |
 | Tests assert behavior, not a mock or a constant (item 12) | *text only* | review |
 | The CLI follows the web app, and a conflict with Filipe's decision is reported (items 9 and 10) | *text only* | review |
