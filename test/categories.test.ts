@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
 import { CATEGORIES_RESPONSE } from './fixtures.js';
 
+const activeMoradia = { ...CATEGORIES_RESPONSE.items[4], id: 42, nome: 'Moradia', nomeRel: 'Moradia', _ordenacao: 'MORADIA' };
+
 let api: MockApi;
 let home: TestHome;
 
@@ -230,5 +232,45 @@ describe('categories delete', () => {
     expect(result.output).toContain('42');
     expect(result.output).toContain('41');
     expect(mutations(api)).toHaveLength(0);
+  });
+});
+
+describe('categories with an obsolete name cache', () => {
+  // The index can outlive the catalog (30-day TTL): it still points at an ID the
+  // catalog no longer lists. The active category of that name is the destination.
+  beforeEach(() => {
+    home.cleanup();
+    home = createHome({
+      ...MANUAL_AUTH,
+      nameCache: {
+        categories: { byName: { moradia: 999 }, cachedAt: new Date().toISOString() },
+      },
+    });
+    api.on('GET /v1/cadastros/categorias', {
+      ...CATEGORIES_RESPONSE,
+      items: [...CATEGORIES_RESPONSE.items, activeMoradia],
+    });
+  });
+
+  test('--parent sends the active category of the name', async () => {
+    api.on('POST /v1/cadastros/categorias', { id: 60, nome: 'Filha', nomeRel: 'Filha', tipo: 'd', status: true });
+
+    const result = await runCli(['categories', 'create', '--name', 'Filha', '--parent', 'moradia'], { home, api });
+
+    expect(result.exitCode).toBe(0);
+    expect(mutations(api)[0].body).toMatchObject({ nome: 'Filha', pai: '42' });
+  });
+
+  test('--move-to sends the active category of the name as idDestino', async () => {
+    api.on('DELETE /v1/cadastros/categorias/11', null);
+
+    const result = await runCli(
+      ['categories', 'delete', '11', '--move-to', 'moradia', '--dangerously-skip-confirmation'],
+      { home, api }
+    );
+
+    expect(result.exitCode).toBe(0);
+    const [del] = mutations(api);
+    expect(del.query.get('idDestino')).toBe('42');
   });
 });

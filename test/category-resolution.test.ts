@@ -44,6 +44,13 @@ const cases: Case[] = [
     expected: { kind: 'resolved', id: 51, category: activeMoradia },
   },
   {
+    name: 'a shared name uses the active category when the index points outside the catalog',
+    input: 'moradia',
+    id: 999,
+    catalog: [activeMoradia],
+    expected: { kind: 'resolved', id: 51, category: activeMoradia },
+  },
+  {
     name: 'a name matching two active categories is ambiguous and lists both IDs',
     input: 'moradia',
     id: 50,
