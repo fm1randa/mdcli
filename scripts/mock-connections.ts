@@ -3,10 +3,11 @@
 // 9003 has no Meu Dinheiro Account.
 // No account carries a summary: like the real GET, which rarely has one (the web gets it from the sync PUT).
 import { appendFileSync } from 'node:fs';
+import type { ConnectionsResponse } from '../src/types/index.js';
 
 const CONNECTIONS_PATH = '/api/v1/integracao/connections';
 
-export const MOCK_CONNECTIONS = [
+export const MOCK_CONNECTIONS: ConnectionsResponse = [
   {
     id: 501,
     status: 'UPDATED',

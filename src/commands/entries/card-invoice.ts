@@ -1,6 +1,7 @@
 import { fetchCardInvoice, fetchFirstInvoiceDate } from '../../lib/api.js';
 import { t } from '../../lib/i18n/index.js';
 import { addInterval, calendarDay, dueDateInMonth, parseInvoiceMonth, shiftDueDate } from '../../lib/dates.js';
+import { parseInteger } from '../../utils/parse.js';
 import type { Account, EntryAgenda } from '../../types/index.js';
 
 const MAX_INVOICE_STEPS = 24;
@@ -8,15 +9,17 @@ const MAX_INVOICE_STEPS = 24;
 /**
  * The due date (YYYY-MM-DD) the card's invoices are counted from. This file
  * is the only place that reads proximoVencimento (the ESLint rule
- * local/no-due-anchor-fallback bans any read of it elsewhere), through two
- * exports with two rules for a card without one:
+ * local/no-due-anchor-fallback bans any read of it elsewhere), through three
+ * exports:
  * - cardDueAnchor (creating and listing card entries) takes the API's first
  *   invoice date (GET primeiraFatura) instead, like a new card on the web.
  *   Before this, cards invoice --month assumed day 10, cards invoice and
  *   entries list asked primeiraFatura, and entries create refused
  *   (Jardinagem 2026-10-21).
  * - ownDueDate (the Import) has no fallback, and the Import fails.
- * test/eslint-local-rules.test.ts pins these two as the only readers.
+ * - displayDueDate (cards list) shows the field as the API sends it. Display
+ *   only, never an invoice anchor.
+ * test/eslint-local-rules.test.ts pins these three as the only readers.
  */
 export async function cardDueAnchor(account: Account): Promise<string> {
   return (account.proximoVencimento ?? (await fetchFirstInvoiceDate(account.id))).slice(0, 10);
@@ -30,6 +33,15 @@ export async function cardDueAnchor(account: Account): Promise<string> {
  */
 export function ownDueDate(account: Account): string | null {
   return calendarDay(account.proximoVencimento);
+}
+
+/** The card's next due date as the API sends it, for cards list. Display only. */
+export function displayDueDate(account: Account): { nextDueDate: string | null; dueDay: number | null } {
+  const nextDueDate = account.proximoVencimento?.slice(0, 10) ?? null;
+  return {
+    nextDueDate,
+    dueDay: nextDueDate ? (parseInteger(nextDueDate.slice(8, 10)) ?? null) : null,
+  };
 }
 
 /**

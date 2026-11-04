@@ -20,3 +20,6 @@ npm-debug.log*
 
 # Sisyphus work directory
 .sisyphus/
+
+# Review notes (AGENTS.md item 19)
+REVIEW-*.md

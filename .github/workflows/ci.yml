@@ -11,6 +11,12 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
+        with:
+          # scripts/verify.sh compares the branch with origin/main to catch a
+          # copied eslint-disable, and test/eslint-rules-proof.test.ts reads
+          # each rule's motivating commit with git show; the shallow default
+          # has neither.
+          fetch-depth: 0
       - uses: oven-sh/setup-bun@v2
         with:
           # Single source of truth: the "packageManager" field in package.json.

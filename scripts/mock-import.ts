@@ -1,3 +1,4 @@
+import type { BankStatementResponse, Entry } from '../src/types/index.js';
 import { localDay } from '../test/helpers.js';
 
 // GET /v1/integracao/account/:connectionAccount/transactions for scripts/verify.sh, and the AI
@@ -39,7 +40,7 @@ const DUPLICADO = {
   _ca: { c: { d: { categoria: { v: 10 } } } },
 };
 
-const STATEMENT = {
+const STATEMENT: BankStatementResponse = {
   inicio: '2026-10-01',
   fim: '2026-10-20',
   saldo: 10.5,
@@ -50,7 +51,7 @@ const STATEMENT = {
  * Entries only the import candidate search (finalidade 3) returns, so the list can link MERCADO
  * without moving the seeded balances other verify steps assert.
  */
-export const IMPORT_CANDIDATES: Record<string, unknown>[] = [
+export const IMPORT_CANDIDATES: Entry[] = [
   {
     id: 4321,
     descricao: 'Mercado Existente',

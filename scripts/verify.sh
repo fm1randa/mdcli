@@ -92,6 +92,32 @@ readme_sync() {
   '
 }
 step "readme sync" readme_sync
+
+# Review notes (AGENTS.md item 19) live in the working tree only: a tracked
+# REVIEW-*.md turns a local finding into a stale, leaked document.
+review_notes_not_tracked() {
+  local tracked
+  tracked=$(git ls-files 'REVIEW-*.md')
+  if [ -n "$tracked" ]; then
+    echo "REVIEW-*.md must not be committed: $tracked"
+    echo "Remove them from the index with git rm --cached; .gitignore already ignores them."
+    return 1
+  fi
+}
+step "review notes not tracked" review_notes_not_tracked
+# A copied eslint-disable is a suppression, not a fix (#187): fail when an
+# added directive has no reason after "--"; a removal elsewhere never excuses
+# it. A shallow checkout without a base ref skips the comparison instead of
+# failing on something it cannot see.
+eslint_disables() {
+  local base
+  if git rev-parse --verify --quiet origin/main >/dev/null; then base=origin/main
+  elif git rev-parse --verify --quiet main >/dev/null; then base=main
+  else echo "sem origin/main nem main: comparação de eslint-disable ignorada"; return 0
+  fi
+  bun scripts/check-eslint-disables.ts --base "$base"
+}
+start_step "eslint disables" eslint_disables
 start_step "typecheck" bun run typecheck
 start_step "lint"      bun run lint
 start_step "knip"      bun run knip

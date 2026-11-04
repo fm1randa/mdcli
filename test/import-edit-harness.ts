@@ -1,6 +1,7 @@
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { parseInteger } from '../src/utils/parse.js';
 
 /**
  * A fake $EDITOR: on its n-th call it saves what it was given and, when a
@@ -37,7 +38,7 @@ export class FakeEditor {
 
   calls(): number {
     const file = join(this.dir, 'count');
-    return existsSync(file) ? Number.parseInt(readFileSync(file, 'utf-8'), 10) : 0;
+    return existsSync(file) ? (parseInteger(readFileSync(file, 'utf-8').trim()) ?? 0) : 0;
   }
 
   /** Starts counting calls again. */

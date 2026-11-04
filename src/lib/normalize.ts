@@ -1,6 +1,5 @@
-import type { CategoriesResponse, AccountsResponse, TagsResponse, NormalizedCategory, NormalizedAccount, NormalizedCard, NormalizedTag, NormalizedEntry, Entry, EntryRepetition, EntryStatus, CardInvoiceResponse, CardFutureResponse, NormalizedCardEntry, NormalizedCardInstallment } from '../types/index.js';
 import { parseInteger } from '../utils/parse.js';
-
+import type { CategoriesResponse, AccountsResponse, TagsResponse, NormalizedCategory, NormalizedAccount, NormalizedCard, NormalizedTag, NormalizedEntry, Entry, EntryRepetition, EntryStatus, CardInvoiceResponse, CardFutureResponse, LegacyCardFutureResponse, NormalizedCardEntry, NormalizedCardInstallment } from '../types/index.js';
 function mapCategoryType(tipo: 'd' | 'r' | 't'): 'expense' | 'income' | 'transfer' {
   const typeMap: Record<string, 'expense' | 'income' | 'transfer'> = {
     d: 'expense',
@@ -37,16 +36,14 @@ export function normalizeAccounts(response: AccountsResponse): NormalizedAccount
  * account that pays the invoice). No balance: for a card it is the Open
  * Finance statement figure (saldoUltimoExtrato), not what is owed.
  */
-export function normalizeCards(response: AccountsResponse): NormalizedCard[] {
+export function normalizeCards(
+  response: AccountsResponse,
+): Omit<NormalizedCard, 'dueDay' | 'nextDueDate'>[] {
   return normalizeAccounts(response).map((normalized, i) => {
     const card = response.items[i];
-    // eslint-disable-next-line local/no-due-anchor-fallback -- display only (cards list --json nextDueDate), not an invoice anchor (see cardDueAnchor)
-    const nextDueDate = card.proximoVencimento?.slice(0, 10) ?? null;
     return {
       ...normalized,
       limit: card.limite ?? null,
-      dueDay: nextDueDate ? (parseInteger(nextDueDate.slice(8, 10)) ?? null) : null,
-      nextDueDate,
       nextClosingDate: card.proximoFechamento?.slice(0, 10) ?? null,
       closingDaysBeforeDue: card.fechamento ?? null,
       paymentAccountId: card.contada ?? null,
@@ -99,7 +96,7 @@ function mapEntryType(entry: Entry): NormalizedEntry['type'] {
 }
 
 /** The web app's Repetição: no parcela = única, "fixa" = fixa, "2/6" = parcelada. */
-function mapRepetition(parcela: string | undefined): EntryRepetition {
+function mapRepetition(parcela: string | null | undefined): EntryRepetition {
   if (!parcela) return 'single';
   return parcela === 'fixa' ? 'fixed' : 'installment';
 }
@@ -167,12 +164,14 @@ function remainingFromInstallment(parcela: string | undefined): number {
 
 /**
  * The real API returns a bare array from parcelasFuturas; older mocks wrapped
- * it in { parcelas }. Accept both. Derive remaining from "N/M" when the API
- * omits parcelasRestantes (it always does on the real endpoint).
+ * it in { parcelas }. Accept both, and treat any other shape as no
+ * installments. Derive remaining from "N/M": the real API does not send
+ * parcelasRestantes; only the legacy wrapper does.
  */
-export function normalizeCardInstallments(response: CardFutureResponse): NormalizedCardInstallment[] {
-  const items = Array.isArray(response) ? response : (response.parcelas ?? []);
-  if (!Array.isArray(items)) return [];
+export function normalizeCardInstallments(response: CardFutureResponse | LegacyCardFutureResponse): NormalizedCardInstallment[] {
+  const raw: unknown = Array.isArray(response) ? response : response.parcelas;
+  if (!Array.isArray(raw)) return [];
+  const items: Array<CardFutureResponse[number] & { parcelasRestantes?: number }> = raw;
   return items.map((item) => ({
     id: item.id,
     description: item.descricao,

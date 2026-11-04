@@ -1,0 +1,7 @@
+{
+  "rule": "no-raw-cents",
+  "origin": "df07619^",
+  "source": "src/commands/entries/import/plan.ts",
+  "note": "checkWrittenValue reimplemented toCents with Math.round(... * 100) (#130).",
+  "code": "export function checkWrittenValue(row: BankTransactionRow, value: number | undefined): string | null {\n  if (value === undefined || row.value === null) return null;\n  if (Math.round(Math.abs(value) * 100) === Math.round(Math.abs(row.value) * 100)) return null;\n  return `value ${value} is not the bank value ${row.value}. Only the sign can change.`;\n}"
+}

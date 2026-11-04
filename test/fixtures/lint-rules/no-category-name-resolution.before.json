@@ -1,0 +1,7 @@
+{
+  "rule": "no-category-name-resolution",
+  "origin": "2b00f68^",
+  "source": "src/commands/entries/category.ts",
+  "note": "Entries filtered the category catalog by active status and name, duplicating the resolver (#77, #172, #182).",
+  "code": "const active = items.filter((c) => c.status && sameName(c.nome, input));"
+}

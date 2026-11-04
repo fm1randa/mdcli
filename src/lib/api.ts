@@ -1,4 +1,4 @@
-import type { ApiHeaders, AuthConfig, AuthMethod, CategoriesResponse, Category, CreateCategoryPayload, UpdateCategoryPayload, AccountsResponse, AccountBalanceSum, TagsResponse, EntriesResponse, EntriesParams, CreateEntryPayload, CreateEntryResponse, UpdateEntryPayload, UpdateTransferPayload, Entry, CardInvoiceResponse, CardFutureResponse, CardPlastic, Account, CreateAccountPayload, UpdateAccountPayload, CreateTagPayload, CreateTagResponse } from '../types/index.js';
+import type { AuthConfig, AuthMethod, CategoriesResponse, Category, CreateCategoryPayload, UpdateCategoryPayload, AccountsResponse, AccountBalanceSum, TagsResponse, EntriesResponse, EntriesParams, CreateEntryPayload, CreateEntryResponse, UpdateEntryPayload, UpdateTransferPayload, Entry, CardInvoiceResponse, CardFutureResponse, CardPlastic, Account, CreateAccountPayload, UpdateAccountPayload, CreateTagPayload, CreateTagResponse, ConnectionsResponse, BankStatementResponse } from '../types/index.js';
 import { getAuth, getAuthMethod, setAuth, getOpItem, invalidateNameCache } from './config.js';
 import { popStaleNameCacheUse } from './cache-invalidation.js';
 import { captureAuthHeadless } from './browser-auth.js';
@@ -15,8 +15,8 @@ const BASE_URL = process.env.MDCLI_API_URL ?? 'https://app.meudinheiroweb.com.br
 
 let refreshPromise: Promise<AuthConfig> | null = null;
 
-function buildHeaders(auth: AuthConfig): ApiHeaders {
-  const headers: ApiHeaders = {
+function buildHeaders(auth: AuthConfig): Record<string, string> {
+  const headers: Record<string, string> = {
     Mdapikey: auth.apiKey,
     Mduid: auth.uid,
   };
@@ -94,7 +94,7 @@ async function readResponse<T>(response: Response, context: string): Promise<T> 
 
 function buildWriteHeaders(auth: AuthConfig): Record<string, string> {
   return {
-    ...(buildHeaders(auth) as unknown as Record<string, string>),
+    ...buildHeaders(auth),
     'Content-Type': 'application/json;charset=UTF-8',
     'Accept': 'application/json, text/plain, */*',
     'Origin': 'https://app.meudinheiroweb.com.br',
@@ -114,7 +114,7 @@ async function request<T>(method: HttpMethod, endpoint: string, body?: unknown):
   const url = `${BASE_URL}${endpoint}`;
   const headersFor = (a: AuthConfig): Record<string, string> =>
     method === 'GET'
-      ? (buildHeaders(a) as unknown as Record<string, string>)
+      ? buildHeaders(a)
       : buildWriteHeaders(a);
 
   const doFetch = (a: AuthConfig) =>
@@ -156,15 +156,15 @@ export async function fetchAccounts(): Promise<AccountsResponse> {
   return request<AccountsResponse>('GET', '/v1/cadastros/contas?meta=true&paginate=false');
 }
 
-/** Connections only, untyped: callers read it field by field (src/lib/payload.ts). Does not request a Sync. */
-export async function fetchConnections(): Promise<unknown> {
-  return request<unknown>('GET', '/v1/integracao/connections');
+/** Connections only: callers still read it field by field (src/lib/payload.ts). Does not request a Sync. */
+export async function fetchConnections(): Promise<ConnectionsResponse> {
+  return request<ConnectionsResponse>('GET', '/v1/integracao/connections');
 }
 
 /** Bank transactions for one connection account. Does not request a Sync. */
-export async function fetchBankTransactions(connectionAccount: number, start: string): Promise<unknown> {
+export async function fetchBankTransactions(connectionAccount: number, start: string): Promise<BankStatementResponse> {
   const query = new URLSearchParams({ start });
-  return request<unknown>('GET', `/v1/integracao/account/${connectionAccount}/transactions?${query.toString()}`);
+  return request<BankStatementResponse>('GET', `/v1/integracao/account/${connectionAccount}/transactions?${query.toString()}`);
 }
 
 /** Possible duplicates for one Account between two dates. Does not write. */
