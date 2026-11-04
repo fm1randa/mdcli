@@ -59,12 +59,17 @@ function aiPosts() {
 interface Row {
   integrationId: string;
   suggestedCategory: { id: number; name: string | null; source: string } | null;
+  action: 'import' | 'skip' | 'reject' | 'conciliate';
+  category: string | null;
   defaultAction: string;
 }
 
 function rows(stdout: string): Map<string, Row> {
   const body = JSON.parse(stdout) as { transactions: Row[] };
-  return new Map(body.transactions.map((row) => [row.integrationId, row]));
+  return new Map(body.transactions.map((row) => [
+    row.integrationId,
+    { ...row, defaultAction: row.action === 'import' && row.category === null ? 'needs-category' : row.action },
+  ]));
 }
 
 describe('entries import list AI category', () => {

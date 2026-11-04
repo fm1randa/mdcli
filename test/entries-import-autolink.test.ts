@@ -103,9 +103,10 @@ function cli(args: string[], extraEnv?: Record<string, string>) {
 
 interface Row {
   integrationId: string;
-  conciliateWith: number | null;
+  entry: number | null;
   alreadyConciliated: boolean;
-  defaultAction: string;
+  action: 'import' | 'skip' | 'reject' | 'conciliate';
+  category: string | null;
   candidates: { id: number }[];
 }
 
@@ -122,7 +123,11 @@ function writes() {
 }
 
 function view(row: Row | undefined) {
-  return row && { with: row.conciliateWith, action: row.defaultAction, candidates: row.candidates.map((c) => c.id) };
+  return row && {
+    with: row.entry,
+    action: row.action === 'import' && row.category === null ? 'needs-category' : row.action,
+    candidates: row.candidates.map((c) => c.id),
+  };
 }
 
 describe('entries import: one Entry linked automatically, like the web', () => {
@@ -164,8 +169,8 @@ describe('entries import: one Entry linked automatically, like the web', () => {
 
     const rows = await listed();
 
-    expect(rows.get(B1)).toMatchObject({ duplicateOf: 701, conciliateWith: 702, defaultAction: 'conciliate' });
-    expect(rows.get(B5)).toMatchObject({ duplicateOf: 708, conciliateWith: null, defaultAction: 'skip' });
+    expect(rows.get(B1)).toMatchObject({ duplicateOf: 701, entry: 702, action: 'conciliate' });
+    expect(rows.get(B5)).toMatchObject({ duplicateOf: 708, entry: null, action: 'skip' });
   });
 
   test('run --ids conciliates each row with its linked Entry', async () => {
@@ -245,7 +250,7 @@ describe('entries import: one Entry linked automatically, like the web', () => {
 
     expect(result.exitCode).toBe(0);
     const row = JSON.parse(result.stdout).transactions[0];
-    expect(row.conciliateWith).toBe(802);
+    expect(row.entry).toBe(802);
     expect(row.candidates.map((c: { id: number; date: string }) => [c.id, c.date])).toEqual([
       [802, '2026-10-07'],
       [801, '2026-10-09'],

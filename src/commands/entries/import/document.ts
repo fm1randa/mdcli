@@ -20,25 +20,49 @@ export interface SuggestedCategory {
   source: 'rule' | 'ai';
 }
 
-export interface BankTransactionRow {
-  integrationId: string | null;
-  prefix: string | null;
-  date: string | null;
+/** The action a plan takes for one Bank Transaction; the list's default action uses the same names. */
+export const SELECTION_ACTIONS = ['import', 'skip', 'reject', 'conciliate'] as const;
+export type SelectionAction = (typeof SELECTION_ACTIONS)[number];
+
+/**
+ * One Bank Transaction as the `--json` contract carries it from `import list` to a `--plan` file.
+ * The list writes the suggestion as the default, so feeding its output straight back plans the run.
+ */
+export interface ImportSelectionItem {
+  /** The prefix (or the whole integrationId) that names the row. */
+  id: string | null;
+  action: SelectionAction;
+  /** Category id, alias, or exact name. Required by `import`; the list writes the suggested id. */
+  category: string | null;
+  /** The written value: the bank value unless the sign is flipped. */
   value: number | null;
+  /** The written description: the suggestion, then the bank text. */
   description: string | null;
+  /** The Entry to conciliate with, or null. */
+  entry: number | null;
+}
+
+/** The transactions contract `import list --json` writes and `import run --plan` reads. */
+interface ImportSelectionDocument {
+  transactions: ImportSelectionItem[];
+}
+
+/** A Bank Transaction in the list: the selection the plan reads, plus what the user needs to choose. */
+export interface BankTransactionRow extends ImportSelectionItem {
+  integrationId: string | null;
+  date: string | null;
+  /** The bank text, before the suggestion replaces it. */
+  bankDescription: string | null;
   suggestedDescription: string | null;
   suggestedTagIds: number[];
   suggestedCategory: SuggestedCategory | null;
   duplicateOf: number | null;
-  /** The Entry the web links on its own (one per row, one row per Entry); `conciliate` uses it. */
-  conciliateWith: number | null;
   /** The linked Entry is already reconciled, so the Bank Transaction is already conciliated. */
   alreadyConciliated: boolean;
   candidates: ImportCandidate[];
-  defaultAction: 'import' | 'needs-category' | 'skip' | 'conciliate';
 }
 
-export interface ImportDocument {
+export interface ImportDocument extends ImportSelectionDocument {
   account: { id: number; name: string | null };
   connection: { id: number; connectionAccount: number };
   /**
@@ -102,24 +126,26 @@ function readBankTransaction(value: unknown): ParsedBankTransaction {
   };
 }
 
-function toBankTransactionRow(item: ParsedBankTransaction, prefix: string | null): BankTransactionRow {
+function toBankTransactionRow(item: ParsedBankTransaction, id: string | null): BankTransactionRow {
   const suggestedCategory = item.categoryId === null
     ? null
     : { id: item.categoryId, name: null, source: 'rule' as const };
   return {
+    id,
     integrationId: item.integrationId,
-    prefix,
     date: item.date,
     value: item.value,
-    description: item.description,
+    bankDescription: item.description,
+    description: item.suggestedDescription ?? item.description,
     suggestedDescription: item.suggestedDescription,
     suggestedTagIds: item.suggestedTagIds,
     suggestedCategory,
+    category: suggestedCategory === null ? null : String(suggestedCategory.id),
     duplicateOf: null,
-    conciliateWith: null,
+    entry: null,
     alreadyConciliated: false,
     candidates: [],
-    defaultAction: suggestedCategory === null ? 'needs-category' : 'import',
+    action: 'import',
   };
 }
 

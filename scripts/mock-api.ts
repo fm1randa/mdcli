@@ -1,11 +1,13 @@
 // Local HTTP server that mimics the Meu Dinheiro API for scripts/verify.sh.
 // Uses the same fixtures as the unit tests; never touches the real API.
-import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, CREDIT_CARD_ACCOUNT, SAVINGS_ACCOUNT, TAGS_RESPONSE, cardInvoice } from '../test/fixtures.js';
+import type { Account, AccountsResponse, CategoriesResponse, CreateEntryResponse, EntriesResponse, Entry } from '../src/types/index.js';
+import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, CREDIT_CARD_ACCOUNT, SAVINGS_ACCOUNT, TAGS_RESPONSE } from '../test/fixtures.js';
 import { plasticsRoute } from './mock-plastics.js';
-import { SEEDED_ENTRIES, checkCreatePayload, checkUpdateAccounts, createCardPurchase, createdEntry, invoiceItems, statusLabel } from './mock-entries.js';
+import { SEEDED_ENTRIES, checkCreatePayload, checkUpdateAccounts, createCardPurchase, createdEntry, entryType, mockEntryId, numberOrNull, statusLabel } from './mock-entries.js';
 import { connectionsRoute, recordMockRequest } from './mock-connections.js';
-import { importRoute, withRecentStatement } from './mock-import.js';
+import { IMPORT_CANDIDATES, importRoute, withRecentStatement } from './mock-import.js';
 import { balancesRoute } from './mock-balances.js';
+import { cardsRoute } from './mock-cards.js';
 import { sessionRoute } from './mock-session.js';
 
 // GitHub "latest release" endpoint used by the self-updater (no auth).
@@ -21,7 +23,7 @@ const NEW_ENTRY_ID = 9001;
 
 // Extra card without proximoVencimento so cards invoice (no --month) hits
 // GET .../primeiraFatura (CREDIT_CARD_ACCOUNT alone always has a due date).
-const CARD_NO_DUE = {
+const CARD_NO_DUE: Account = {
   ...CREDIT_CARD_ACCOUNT,
   id: 1003,
   nome: 'Cartão Sem Vencimento',
@@ -32,7 +34,7 @@ const CARD_NO_DUE = {
 // Card shaped like the real Ourocard (dogfood 2026-10-19): date-only
 // proximoVencimento, which new Date() reads as UTC midnight (the 15th in
 // Brazil), plus the card settings cards list --json reports.
-const CARD_DATE_ONLY = {
+const CARD_DATE_ONLY: Account = {
   ...CREDIT_CARD_ACCOUNT,
   id: 1005,
   nome: 'Cartão Ouro',
@@ -46,7 +48,7 @@ const CARD_DATE_ONLY = {
 // Finanças report (2026-10-16): an inactive category (hidden in the web app)
 // listed after an active one with the same name. The two active "Casa" below
 // reproduce #170: a name that matches several active categories is ambiguous.
-const MOCK_CATEGORIES = {
+const MOCK_CATEGORIES: CategoriesResponse = {
   ...CATEGORIES_RESPONSE,
   items: [
     ...CATEGORIES_RESPONSE.items,
@@ -57,7 +59,7 @@ const MOCK_CATEGORIES = {
   ],
 };
 
-const MOCK_ACCOUNTS = {
+const MOCK_ACCOUNTS: AccountsResponse = {
   ...ACCOUNTS_RESPONSE,
   items: [...ACCOUNTS_RESPONSE.items.map(withRecentStatement), CARD_NO_DUE, SAVINGS_ACCOUNT, CARD_DATE_ONLY],
 };
@@ -91,63 +93,34 @@ function isCreditCardId(conta: unknown): boolean {
   return account?.tipo === 'CARTAOCREDITO';
 }
 
-/** Closing date ~8 days before due, matching the unit-test fixtures. */
-function closingFor(dueDate: string): string {
-  const [y, m, d] = dueDate.split('-').map(Number);
-  const closing = new Date(y, m - 1, d - 8);
-  const yy = closing.getFullYear();
-  const mm = String(closing.getMonth() + 1).padStart(2, '0');
-  const dd = String(closing.getDate()).padStart(2, '0');
-  return `${yy}-${mm}-${dd}`;
-}
-
-const sum = (items: Array<Record<string, unknown>>): number =>
-  Math.round(items.reduce((total, e) => total + Number(e.valor), 0) * 100) / 100;
-
-/**
- * valor and resumo of a mock invoice, with the resumo field names the web app
- * reads (md.js, resumo.setParams). Bill total excludes payments (tipo p),
- * matching resumo.totalFatura on the real API (dogfood 2026-10-19); the
- * payments listed in an invoice paid the previous one.
- */
-function invoiceTotals(
-  lancamentos: Array<Record<string, unknown>>,
-  vencimento: string,
-  fechamento: string,
-  limite: number | undefined
-) {
-  const purchases = lancamentos.filter((e) => e.tipo !== 'p');
-  const payments = lancamentos.filter((e) => e.tipo === 'p');
-  const totalFatura = sum(purchases);
-  return {
-    valor: totalFatura,
-    resumo: {
-      vencimento,
-      fechamento,
-      valorFaturaAnterior: -sum(payments),
-      pagamentosConf: sum(payments.filter((e) => e.status === 'conciliado')),
-      pagamentosAgen: sum(payments.filter((e) => e.status !== 'conciliado')),
-      totalFatura,
-      totalPagar: totalFatura,
-      conciliado: sum(purchases.filter((e) => e.status === 'conciliado')),
-      nconciliado: sum(purchases.filter((e) => e.status !== 'conciliado')),
-      receitas: sum(purchases.filter((e) => Number(e.valor) > 0)),
-      despesas: sum(purchases.filter((e) => Number(e.valor) < 0)),
-      ...(limite === undefined ? {} : { disponivel: Math.round((limite + totalFatura) * 100) / 100 }),
-    },
-  };
-}
-
 async function accountsRoute(req: Request, path: string): Promise<Response> {
   if (path === ACCOUNTS_PATH) {
     if (req.method === 'GET') return Response.json(MOCK_ACCOUNTS);
     if (req.method === 'POST') {
       const body = await readJsonBody(req);
       if (body instanceof Response) return body;
+      const nome = body.nome;
       const tipo = typeName(body.tipoNovo);
-      if (typeof body.nome !== 'string' || !body.nome) return badRequest('nome is required');
+      if (typeof nome !== 'string' || !nome) return badRequest('nome is required');
       if (!tipo) return badRequest(`unknown tipoNovo ${String(body.tipoNovo)}`);
-      return Response.json({ ...body, id: NEW_ACCOUNT_ID, tipo, status: true, encerrada: false }, { status: 201 });
+      const created: Account = {
+        id: NEW_ACCOUNT_ID,
+        nome,
+        tipo,
+        tipoNovo: Number(body.tipoNovo),
+        status: true,
+        encerrada: false,
+        exibirBP: body.exibirBP !== false,
+        apenasTransferencia: false,
+        saldoInicial: Number(body.saldoInicial ?? 0),
+        moeda: Number(body.moeda ?? 1),
+        dataSaldoInicial: typeof body.dataSaldoInicial === 'string' ? body.dataSaldoInicial : undefined,
+        considerarCarteiraInvestimentos: 1,
+        liquidez: Number(body.liquidez ?? 1),
+        permissoes: { visivel: true, acoes: { editar: true, excluir: true } },
+        ...(typeof body.banco === 'string' && { banco: { id: body.banco, nome: body.banco, img: '', tipo: [tipo] } }),
+      };
+      return Response.json(created, { status: 201 });
     }
     return notFound();
   }
@@ -160,7 +133,8 @@ async function accountsRoute(req: Request, path: string): Promise<Response> {
     const body = await readJsonBody(req);
     if (body instanceof Response) return body;
     const { banco: _banco, ...changes } = body;
-    return Response.json({ ...existing, ...changes, id: existing.id, tipo: typeName(changes.tipoNovo) ?? existing.tipo });
+    const updated: Account = { ...existing, ...changes, id: existing.id, tipo: typeName(changes.tipoNovo) ?? existing.tipo };
+    return Response.json(updated);
   }
   if (req.method === 'DELETE') {
     return new Response(null, { status: 204 });
@@ -168,55 +142,8 @@ async function accountsRoute(req: Request, path: string): Promise<Response> {
   return notFound();
 }
 
-function cardsRoute(req: Request, path: string): Response {
-  if (req.method !== 'GET') return notFound();
-
-  const first = path.match(/^\/api\/v1\/cartoes\/(\d+)\/primeiraFatura$/);
-  if (first) {
-    const id = Number(first[1]);
-    if (!MOCK_ACCOUNTS.items.some((a) => a.id === id && a.tipo === 'CARTAOCREDITO')) return notFound();
-    // ISO date string (what fetchFirstInvoiceDate expects).
-    return Response.json('2026-01-16');
-  }
-
-  const invoice = path.match(/^\/api\/v1\/cartoes\/(\d+)\/fatura\/(\d{4}-\d{2}-\d{2})$/);
-  if (invoice) {
-    const id = Number(invoice[1]);
-    const due = invoice[2];
-    if (!MOCK_ACCOUNTS.items.some((a) => a.id === id && a.tipo === 'CARTAOCREDITO')) return notFound();
-    const lancamentos = invoiceItems(id, due);
-    const card = MOCK_ACCOUNTS.items.find((a) => a.id === id) as { limite?: number } | undefined;
-    return Response.json({
-      ...cardInvoice(due, closingFor(due)),
-      ...invoiceTotals(lancamentos, due, closingFor(due), card?.limite),
-      lancamentos,
-    });
-  }
-
-  const future = path.match(/^\/api\/v1\/cartoes\/(\d+)\/parcelasFuturas$/);
-  if (future) {
-    const id = Number(future[1]);
-    if (!MOCK_ACCOUNTS.items.some((a) => a.id === id && a.tipo === 'CARTAOCREDITO')) return notFound();
-    // Real API: bare array (no { parcelas } wrapper, no parcelasRestantes).
-    return Response.json([
-      {
-        id: 801,
-        descricao: 'Notebook',
-        valor: -250,
-        data: '2026-02-16',
-        parcela: '3/6',
-        categoria: 10,
-        tipo: 'd',
-        status: 'nconciliado',
-      },
-    ]);
-  }
-
-  return notFound();
-}
-
 // tipoRepeticao bits, as the web app's Repetição filter sends them.
-function repetitionBit(entry: Record<string, unknown>): number {
+function repetitionBit(entry: { parcela?: string | null }): number {
   if (!entry.parcela) return 1;
   return entry.parcela === 'fixa' ? 4 : 2;
 }
@@ -227,13 +154,15 @@ function entriesListRoute(url: URL): Response {
   const from = url.searchParams.get('inicio') ?? '';
   const to = url.searchParams.get('fim') ?? '';
   const repetition = Number(url.searchParams.get('tipoRepeticao') ?? 7);
-  const list = Object.values(SEEDED_ENTRIES).filter((e) => {
+  const candidates = url.searchParams.get('finalidade') === '3' ? IMPORT_CANDIDATES : [];
+  const list = [...Object.values(SEEDED_ENTRIES), ...candidates].filter((e) => {
     const date = String(e.dataPrevista);
     // Like the real statement list (finalidade 1), card purchases are left out:
     // they only show up in the card's invoices.
     return ids.includes(Number(e.conta)) && !isCreditCardId(e.conta) && date >= from && date <= to && (repetitionBit(e) & repetition) !== 0;
   });
-  return Response.json({ list, meta: { total: list.length, page: 1, pageSize: 200 } });
+  const response: EntriesResponse = { list, meta: { total: list.length, page: 1, pageSize: 200 } };
+  return Response.json(response);
 }
 
 async function entriesRoute(req: Request, path: string): Promise<Response> {
@@ -261,8 +190,10 @@ async function entriesRoute(req: Request, path: string): Promise<Response> {
 
     const invalid = checkCreatePayload(body);
     if (invalid) return badRequest(invalid);
-    if (isCreditCardId(body.conta)) return Response.json(createCardPurchase(body), { status: 201 });
-    return Response.json(createdEntry(body, NEW_ENTRY_ID), { status: 201 });
+    const created: CreateEntryResponse = isCreditCardId(body.conta)
+      ? createCardPurchase(body)
+      : createdEntry(body, mockEntryId(NEW_ENTRY_ID));
+    return Response.json(created, { status: 201 });
   }
 
   const match = path.match(/^\/api\/v1\/lancamentos\/(\d+)$/);
@@ -286,29 +217,31 @@ async function entriesRoute(req: Request, path: string): Promise<Response> {
     const merged: Record<string, unknown> = { ...existing, ...body, id };
     // Like the real API: without todos: true the occurrence leaves its series.
     const keepsSeries = inSeries && body.todos === true;
-    return Response.json({
+    const updated: Omit<Entry, 'plastico'> & { plastico: number | null } = {
+      ...existing,
       id,
-      descricao: merged.descricao,
-      conciliado: merged.conciliado ?? false,
-      dataCompetencia: merged.dataCompetencia ?? null,
+      descricao: String(merged.descricao ?? existing.descricao),
+      conciliado: merged.conciliado === true,
+      dataCompetencia: typeof merged.dataCompetencia === 'string' ? merged.dataCompetencia : null,
       status: statusLabel(body, merged) ?? existing.status,
       agendaId: keepsSeries ? existing.agendaId : null,
       parcela: keepsSeries ? existing.parcela : null,
-      tipo: merged.tipo,
-      valor: merged.valor,
-      valorPrevisto: merged.valor,
-      valorEfetivo: merged.valor,
-      estorno: merged.estorno ?? false,
-      data: merged.data,
-      dataPrevista: merged.dataPrevista,
-      dataEfetiva: merged.dataEfetiva ?? null,
+      tipo: entryType(merged.tipo),
+      valor: Number(merged.valor),
+      valorPrevisto: Number(merged.valor),
+      valorEfetivo: numberOrNull(merged.valorEfetivo),
+      estorno: merged.estorno === true,
+      data: String(merged.data ?? existing.data),
+      dataPrevista: String(merged.dataPrevista ?? existing.dataPrevista),
+      dataEfetiva: typeof merged.dataEfetiva === 'string' ? merged.dataEfetiva : null,
       dataCriacao: new Date().toISOString(),
       exibirCp: true,
       exibirCr: true,
-      conta: transfer ? body.contaOrigem : merged.conta,
-      plastico: merged.plastico,
-      ...(transfer && { contaT: body.contaDestino }),
-    });
+      conta: transfer ? Number(body.contaOrigem) : Number(merged.conta ?? existing.conta),
+      plastico: numberOrNull(merged.plastico),
+      ...(transfer && { contaT: Number(body.contaDestino) }),
+    };
+    return Response.json(updated);
   }
 
   if (req.method === 'DELETE') {
@@ -344,7 +277,8 @@ const server = Bun.serve({
       return Response.json(TAGS_RESPONSE);
     }
     if (url.pathname.startsWith('/api/v1/cartoes/')) {
-      return cardsRoute(req, url.pathname);
+      const card = cardsRoute(req, url.pathname, isCreditCardId, (id) => MOCK_ACCOUNTS.items.find((a) => a.id === id)?.limite);
+      if (card) return card;
     }
     if (url.pathname === '/api/v2/lancamentos' && req.method === 'GET') {
       return url.searchParams.get('type') === 'sum' ? balancesRoute(url, isCreditCardId) : entriesListRoute(url);

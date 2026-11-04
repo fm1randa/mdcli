@@ -95,6 +95,11 @@ export interface AccountBalanceSum {
   confirmado: number;
 }
 
+/** GET /v2/lancamentos type=sum, grouped by account: one row per requested account. */
+export interface AccountBalancesResponse {
+  sum: AccountBalanceSum[];
+}
+
 /**
  * An account in accounts list --json. balance and projectedBalance are the
  * web app's (confirmed and projected, at balanceDate); null for an account

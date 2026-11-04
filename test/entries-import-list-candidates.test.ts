@@ -57,7 +57,7 @@ function list(args: string[] = []) {
 function rowOf(stdout: string) {
   return JSON.parse(stdout).transactions[0] as {
     candidates: { id: number; date: string; value: number; description: string | null; categoryId: number | null }[];
-    defaultAction: string;
+    action: string;
     duplicateOf: number | null;
     search?: unknown;
   };
@@ -76,7 +76,7 @@ describe('entries import list candidates', () => {
     expect(body.search).toEqual({ from: '2026-09-29', to: '2026-10-12' });
     expect(body.ai).toBe('unused');
     expect(body.transactions[0].candidates).toEqual([]);
-    expect(body.transactions[0].defaultAction).toBe('import');
+    expect(body.transactions[0].action).toBe('import');
     const call = api.requests.find((r) => r.path === '/v2/lancamentos');
     expect(call?.query.get('inicio')).toBe('2026-09-29');
     expect(call?.query.get('fim')).toBe('2026-10-12');
@@ -96,7 +96,7 @@ describe('entries import list candidates', () => {
     expect(body.transactions[0].candidates).toEqual([
       { id: 4242, date: '2026-10-20', value: -12.34, description: null, categoryId: null },
     ]);
-    expect(body.transactions[0].defaultAction).toBe('import');
+    expect(body.transactions[0].action).toBe('import');
     const call = api.requests.find((r) => r.path === '/v2/lancamentos');
     expect(call?.query.get('inicio')).toBe('2026-09-29');
     expect(call?.query.get('fim')).toBe('2026-10-20');
@@ -118,7 +118,7 @@ describe('entries import list candidates', () => {
     expect(body.transactions[0].candidates).toEqual([
       { id: 4244, date: '2026-09-20', value: -12.34, description: 'Antes', categoryId: 10 },
     ]);
-    expect(body.transactions[0].defaultAction).toBe('import');
+    expect(body.transactions[0].action).toBe('import');
     const calls = api.requests.filter((r) => r.path === '/v2/lancamentos');
     expect(calls.at(-1)?.query.get('inicio')).toBe('2026-09-15');
     expect(calls.at(-1)?.query.get('fim')).toBe('2026-10-12');
@@ -134,7 +134,7 @@ describe('entries import list candidates', () => {
     expect(result.exitCode).toBe(0);
     const row = rowOf(result.stdout);
     expect(row.duplicateOf).toBe(77);
-    expect(row.defaultAction).toBe('conciliate');
+    expect(row.action).toBe('conciliate');
     expect(row.candidates).toEqual([
       { id: 4309, date: '2026-10-09', value: -12.34, description: 'Padaria', categoryId: 10 },
     ]);
@@ -149,7 +149,7 @@ describe('entries import list candidates', () => {
 
     expect(result.exitCode).toBe(0);
     const row = rowOf(result.stdout);
-    expect(row.defaultAction).toBe('conciliate');
+    expect(row.action).toBe('conciliate');
     expect(row.candidates).toEqual([
       { id: 4305, date: '2026-10-05', value: -12.34, description: 'Mercado', categoryId: 11 },
     ]);
@@ -167,7 +167,7 @@ describe('entries import list candidates', () => {
     expect(body.transactions[0].candidates).toEqual([
       { id: 4304, date: '2026-10-04', value: -12.34, description: 'Feira', categoryId: 10 },
     ]);
-    expect(body.transactions[0].defaultAction).toBe('import');
+    expect(body.transactions[0].action).toBe('import');
   });
 
   test('of two entries within two days, links the one on the bank date and lists both by date', async () => {
@@ -183,15 +183,16 @@ describe('entries import list candidates', () => {
     expect(result.exitCode).toBe(0);
     const row = JSON.parse(result.stdout).transactions[0];
     expect(row.duplicateOf).toBe(77);
-    expect(row.conciliateWith).toBe(5101);
-    expect(row.defaultAction).toBe('conciliate');
+    expect(row.entry).toBe(5101);
+    expect(row.action).toBe('conciliate');
     expect(row.candidates).toEqual([
       { id: 5102, date: '2026-10-06', value: -12.34, description: 'Dois', categoryId: 11 },
       { id: 5101, date: '2026-10-07', value: -12.34, description: 'Um', categoryId: 10 },
     ]);
     expect(Object.keys(row).sort()).toEqual([
-      'alreadyConciliated', 'candidates', 'conciliateWith', 'date', 'defaultAction', 'description', 'duplicateOf',
-      'integrationId', 'prefix', 'suggestedCategory', 'suggestedDescription', 'suggestedTagIds', 'value',
+      'action', 'alreadyConciliated', 'bankDescription', 'candidates', 'category', 'date', 'description',
+      'duplicateOf', 'entry', 'id', 'integrationId', 'suggestedCategory', 'suggestedDescription',
+      'suggestedTagIds', 'value',
     ]);
   });
 
@@ -203,7 +204,7 @@ describe('entries import list candidates', () => {
 
     expect(result.exitCode).toBe(0);
     expect(rowOf(result.stdout).candidates).toEqual([]);
-    expect(rowOf(result.stdout).defaultAction).toBe('import');
+    expect(rowOf(result.stdout).action).toBe('import');
   });
 
   test('a document number never drops an entry: the web only prefers the same number when linking', async () => {
@@ -220,7 +221,7 @@ describe('entries import list candidates', () => {
       expect(row.candidates).toEqual([
         { id: 4600, date: '2026-10-07', value: -12.34, description: 'Doc', categoryId: 10 },
       ]);
-      expect(row.defaultAction).toBe('conciliate');
+      expect(row.action).toBe('conciliate');
     }
     expect(mutations(api)).toHaveLength(0);
   });
@@ -240,7 +241,7 @@ describe('entries import list candidates', () => {
       { id: 6200, date: '2026-10-08', value: -12.34, description: 'Com hora', categoryId: null },
       { id: 6201, date: '2026-10-11', value: -12.34, description: 'Prevista', categoryId: 10 },
     ]);
-    expect(row.defaultAction).toBe('conciliate');
+    expect(row.action).toBe('conciliate');
   });
 
   test('uses dataEfetiva 2026-10-07 rather than dataPrevista 2026-10-01', async () => {
@@ -262,6 +263,6 @@ describe('entries import list candidates', () => {
     expect(row.candidates).toEqual([
       { id: 6100, date: '2026-10-07', value: -12.34, description: 'Efetiva', categoryId: 10 },
     ]);
-    expect(row.defaultAction).toBe('conciliate');
+    expect(row.action).toBe('conciliate');
   });
 });

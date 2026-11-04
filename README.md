@@ -422,6 +422,9 @@ mdcli entries import run --account mp --ids 1a2b3c4d --category food --overwrite
 # Uma ação por transação (import, conciliate, skip, reject) num arquivo JSON:
 # {"transactions": [{"id": "1a2b3c4d", "action": "conciliate", "entry": 12345}]}
 mdcli entries import run --account mp --plan plan.json --yes
+# A saída de "entries import list --json" já é um plano válido: edite action,
+# category, value, description ou entry e passe o arquivo para --plan.
+# Uma linha sem categoria (IA indisponível ou --no-ai) faz o plano inteiro ser recusado.
 
 # Ou no $EDITOR, no estilo do git rebase -i: uma linha por transação
 # (<comando> <prefixo> <data> <valor> <categoria> | <descrição>). Um erro reabre

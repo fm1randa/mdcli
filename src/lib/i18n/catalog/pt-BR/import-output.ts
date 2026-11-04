@@ -189,18 +189,20 @@ export const ptBREntriesImportOutput = {
     `O arquivo --plan não é um JSON válido: ${message}`,
   errorPlanNotObject: () => 'o arquivo deve ser um objeto JSON com "transactions".',
   errorPlanUnknownKey: (key: string) =>
-    `chave desconhecida ${key} (o arquivo só tem "transactions").`,
+    `chave desconhecida ${key} no arquivo --plan.`,
   errorPlanTransactionsMustBeList: () => '"transactions" deve ser uma lista.',
   errorPlanEmpty: () => '"transactions" está vazio. Não existe "importar tudo".',
   errorPlanIdMustBeString: () => '"id" deve ser um prefixo ou uma string UUID.',
   errorPlanActionOneOf: (actions: string) => `"action" deve ser uma de ${actions}.`,
-  errorPlanKeyNotApplicable: (key: string, action: string) =>
-    `${key} não se aplica a ${action}.`,
   errorPlanCategory: () =>
     '"category" deve ser um ID de categoria, alias ou nome.',
   errorPlanValue: () => '"value" deve ser um número.',
   errorPlanDescription: () => '"description" deve ser uma string.',
   errorPlanEntry: () => '"entry" deve ser um ID de lançamento numérico.',
+  errorPlanEntryOnlyConciliate: () => '"entry" só vale para conciliate.',
+  errorPlanAccount: () => '"account" deve ser um objeto com "id" numérico.',
+  errorPlanAccountMismatch: (plan: string, run: string) =>
+    `o plano é da conta ${plan}, mas o run é da conta ${run}.`,
   errorPlanCategoryRequired: () => '"category" é obrigatório para import.',
   errorInvalidPlanFile: (problems: string) =>
     `Arquivo --plan inválido. Nada foi importado.\n${problems}`,
