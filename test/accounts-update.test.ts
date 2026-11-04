@@ -203,11 +203,11 @@ describe('accounts update', () => {
   test('never sends banco 0 for a credit card, as the web card form does not', async () => {
     api.on('PUT /v1/cadastros/contas/202', (req) => ({ ...CREDIT_CARD_ACCOUNT, ...(req.body as object) }));
 
-    const result = await runCli(['accounts', 'update', '202', '--name', 'Cartão Verde'], { home, api });
+    const result = await runCli(['accounts', 'update', '202', '--name', 'Cartão Teste Dois'], { home, api });
 
     expect(result.exitCode).toBe(0);
     const body = mutations(api)[0].body;
-    expect(body).toMatchObject({ id: 202, nome: 'Cartão Verde' });
+    expect(body).toMatchObject({ id: 202, nome: 'Cartão Teste Dois' });
     expect(body).not.toHaveProperty('banco');
   });
 

@@ -88,6 +88,9 @@ export const PRIVATE_TERM_HASHES: ReadonlySet<string> = new Set([
   '67499d52a95ae598e4f7684fe6561055f6a183170765bb83a95f5fa3626f5870',
   '1161fc2745e0658fd6fa9e53a20b94a3e2ca23c2be67d0534db87a3efae7ccca',
   '4644c40588a91db72a1a4b5cf5e8918cd0117d18d4eb0294027360da6ac4580b',
+  'c84c8016356014e02b049ff270c079dd03ab5c5d44a120bee60242782b234ddd',
+  '33e0562bdbfe8a7e5c3dd201e607ace2bad933cabd2ae5c9141d9fc5a9315374',
+  '0a00eca27e9821a22a19aeefad4f7cb6be3d90aa01264e296aeb50daf7e2ef7b',
 ]);
 
 /** Generic phrases that contain a guarded word and are allowed as-is. */
@@ -111,8 +114,18 @@ export function normalizeTerm(text: string): string {
     .trim();
 }
 
+const NORMALIZED_HASH_CACHE = new Map<string, string>();
+
+function hashNormalized(normalized: string): string {
+  const cached = NORMALIZED_HASH_CACHE.get(normalized);
+  if (cached !== undefined) return cached;
+  const hash = createHash('sha256').update(normalized).digest('hex');
+  NORMALIZED_HASH_CACHE.set(normalized, hash);
+  return hash;
+}
+
 export function termHash(term: string): string {
-  return createHash('sha256').update(normalizeTerm(term)).digest('hex');
+  return hashNormalized(normalizeTerm(term));
 }
 
 /**
@@ -148,7 +161,7 @@ export function findPrivateTerms(
   for (let i = 0; i < tokens.length; i++) {
     const max = Math.min(MAX_WORDS, tokens.length - i);
     for (let n = 1; n <= max; n++) {
-      if (allowed.has(termHash(tokens.slice(i, i + n).join(' ')))) allowedSpans.push([i, i + n]);
+      if (allowed.has(hashNormalized(tokens.slice(i, i + n).join(' ')))) allowedSpans.push([i, i + n]);
     }
   }
   const insideAllowed = (start: number, end: number): boolean =>
@@ -157,7 +170,7 @@ export function findPrivateTerms(
     const max = Math.min(MAX_WORDS, tokens.length - i);
     for (let n = 1; n <= max; n++) {
       if (insideAllowed(i, i + n)) continue;
-      const hash = termHash(tokens.slice(i, i + n).join(' '));
+      const hash = hashNormalized(tokens.slice(i, i + n).join(' '));
       if (terms.has(hash)) hits.add(hash);
     }
   }

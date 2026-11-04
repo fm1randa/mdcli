@@ -9,7 +9,7 @@ let home: TestHome;
 let inFlight = 0;
 let maxInFlight = 0;
 
-const SECOND_CARD = { ...CREDIT_CARD_ACCOUNT, id: 1006, nome: 'Cartão Verde', proximoVencimento: '2026-01-05' };
+const SECOND_CARD = { ...CREDIT_CARD_ACCOUNT, id: 1006, nome: 'Cartão Teste Dois', proximoVencimento: '2026-01-05' };
 const MONTHS = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'];
 
 function slowInvoice(due: string, lancamentos: unknown[], ms: number) {
