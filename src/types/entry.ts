@@ -48,15 +48,15 @@ export interface Entry {
   id: number | string;
   descricao: string;
   conciliado?: boolean;
-  dataCompetencia?: string;
-  parcela?: string;
+  dataCompetencia?: string | null;
+  parcela?: string | null;
   /** pendente/agendado: not confirmed (planned date up to today / future). */
   status: 'conciliado' | 'confirmado' | 'nconciliado' | 'pendente' | 'agendado';
   /** d expense, r income, t transfer, p invoice payment (dogfood 2026-10-19). */
   tipo?: 'd' | 'r' | 't' | 'p';
   valor: number;
   valorPrevisto?: number;
-  valorEfetivo?: number;
+  valorEfetivo?: number | null;
   data: string;
   dataPrevista: string;
   dataEfetiva?: string | null;
@@ -66,7 +66,7 @@ export interface Entry {
   permissoes?: EntryPermissions;
   estorno?: boolean;
   conta: number;
-  categoria?: number;
+  categoria?: number | null;
   categoriaPai?: number;
   plastico?: number;
   observacoes?: string;
@@ -77,14 +77,15 @@ export interface Entry {
   dataReconhecimento?: string;
   detalhes?: EntryDetail[];
   tags?: number[];
-  agendaId?: number;
+  agendaId?: number | null;
   agenda?: EntryAgenda;
   valorT?: number;
   valorPrevistoT?: number;
   valorEfetivoT?: number;
   plasticoT?: number;
   contaT?: number;
-  transferencia?: number;
+  /** The GET sends a number; the web app's PUT sends a boolean. */
+  transferencia?: number | boolean;
   metaEconomiaDestino?: number;
   projecaoFatura?: number;
   /** A card purchase on a closed invoice (the web's "ff" filter); its account is locked. */
@@ -213,15 +214,18 @@ export interface CreateEntryResponse {
   id: EntryId | OccurrenceId;
   descricao: string;
   conciliado: boolean;
-  dataCompetencia: string;
+  /** Only a card purchase carries the purchase date. */
+  dataCompetencia: string | null;
   status: string;
   tipo: 'd' | 'r' | 't' | 'p';
   valor: number;
   valorPrevisto: number;
-  valorEfetivo: number;
+  /** null: Confirmado is off (a pending or scheduled entry). */
+  valorEfetivo: number | null;
   data: string;
   dataPrevista: string;
-  dataEfetiva: string;
+  /** null: Confirmado is off (a pending or scheduled entry). */
+  dataEfetiva: string | null;
   dataCriacao: string;
   exibirCp: boolean;
   exibirCr: boolean;
