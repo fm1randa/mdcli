@@ -24,6 +24,21 @@ Closes #n
 - Reprodução antes:
 - Reprodução depois:
 
+## Prova
+
+<!-- Obrigatória quando o PR muda arquivos em `src/`. Rode os mesmos comandos
+     contra o mock (`bun scripts/mock-api.ts`) e uma config falsa em `/tmp`,
+     nunca contra uma conta real. Cole o comando e a saída em cada bloco de
+     código. O check `prova` reprova o PR sem os dois blocos preenchidos. -->
+
+### Antes (main)
+
+<!-- Cole o comando e a saída na `main`, num bloco de código. -->
+
+### Depois (branch)
+
+<!-- Cole o comando e a saída na branch, num bloco de código. -->
+
 <!-- Se usou um agente, finalize com o modelo e o harness (a ferramenta de agente) que fizeram o trabalho. -->
 - Modelo: <!-- ex.: cliproxy/frontier, opencode/deepseek-v4.1-flash-free, claude-opus -->
 - Harness: <!-- ex.: claude code, opencode, pi, t3/claude code, t3/opencode -->
