@@ -104,6 +104,7 @@ function cli(args: string[], extraEnv?: Record<string, string>) {
 interface Row {
   integrationId: string;
   conciliateWith: number | null;
+  alreadyConciliated: boolean;
   defaultAction: string;
   candidates: { id: number }[];
 }
@@ -136,6 +137,15 @@ describe('entries import: one Entry linked automatically, like the web', () => {
     expect(view(rows.get(B7))?.with).toBe(709);
     expect(view(rows.get(B6))?.with).toBe(711);
     expect(writes()).toHaveLength(0);
+  });
+
+  test('marks a Bank Transaction already conciliated only when its linked Entry is reconciled', async () => {
+    const rows = await listed();
+
+    // B3 links to 705 (conciliado); B1 links to 702 (confirmado); B5 has no link.
+    expect(rows.get(B1)?.alreadyConciliated).toBe(false);
+    expect(rows.get(B3)?.alreadyConciliated).toBe(true);
+    expect(rows.get(B5)?.alreadyConciliated).toBe(false);
   });
 
   test('asks the AI only for rows that were not linked', async () => {

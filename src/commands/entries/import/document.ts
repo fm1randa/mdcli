@@ -32,6 +32,8 @@ export interface BankTransactionRow {
   duplicateOf: number | null;
   /** The Entry the web links on its own (one per row, one row per Entry); `conciliate` uses it. */
   conciliateWith: number | null;
+  /** The linked Entry is already reconciled, so the Bank Transaction is already conciliated. */
+  alreadyConciliated: boolean;
   candidates: ImportCandidate[];
   defaultAction: 'import' | 'needs-category' | 'skip' | 'conciliate';
 }
@@ -115,6 +117,7 @@ function toBankTransactionRow(item: ParsedBankTransaction, prefix: string | null
     suggestedCategory,
     duplicateOf: null,
     conciliateWith: null,
+    alreadyConciliated: false,
     candidates: [],
     defaultAction: suggestedCategory === null ? 'needs-category' : 'import',
   };

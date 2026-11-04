@@ -61,7 +61,10 @@ export const ptBRImport = {
   importNothingNew: (since: string) => `Nenhuma transação bancária desde ${since}.`,
   importNothingNewHint: (floor: string) =>
     ` Para buscar mais para trás, use --since <AAAA-MM-DD> (${floor} ou depois).`,
+  importRunNothingNew: (since: string) =>
+    `Nenhuma transação bancária desde ${since}. Repita o --since que usou no "entries import list" para carregar essas transações.`,
   importCandidateLinked: (id: number) => `${id} (vinculado)`,
+  importCandidateAlreadyConciliated: (id: number) => `${id} (já conciliado)`,
   importListSummaryHeader: (count: number, start: string, end: string) =>
     `Novas transações bancárias (${count}), extrato de ${start} a ${end}`,
   importListStatementHeader: (count: number, since: string) =>
@@ -141,6 +144,8 @@ export const ptBRImport = {
   errorPlanValue: () => '"value" deve ser um número.',
   errorPlanDescription: () => '"description" deve ser uma string.',
   errorPlanEntry: () => '"entry" deve ser um ID de lançamento numérico.',
+  errorPlanEntryConflict: () =>
+    '"entry" e "conciliateWith" discordam: use um só, ou dê a eles o mesmo ID de lançamento.',
   errorPlanCategoryRequired: () => '"category" é obrigatório para import.',
   errorInvalidPlanFile: (problems: string) =>
     `Arquivo --plan inválido. Nada foi importado.\n${problems}`,
