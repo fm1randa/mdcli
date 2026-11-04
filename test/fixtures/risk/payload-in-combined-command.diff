@@ -1,0 +1,18 @@
+diff --git a/src/commands/categories.ts b/src/commands/categories.ts
+--- a/src/commands/categories.ts
++++ b/src/commands/categories.ts
+@@ -158,3 +158,3 @@ async function createCategoryAction(options: CreateCategoryOptions): Promise<void> {
+   const category = await createCategory({
+-    nome: options.name,
++    nome: options.alias,
+@@ -217,3 +217,3 @@ async function updateCategoryAction(id: string, options: UpdateCategoryOptions): Promise<void> {
+   const category = await updateCategory(categoryId, {
+-    nome: options.name ?? existing.nomeRel,
++    nome: options.alias ?? existing.nomeRel,
+diff --git a/src/commands/tags.ts b/src/commands/tags.ts
+--- a/src/commands/tags.ts
++++ b/src/commands/tags.ts
+@@ -137,3 +137,3 @@ async function updateTagAction(id: string, options: UpdateTagOptions): Promise<void> {
+   const response = await updateTag(tagId, {
+-    cor: cor ?? existing.color.replace(/^#/, ''),
++    cor: cor ?? 'ff0000',

@@ -56,6 +56,37 @@ describe('classifyRisk', () => {
     expect(report.risky).toBe(true);
     expect(topics(report)).toContain('auth');
   });
+
+  test('flags a payload change in a combined write command', () => {
+    const report = classifyRisk(diff('payload-in-combined-command'));
+    expect(report.risky).toBe(true);
+    expect(topics(report)).toContain('write');
+  });
+
+  test('flags a payload or credential serialized with JSON.stringify', () => {
+    const report = classifyRisk(diff('serialized-payload'));
+    expect(report.risky).toBe(true);
+    expect(topics(report)).toContain('write');
+    expect(topics(report)).toContain('auth');
+  });
+
+  test('flags a called function changed into a reference', () => {
+    const report = classifyRisk(diff('call-vs-reference'));
+    expect(report.risky).toBe(true);
+    expect(topics(report)).toContain('write');
+  });
+
+  test('flags content lines that start with -- or ++', () => {
+    const report = classifyRisk(diff('dash-prefixed-content'));
+    expect(report.risky).toBe(true);
+    expect(topics(report)).toContain('auth');
+  });
+
+  test('flags the real #198 diff, which changes a write target', () => {
+    const report = classifyRisk(diff('write-target-198'));
+    expect(report.risky).toBe(true);
+    expect(topics(report)).toContain('write');
+  });
 });
 
 describe('risk CLI', () => {

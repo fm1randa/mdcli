@@ -1,0 +1,541 @@
+diff --git a/AGENTS.md b/AGENTS.md
+index 10b1b73..b2030ea 100644
+--- a/AGENTS.md
++++ b/AGENTS.md
+@@ -35,6 +35,7 @@ Each rule below names the check that fails when it breaks. A rule marked *text o
+ | The suite gives the same result on any terminal | environment normalization, guard test, and a hostile `TERM` in CI | `test/setup.ts`, `test/terminal-env.test.ts`, `.github/workflows/ci.yml` |
+ | Tests pass a relative `--since` and read a pinned clock | `no-literal-since`, `no-ambient-clock`, restricted date imports; `TZ` and `MDCLI_TODAY` pinned | `eslint-rules/`, `eslint.config.js`, `test/setup.ts` |
+ | Strings become numbers only through the strict helpers | `no-loose-number` | `eslint-rules/no-loose-number.js` |
++| A category name resolves through its single owner (active wins, ambiguous and inactive refused) | `no-category-name-resolution` | `eslint-rules/no-category-name-resolution.js` |
+ | Review notes never reach a commit (item 19) | `git ls-files 'REVIEW-*.md'` must be empty | `scripts/verify.sh`, `.gitignore` |
+ | Tests assert behavior, not a mock or a constant (item 12) | *text only* | review |
+ | The CLI follows the web app, and a conflict with Filipe's decision is reported (items 9 and 10) | *text only* | review |
+diff --git a/eslint-rules/index.js b/eslint-rules/index.js
+index 7c23436..835400d 100644
+--- a/eslint-rules/index.js
++++ b/eslint-rules/index.js
+@@ -2,6 +2,7 @@
+ // files/ignores (no-restricted-syntax blocks replaced each other's options).
+ import noAmbientClock from "./no-ambient-clock.js";
+ import noBareProcessExit from "./no-bare-process-exit.js";
++import noCategoryNameResolution from "./no-category-name-resolution.js";
+ import noTypeSignTernary from "./no-type-sign-ternary.js";
+ import noDoubleCast from "./no-double-cast.js";
+ import noDueAnchorFallback from "./no-due-anchor-fallback.js";
+@@ -17,6 +18,7 @@ export default {
+   rules: {
+     "no-ambient-clock": noAmbientClock,
+     "no-bare-process-exit": noBareProcessExit,
++    "no-category-name-resolution": noCategoryNameResolution,
+     "no-type-sign-ternary": noTypeSignTernary,
+     "no-double-cast": noDoubleCast,
+     "no-due-anchor-fallback": noDueAnchorFallback,
+diff --git a/eslint-rules/no-category-name-resolution.js b/eslint-rules/no-category-name-resolution.js
+new file mode 100644
+index 0000000..80f0b2e
+--- /dev/null
++++ b/eslint-rules/no-category-name-resolution.js
+@@ -0,0 +1,70 @@
++// A category name is resolved only in src/lib/category-resolution.ts
++// (2026-11-04: entries and categories --move-to each grew the same
++// "prefer the active category" filter, and #77 and #172 gave them different
++// failures for the same name). Bans matching a name next to a status check,
++// which is how both copies reimplemented resolveCategoryReference.
++// Same-name matching without a status check (the --edit file) is not a
++// resolution and stays allowed.
++const FUNCTION_TYPES = new Set(["FunctionDeclaration", "FunctionExpression", "ArrowFunctionExpression"]);
++
++function sameNameCall(node) {
++  return (
++    node.type === "CallExpression" &&
++    node.callee.type === "Identifier" &&
++    node.callee.name === "sameName"
++  );
++}
++
++function readsStatus(node) {
++  const seen = new Set();
++  const stack = [node];
++  while (stack.length > 0) {
++    const current = stack.pop();
++    if (current === null || typeof current !== "object" || seen.has(current)) continue;
++    seen.add(current);
++    if (Array.isArray(current)) {
++      stack.push(...current);
++      continue;
++    }
++    if (
++      current.type === "MemberExpression" &&
++      ((current.computed && current.property.type === "Literal" && current.property.value === "status") ||
++        (!current.computed && current.property.type === "Identifier" && current.property.name === "status"))
++    ) {
++      return true;
++    }
++    for (const [key, value] of Object.entries(current)) {
++      if (key !== "parent") stack.push(value);
++    }
++  }
++  return false;
++}
++
++function enclosingScope(node) {
++  let current = node.parent;
++  while (current && !FUNCTION_TYPES.has(current.type) && current.type !== "Program") {
++    current = current.parent;
++  }
++  return current;
++}
++
++export default {
++  meta: {
++    type: "problem",
++    docs: { description: "Ban reimplementing category name resolution outside its owner" },
++    messages: {
++      owner:
++        "Resolve a category through src/lib/category-resolution.ts: resolveCategoryReference (an active name wins, an ambiguous name is refused, an inactive destination is refused).",
++    },
++    schema: [],
++  },
++  create(context) {
++    return {
++      CallExpression(node) {
++        if (!sameNameCall(node)) return;
++        const scope = enclosingScope(node);
++        if (scope && readsStatus(scope)) context.report({ node, messageId: "owner" });
++      },
++    };
++  },
++};
+diff --git a/eslint.config.js b/eslint.config.js
+index a4a5c60..7005410 100644
+--- a/eslint.config.js
++++ b/eslint.config.js
+@@ -72,6 +72,12 @@ export default tseslint.config(
+     ignores: ["src/commands/entries/type.ts"],
+     rules: { "local/no-type-sign-ternary": "error" },
+   },
++  {
++    // A category name is resolved only in src/lib/category-resolution.ts.
++    files: ["src/**/*.ts"],
++    ignores: ["src/lib/category-resolution.ts"],
++    rules: { "local/no-category-name-resolution": "error" },
++  },
+   {
+     // --since accepts only the last 90 days: tests pass a date relative to today.
+     files: ["test/**/*.ts"],
+diff --git a/src/commands/categories.ts b/src/commands/categories.ts
+index 848a9b0..189db49 100644
+--- a/src/commands/categories.ts
++++ b/src/commands/categories.ts
+@@ -10,10 +10,10 @@ import {
+   updateCategory,
+   deleteCategory,
+ } from '../lib/api.js';
+-import { buildAliasCommand, getAliases, resolveId } from '../lib/aliases.js';
++import { buildAliasCommand, resolveId } from '../lib/aliases.js';
++import { resolveCategoryReference } from '../lib/category-resolution.js';
+ import { invalidateNameCache } from '../lib/config.js';
+ import { t } from '../lib/i18n/index.js';
+-import { sameName } from '../lib/name-cache.js';
+ import type { Category } from '../types/index.js';
+ import { parseId } from '../utils/parse.js';
+ import { newTable } from '../utils/table.js';
+@@ -28,32 +28,19 @@ function parseTypeName(input: string): CategoryTypeName | null {
+ 
+ 
+ async function resolveCategory(input: string, categories: Category[]): Promise<Category> {
+-  const id = await resolveId('categories', input);
+-  const resolved = id === null ? undefined : categories.find((c) => c.id === id);
+-  if (!resolved) {
+-    exitWithError(t('errorCategoryNotFound', input));
++  const resolution = resolveCategoryReference(input, await resolveId('categories', input), categories);
++
++  switch (resolution.kind) {
++    case 'resolved':
++      return resolution.category;
++    case 'ambiguous':
++      return exitWithError(t('errorCategoryNameAmbiguous', input, resolution.ids.join(', ')));
++    case 'inactive':
++      return exitWithError(t('errorCategoryInactiveDestination', resolution.category.nome, resolution.category.id));
++    case 'unlisted':
++    case 'unresolved':
++      return exitWithError(t('errorCategoryNotFound', input));
+   }
+-
+-  // A bare name can match several categories. As in entries create/update
+-  // (#77): a name that also matches an active category resolves to the active
+-  // one, a name matching several active categories is refused with their IDs,
+-  // and an inactive destination (id, alias, or name) is refused.
+-  const explicit = parseId(input) !== undefined || getAliases('categories').some((a) => a.name === input);
+-  if (!explicit) {
+-    const active = categories.filter((c) => c.status && sameName(c.nome, input));
+-    if (active.length > 1) {
+-      exitWithError(t('errorCategoryNameAmbiguous', input, active.map((c) => c.id).join(', ')));
+-    }
+-    if (active.length === 1) {
+-      return active[0];
+-    }
+-  }
+-
+-  if (!resolved.status) {
+-    exitWithError(t('errorCategoryInactiveDestination', resolved.nome, resolved.id));
+-  }
+-
+-  return resolved;
+ }
+ 
+ 
+diff --git a/src/commands/entries/category.ts b/src/commands/entries/category.ts
+index 27304ac..5299c46 100644
+--- a/src/commands/entries/category.ts
++++ b/src/commands/entries/category.ts
+@@ -1,10 +1,9 @@
+ import { exitWithError } from '../../utils/action.js';
+ import { t } from '../../lib/i18n/index.js';
+ import { fetchCategories } from '../../lib/api.js';
+-import { getAliases, resolveId } from '../../lib/aliases.js';
+-import { sameName } from '../../lib/name-cache.js';
++import { resolveId } from '../../lib/aliases.js';
++import { resolveCategoryReference } from '../../lib/category-resolution.js';
+ import type { Category } from '../../types/index.js';
+-import { parseId } from '../../utils/parse.js';
+ 
+ /** A reader of the Category catalog. */
+ export type CategoryCatalog = () => Promise<readonly Category[]>;
+@@ -18,11 +17,6 @@ export function categoryCatalog(): CategoryCatalog {
+   };
+ }
+ 
+-/** A bare number or an Alias points at one exact category; only a name can match several. */
+-function isExplicitReference(input: string): boolean {
+-  return parseId(input) !== undefined || getAliases('categories').some((a) => a.name === input);
+-}
+-
+ /** A resolved category: its ID, and the catalog entry when the catalog lists it. */
+ export interface ResolvedCategory {
+   id: number;
+@@ -58,29 +52,22 @@ export async function checkEntryCategory(
+   catalog: CategoryCatalog = categoryCatalog(),
+ ): Promise<{ id: number; category: Category | null } | { error: string }> {
+   const id = await resolveId('categories', input);
+-  if (id === null) {
+-    return { error: t('errorUnknownCategoryForEntry', input) };
+-  }
+-
++  if (id === null) return { error: t('errorUnknownCategoryForEntry', input) };
+   const items = await catalog();
+-  const category = items.find((c) => c.id === id);
++  const resolution = resolveCategoryReference(input, id, items);
+ 
+-  // A bare name can match several categories. As in categories --move-to
+-  // (#170): a name that also matches an active category resolves to the active
+-  // one, and a name matching several active categories is refused with their IDs.
+-  if (!isExplicitReference(input)) {
+-    const active = items.filter((c) => c.status && sameName(c.nome, input));
+-    if (active.length > 1) {
+-      return { error: t('errorCategoryNameAmbiguous', input, active.map((c) => c.id).join(', ')) };
+-    }
+-    if (active.length === 1) {
+-      return { id: active[0].id, category: active[0] };
+-    }
++  switch (resolution.kind) {
++    case 'resolved':
++      return { id: resolution.id, category: resolution.category };
++    case 'unlisted':
++      return { id: resolution.id, category: null };
++    case 'ambiguous':
++      return { error: t('errorCategoryNameAmbiguous', input, resolution.ids.join(', ')) };
++    case 'inactive':
++      return { error: t('errorCategoryInactive', resolution.category.nome, resolution.category.id) };
++    case 'unresolved':
++      return { error: t('errorUnknownCategoryForEntry', input) };
+   }
+-
+-  if (!category || category.status) return { id, category: category ?? null };
+-
+-  return { error: t('errorCategoryInactive', category.nome, category.id) };
+ }
+ 
+ /** How the entry-type messages name each type: `d` is "an expense". */
+diff --git a/src/lib/category-resolution.ts b/src/lib/category-resolution.ts
+new file mode 100644
+index 0000000..352451d
+--- /dev/null
++++ b/src/lib/category-resolution.ts
+@@ -0,0 +1,46 @@
++import { getAliases } from './aliases.js';
++import { sameName } from './name-cache.js';
++import type { Category } from '../types/index.js';
++import { parseId } from '../utils/parse.js';
++
++/** A bare number or an Alias points at one exact category; only a name can match several. */
++function isExplicitCategoryReference(input: string): boolean {
++  return parseId(input) !== undefined || getAliases('categories').some((alias) => alias.name === input);
++}
++
++/**
++ * The outcome of resolving a category reference. `unlisted` and `unresolved`
++ * are the caller's call: entries send an ID the catalog does not list to the
++ * API as written, while categories refuse it.
++ */
++export type CategoryReference =
++  | { kind: 'resolved'; id: number; category: Category }
++  | { kind: 'unlisted'; id: number }
++  | { kind: 'unresolved' }
++  | { kind: 'ambiguous'; ids: number[] }
++  | { kind: 'inactive'; category: Category };
++
++/**
++ * The category `input` names, following the web app: a name that also matches an
++ * active category resolves to the active one, a name matching several active
++ * categories is ambiguous, and an inactive category is refused. An explicit
++ * reference (a number or an Alias) is never swapped for a same-named active one.
++ */
++export function resolveCategoryReference(
++  input: string,
++  id: number | null,
++  categories: readonly Category[],
++): CategoryReference {
++  if (id === null) return { kind: 'unresolved' };
++
++  if (!isExplicitCategoryReference(input)) {
++    const active = categories.filter((category) => category.status && sameName(category.nome, input));
++    if (active.length > 1) return { kind: 'ambiguous', ids: active.map((category) => category.id) };
++    if (active.length === 1) return { kind: 'resolved', id: active[0].id, category: active[0] };
++  }
++
++  const category = categories.find((item) => item.id === id);
++  if (!category) return { kind: 'unlisted', id };
++  if (!category.status) return { kind: 'inactive', category };
++  return { kind: 'resolved', id, category };
++}
+diff --git a/test/categories.test.ts b/test/categories.test.ts
+index 7417136..4c7188b 100644
+--- a/test/categories.test.ts
++++ b/test/categories.test.ts
+@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+ import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
+ import { CATEGORIES_RESPONSE } from './fixtures.js';
+ 
++const activeMoradia = { ...CATEGORIES_RESPONSE.items[4], id: 42, nome: 'Moradia', nomeRel: 'Moradia', _ordenacao: 'MORADIA' };
++
+ let api: MockApi;
+ let home: TestHome;
+ 
+@@ -232,3 +234,43 @@ describe('categories delete', () => {
+     expect(mutations(api)).toHaveLength(0);
+   });
+ });
++
++describe('categories with an obsolete name cache', () => {
++  // The index can outlive the catalog (30-day TTL): it still points at an ID the
++  // catalog no longer lists. The active category of that name is the destination.
++  beforeEach(() => {
++    home.cleanup();
++    home = createHome({
++      ...MANUAL_AUTH,
++      nameCache: {
++        categories: { byName: { moradia: 999 }, cachedAt: new Date().toISOString() },
++      },
++    });
++    api.on('GET /v1/cadastros/categorias', {
++      ...CATEGORIES_RESPONSE,
++      items: [...CATEGORIES_RESPONSE.items, activeMoradia],
++    });
++  });
++
++  test('--parent sends the active category of the name', async () => {
++    api.on('POST /v1/cadastros/categorias', { id: 60, nome: 'Filha', nomeRel: 'Filha', tipo: 'd', status: true });
++
++    const result = await runCli(['categories', 'create', '--name', 'Filha', '--parent', 'moradia'], { home, api });
++
++    expect(result.exitCode).toBe(0);
++    expect(mutations(api)[0].body).toMatchObject({ nome: 'Filha', pai: '42' });
++  });
++
++  test('--move-to sends the active category of the name as idDestino', async () => {
++    api.on('DELETE /v1/cadastros/categorias/11', null);
++
++    const result = await runCli(
++      ['categories', 'delete', '11', '--move-to', 'moradia', '--dangerously-skip-confirmation'],
++      { home, api }
++    );
++
++    expect(result.exitCode).toBe(0);
++    const [del] = mutations(api);
++    expect(del.query.get('idDestino')).toBe('42');
++  });
++});
+diff --git a/test/category-resolution.test.ts b/test/category-resolution.test.ts
+new file mode 100644
+index 0000000..d61c031
+--- /dev/null
++++ b/test/category-resolution.test.ts
+@@ -0,0 +1,103 @@
++import { describe, expect, test } from 'bun:test';
++import { resolveCategoryReference, type CategoryReference } from '../src/lib/category-resolution.js';
++import type { Category } from '../src/types/index.js';
++
++function category(id: number, nome: string, status: boolean): Category {
++  return {
++    id,
++    nome,
++    nomeRel: nome,
++    tipo: 'd',
++    status,
++    permissoes: { visivel: true, acoes: { editar: true, excluir: true } },
++    _ordenacao: nome.toUpperCase(),
++    sistema: false,
++  };
++}
++
++const activeMoradia = category(51, 'Moradia', true);
++const inactiveMoradia = category(50, 'Moradia', false);
++const secondActiveMoradia = category(52, 'Moradia', true);
++const inactiveOnly = category(53, 'Aluguel antigo', false);
++
++type Case = {
++  name: string;
++  input: string;
++  id: number | null;
++  catalog: Category[];
++  expected: CategoryReference;
++};
++
++const cases: Case[] = [
++  {
++    name: 'a shared name uses the active category when the index points at the inactive one',
++    input: 'moradia',
++    id: 50,
++    catalog: [activeMoradia, inactiveMoradia],
++    expected: { kind: 'resolved', id: 51, category: activeMoradia },
++  },
++  {
++    name: 'a shared name uses the active category regardless of case',
++    input: 'MORADIA',
++    id: 50,
++    catalog: [activeMoradia, inactiveMoradia],
++    expected: { kind: 'resolved', id: 51, category: activeMoradia },
++  },
++  {
++    name: 'a shared name uses the active category when the index points outside the catalog',
++    input: 'moradia',
++    id: 999,
++    catalog: [activeMoradia],
++    expected: { kind: 'resolved', id: 51, category: activeMoradia },
++  },
++  {
++    name: 'a name matching two active categories is ambiguous and lists both IDs',
++    input: 'moradia',
++    id: 50,
++    catalog: [activeMoradia, inactiveMoradia, secondActiveMoradia],
++    expected: { kind: 'ambiguous', ids: [51, 52] },
++  },
++  {
++    name: 'an explicit inactive ID is refused instead of swapped for the active name',
++    input: '50',
++    id: 50,
++    catalog: [activeMoradia, inactiveMoradia],
++    expected: { kind: 'inactive', category: inactiveMoradia },
++  },
++  {
++    name: 'an explicit active ID resolves',
++    input: '51',
++    id: 51,
++    catalog: [activeMoradia, inactiveMoradia],
++    expected: { kind: 'resolved', id: 51, category: activeMoradia },
++  },
++  {
++    name: 'a name no category matches is unresolved',
++    input: 'inexistente',
++    id: null,
++    catalog: [activeMoradia],
++    expected: { kind: 'unresolved' },
++  },
++  {
++    name: 'a name matching only an inactive category is refused',
++    input: 'aluguel antigo',
++    id: 53,
++    catalog: [inactiveOnly],
++    expected: { kind: 'inactive', category: inactiveOnly },
++  },
++  {
++    name: 'an explicit ID the catalog does not list is left to the caller',
++    input: '999',
++    id: 999,
++    catalog: [activeMoradia],
++    expected: { kind: 'unlisted', id: 999 },
++  },
++];
++
++describe('resolveCategoryReference', () => {
++  for (const testCase of cases) {
++    test(testCase.name, () => {
++      expect(resolveCategoryReference(testCase.input, testCase.id, testCase.catalog)).toEqual(testCase.expected);
++    });
++  }
++});
+diff --git a/test/entries-category.test.ts b/test/entries-category.test.ts
+index f4eb7d5..54c21d4 100644
+--- a/test/entries-category.test.ts
++++ b/test/entries-category.test.ts
+@@ -112,6 +112,17 @@ describe('entries create with an ambiguous category name', () => {
+   });
+ });
+ 
++describe('entries create with an unknown category', () => {
++  test('reads the category catalog once', async () => {
++    const result = await runCli([...CREATE, '-c', 'naoexiste'], { home, api });
++
++    expect(result.exitCode).toBe(1);
++    expect(result.output).toContain('Unknown category');
++    const reads = api.requests.filter((r) => r.method === 'GET' && r.path === '/v1/cadastros/categorias');
++    expect(reads).toHaveLength(1);
++  });
++});
++
+ describe('entries update with an inactive category', () => {
+   test('refuses to move an entry to an inactive category', async () => {
+     const result = await runCli(['entries', 'update', '70', '-c', '52'], { home, api });
+diff --git a/test/eslint-local-rules.test.ts b/test/eslint-local-rules.test.ts
+index b94efba..62c824c 100644
+--- a/test/eslint-local-rules.test.ts
++++ b/test/eslint-local-rules.test.ts
+@@ -8,6 +8,11 @@ import tseslint from 'typescript-eslint';
+ // TS project, and lintText lints the given text instead of the file on disk.
+ const eslint = new ESLint({ cwd: `${import.meta.dir}/..` });
+ 
++// Typed linting builds the TypeScript program on the first lintText call, which
++// under the parallel test run takes longer than a single test's timeout. Warm it
++// up before the tests so the cold start is not charged to the first one.
++await eslint.lintText('export const answer = 42;\n', { filePath: 'src/lib/normalize.ts' });
++
+ const COMMAND = 'src/commands/cards.ts';
+ const ALIASES = 'src/lib/aliases.ts';
+ const OTHER_SRC = 'src/lib/normalize.ts';
+@@ -197,6 +202,25 @@ describe('local/no-due-anchor-fallback', () => {
+   });
+ });
+ 
++describe('local/no-category-name-resolution', () => {
++  // The two copies #182 found: entries create/update (#77) and categories
++  // --move-to (#172) each filtered the catalog by active status and name.
++  const declarations = 'declare const items: { id: number; nome: string; status: boolean }[];\ndeclare const input: string;\ndeclare function sameName(a: string, b: string): boolean;';
++  const entriesCopy = `${declarations}\nexport const active = items.find((c) => c.status && sameName(c.nome, input));`;
++  const categoriesCopy = `${declarations}\nexport const active = items.filter((c) => c.status && sameName(c.nome, input));`;
++  const owner = 'src/lib/category-resolution.ts';
++
++  test('fires on both old name filters in src/commands', async () => {
++    expect(await localRules(entriesCopy, 'src/commands/entries/category.ts')).toEqual(['local/no-category-name-resolution']);
++    expect(await localRules(categoriesCopy, 'src/commands/categories.ts')).toEqual(['local/no-category-name-resolution']);
++  });
++
++  test('does not fire in the owner or on name matching without a status check', async () => {
++    expect(await localRules(categoriesCopy, owner)).toEqual([]);
++    expect(await localRules(`${declarations}\nexport const same = sameName('Moradia', input);`, 'src/commands/entries/import/edit-file.ts')).toEqual([]);
++  });
++});
++
+ function declarationName(statement: AST.Program['body'][number]): string | undefined {
+   const node =
+     statement.type === 'ExportNamedDeclaration' || statement.type === 'ExportDefaultDeclaration' ? statement.declaration : statement;
