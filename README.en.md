@@ -1,4 +1,4 @@
-<!-- traduzido de README.md @ a39c2a6 (base: a39c2a6181a5ac245b93da0d85798a2030628d8a; readme-blob: f45a3d8c3dfb8714eb672819e7ac62840b8811d6); ao atualizar o README.md, sincronize este arquivo e atualize o SHA e o readme-blob (git hash-object README.md) -->
+<!-- traduzido de README.md @ e651307 (base: e6513072e870a374761264e8a8f349c878c41c5a; readme-blob: d6579ebec6095ab496d2ef530e8381a21ad1a97e); ao atualizar o README.md, sincronize este arquivo e atualize o SHA e o readme-blob (git hash-object README.md) -->
 [Português (Brasil)](README.md) · **English**
 
 > The Portuguese [README.md](README.md) is the reference version; this English translation may lag behind it.
@@ -212,6 +212,9 @@ mdcli accounts create --name "Nubank" --type "Conta Corrente" --bank nubank --ba
 # else available; not for cards)
 mdcli accounts create --name "Empréstimo" --type "Conta Corrente" --balance 500 --debtor --balance-date 2026-10-01 --liquidity future
 
+# --currency picks the currency by ID (default 1, BRL); also on update
+mdcli accounts create --name "Conta em outra moeda" --type "Conta Corrente" --currency <id>
+
 # Update an account (only the fields you pass are changed)
 mdcli accounts update 1167419 --name "Nubank PF"
 
@@ -232,6 +235,9 @@ mdcli accounts update 1167419 --active
 
 # Delete an account (asks for confirmation)
 mdcli accounts delete 1167419
+
+# --dangerously-skip-confirmation skips the confirmation (for scripts); works on every delete
+mdcli accounts delete 1167419 --dangerously-skip-confirmation
 
 # Create an alias for quick access
 mdcli accounts alias add --id 1167419 --name mp
@@ -280,6 +286,11 @@ mdcli entries list --account mp --from 2026-11-01 --to 2026-11-30 --no-invoices
 # also on summary. Values: single, installment, fixed
 mdcli entries list --account mp --repetition installment,fixed
 
+# Filter by status (pending, confirmed, reconciled, scheduled) or search by keywords;
+# also on summary
+mdcli entries list --account mp --status pending
+mdcli entries list --account mp --keywords "mercado"
+
 # Every field of one entry; --json is the list shape, --raw the API answer
 mdcli entries show 12345
 mdcli entries show 12345 --raw
@@ -299,6 +310,9 @@ mdcli entries summary --account mp,nubank --exclude-category "Pagamento de cart�
 # match: the web app only lists categories of the entry's type, so a category
 # of another type is refused before the API is called
 mdcli entries create --account mp --description "Groceries" --value 150 --category food
+
+# Tags and notes (--tags accepts IDs, aliases, or names)
+mdcli entries create --account mp --description "Groceries" --value 150 --category food --tags food --notes "Compra do mês"
 
 # A card purchase goes to the open invoice (or --invoice YYYY-MM); the ID
 # printed is the entry ID from the invoice, usable with update/show/delete
@@ -333,6 +347,8 @@ mdcli entries create --account mp --description "Feira" --value 30 --category fo
 # estorno, as in the web app; -c has to be of the same type, and changing -T on
 # an entry whose current category is of another type takes -c of the new type
 mdcli entries update 12345 --value 200 --category food
+
+mdcli entries update 12345 --tags food --notes "Ajustado"
 
 # Turn a confirmed entry back into a pending one (clears the effective date
 # and value); --confirmed confirms it again, --reconciled reconciles it
@@ -386,13 +402,17 @@ mdcli entries import list --account mp --since 2026-10-01 --json
 # Widens the search for entries to reconcile (the web's "Alterar busca"; the
 # default is the statement period ±2 days). On a card, the candidates are the
 # whole invoice of the next due date; a card without a next due date cannot be imported
-mdcli entries import list --account mp --search-to 2026-10-20
+mdcli entries import list --account mp --search-from 2026-10-01 --search-to 2026-10-20
 
 # Imports transactions chosen by prefix, all in one category; --reject marks
 # others as not imported. Asks for confirmation (y/N), and --dry-run shows what
 # would be done without writing anything
 mdcli entries import run --account mp --ids 1a2b3c4d,5e6f7a8b --category food --dry-run
 mdcli entries import run --account mp --ids 1a2b3c4d --category food --reject 9c0d1e2f --yes
+
+# --include-duplicates also imports the transactions the server marked as duplicates;
+# --search-from/--search-to widen the reconciliation search, as in list
+mdcli entries import run --account mp --ids 1a2b3c4d --category food --include-duplicates --search-from 2026-10-01 --search-to 2026-10-20 --yes
 
 # Conciliation follows the preference saved in the web app. --overwrite turns
 # overwriting on for this run only (it updates the contact, category, cost
