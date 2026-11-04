@@ -167,13 +167,14 @@ function remainingFromInstallment(parcela: string | undefined): number {
 
 /**
  * The real API returns a bare array from parcelasFuturas; older mocks wrapped
- * it in { parcelas }. Accept both. Derive remaining from "N/M": the real API
- * does not send parcelasRestantes; only the legacy wrapper does.
+ * it in { parcelas }. Accept both, and treat any other shape as no
+ * installments. Derive remaining from "N/M": the real API does not send
+ * parcelasRestantes; only the legacy wrapper does.
  */
 export function normalizeCardInstallments(response: CardFutureResponse | LegacyCardFutureResponse): NormalizedCardInstallment[] {
-  const items: Array<CardFutureResponse[number] & { parcelasRestantes?: number }> = Array.isArray(response)
-    ? response
-    : response.parcelas;
+  const raw: unknown = Array.isArray(response) ? response : response.parcelas;
+  if (!Array.isArray(raw)) return [];
+  const items: Array<CardFutureResponse[number] & { parcelasRestantes?: number }> = raw;
   return items.map((item) => ({
     id: item.id,
     description: item.descricao,
