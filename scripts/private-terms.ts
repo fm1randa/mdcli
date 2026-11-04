@@ -91,11 +91,17 @@ export const PRIVATE_TERM_HASHES: ReadonlySet<string> = new Set([
   'c84c8016356014e02b049ff270c079dd03ab5c5d44a120bee60242782b234ddd',
   '33e0562bdbfe8a7e5c3dd201e607ace2bad933cabd2ae5c9141d9fc5a9315374',
   '0a00eca27e9821a22a19aeefad4f7cb6be3d90aa01264e296aeb50daf7e2ef7b',
+  '8c9a013ab70c0434313e3e881c310b9ff24aff1075255ceede3f2c239c231623',
+  '57e0484d7d2c2f07c6c46ba2331312a3304da89ebfc93174002838b8c54f4342',
+  'aa1121a2ce6168ace4384d6a0df15cf096345c4bc43d193a7fa8653e4f686405',
+  'f527a4c04b5fd3c056dbbd3d247792098a839731a7897e08b3aeb39352b207cc',
+  '3574922c5fec718316711d9bbe50175f0f692a695cc9510f861a4b1ade0400b7',
 ]);
 
 /** Generic phrases that contain a guarded word and are allowed as-is. */
 const ALLOWED_PHRASE_HASHES: ReadonlySet<string> = new Set([
   '3e776fdee327ee7ecc77e412bfde5678f50206db7e99b98850346738c2302fe1',
+  '23b2bfa33873d3e65638773f0707a4869662d5276e7619d1b56c3442f91335be',
 ]);
 
 const MAX_WORDS = 4;
@@ -134,7 +140,10 @@ export function termHash(term: string): string {
  */
 function formattedNumberCandidates(text: string): string[] {
   const candidates: string[] = [];
-  for (const cluster of text.match(FORMATTED_NUMBER) ?? []) {
+  // Tests assert amounts through regex literals, where the separator is
+  // escaped (`1\.234,56`); read the escaped spelling as the same number.
+  const unescaped = text.replace(/\\([.,])/g, '$1');
+  for (const cluster of unescaped.match(FORMATTED_NUMBER) ?? []) {
     const groups = cluster.split(/[.,]/);
     const head = groups.slice(0, -1).join('');
     const cents = groups[groups.length - 1]!;

@@ -43,6 +43,14 @@ test('finds a guarded number written with a thousands separator', () => {
   expect(findPrivateTerms('R$ 1.234,57', terms)).toEqual([]);
 });
 
+test('finds a guarded number whose separators are escaped for a regex', () => {
+  const terms = new Set([termHash('1234.56'), termHash('7654.5')]);
+
+  expect(findPrivateTerms(String.raw`R$ 1\.234,56`, terms)).toHaveLength(1);
+  expect(findPrivateTerms(String.raw`R$ 7\.654,50`, terms)).toHaveLength(1);
+  expect(findPrivateTerms(String.raw`R$ 1\.234,57`, terms)).toEqual([]);
+});
+
 test('fails on a versioned file carrying a prohibited term and passes without it', () => {
   const root = mkdtempSync(join(tmpdir(), 'mdcli-private-terms-'));
   try {
