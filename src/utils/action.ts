@@ -26,7 +26,12 @@ export function flushStdout(timeoutMs = 5000): Promise<void> {
  * (local/no-bare-process-exit), so every exit drains the pipe first.
  */
 export async function exitAfterFlush(code: number): Promise<never> {
-  await flushStdout(3000);
+  try {
+    await flushStdout(3000);
+  } catch {
+    // A failed flush must not stop the exit; the old flush-then-exit sequence
+    // exited anyway, and a rejection here would re-enter the handler.
+  }
   return process.exit(code);
 }
 
