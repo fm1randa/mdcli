@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createHome, MANUAL_AUTH, runCli, startMockApi, type MockApi, type RecordedRequest, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, CREDIT_CARD_ACCOUNT, EMPTY_ENTRIES_RESPONSE, cardInvoice } from './fixtures.js';
 
-// Jardinagem 2026-10-21: entries list read one invoice per month per card one
+// Maintenance 2026-10-21: entries list read one invoice per month per card one
 // after the other (a year on two cards: 24 sequential requests).
 let api: MockApi;
 let home: TestHome;

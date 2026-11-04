@@ -68,7 +68,7 @@ export function parseInvoiceMonth(value: string): string {
 /**
  * Due date of a card's invoice in a YYYY-MM month, from any of its due dates
  * (proximoVencimento). Reads the day from the string: new Date('2026-11-16')
- * is UTC midnight, which is the 15th in Brazil (dogfood 2026-10-19). The day
+ * is UTC midnight, which is the 15th in Brazil (real use 2026-10-19). The day
  * is clamped (31 -> Feb 28).
  */
 export function dueDateInMonth(month: string, anyDueDate: string): string {

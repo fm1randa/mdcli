@@ -81,7 +81,7 @@ export const ENTRY_STATUS_LABELS: Record<string, EntryStatus> = {
 
 /**
  * A label outside the table is 'unknown', not a guess: the old 'pending'
- * fallback hid 'confirmado' until #71 (Jardinagem 2026-10-19). The raw label
+ * fallback hid 'confirmado' until #71 (Maintenance 2026-10-19). The raw label
  * is in entries show --raw.
  */
 function mapEntryStatus(status: string | undefined): EntryStatus {

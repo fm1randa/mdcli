@@ -1,8 +1,8 @@
 // Loose number coercion. Number('') is 0, Number('1e3') 1000, Number('0x10')
-// 16: strings go through the strict helpers instead (Jardinagem 2026-10-19).
+// 16: strings go through the strict helpers instead (Maintenance 2026-10-19).
 // parseInt and parseFloat stop at the first bad character ('12abc' is 12)
 // and unary + is Number() in disguise (+'' is 0), so they are banned too
-// (Jardinagem 2026-10-26). Number, parseInt and parseFloat passed as a value,
+// (Maintenance 2026-10-26). Number, parseInt and parseFloat passed as a value,
 // as in .map(Number) or .map(parseInt), run on each item, so they are banned as
 // well, and so are new Number() and .call/.apply/.bind on them;
 // Number.isSafeInteger and the other members are fine. src/utils/parse.ts,

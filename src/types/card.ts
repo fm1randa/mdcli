@@ -11,7 +11,7 @@ export interface CardInvoiceEntry {
   categoria?: number;
   parcela?: string;
   status?: string;
-  /** d expense, r income, t transfer, p invoice payment (dogfood 2026-10-19). */
+  /** d expense, r income, t transfer, p invoice payment (real use 2026-10-19). */
   tipo?: 'd' | 'r' | 't' | 'p';
   conta?: number;
   /** The other side of a payment (checking account). */
@@ -56,7 +56,7 @@ interface CardInvoiceSummary {
   transferencias?: number;
   /** Available credit limit. */
   disponivel?: number;
-  /** Seen in a dogfood probe (2026-10-19); not read by the web app. */
+  /** Seen in a real use probe (2026-10-19); not read by the web app. */
   pagamentos?: number;
 }
 

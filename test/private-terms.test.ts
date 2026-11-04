@@ -20,6 +20,20 @@ test('an allowed phrase covers the word it contains', () => {
   expect(findPrivateTerms('termo permitido', terms, allowed)).toHaveLength(1);
 });
 
+test('an allowed phrase does not hide a longer guarded term that starts with it', () => {
+  const terms = new Set([termHash('termo permitido longo')]);
+  const allowed = new Set([termHash('termo permitido')]);
+
+  expect(findPrivateTerms('termo permitido longo', terms, allowed)).toHaveLength(1);
+});
+
+test('scans the other cells of a bitmask table row', () => {
+  const terms = new Set([termHash('termo proibido')]);
+
+  expect(scanText('| 1 | 0101 | termo proibido |', terms)).toEqual([1]);
+  expect(scanText('| 1 | 0101 | linha limpa |', terms)).toEqual([]);
+});
+
 test('finds a guarded number written with a thousands separator', () => {
   const terms = new Set([termHash('1234.56'), termHash('1234567'), termHash('7654.5')]);
 

@@ -97,7 +97,7 @@ describe('entries list on a card', () => {
     const result = await runCli(['entries', 'list', '-a', '202', '-f', '2026-10-01', '-t', '2026-12-31', '--json'], { home, api });
 
     expect(result.exitCode).toBe(0);
-    // Fetched in parallel (Jardinagem 2026-10-21): which invoices, not the order they arrive in.
+    // Fetched in parallel (Maintenance 2026-10-21): which invoices, not the order they arrive in.
     expect(invoicePaths().sort()).toEqual(['2026-10-16', '2026-11-16', '2026-12-16']);
     expect(JSON.parse(result.stdout)).toEqual([
       expect.objectContaining({
@@ -183,7 +183,7 @@ describe('occurrence IDs on update, show and delete', () => {
 });
 
 describe('invoice payment (tipo p) and invoice projection dedupe', () => {
-  // Dogfood 2026-10-19: payment was expense (positive → Income in summary);
+  // Real use 2026-10-19: payment was expense (positive → Income in summary);
   // card + payment account double-counted the bill via projecaoFatura.
 
   test('lists a tipo p item as payment, not expense or income', async () => {

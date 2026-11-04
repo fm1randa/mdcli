@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, SAVINGS_ACCOUNT } from './fixtures.js';
 
-// Flag -> payload table for the entry status (Jardinagem 2026-10-19: the rule
+// Flag -> payload table for the entry status (Maintenance 2026-10-19: the rule
 // was written by hand in create, update and update-transfer). Semantics from
 // #79: -p = Confirmado off, --confirmed = confirmed not reconciled, create
 // reconciles by default, a card purchase is never reconciled.

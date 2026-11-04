@@ -121,7 +121,7 @@ const FUTURE_COL_WIDTHS = [12, 32, 15, 15, 12];
 
 async function invoiceAction(options: { account: string; month?: string; json?: boolean; summary?: boolean }): Promise<void> {
   // Before any API call: 2026-13 used to reach the API (400) and 2026-00 to
-  // show December's invoice (dogfood 2026-10-19).
+  // show December's invoice (real use 2026-10-19).
   if (options.month) parseInvoiceMonth(options.month);
 
   const account = await resolveCardOrExit(options.account);
@@ -159,7 +159,7 @@ async function invoiceAction(options: { account: string; month?: string; json?: 
   }
 
   // Summing the items double-counts when a payment (tipo p) is listed: use the
-  // API's bill total instead (dogfood 2026-10-19).
+  // API's bill total instead (real use 2026-10-19).
   const total = summary.total ?? invoiceResponse.valor;
   logger.header(t('cardsInvoiceHeader', account.nome, dueDate, entries.length, formatCurrency(total)));
   printInvoiceSummary(invoiceSummaryRows(summary));

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createHome, MANUAL_AUTH, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, EMPTY_ENTRIES_RESPONSE, cardInvoice } from './fixtures.js';
 
-// Jardinagem 2026-10-21: the status/tipoLancamento bits sent to the API and
+// Maintenance 2026-10-21: the status/tipoLancamento bits sent to the API and
 // the ones the invoice items are filtered on locally lived in two tables.
 // For every flag, the bit in the statement query and the invoice items kept
 // must agree (docs/api-filters.md).

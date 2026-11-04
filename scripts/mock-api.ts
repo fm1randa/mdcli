@@ -107,7 +107,7 @@ const sum = (items: Array<Record<string, unknown>>): number =>
 /**
  * valor and resumo of a mock invoice, with the resumo field names the web app
  * reads (md.js, resumo.setParams). Bill total excludes payments (tipo p),
- * matching resumo.totalFatura on the real API (dogfood 2026-10-19); the
+ * matching resumo.totalFatura on the real API (real use 2026-10-19); the
  * payments listed in an invoice paid the previous one.
  */
 function invoiceTotals(

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createHome, MANUAL_AUTH, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CREDIT_CARD_ACCOUNT, cardInvoice } from './fixtures.js';
 
-// Dogfood 2026-10-19 (cards and invoices): --month due day and validation,
+// Real use 2026-10-19 (cards and invoices): --month due day and validation,
 // the item dates of cards invoice --json and the card fields of cards list --json.
 let api: MockApi;
 let home: TestHome;
@@ -19,7 +19,7 @@ afterEach(() => {
 });
 
 describe('cards list --json', () => {
-  // Dogfood 2026-10-19: the JSON lacked what the table and the web show.
+  // Real use 2026-10-19: the JSON lacked what the table and the web show.
   // Real use 2026-10-19: balance (saldoUltimoExtrato, Open Finance)
   // means nothing for a card, so it is gone; the card fields stay.
   test('--json has limit, due and closing dates and the payment account, and no balance', async () => {
@@ -77,7 +77,7 @@ describe('cards list --json', () => {
 });
 
 describe('cards invoice --month', () => {
-  // Dogfood 2026-10-19: the real API sends proximoVencimento as a bare date;
+  // Real use 2026-10-19: the real API sends proximoVencimento as a bare date;
   // new Date('2026-11-16').getDate() is 15 in UTC-3, so --month asked for the
   // invoice due on the 15th. CI runs in UTC, so force Brazil's time zone.
   test('--month keeps the due day of a date-only proximoVencimento in UTC-3', async () => {
@@ -125,7 +125,7 @@ describe('cards invoice --month', () => {
     });
   }
 
-  // Dogfood 2026-10-19: item 123456 showed date 2025-11-19 here and
+  // Real use 2026-10-19: item 123456 showed date 2025-11-19 here and
   // 2026-11-16 in entries list. The maintainer decided the date is the due date, as in
   // entries list; the purchase date moves to purchaseDate and dueDate stays.
   test('--json date is the due date; the purchase date is purchaseDate', async () => {

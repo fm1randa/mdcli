@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createHome, MANUAL_AUTH, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CREDIT_CARD_ACCOUNT } from './fixtures.js';
 
-// Dogfood 2026-10-19: the web shows an invoice summary (closing, due date,
+// Real use 2026-10-19: the web shows an invoice summary (closing, due date,
 // previous invoice, payments, to pay, reconciled × unreconciled, limit) that
 // the API already sends in resumo; the CLI only printed the items. Field
 // names are the ones the web's card screen reads (md.js, resumo.setParams).

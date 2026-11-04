@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createHome, MANUAL_AUTH, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, CREDIT_CARD_ACCOUNT, EMPTY_ENTRIES_RESPONSE, cardInvoice } from './fixtures.js';
 
-// Jardinagem 2026-10-21: for a card without proximoVencimento, cards invoice
+// Maintenance 2026-10-21: for a card without proximoVencimento, cards invoice
 // --month assumed day 10, cards invoice and entries list asked primeiraFatura
 // and entries create refused. All of them now take primeiraFatura's day.
 let api: MockApi;

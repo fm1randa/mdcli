@@ -35,7 +35,7 @@ export interface Entry {
   parcela?: string;
   /** pendente/agendado: not confirmed (planned date up to today / future). */
   status: 'conciliado' | 'confirmado' | 'nconciliado' | 'pendente' | 'agendado';
-  /** d expense, r income, t transfer, p invoice payment (dogfood 2026-10-19). */
+  /** d expense, r income, t transfer, p invoice payment (real use 2026-10-19). */
   tipo?: 'd' | 'r' | 't' | 'p';
   valor: number;
   valorPrevisto?: number;

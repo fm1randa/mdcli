@@ -99,7 +99,7 @@ describe('cards invoice', () => {
 });
 
 describe('cards future', () => {
-  // Dogfood 2026-10-19: GET /parcelasFuturas returns a bare array; the old
+  // Real use 2026-10-19: GET /parcelasFuturas returns a bare array; the old
   // normalize expected { parcelas } and always showed 0 items.
   test('lists installments when the API returns a bare array', async () => {
     api.on('GET /v1/cartoes/202/parcelasFuturas', [
@@ -172,7 +172,7 @@ describe('cards future', () => {
 });
 
 describe('cards invoice total', () => {
-  // Dogfood 2026-10-19: summing items counted the previous invoice's payment
+  // Real use 2026-10-19: summing items counted the previous invoice's payment
   // (tipo p, positive) and showed +1500 instead of totalFatura -2500.
   test('header total uses resumo.totalFatura, not the sum of items', async () => {
     api.on('GET /v1/cartoes/202/fatura/2026-01-16', {

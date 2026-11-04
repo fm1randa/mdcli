@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, TAGS_RESPONSE, entriesPage } from './fixtures.js';
 
-// Jardinagem 2026-10-19: values shown without sign in create/update/delete
+// Maintenance 2026-10-19: values shown without sign in create/update/delete
 // (the #72 bug, left outside list), tag resolution copied three times,
 // reportCreate not reading a status object and unknown statuses shown as Pending.
 let api: MockApi;

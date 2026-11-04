@@ -66,6 +66,15 @@ export const PRIVATE_TERM_HASHES: ReadonlySet<string> = new Set([
   'acd66bf1ef08c53e9d85e873a77b770400796a478ba3c878bcb598ef054b4e5c',
   'cdb10524fce49103a90e698af06ca6e5fe43113a6e9da09ec6172e968ff00ae0',
   'ad8e346676e04c492b086124f53e2477ca1316df27abd4a552163c33e59b980e',
+  '5b8d02cd2724877f7b88e1ca0839e7a27be26f8e60c8bc011b16c95f79e7a8f8',
+  'cc67ca91b3c5b6cfbff737bd1e222ef3a46ba65982343d1ab161a257aff912a0',
+  'e674f78d2bf55fd93c878f7fe14448abe677e7c3160f820ac6a012e457520b81',
+  '236a16081d8103d47fcc7a2ed3f12b2929d522069d3b55fdef0fe9b9a72e4ab9',
+  '24d4b96f58da6d4a8512313bbd02a28ebf0ca95dec6e4c86ef78ce7f01e788ac',
+  'e18431606a21fa92d44f11e8a4fa870426d8c9f07803ec17526989ad95720435',
+  '8813d406421e0063ef8ec81fc45170338b4cfd9547ee1ab157b90b46bcb6e2a7',
+  '33129567e0bd787efb15a26307e5311e06ba66e3b8dbc2206ad59f99780a4d78',
+  '23b11a7ca9488f4094d29eee7d1c22076448630a816724e5b7d84aa55b605600',
 ]);
 
 /** Generic phrases that contain a guarded word and are allowed as-is. */
@@ -122,17 +131,19 @@ export function findPrivateTerms(
     if (terms.has(hash) && !allowed.has(hash)) hits.add(hash);
   }
   const tokens = normalizeTerm(text).split(' ').filter(Boolean);
+  const allowedSpans: Array<[number, number]> = [];
   for (let i = 0; i < tokens.length; i++) {
     const max = Math.min(MAX_WORDS, tokens.length - i);
-    let allowedHere = false;
     for (let n = 1; n <= max; n++) {
-      if (allowed.has(termHash(tokens.slice(i, i + n).join(' ')))) {
-        allowedHere = true;
-        break;
-      }
+      if (allowed.has(termHash(tokens.slice(i, i + n).join(' ')))) allowedSpans.push([i, i + n]);
     }
-    if (allowedHere) continue;
+  }
+  const insideAllowed = (start: number, end: number): boolean =>
+    allowedSpans.some(([from, to]) => from <= start && end <= to);
+  for (let i = 0; i < tokens.length; i++) {
+    const max = Math.min(MAX_WORDS, tokens.length - i);
     for (let n = 1; n <= max; n++) {
+      if (insideAllowed(i, i + n)) continue;
       const hash = termHash(tokens.slice(i, i + n).join(' '));
       if (terms.has(hash)) hits.add(hash);
     }
@@ -141,8 +152,9 @@ export function findPrivateTerms(
 }
 
 /**
- * Lines of `text` that contain a guarded term. A bitmask table row is skipped
- * because its binary column can match a short numeric id by coincidence.
+ * Lines of `text` that contain a guarded term. The binary cell of a bitmask
+ * table row is blanked before scanning because it can match a short numeric id
+ * by coincidence; the rest of the row is still checked.
  */
 export function scanText(
   text: string,
@@ -151,8 +163,8 @@ export function scanText(
 ): number[] {
   const lines: number[] = [];
   for (const [index, line] of text.split('\n').entries()) {
-    if (/^\|\s*\d+\s*\|\s*[01]{4}\s*\|/.test(line)) continue;
-    if (findPrivateTerms(line, terms, allowed).length > 0) lines.push(index + 1);
+    const withoutBitmask = line.replace(/^(\|\s*\d+\s*\|\s*)[01]{4}(\s*\|)/, '$1    $2');
+    if (findPrivateTerms(withoutBitmask, terms, allowed).length > 0) lines.push(index + 1);
   }
   return lines;
 }

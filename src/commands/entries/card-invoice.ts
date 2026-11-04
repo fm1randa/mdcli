@@ -14,7 +14,7 @@ const MAX_INVOICE_STEPS = 24;
  *   invoice date (GET primeiraFatura) instead, like a new card on the web.
  *   Before this, cards invoice --month assumed day 10, cards invoice and
  *   entries list asked primeiraFatura, and entries create refused
- *   (Jardinagem 2026-10-21).
+ *   (Maintenance 2026-10-21).
  * - ownDueDate (the Import) has no fallback, and the Import fails.
  * test/eslint-local-rules.test.ts pins these two as the only readers.
  */

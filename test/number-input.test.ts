@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE } from './fixtures.js';
 
-// Jardinagem 2026-10-19: `entries create -v ""` created an R$ 0 entry and
+// Maintenance 2026-10-19: `entries create -v ""` created an R$ 0 entry and
 // `entries delete ""` reached the API with id 0, because Number('') is 0.
 let api: MockApi;
 let home: TestHome;

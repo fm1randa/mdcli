@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { statusLabel } from '../scripts/mock-entries.js';
 
-// Jardinagem 2026-10-19: the verify mock labelled the same status payload
+// Maintenance 2026-10-19: the verify mock labelled the same status payload
 // differently on POST and PUT. Both now go through statusLabel.
 describe('mock statusLabel', () => {
   const cases: Array<[string, Record<string, unknown>, Record<string, unknown> | undefined, string | undefined]> = [

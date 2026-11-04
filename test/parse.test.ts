@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { parseAmount, parseId, parseInteger } from '../src/utils/parse.js';
 
-// Jardinagem 2026-10-19: Number() turned '' and ' ' into 0, '1e3' into 1000,
+// Maintenance 2026-10-19: Number() turned '' and ' ' into 0, '1e3' into 1000,
 // '0x10' into 16 and let 'Infinity' through.
 describe('parseId', () => {
   const refused = ['', ' ', '1e3', '0x10', 'Infinity', '-1', '1.5', '0', ' 7', '7 ', '+7', '1_000', 'abc', '9007199254740993'];
