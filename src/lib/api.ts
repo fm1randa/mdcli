@@ -1,4 +1,4 @@
-import type { ApiHeaders, AuthConfig, AuthMethod, CategoriesResponse, Category, CreateCategoryPayload, UpdateCategoryPayload, AccountsResponse, AccountBalanceSum, TagsResponse, EntriesResponse, EntriesParams, CreateEntryPayload, CreateEntryResponse, UpdateEntryPayload, UpdateTransferPayload, Entry, CardInvoiceResponse, CardFutureResponse, CardPlastic, Account, CreateAccountPayload, UpdateAccountPayload, CreateTagPayload, CreateTagResponse } from '../types/index.js';
+import type { AuthConfig, AuthMethod, CategoriesResponse, Category, CreateCategoryPayload, UpdateCategoryPayload, AccountsResponse, AccountBalanceSum, TagsResponse, EntriesResponse, EntriesParams, CreateEntryPayload, CreateEntryResponse, UpdateEntryPayload, UpdateTransferPayload, Entry, CardInvoiceResponse, CardFutureResponse, CardPlastic, Account, CreateAccountPayload, UpdateAccountPayload, CreateTagPayload, CreateTagResponse } from '../types/index.js';
 import { getAuth, getAuthMethod, setAuth, getOpItem, invalidateNameCache } from './config.js';
 import { popStaleNameCacheUse } from './cache-invalidation.js';
 import { captureAuthHeadless } from './browser-auth.js';
@@ -15,8 +15,8 @@ const BASE_URL = process.env.MDCLI_API_URL ?? 'https://app.meudinheiroweb.com.br
 
 let refreshPromise: Promise<AuthConfig> | null = null;
 
-function buildHeaders(auth: AuthConfig): ApiHeaders {
-  const headers: ApiHeaders = {
+function buildHeaders(auth: AuthConfig): Record<string, string> {
+  const headers: Record<string, string> = {
     Mdapikey: auth.apiKey,
     Mduid: auth.uid,
   };
@@ -94,7 +94,7 @@ async function readResponse<T>(response: Response, context: string): Promise<T> 
 
 function buildWriteHeaders(auth: AuthConfig): Record<string, string> {
   return {
-    ...(buildHeaders(auth) as unknown as Record<string, string>),
+    ...buildHeaders(auth),
     'Content-Type': 'application/json;charset=UTF-8',
     'Accept': 'application/json, text/plain, */*',
     'Origin': 'https://app.meudinheiroweb.com.br',
@@ -114,7 +114,7 @@ async function request<T>(method: HttpMethod, endpoint: string, body?: unknown):
   const url = `${BASE_URL}${endpoint}`;
   const headersFor = (a: AuthConfig): Record<string, string> =>
     method === 'GET'
-      ? (buildHeaders(a) as unknown as Record<string, string>)
+      ? buildHeaders(a)
       : buildWriteHeaders(a);
 
   const doFetch = (a: AuthConfig) =>
