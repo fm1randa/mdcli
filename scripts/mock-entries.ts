@@ -1,7 +1,8 @@
+import type { CardInvoiceEntry, CreateEntryResponse, Entry, EntryId, OccurrenceId } from '../src/types/index.js';
 import { localDay } from '../test/helpers.js';
 
 // Seeded entries for GET/PUT/DELETE /v1/lancamentos/:id (parity with unit fixtures).
-export const SEEDED_ENTRIES: Record<number, Record<string, unknown>> = {
+export const SEEDED_ENTRIES: Record<number, Entry> = {
   50: {
     id: 50,
     descricao: 'Poupança',
@@ -130,7 +131,7 @@ type Body = Record<string, unknown>;
  * entry as saved (the PUT merges the payload over the existing entry).
  * Undefined when the payload has no status object.
  */
-export function statusLabel(payload: Body, stored: Body = payload): string | undefined {
+export function statusLabel(payload: Body, stored: Body = payload): Entry['status'] | undefined {
   const status = payload.status;
   if (status === null || typeof status !== 'object') return undefined;
   const { confirmado, conciliado } = status as { confirmado?: boolean; conciliado?: boolean };
@@ -193,35 +194,69 @@ export function checkUpdateAccounts(body: Body, accountType: (conta: unknown) =>
   return null;
 }
 
+export function entryType(tipo: unknown): CreateEntryResponse['tipo'] {
+  return tipo === 'r' || tipo === 't' || tipo === 'p' ? tipo : 'd';
+}
+
+export function numberOrNull(value: unknown): number | null {
+  return typeof value === 'number' ? value : null;
+}
+
+function numberArray(value: unknown): number[] {
+  return Array.isArray(value) ? value.filter((item): item is number => typeof item === 'number') : [];
+}
+
+/** A numeric entry ID from the mock. */
+export const mockEntryId = (id: number): EntryId => id as EntryId;
+
+/** An occurrence ID ("<series>A<date>") from the mock. */
+export const mockOccurrenceId = (id: string): OccurrenceId => id as OccurrenceId;
+
 /** The API's answer to POST /v1/lancamentos for a payload that passed checkCreatePayload. */
-export function createdEntry(body: Body, id: number | string): Body {
+export function createdEntry(body: Body, id: EntryId | OccurrenceId): CreateEntryResponse {
   const reconciled = Boolean(body.conciliado);
   const parcelas = body.parcelas as { valor: number; data: string }[] | undefined;
   const agenda = body.agenda as { inicial?: number; quantidade?: number } | undefined;
   return {
     id,
-    descricao: body.descricao,
+    descricao: String(body.descricao),
     conciliado: reconciled,
-    dataCompetencia: body.dataCompetencia ?? null,
+    dataCompetencia: typeof body.dataCompetencia === 'string' ? body.dataCompetencia : null,
     // The real API answers confirmado for a confirmed, unreconciled entry (#70)
     // and pendente for an unconfirmed one dated today (Real use 2026-10-19).
-    status: statusLabel(body),
-    tipo: body.tipo,
+    status: statusLabel(body) ?? 'pendente',
+    tipo: entryType(body.tipo),
     // The server stores one entry per installment; this is the first one.
-    valor: parcelas ? parcelas[0].valor : body.valor,
-    valorPrevisto: parcelas ? parcelas[0].valor : (body.valorPrevisto ?? body.valor),
-    valorEfetivo: body.valorEfetivo ?? null,
-    data: body.data ?? new Date().toISOString(),
-    dataPrevista: body.dataPrevista,
-    dataEfetiva: body.dataEfetiva ?? null,
+    valor: parcelas ? parcelas[0].valor : Number(body.valor),
+    valorPrevisto: parcelas ? parcelas[0].valor : Number(body.valorPrevisto ?? body.valor),
+    valorEfetivo: numberOrNull(body.valorEfetivo),
+    data: String(body.data ?? new Date().toISOString()),
+    dataPrevista: String(body.dataPrevista ?? ''),
+    dataEfetiva: typeof body.dataEfetiva === 'string' ? body.dataEfetiva : null,
     dataCriacao: new Date().toISOString(),
     exibirCp: true,
     exibirCr: true,
-    conta: body.conta ?? body.contaOrigem,
-    categoria: body.categoria ?? null,
-    ...(body.transferencia === true && { contaT: body.contaDestino, valorT: body.valorT }),
+    permissoes: { visivel: true, acoes: { conciliar: true, confirmar: true, editar: true, excluir: true, clonar: true } },
+    estorno: false,
+    conta: Number(body.conta ?? body.contaOrigem),
+    categoria: numberOrNull(body.categoria),
+    tags: numberArray(body.tags),
+    observacoes: String(body.observacoes ?? ''),
+    lembrete: '0',
+    automatico: body.automatico === true,
+    ...(body.transferencia === true && { contaT: Number(body.contaDestino), valorT: Number(body.valorT) }),
     ...(parcelas && { parcela: `${agenda?.inicial ?? 1}/${agenda?.quantidade}` }),
   };
+}
+
+interface StoredCardPurchase {
+  id: number;
+  conta: number;
+  descricao: string;
+  valor: number;
+  data: string;
+  dataPrevista: string;
+  categoria: number | null;
 }
 
 // Card purchases created through POST, as the real API keeps them: the POST
@@ -229,33 +264,33 @@ export function createdEntry(body: Body, id: number | string): Body {
 // and the entry ID only shows up in the invoice, which lists the purchase
 // with just its basic fields. GET/PUT /v1/lancamentos/:id take the entry ID.
 let nextCardEntryId = 9101;
-const cardPurchases: Body[] = [];
+const cardPurchases: StoredCardPurchase[] = [];
 
 /** Stores a card purchase and returns the POST answer for it. */
-export function createCardPurchase(body: Body): Body {
+export function createCardPurchase(body: Body): CreateEntryResponse {
   const id = nextCardEntryId++;
   const parcelas = body.parcelas as { valor: number }[] | undefined;
-  const valor = parcelas ? parcelas[0].valor : body.valor;
+  const valor = parcelas ? parcelas[0].valor : Number(body.valor);
   // A purchase has no effective date but is not pending: it sits on the invoice.
-  const purchase = { ...createdEntry(body, id), status: 'confirmado' };
-  SEEDED_ENTRIES[id] = { ...purchase, valor, tags: body.tags ?? [], observacoes: body.observacoes ?? '' };
+  const purchase: CreateEntryResponse = { ...createdEntry(body, mockEntryId(id)), status: 'confirmado' };
+  SEEDED_ENTRIES[id] = { ...purchase, status: 'confirmado', valor, lembrete: 0, tags: numberArray(body.tags), observacoes: String(body.observacoes ?? '') };
   cardPurchases.push({
     id,
     conta: Number(body.conta),
-    descricao: body.descricao,
+    descricao: String(body.descricao),
     valor,
-    data: body.dataCompetencia,
-    dataPrevista: body.dataPrevista,
-    categoria: body.categoria,
+    data: String(body.dataCompetencia),
+    dataPrevista: String(body.dataPrevista),
+    categoria: numberOrNull(body.categoria),
   });
-  return { ...createdEntry(body, `1234567A${String(body.dataCompetencia)}`), status: 'confirmado' };
+  return { ...createdEntry(body, mockOccurrenceId(`1234567A${String(body.dataCompetencia)}`)), status: 'confirmado' };
 }
 
 /** The invoice items of a card's invoice due on dueDate. */
-export function invoiceItems(cardId: number, dueDate: string): Body[] {
+export function invoiceItems(cardId: number, dueDate: string): CardInvoiceEntry[] {
   // January 2026 invoice: one purchase and the previous invoice's payment
   // (tipo p). Bill total is -87.5; summing the items would yield +12.5.
-  const seeded = dueDate.startsWith('2026-01-')
+  const seeded: CardInvoiceEntry[] = dueDate.startsWith('2026-01-')
     ? [
         {
           id: 1,
@@ -295,6 +330,6 @@ export function invoiceItems(cardId: number, dueDate: string): Body[] {
       : [];
   const created = cardPurchases
     .filter((p) => p.conta === cardId && p.dataPrevista === dueDate)
-    .map(({ conta: _conta, dataPrevista: _due, ...item }) => ({ ...item, tipo: 'd', status: 'nconciliado' }));
+    .map(({ conta: _conta, dataPrevista: _due, ...item }): CardInvoiceEntry => ({ ...item, tipo: 'd', status: 'nconciliado' }));
   return [...seeded, ...created];
 }

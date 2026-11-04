@@ -1,3 +1,4 @@
+import type { BankStatementResponse } from '../src/types/index.js';
 import { localDay } from '../test/helpers.js';
 
 // GET /v1/integracao/account/:connectionAccount/transactions for scripts/verify.sh, and the AI
@@ -18,7 +19,7 @@ const PADARIA = {
   _ca: { ait: { d: 'tok-padaria' } },
 };
 
-const STATEMENT = {
+const STATEMENT: BankStatementResponse = {
   inicio: '2026-10-01',
   fim: '2026-10-20',
   saldo: 10.5,

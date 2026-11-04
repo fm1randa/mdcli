@@ -1,4 +1,4 @@
-import type { Account, AccountBalanceSum } from '../types/index.js';
+import type { Account, AccountBalanceSum, AccountBalancesResponse } from '../types/index.js';
 import { setEntriesPreferences, type EntriesPreferences } from './entries-preferences.js';
 import { asRecord } from './payload.js';
 import type { WebConfig } from './web-session.js';
@@ -60,5 +60,5 @@ export async function fetchWebBalances(
   setEntriesPreferences(query, prefs);
   query.set('contas', JSON.stringify({ ids, faturas: true, residuo: false }));
   query.set('sum', JSON.stringify({ groupBy: 'conta' }));
-  return ((await get(`/v2/lancamentos?${query.toString()}`)) as { sum: AccountBalanceSum[] }).sum;
+  return ((await get(`/v2/lancamentos?${query.toString()}`)) as AccountBalancesResponse).sum;
 }

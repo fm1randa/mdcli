@@ -8,7 +8,7 @@ export interface CardInvoiceEntry {
   valor: number;
   /** Purchase date. */
   data: string;
-  categoria?: number;
+  categoria?: number | null;
   parcela?: string;
   status?: string;
   /** d expense, r income, t transfer, p invoice payment (real use 2026-10-19). */
@@ -81,21 +81,23 @@ interface CardFutureInstallment {
   valor: number;
   data: string;
   parcela: string;
-  /** Invented by older mocks; the real API does not send this. */
-  parcelasRestantes?: number;
   categoria?: number;
   agendaId?: number;
   status?: string;
   tipo?: 'd' | 'r' | 't' | 'p';
 }
 
+/** The real API: a bare array. */
+export type CardFutureResponse = CardFutureInstallment[];
+
 /**
- * Real API: bare array. Older mocks / docs: { parcelas, total }.
- * normalizeCardInstallments accepts both.
+ * Older mocks / docs: { parcelas, total }, with parcelasRestantes, a field the
+ * real API does not send. normalizeCardInstallments still reads it.
  */
-export type CardFutureResponse =
-  | CardFutureInstallment[]
-  | { parcelas: CardFutureInstallment[]; total?: number };
+export interface LegacyCardFutureResponse {
+  parcelas: Array<CardFutureInstallment & { parcelasRestantes?: number }>;
+  total?: number;
+}
 
 export interface NormalizedCardEntry {
   id: number | string;
