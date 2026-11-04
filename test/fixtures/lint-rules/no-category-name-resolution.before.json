@@ -1,0 +1,7 @@
+{
+  "rule": "no-category-name-resolution",
+  "origin": "2b00f68^",
+  "source": "src/commands/entries/category.ts",
+  "note": "Entries and categories each filtered active categories by name (#77, #172); #198 centralized the resolution.",
+  "code": "const active = items.filter((c) => c.status && sameName(c.nome, input));"
+}
