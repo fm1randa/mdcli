@@ -4,7 +4,7 @@ import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, cardInvoice, entriesPage } from
 import { statusLabel } from '../scripts/mock-entries.js';
 
 // Real use 2026-10-19: `entries create -p` on checking account 201 (date
-// today) came back as id 363895476, "Status: Confirmed". In the web app
+// today) came back as id 481, "Status: Confirmed". In the web app
 // (md.js, the entry form's save and its toast) the two toggles give three
 // states: Confirmado off = no effective date or value, which the API labels
 // pendente up to today and agendado after it; Confirmado on = confirmado;
@@ -18,7 +18,7 @@ const today = localDay(0);
 /** Answers the POST/PUT the way the real API labels the payload it got. */
 function answer(req: RecordedRequest): Record<string, unknown> {
   const body = req.body as Record<string, unknown>;
-  return { id: 363895476, descricao: body.descricao, valor: body.valor, data: body.dataPrevista, dataPrevista: body.dataPrevista, status: statusLabel(body) };
+  return { id: 481, descricao: body.descricao, valor: body.valor, data: body.dataPrevista, dataPrevista: body.dataPrevista, status: statusLabel(body) };
 }
 
 beforeEach(() => {
@@ -129,10 +129,10 @@ describe('entries create status flags', () => {
   });
 });
 
-// GET /v1/lancamentos/363895476 as the reported entry would come back: -p
+// GET /v1/lancamentos/481 as the reported entry would come back: -p
 // created it confirmed (effective date and value filled in), dated today.
 const reported = {
-  id: 363895476,
+  id: 481,
   descricao: 'Farmácia',
   tipo: 'd',
   valor: -42.9,
@@ -148,18 +148,18 @@ const reported = {
   tags: [],
 };
 
-const pending = { ...reported, id: 363895477, dataEfetiva: null, valorEfetivo: null, status: 'pendente' };
+const pending = { ...reported, id: 482, dataEfetiva: null, valorEfetivo: null, status: 'pendente' };
 
 describe('entries update status flags', () => {
   beforeEach(() => {
-    api.on('GET /v1/lancamentos/363895476', reported);
-    api.on('PUT /v1/lancamentos/363895476', answer);
-    api.on('GET /v1/lancamentos/363895477', pending);
-    api.on('PUT /v1/lancamentos/363895477', answer);
+    api.on('GET /v1/lancamentos/481', reported);
+    api.on('PUT /v1/lancamentos/481', answer);
+    api.on('GET /v1/lancamentos/482', pending);
+    api.on('PUT /v1/lancamentos/482', answer);
   });
 
   test('-p turns a confirmed entry back to pending', async () => {
-    const result = await runCli(['entries', 'update', '363895476', '-p'], { home, api });
+    const result = await runCli(['entries', 'update', '481', '-p'], { home, api });
 
     expect(result.exitCode).toBe(0);
     expect(sentBody()).toMatchObject({
@@ -173,7 +173,7 @@ describe('entries update status flags', () => {
   });
 
   test('editing a pending entry keeps it unconfirmed', async () => {
-    const result = await runCli(['entries', 'update', '363895477', '-d', 'Farmácia (receita)'], { home, api });
+    const result = await runCli(['entries', 'update', '482', '-d', 'Farmácia (receita)'], { home, api });
 
     expect(result.exitCode).toBe(0);
     const body = sentBody();
@@ -184,7 +184,7 @@ describe('entries update status flags', () => {
   });
 
   test('--confirmed confirms a pending entry with its planned date and value', async () => {
-    const result = await runCli(['entries', 'update', '363895477', '--confirmed'], { home, api });
+    const result = await runCli(['entries', 'update', '482', '--confirmed'], { home, api });
 
     expect(result.exitCode).toBe(0);
     expect(sentBody()).toMatchObject({
@@ -197,7 +197,7 @@ describe('entries update status flags', () => {
   });
 
   test('refuses two status flags before calling the API', async () => {
-    const result = await runCli(['entries', 'update', '363895476', '-p', '--confirmed'], { home, api });
+    const result = await runCli(['entries', 'update', '481', '-p', '--confirmed'], { home, api });
 
     expect(result.exitCode).toBe(1);
     expect(result.output).toContain('only one of --pending, --confirmed and --reconciled');

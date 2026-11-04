@@ -38,9 +38,9 @@ describe('entries create on a card', () => {
   beforeEach(() => {
     api.on('GET /v1/cartoes/202/fatura/2026-01-16', invoice('2026-01-16', [
       { id: 100, descricao: 'Voo', valor: -10, data: '2025-12-30' },
-      { id: 363713401, descricao: 'Voo', valor: -10, data: '2026-01-05' },
-      { id: 363713500, descricao: 'Voo', valor: -11, data: '2026-01-05' },
-      { id: 363713600, descricao: 'Mercado', valor: -10, data: '2026-01-05' },
+      { id: 610, descricao: 'Voo', valor: -10, data: '2026-01-05' },
+      { id: 611, descricao: 'Voo', valor: -11, data: '2026-01-05' },
+      { id: 612, descricao: 'Mercado', valor: -10, data: '2026-01-05' },
     ]));
   });
 
@@ -50,7 +50,7 @@ describe('entries create on a card', () => {
     const result = await runCli([...CREATE, '--json'], { home, api });
 
     expect(result.exitCode).toBe(0);
-    expect(JSON.parse(result.stdout)).toMatchObject({ id: 363713401, occurrenceId: OCCURRENCE_ID, descricao: 'Voo' });
+    expect(JSON.parse(result.stdout)).toMatchObject({ id: 610, occurrenceId: OCCURRENCE_ID, descricao: 'Voo' });
   });
 
   test('the text output shows the entry ID too', async () => {
@@ -59,7 +59,7 @@ describe('entries create on a card', () => {
     const result = await runCli(CREATE, { home, api });
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain('ID: 363713401');
+    expect(result.stdout).toContain('ID: 610');
     expect(result.stdout).not.toContain(OCCURRENCE_ID);
   });
 
@@ -90,7 +90,7 @@ describe('entries list on a card', () => {
   test('lists the purchases of the invoices due in the range (Real use, 2026-10-16)', async () => {
     api.on('GET /v1/cartoes/202/fatura/2026-10-16', invoice('2026-10-16', []));
     api.on('GET /v1/cartoes/202/fatura/2026-11-16', invoice('2026-11-16', [
-      { id: 363713401, descricao: 'Mercado', valor: -50, data: '2026-10-20', categoria: 11 },
+      { id: 610, descricao: 'Mercado', valor: -50, data: '2026-10-20', categoria: 11 },
     ]));
     api.on('GET /v1/cartoes/202/fatura/2026-12-16', invoice('2026-12-16', []));
 
@@ -101,7 +101,7 @@ describe('entries list on a card', () => {
     expect(invoicePaths().sort()).toEqual(['2026-10-16', '2026-11-16', '2026-12-16']);
     expect(JSON.parse(result.stdout)).toEqual([
       expect.objectContaining({
-        id: 363713401,
+        id: 610,
         description: 'Mercado',
         date: '2026-11-16',
         competenceDate: '2026-10-20',
@@ -188,7 +188,7 @@ describe('invoice payment (tipo p) and invoice projection dedupe', () => {
 
   test('lists a tipo p item as payment, not expense or income', async () => {
     api.on('GET /v1/cartoes/202/fatura/2026-01-16', invoice('2026-01-16', [
-      { id: 90, descricao: 'Pagamento cartão', valor: 5185.15, data: '2025-12-16', tipo: 'p', status: 'conciliado', contaT: 201 },
+      { id: 90, descricao: 'Pagamento cartão', valor: 4000, data: '2025-12-16', tipo: 'p', status: 'conciliado', contaT: 201 },
       { id: 91, descricao: 'Mercado', valor: -50, data: '2026-01-05', tipo: 'd', categoria: 11 },
     ]));
 
@@ -197,14 +197,14 @@ describe('invoice payment (tipo p) and invoice projection dedupe', () => {
     expect(result.exitCode).toBe(0);
     const entries = JSON.parse(result.stdout);
     expect(entries).toEqual([
-      expect.objectContaining({ id: 90, type: 'payment', value: 5185.15, status: 'reconciled' }),
+      expect.objectContaining({ id: 90, type: 'payment', value: 4000, status: 'reconciled' }),
       expect.objectContaining({ id: 91, type: 'expense', value: -50 }),
     ]);
   });
 
   test('-T expense leaves payments out', async () => {
     api.on('GET /v1/cartoes/202/fatura/2026-01-16', invoice('2026-01-16', [
-      { id: 90, descricao: 'Pagamento cartão', valor: 5185.15, data: '2025-12-16', tipo: 'p' },
+      { id: 90, descricao: 'Pagamento cartão', valor: 4000, data: '2025-12-16', tipo: 'p' },
       { id: 91, descricao: 'Mercado', valor: -50, data: '2026-01-05', tipo: 'd', categoria: 11 },
     ]));
 
@@ -216,7 +216,7 @@ describe('invoice payment (tipo p) and invoice projection dedupe', () => {
 
   test('summary excludes payments so they are not counted as income', async () => {
     api.on('GET /v1/cartoes/202/fatura/2026-01-16', invoice('2026-01-16', [
-      { id: 90, descricao: 'Pagamento cartão', valor: 5185.15, data: '2025-12-16', tipo: 'p', categoria: 30 },
+      { id: 90, descricao: 'Pagamento cartão', valor: 4000, data: '2025-12-16', tipo: 'p', categoria: 30 },
       { id: 91, descricao: 'Mercado', valor: -50, data: '2026-01-05', tipo: 'd', categoria: 11 },
       { id: 92, descricao: 'Estorno', valor: 20, data: '2026-01-07', tipo: 'r', categoria: 10 },
     ]));
@@ -225,7 +225,7 @@ describe('invoice payment (tipo p) and invoice projection dedupe', () => {
 
     expect(result.exitCode).toBe(0);
     const report = JSON.parse(result.stdout);
-    // Old code: income included 5185.15. New: only the refund.
+    // Old code: income included 4000. New: only the refund.
     expect(report.total).toMatchObject({ count: 2, income: 20, expenses: -50, net: -30 });
     expect(report.skippedPayments).toBe(1);
     expect(report.skippedInvoices).toBe(0);
@@ -234,7 +234,7 @@ describe('invoice payment (tipo p) and invoice projection dedupe', () => {
   test('drops projecaoFatura for a card that is also in -a (no double bill)', async () => {
     const projection = {
       descricao: 'Fatura Cartão Teste',
-      valor: -3264.53,
+      valor: -2500,
       data: '2026-01-16',
       dataPrevista: '2026-01-16',
       status: 'pendente',
@@ -256,7 +256,7 @@ describe('invoice payment (tipo p) and invoice projection dedupe', () => {
     const summary = await runCli(['entries', 'summary', '-a', '201,202', '-f', '2026-01-01', '-t', '2026-01-31', '--json'], { home, api });
     expect(summary.exitCode).toBe(0);
     const report = JSON.parse(summary.stdout);
-    // Purchases -50-23 plus checking Mercado -100.5; projection -3264.53 must not appear.
+    // Purchases -50-23 plus checking Mercado -100.5; projection -2500 must not appear.
     expect(report.total).toMatchObject({ count: 3, expenses: -173.5, net: -173.5 });
     expect(report.skippedInvoices).toBe(0);
   });
@@ -264,7 +264,7 @@ describe('invoice payment (tipo p) and invoice projection dedupe', () => {
   test('keyword filter excludes projections that do not match', async () => {
     const projection = {
       descricao: 'Fatura Cartão Teste',
-      valor: -3264.53,
+      valor: -2500,
       data: '2026-01-16',
       dataPrevista: '2026-01-16',
       status: 'pendente',
@@ -283,7 +283,7 @@ describe('invoice payment (tipo p) and invoice projection dedupe', () => {
   test('summary still leaves invoice projections out when the card is not in -a', async () => {
     const projection = {
       descricao: 'Fatura Cartão Teste',
-      valor: -3264.53,
+      valor: -2500,
       data: '2026-01-16',
       dataPrevista: '2026-01-16',
       status: 'pendente',

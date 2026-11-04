@@ -33,7 +33,7 @@ describe('cards list --json', () => {
           contada: 201,
           proximoVencimento: '2026-11-16',
           proximoFechamento: '2026-11-05',
-          saldoUltimoExtrato: 16207,
+          saldoUltimoExtrato: 160.99,
         },
         { ...CREDIT_CARD_ACCOUNT, id: 203, nome: 'Cartão Novo', proximoVencimento: undefined, proximoFechamento: undefined },
       ],

@@ -3,7 +3,7 @@ import { createHome, MANUAL_AUTH, runCli, startMockApi, type MockApi, type TestH
 import { ACCOUNTS_RESPONSE, CHECKING_ACCOUNT, CREDIT_CARD_ACCOUNT, SESSION_RESPONSE } from './fixtures.js';
 
 // Issue #67: accounts list showed saldoUltimoExtrato (Reserva Teste:
-// 4491.97 from a 2023-09-07 statement) while the web showed R$ 0,00. The web's
+// a positive balance from a 2023-09-07 statement) while the web showed R$ 0,00. The web's
 // account balance panels (Saldos de caixa / Saldos das contas, mdb.js) ask the
 // server for GET /v2/lancamentos type=sum, finalidade 1, fim = the reference
 // day, grouped by account, and show confirmado and projetado.
@@ -14,12 +14,12 @@ let home: TestHome;
 // The Reserva Teste account (#67): its last statement is from 2023.
 const EMERGENCY_FUND = {
   ...CHECKING_ACCOUNT,
-  id: 862776,
+  id: 206,
   nome: 'Reserva Teste',
   tipo: 'OUTROS',
   tipoNovo: 103,
   banco: undefined,
-  saldoUltimoExtrato: 4491.97,
+  saldoUltimoExtrato: 999.99,
   dataUltimoExtrato: '2023-09-07',
 };
 
@@ -34,8 +34,8 @@ const sumRequests = () => api.requests.filter((r) => r.path === '/v2/lancamentos
 beforeEach(() => {
   api = startMockApi();
   api.on('GET /v1/cadastros/contas', ACCOUNTS_RESPONSE);
-  // Mercado Pago on 2026-10-26: 622.52 confirmed, 577.52 with a pending -45.
-  api.on('GET /v2/lancamentos', { sum: [{ conta: 201, projetado: 577.52, confirmado: 622.52 }] });
+  // Conta Teste on 2026-10-26: 600 confirmed, 555 with a pending -45.
+  api.on('GET /v2/lancamentos', { sum: [{ conta: 201, projetado: 555, confirmado: 600 }] });
   home = createHome(MANUAL_AUTH);
 });
 
@@ -60,8 +60,8 @@ describe('accounts list balances', () => {
     const accounts = JSON.parse(result.stdout) as Array<Record<string, unknown>>;
     expect(accounts.find((a) => a.id === 201)).toMatchObject({
       name: 'Conta Teste',
-      balance: 622.52,
-      projectedBalance: 577.52,
+      balance: 600,
+      projectedBalance: 555,
       balanceDate: '2026-10-16',
       bankBalance: 250.5,
       bankBalanceDate: '2026-01-10',
@@ -70,7 +70,7 @@ describe('accounts list balances', () => {
 
   test('without --at the balances are at the last day of the current month, as in the web', async () => {
     api.on('GET /v1/cadastros/contas', { ...ACCOUNTS_RESPONSE, items: [EMERGENCY_FUND] });
-    api.on('GET /v2/lancamentos', { sum: [{ conta: 862776, projetado: 0, confirmado: 0 }] });
+    api.on('GET /v2/lancamentos', { sum: [{ conta: 206, projetado: 0, confirmado: 0 }] });
 
     // Fixed MDCLI_TODAY so the expected end-of-month is a literal (not
     // computed with getCurrentMonthRange(), which would be tautological).
@@ -83,19 +83,19 @@ describe('accounts list balances', () => {
     expect(sumRequests()[0].query.get('fim')).toBe(endDate);
     expect(result.stdout).toContain(`balances at ${endDate}`);
     expect(row(result.stdout, 'Reserva Teste')).toEqual([
-      '862776',
+      '206',
       'Reserva Teste',
       'OUTROS',
       '-',
       'R$ 0,00',
       'R$ 0,00',
-      'R$ 4.491,97 (2023-09-07)',
+      'R$ 999,99 (2023-09-07)',
       'Active',
     ]);
   });
 
   test('a card has no balance, and with only cards no sum is asked for', async () => {
-    api.on('GET /v1/cadastros/contas', { ...ACCOUNTS_RESPONSE, items: [{ ...CREDIT_CARD_ACCOUNT, saldoUltimoExtrato: 16099 }] });
+    api.on('GET /v1/cadastros/contas', { ...ACCOUNTS_RESPONSE, items: [{ ...CREDIT_CARD_ACCOUNT, saldoUltimoExtrato: 160.99 }] });
 
     const result = await runCli(['accounts', 'list', '--json'], { home, api });
 
@@ -111,7 +111,7 @@ describe('accounts list balances', () => {
     expect(result.exitCode).toBe(0);
     const card = row(result.stdout, 'Cartão Teste');
     expect(card.slice(4, 6)).toEqual(['-', '-']);
-    expect(row(result.stdout, 'Conta Teste').slice(4, 7)).toEqual(['R$ 622,52', 'R$ 577,52', 'R$ 250,50 (2026-01-10)']);
+    expect(row(result.stdout, 'Conta Teste').slice(4, 7)).toEqual(['R$ 600,00', 'R$ 555,00', 'R$ 250,50 (2026-01-10)']);
   });
 
   // Review of #128 round 2: the web asks a balance only of the accounts in the
@@ -191,7 +191,7 @@ describe('accounts list balances', () => {
 
     beforeEach(() => {
       api.on('GET /v1/cadastros/contas', { ...ACCOUNTS_RESPONSE, items: [...ACCOUNTS_RESPONSE.items, savings] });
-      api.on('GET /v2/lancamentos', { sum: [{ conta: 201, projetado: 577.52, confirmado: 622.52 }] });
+      api.on('GET /v2/lancamentos', { sum: [{ conta: 201, projetado: 555, confirmado: 600 }] });
     });
 
     test('a restricted account gets no balance and is not asked for; the others still are', async () => {
@@ -205,7 +205,7 @@ describe('accounts list balances', () => {
       expect(api.requests.filter((r) => r.path === '/v1/frontend/sessao')).toHaveLength(1);
       const accounts = JSON.parse(result.stdout) as Array<Record<string, unknown>>;
       expect(accounts.find((a) => a.id === 1008)).toMatchObject({ balance: null, projectedBalance: null });
-      expect(accounts.find((a) => a.id === 201)).toMatchObject({ balance: 622.52, projectedBalance: 577.52 });
+      expect(accounts.find((a) => a.id === 201)).toMatchObject({ balance: 600, projectedBalance: 555 });
     });
 
     test('restrictions on other things than accounts restrict no account', async () => {

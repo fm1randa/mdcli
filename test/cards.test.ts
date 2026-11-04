@@ -173,12 +173,12 @@ describe('cards future', () => {
 
 describe('cards invoice total', () => {
   // Dogfood 2026-10-19: summing items counted the previous invoice's payment
-  // (tipo p, positive) and showed +1920.62 instead of totalFatura -3264.53.
+  // (tipo p, positive) and showed +1500 instead of totalFatura -2500.
   test('header total uses resumo.totalFatura, not the sum of items', async () => {
     api.on('GET /v1/cartoes/202/fatura/2026-01-16', {
-      ...cardInvoice('2026-01-16', '2026-01-08', -3264.53),
+      ...cardInvoice('2026-01-16', '2026-01-08', -2500),
       lancamentos: [
-        { id: 1, descricao: 'Pagamento cartão', valor: 5185.15, data: '2025-12-16', categoria: 30, tipo: 'p' },
+        { id: 1, descricao: 'Pagamento cartão', valor: 4000, data: '2025-12-16', categoria: 30, tipo: 'p' },
         { id: 2, descricao: 'Mercado', valor: -50, data: '2026-01-05', categoria: 11, tipo: 'd' },
         { id: 3, descricao: 'Servidor Teste', valor: -23, data: '2026-01-04', categoria: 10, tipo: 'd' },
       ],
@@ -187,9 +187,9 @@ describe('cards invoice total', () => {
     const result = await runCli(['cards', 'invoice', '-a', '202', '--month', '2026-01'], { home, api });
 
     expect(result.exitCode).toBe(0);
-    // Items sum to +5112.15; the bill is -3264.53.
-    expect(result.stdout.replace(/\u00a0/g, ' ')).toContain('Total: -R$ 3.264,53');
-    expect(result.stdout.replace(/\u00a0/g, ' ')).not.toContain('Total: R$ 5.112,15');
+    // Items sum to +3927; the bill is -2500.
+    expect(result.stdout.replace(/\u00a0/g, ' ')).toContain('Total: -R$ 2.500,00');
+    expect(result.stdout.replace(/\u00a0/g, ' ')).not.toContain('Total: R$ 3.927,00');
   });
 
   test('falls back to valor when resumo is missing', async () => {
