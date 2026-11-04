@@ -1,0 +1,7 @@
+{
+  "rule": "no-type-sign-ternary",
+  "origin": "ef11a75^",
+  "source": "src/commands/entries/create.ts",
+  "note": "Sign by entry type spread over three files before signForType (#145).",
+  "code": "const finalValue = tipo === 'r' ? Math.abs(value) : -Math.abs(value);"
+}

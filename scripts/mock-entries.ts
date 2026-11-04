@@ -1,4 +1,4 @@
-import type { CardInvoiceEntry, CreateEntryResponse, Entry } from '../src/types/index.js';
+import type { CardInvoiceEntry, CreateEntryResponse, Entry, EntryId, OccurrenceId } from '../src/types/index.js';
 import { localDay } from '../test/helpers.js';
 
 // Seeded entries for GET/PUT/DELETE /v1/lancamentos/:id (parity with unit fixtures).
@@ -206,8 +206,14 @@ function numberArray(value: unknown): number[] {
   return Array.isArray(value) ? value.filter((item): item is number => typeof item === 'number') : [];
 }
 
+/** A numeric entry ID from the mock. */
+export const mockEntryId = (id: number): EntryId => id as EntryId;
+
+/** An occurrence ID ("<series>A<date>") from the mock. */
+export const mockOccurrenceId = (id: string): OccurrenceId => id as OccurrenceId;
+
 /** The API's answer to POST /v1/lancamentos for a payload that passed checkCreatePayload. */
-export function createdEntry(body: Body, id: number | string): CreateEntryResponse {
+export function createdEntry(body: Body, id: EntryId | OccurrenceId): CreateEntryResponse {
   const reconciled = Boolean(body.conciliado);
   const parcelas = body.parcelas as { valor: number; data: string }[] | undefined;
   const agenda = body.agenda as { inicial?: number; quantidade?: number } | undefined;
@@ -266,7 +272,7 @@ export function createCardPurchase(body: Body): CreateEntryResponse {
   const parcelas = body.parcelas as { valor: number }[] | undefined;
   const valor = parcelas ? parcelas[0].valor : Number(body.valor);
   // A purchase has no effective date but is not pending: it sits on the invoice.
-  const purchase: CreateEntryResponse = { ...createdEntry(body, id), status: 'confirmado' };
+  const purchase: CreateEntryResponse = { ...createdEntry(body, mockEntryId(id)), status: 'confirmado' };
   SEEDED_ENTRIES[id] = { ...purchase, status: 'confirmado', valor, lembrete: 0, tags: numberArray(body.tags), observacoes: String(body.observacoes ?? '') };
   cardPurchases.push({
     id,
@@ -277,7 +283,7 @@ export function createCardPurchase(body: Body): CreateEntryResponse {
     dataPrevista: String(body.dataPrevista),
     categoria: numberOrNull(body.categoria),
   });
-  return { ...createdEntry(body, `46349170A${String(body.dataCompetencia)}`), status: 'confirmado' };
+  return { ...createdEntry(body, mockOccurrenceId(`46349170A${String(body.dataCompetencia)}`)), status: 'confirmado' };
 }
 
 /** The invoice items of a card's invoice due on dueDate. */

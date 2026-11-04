@@ -3,7 +3,7 @@
 import type { Account, AccountsResponse, CategoriesResponse, CreateEntryResponse, EntriesResponse, Entry } from '../src/types/index.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, CREDIT_CARD_ACCOUNT, SAVINGS_ACCOUNT, TAGS_RESPONSE } from '../test/fixtures.js';
 import { plasticsRoute } from './mock-plastics.js';
-import { SEEDED_ENTRIES, checkCreatePayload, checkUpdateAccounts, createCardPurchase, createdEntry, entryType, numberOrNull, statusLabel } from './mock-entries.js';
+import { SEEDED_ENTRIES, checkCreatePayload, checkUpdateAccounts, createCardPurchase, createdEntry, entryType, mockEntryId, numberOrNull, statusLabel } from './mock-entries.js';
 import { connectionsRoute, recordMockRequest } from './mock-connections.js';
 import { importRoute, withRecentStatement } from './mock-import.js';
 import { balancesRoute } from './mock-balances.js';
@@ -191,7 +191,7 @@ async function entriesRoute(req: Request, path: string): Promise<Response> {
     if (invalid) return badRequest(invalid);
     const created: CreateEntryResponse = isCreditCardId(body.conta)
       ? createCardPurchase(body)
-      : createdEntry(body, NEW_ENTRY_ID);
+      : createdEntry(body, mockEntryId(NEW_ENTRY_ID));
     return Response.json(created, { status: 201 });
   }
 

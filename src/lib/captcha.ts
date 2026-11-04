@@ -1,11 +1,17 @@
 import Solver from '2captcha';
-import type { Page } from 'playwright';
 import { getCaptchaApiKey } from './config.js';
 import { t } from './i18n/index.js';
 
 const RECAPTCHA_SITEKEY_PATTERN = /sitekey['":\s]+['"]([^'"]+)['"]/i;
 
-export async function detectRecaptchaChallenge(page: Page): Promise<boolean> {
+/** The slice of Page the captcha flow uses, so tests can fake it without casting. */
+export interface CaptchaPage {
+  evaluate(script: string): Promise<unknown>;
+  content(): Promise<string>;
+  url(): string;
+}
+
+export async function detectRecaptchaChallenge(page: CaptchaPage): Promise<boolean> {
   await new Promise((resolve) => setTimeout(resolve, 2000));
 
   const hasChallenge = await page.evaluate(`
@@ -26,7 +32,7 @@ export async function detectRecaptchaChallenge(page: Page): Promise<boolean> {
   return hasChallenge as boolean;
 }
 
-async function extractSitekey(page: Page): Promise<string | null> {
+async function extractSitekey(page: CaptchaPage): Promise<string | null> {
   const sitekey = await page.evaluate(`
     (function() {
       var recaptchaDiv = document.querySelector('[data-sitekey]');
@@ -93,7 +99,7 @@ function injectRecaptchaToken(token: string): string {
   `;
 }
 
-export async function solveRecaptcha(page: Page): Promise<boolean> {
+export async function solveRecaptcha(page: CaptchaPage): Promise<boolean> {
   const apiKey = getCaptchaApiKey();
   if (!apiKey) {
     console.log(t('captchaNoApiKey'));
