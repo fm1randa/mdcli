@@ -99,6 +99,7 @@ export const PRIVATE_TERM_HASHES: ReadonlySet<string> = new Set([
   '478c4ffb1cbcea37956a748e6c19d8eadd0a47e86f5e308d26cad39453b5d1ab',
   '2c8b871e52d4e5f5db5ff84a82a45327e20df77edef961c4b6fa0e9c3d97ce5b',
   '6ad4a6b1e5ea5569795e516d71909e0ce4809d9dc983d2c219144f684f816e12',
+  '171c89627f9fa4caa793ba683061ae3cfbc0aca1ef04b4d2281cfed9946eff21',
 ]);
 
 /** Generic phrases that contain a guarded word and are allowed as-is. */
@@ -169,21 +170,20 @@ export function findPrivateTerms(
     if (terms.has(hash) && !allowed.has(hash)) hits.add(hash);
   }
   const tokens = normalizeTerm(text).split(' ').filter(Boolean);
-  const allowedSpans: Array<[number, number]> = [];
-  for (let i = 0; i < tokens.length; i++) {
-    const max = Math.min(MAX_WORDS, tokens.length - i);
-    for (let n = 1; n <= max; n++) {
-      if (allowed.has(hashNormalized(tokens.slice(i, i + n).join(' ')))) allowedSpans.push([i, i + n]);
+  // Only a hit needs this check, so the scan does not hash every n-gram twice.
+  const insideAllowed = (start: number, end: number): boolean => {
+    for (let n = end - start; n <= MAX_WORDS; n++) {
+      for (let from = Math.max(0, end - n); from <= start && from + n <= tokens.length; from++) {
+        if (allowed.has(hashNormalized(tokens.slice(from, from + n).join(' ')))) return true;
+      }
     }
-  }
-  const insideAllowed = (start: number, end: number): boolean =>
-    allowedSpans.some(([from, to]) => from <= start && end <= to);
+    return false;
+  };
   for (let i = 0; i < tokens.length; i++) {
     const max = Math.min(MAX_WORDS, tokens.length - i);
     for (let n = 1; n <= max; n++) {
-      if (insideAllowed(i, i + n)) continue;
       const hash = hashNormalized(tokens.slice(i, i + n).join(' '));
-      if (terms.has(hash)) hits.add(hash);
+      if (terms.has(hash) && !insideAllowed(i, i + n)) hits.add(hash);
     }
   }
   return [...hits];
