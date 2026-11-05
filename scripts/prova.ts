@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 
 export interface ProvaStatus {
   present: boolean;
+  web: boolean;
   before: boolean;
   after: boolean;
 }
@@ -17,6 +18,8 @@ const SECTION_END = /^##\s+\S/;
 const SUB_HEADING = /^#{2,3}\s+\S/;
 const BEFORE_HEADING = /^###\s+Antes\s*\(main\)\s*$/i;
 const AFTER_HEADING = /^###\s+Depois\s*\(branch\)\s*$/i;
+const WEB_LINE = /^\s*Web:\s*\S/;
+const NO_WEB_LINE = /^\s*sem equivalente na web\s*$/i;
 const FENCE = /^\s*```/;
 
 function sectionAfter(lines: string[], heading: RegExp): string[] | undefined {
@@ -57,13 +60,18 @@ function hasFilledFence(lines: string[]): boolean {
   return false;
 }
 
+function hasWebReference(lines: string[]): boolean {
+  return lines.some((line) => WEB_LINE.test(line) || NO_WEB_LINE.test(line));
+}
+
 export function parseProva(body: string): ProvaStatus {
   const section = sectionAfter(body.split('\n'), PROVA_HEADING);
-  if (!section) return { present: false, before: false, after: false };
+  if (!section) return { present: false, web: false, before: false, after: false };
   const before = subSection(section, BEFORE_HEADING);
   const after = subSection(section, AFTER_HEADING);
   return {
     present: true,
+    web: hasWebReference(section),
     before: before !== undefined && hasFilledFence(before),
     after: after !== undefined && hasFilledFence(after),
   };
@@ -76,7 +84,7 @@ export function requiresProva(files: string[]): boolean {
 export function checkProva(body: string, files: string[]): ProvaCheck {
   const required = requiresProva(files);
   const status = parseProva(body);
-  return { required, ok: !required || (status.before && status.after), status };
+  return { required, ok: !required || (status.web && status.before && status.after), status };
 }
 
 function changedFiles(base: string): string[] {
@@ -125,15 +133,19 @@ function main(): void {
       return;
     }
     if (check.ok) {
-      console.log('prova: filled with before (main) and after (branch)');
+      console.log('prova: filled with the web evidence, before (main) and after (branch)');
       return;
     }
 
     const missing: string[] = [];
     if (!check.status.present) missing.push('the "## Prova" section');
+    if (!check.status.web) {
+      missing.push('a "Web:" line with the bundle snippet (or "sem equivalente na web")');
+    }
     if (!check.status.before) missing.push('a filled code block under "### Antes (main)"');
     if (!check.status.after) missing.push('a filled code block under "### Depois (branch)"');
     console.error(`prova: this PR changes src/ and needs ${missing.join(', ')}.`);
+    console.error('prova: cite the web bundle ($HOME/.mdcli-team/ref/mdb.js) or say there is no web equivalent.');
     console.error('prova: run the commands against the mock (scripts/mock-api.ts), never a real account.');
     process.exitCode = 1;
   } catch (error) {
