@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { commitSources, messageHits, pullRequestSource } from '../scripts/check-private-messages.js';
@@ -7,6 +7,34 @@ import { termHash } from '../scripts/private-terms.js';
 
 const fakeTerm = 'termo-sintetico-proibido';
 const fakeHashes = new Set([termHash(fakeTerm)]);
+const repoRoot = join(import.meta.dir, '..');
+
+function fakeGh(script: string): string {
+  const dir = mkdtempSync(join(tmpdir(), 'mdcli-fake-gh-'));
+  const path = join(dir, 'gh');
+  writeFileSync(path, `#!/bin/sh\n${script}\n`);
+  chmodSync(path, 0o755);
+  return dir;
+}
+
+async function runScript(ghDir: string): Promise<{ stdout: string; stderr: string; code: number | null }> {
+  const { PR_BODY: _ignored, ...env } = process.env;
+  const proc = Bun.spawn(
+    [process.execPath, join(repoRoot, 'scripts', 'check-private-messages.ts'), '--base', 'HEAD'],
+    {
+      cwd: repoRoot,
+      env: { ...env, PATH: `${ghDir}:${process.env.PATH ?? ''}` },
+      stdout: 'pipe',
+      stderr: 'pipe',
+    }
+  );
+  const [stdout, stderr, code] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+    proc.exited,
+  ]);
+  return { stdout, stderr, code };
+}
 
 async function git(root: string, ...args: string[]): Promise<string> {
   const proc = Bun.spawn(
@@ -78,5 +106,27 @@ test('reports the PR body lines from PR_BODY and ignores an empty one', async ()
   } finally {
     if (previous === undefined) delete process.env.PR_BODY;
     else process.env.PR_BODY = previous;
+  }
+});
+
+test('waits for a gh slower than five seconds instead of dropping the PR body', async () => {
+  const dir = fakeGh(`sleep 6\nprintf '%s' '{"body":"corpo sintetico"}'`);
+  try {
+    const result = await runScript(dir);
+    expect(result.code).toBe(0);
+    expect(result.stdout).toContain('PR body checked');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('reports that the PR body was not checked when gh fails', async () => {
+  const dir = fakeGh(`echo 'no pull requests found' >&2\nexit 1`);
+  try {
+    const result = await runScript(dir);
+    expect(result.code).toBe(0);
+    expect(result.stderr).toContain('PR body not checked');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
   }
 });
