@@ -92,14 +92,33 @@ function reportUpdating(connections: SyncListConnection[], json: boolean): void 
   reportWarning(message, json);
 }
 
-function reportFinished(connections: SyncListConnection[], json: boolean): void {
-  const finished = connections.filter((connection) => connection.id !== null);
-  if (finished.length === 0) return;
-  const statuses = finished.map((connection) => `${connection.id} ${connection.status ?? t('notSet')}`);
-  const message = finished.length === 1
-    ? t('syncFinishedOne', String(finished[0]?.id), finished[0]?.status ?? t('notSet'))
-    : t('syncFinishedMany', statuses.join(', '));
-  reportInfo(message, json);
+const FINAL_STATUSES = new Set(['UPDATED', 'OUTDATED']);
+const ACTION_STATUSES = new Set(['WAITING_USER_INPUT', 'WAITING_USER_ACTION']);
+
+/** The web finishes a Sync only on UPDATED/OUTDATED; the rest needs action or failed. */
+function reportFinalStatuses(connections: SyncListConnection[], json: boolean): void {
+  const rows = connections.flatMap((connection) =>
+    connection.id === null ? [] : [{ id: connection.id, status: connection.status ?? t('notSet') }]);
+  const final = rows.filter((row) => FINAL_STATUSES.has(row.status));
+  const action = rows.filter((row) => ACTION_STATUSES.has(row.status));
+  const failed = rows.filter((row) => !FINAL_STATUSES.has(row.status) && !ACTION_STATUSES.has(row.status));
+  const lines = (group: typeof rows) => group.map((row) => `${row.id} ${row.status}`).join(', ');
+
+  if (final.length === 1) {
+    reportInfo(t('syncFinishedOne', String(final[0]?.id), final[0]?.status ?? t('notSet')), json);
+  } else if (final.length > 1) {
+    reportInfo(t('syncFinishedMany', lines(final)), json);
+  }
+  if (action.length === 1) {
+    reportWarning(t('syncNeedsActionOne', String(action[0]?.id), action[0]?.status ?? t('notSet')), json);
+  } else if (action.length > 1) {
+    reportWarning(t('syncNeedsActionMany', lines(action)), json);
+  }
+  if (failed.length === 1) {
+    reportWarning(t('syncFailedOne', String(failed[0]?.id), failed[0]?.status ?? t('notSet')), json);
+  } else if (failed.length > 1) {
+    reportWarning(t('syncFailedMany', lines(failed)), json);
+  }
 }
 
 function sleep(ms: number): Promise<void> {
@@ -215,7 +234,7 @@ export async function runAction(target: string, options: RunOptions): Promise<vo
   }
 
   if (!after.waited) reportUpdating(connections, options.json === true);
-  else if (!after.timedOut) reportFinished(connections, options.json === true);
+  else if (!after.timedOut) reportFinalStatuses(connections, options.json === true);
 
   if (after.timedOut) await exitAfterFlush(1);
 }

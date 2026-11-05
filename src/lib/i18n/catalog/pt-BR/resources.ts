@@ -129,6 +129,14 @@ export const ptBRResources = {
     `Ainda UPDATING após ${seconds}s: conexões ${ids}.`,
   syncFinishedOne: (id: string, status: string) => `Sincronização concluída: conexão ${id} ${status}.`,
   syncFinishedMany: (statuses: string) => `Sincronização concluída: ${statuses}.`,
+  syncNeedsActionOne: (id: string, status: string) =>
+    `A conexão ${id} precisa de ação: ${status}. Execute sync list novamente para ver o resultado.`,
+  syncNeedsActionMany: (statuses: string) =>
+    `As conexões precisam de ação: ${statuses}. Execute sync list novamente para ver o resultado.`,
+  syncFailedOne: (id: string, status: string) =>
+    `A sincronização falhou para a conexão ${id}: ${status}. Execute sync list novamente para ver o resultado.`,
+  syncFailedMany: (statuses: string) =>
+    `A sincronização falhou: ${statuses}. Execute sync list novamente para ver o resultado.`,
   syncTimedOutOne: (id: string, seconds: number) =>
     `A conexão ${id} continua UPDATING após ${seconds}s; sem status final. Execute sync list novamente para ver o resultado.`,
   syncTimedOutMany: (ids: string, seconds: number) =>

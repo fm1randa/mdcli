@@ -269,6 +269,26 @@ describe('sync run', () => {
     expect(mutations(api)).toHaveLength(1);
   });
 
+  test('does not announce a non-final status as finished', async () => {
+    const cases = [
+      { status: 'WAITING_USER_INPUT', expected: 'Connection 501 needs action: WAITING_USER_INPUT.' },
+      { status: 'LOGIN_ERROR', expected: 'Sync failed for connection 501: LOGIN_ERROR.' },
+    ] as const;
+
+    for (const { status, expected } of cases) {
+      connections(ONE_CONNECTION, AFTER_SYNC, [{ ...AFTER_SYNC[0], status }]);
+      api.requests.length = 0;
+
+      const result = await runCli(['sync', 'run', '201', '--yes', '--json'], { home, api });
+
+      expect(result.exitCode).toBe(0);
+      expect(result.stderr).toContain(expected);
+      expect(result.stderr).not.toContain('Sync finished');
+      expect(JSON.parse(result.stdout).connections[0].status).toBe(status);
+      expect(mutations(api)).toHaveLength(1);
+    }
+  });
+
   test('times out with exit 1 when the connection stays UPDATING', async () => {
     connections(ONE_CONNECTION, AFTER_SYNC);
 
