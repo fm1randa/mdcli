@@ -28,7 +28,9 @@ function git(root: string, args: string[]): string {
 
 function commitAll(root: string, message: string): void {
   git(root, ['add', '-A']);
-  git(root, ['commit', '-q', '-m', message]);
+  // Keep the temp commit hermetic: a signing or hooks setup in the machine's
+  // global git config must not change the suite's result.
+  git(root, ['-c', 'commit.gpgsign=false', '-c', 'core.hooksPath=/dev/null', 'commit', '-q', '-m', message]);
 }
 
 test('finds a guarded term and passes without it', () => {
@@ -112,6 +114,30 @@ test('detects a term that is only in the commit, after the file leaves the workt
     // The file is invisible to the old working-tree source: `git ls-files`
     // prints nothing, so only the commit still carries the term.
     expect(git(root, ['ls-files'])).toBe('');
+    expect(scanTrackedFiles(root, fakeHashes)).toEqual([{ file: 'note.txt', line: 2 }]);
+  });
+});
+
+test('detects a term that is only staged, before it is committed', () => {
+  withRepo((root) => {
+    writeFileSync(join(root, 'clean.txt'), 'linha limpa\n');
+    commitAll(root, 'base');
+    writeFileSync(join(root, 'leak.txt'), `linha limpa\n${fakeTerm} aqui\n`);
+    git(root, ['add', 'leak.txt']);
+
+    // HEAD still lacks the file: only the index carries the staged term.
+    expect(git(root, ['ls-tree', '-r', '--name-only', 'HEAD'])).not.toContain('leak.txt');
+    expect(scanTrackedFiles(root, fakeHashes)).toEqual([{ file: 'leak.txt', line: 2 }]);
+  });
+});
+
+test('detects a term in a tracked file that is not staged yet', () => {
+  withRepo((root) => {
+    writeFileSync(join(root, 'note.txt'), 'linha limpa\n');
+    commitAll(root, 'base');
+    writeFileSync(join(root, 'note.txt'), `linha limpa\n${fakeTerm} aqui\n`);
+
+    expect(git(root, ['status', '--short', 'note.txt'])).toContain(' M note.txt');
     expect(scanTrackedFiles(root, fakeHashes)).toEqual([{ file: 'note.txt', line: 2 }]);
   });
 });
