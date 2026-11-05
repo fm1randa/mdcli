@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 /**
@@ -262,26 +263,6 @@ function commitEntries(root: string, ref: string): TreeEntry[] {
   return entries;
 }
 
-function blobSizes(root: string, objects: string[]): Map<string, number> {
-  const sizes = new Map<string, number>();
-  if (objects.length === 0) return sizes;
-  const input = Buffer.from(`${objects.join('\n')}\n`);
-  const checked = git(
-    root,
-    ['cat-file', '--batch-check=%(objectname) %(objecttype) %(objectsize)'],
-    input
-  ).toString();
-  for (const line of checked.split('\n')) {
-    if (line === '') continue;
-    const [object, type, size] = line.split(' ');
-    if (type !== 'blob' || object === undefined || size === undefined) {
-      throw new Error(`unexpected git cat-file output: ${line}`);
-    }
-    sizes.set(object, Number(size));
-  }
-  return sizes;
-}
-
 /** Raw bytes of every blob, one `git cat-file --batch` for the whole tree. */
 function blobContents(root: string, objects: string[]): Map<string, Buffer> {
   const contents = new Map<string, Buffer>();
@@ -303,11 +284,80 @@ function blobContents(root: string, objects: string[]): Map<string, Buffer> {
   return contents;
 }
 
+/** Entries of the index (`git ls-files -s`), which holds the staged content. */
+function indexEntries(root: string): TreeEntry[] {
+  const entries: TreeEntry[] = [];
+  for (const record of git(root, ['ls-files', '-s', '-z']).toString().split('\0')) {
+    if (record === '') continue;
+    const tab = record.indexOf('\t');
+    const [mode, object, stage] = record.slice(0, tab).split(' ');
+    if (mode === undefined || object === undefined || stage === undefined) {
+      throw new Error(`unexpected git ls-files record: ${record}`);
+    }
+    entries.push({ type: mode === '160000' ? 'commit' : 'blob', object, path: record.slice(tab + 1) });
+  }
+  return entries;
+}
+
+/** Hits from `entries`: their paths and, for blobs not already read, their content. */
+function scanEntries(
+  root: string,
+  entries: TreeEntry[],
+  terms: ReadonlySet<string>,
+  allowed: ReadonlySet<string>,
+  seen: Set<string>
+): PrivateTermHit[] {
+  const hits: PrivateTermHit[] = entries.flatMap((entry) =>
+    findPrivateTerms(entry.path, terms, allowed).length > 0 ? [{ file: entry.path }] : []
+  );
+  const blobs = entries.filter((e) => e.type === 'blob' && !/^0+$/.test(e.object) && !seen.has(e.object));
+  const objects = [...new Set(blobs.map((blob) => blob.object))];
+  for (const object of objects) seen.add(object);
+  const contents = blobContents(root, objects);
+  for (const blob of blobs) {
+    const content = contents.get(blob.object);
+    if (content === undefined) throw new Error(`missing blob ${blob.object} for ${blob.path}`);
+    if (content.length > MAX_SCAN_BYTES) {
+      throw new Error(`private-terms: ${blob.path} is ${content.length} bytes, above the ${MAX_SCAN_BYTES}-byte scan limit`);
+    }
+    // UTF-8 keeps an accented term intact and turns a binary byte into a
+    // separator, so the ASCII a term normalizes to is still matched.
+    for (const line of scanText(content.toString('utf8'), terms, allowed)) hits.push({ file: blob.path, line });
+  }
+  return hits;
+}
+
 /**
- * Private terms in the published commit (`ref`, HEAD by default): its content
- * and its paths. Reading the commit instead of the working tree catches a term
- * whose file was committed and later deleted from disk, and no tracked input is
- * skipped silently: a blob above the size limit fails the guard.
+ * Hits from the working-tree copy of each tracked path that differs from the
+ * index. A file deleted from disk is skipped because the commit and the index
+ * still carry it.
+ */
+function worktreeHits(
+  root: string,
+  terms: ReadonlySet<string>,
+  allowed: ReadonlySet<string>
+): PrivateTermHit[] {
+  const hits: PrivateTermHit[] = [];
+  for (const path of git(root, ['diff', '--name-only', '-z']).toString().split('\0').filter(Boolean)) {
+    let content: Buffer;
+    try {
+      content = readFileSync(join(root, path));
+    } catch {
+      continue;
+    }
+    if (content.length > MAX_SCAN_BYTES) continue;
+    for (const line of scanText(content.toString('utf8'), terms, allowed)) hits.push({ file: path, line });
+  }
+  return hits;
+}
+
+/**
+ * Private terms in the published commit (`ref`, HEAD by default), the index
+ * and the working-tree copy of every tracked path. The commit catches a term
+ * whose file was deleted from disk after being committed; the index catches a
+ * term that is only staged; the working tree catches an edit not staged yet.
+ * A committed blob above the size limit fails the guard instead of being
+ * skipped.
  */
 export function scanTrackedFiles(
   root: string = join(import.meta.dirname, '..'),
@@ -315,33 +365,13 @@ export function scanTrackedFiles(
   allowed: ReadonlySet<string> = ALLOWED_PHRASE_HASHES,
   ref = 'HEAD'
 ): PrivateTermHit[] {
-  const entries = commitEntries(root, ref);
-  const hits: PrivateTermHit[] = [];
-  for (const entry of entries) {
-    if (findPrivateTerms(entry.path, terms, allowed).length > 0) hits.push({ file: entry.path });
-  }
-  const blobs = entries.filter((entry) => entry.type === 'blob');
-  const objects = [...new Set(blobs.map((blob) => blob.object))];
-  const sizes = blobSizes(root, objects);
-  for (const blob of blobs) {
-    const size = sizes.get(blob.object);
-    if (size === undefined) throw new Error(`git could not describe blob ${blob.object} at ${ref}`);
-    if (size > MAX_SCAN_BYTES) {
-      throw new Error(
-        `private-terms: ${blob.path} is ${size} bytes, above the ${MAX_SCAN_BYTES}-byte scan limit; ` +
-          'remove it or prove it cannot carry a private term'
-      );
-    }
-  }
-  const contents = blobContents(root, objects);
-  for (const blob of blobs) {
-    const content = contents.get(blob.object);
-    if (content === undefined) throw new Error(`missing blob ${blob.object} for ${blob.path}`);
-    // UTF-8 keeps an accented term intact and turns a binary byte into a
-    // separator, so the ASCII a term normalizes to is still matched.
-    for (const line of scanText(content.toString('utf8'), terms, allowed)) {
-      hits.push({ file: blob.path, line });
-    }
-  }
-  return hits;
+  const seen = new Set<string>();
+  const hits = [
+    ...scanEntries(root, commitEntries(root, ref), terms, allowed, seen),
+    ...scanEntries(root, indexEntries(root), terms, allowed, seen),
+    ...worktreeHits(root, terms, allowed),
+  ];
+  const found = new Map<string, PrivateTermHit>();
+  for (const hit of hits) found.set(`${hit.file}\u0000${hit.line ?? ''}`, hit);
+  return [...found.values()];
 }
