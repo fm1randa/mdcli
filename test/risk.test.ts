@@ -105,6 +105,16 @@ describe('security surfaces', () => {
     expect(report.reasons.every((reason) => reason.detail.length > 0)).toBe(true);
   });
 
+  test('flags a behavior change in the private-message guard and its test', () => {
+    const report = classifyRisk(diff('private-messages-surface'));
+    expect(report.risky).toBe(true);
+    expect(report.reasons.map((reason) => reason.path)).toEqual([
+      'scripts/check-private-messages.ts',
+      'test/check-private-messages.test.ts',
+    ]);
+    expect(report.reasons.every((reason) => reason.detail.length > 0)).toBe(true);
+  });
+
   test('passes comment-only changes in a security surface', () => {
     expect(classifyRisk(diff('security-comments'))).toEqual({ risky: false, reasons: [] });
   });

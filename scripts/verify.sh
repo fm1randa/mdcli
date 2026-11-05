@@ -118,6 +118,17 @@ private_terms_corpus() {
   bun scripts/private-terms-corpus.ts --base "$base"
 }
 step "private-terms corpus" private_terms_corpus
+# A squash-merge copies the PR body into the commit, and a pushed message only
+# changes with a force-push (issue #216): scan both before they leave.
+private_messages() {
+  local base
+  if git rev-parse --verify --quiet origin/main >/dev/null; then base=origin/main
+  elif git rev-parse --verify --quiet main >/dev/null; then base=main
+  else echo "sem origin/main nem main: comparação de mensagens ignorada"; return 0
+  fi
+  bun scripts/check-private-messages.ts --base "$base"
+}
+step "private messages" private_messages
 # A copied eslint-disable is a suppression, not a fix (#187): fail when an
 # added directive has no reason after "--"; a removal elsewhere never excuses
 # it. A shallow checkout without a base ref skips the comparison instead of
