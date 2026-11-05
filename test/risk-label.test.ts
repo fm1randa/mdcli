@@ -83,6 +83,27 @@ describe('risk-label CLI', () => {
     });
   });
 
+  test('turns the risk script output for a security surface change into an add', () => {
+    expect(runLabel(riskReport('security-surfaces'), [])).toEqual({
+      action: 'add',
+      risky: true,
+    });
+  });
+
+  test('names the security surface in the summary', () => {
+    let output = '';
+    withReport(riskReport('security-surfaces'), (path) => {
+      const result = Bun.spawnSync(
+        ['bun', join(root, 'scripts', 'risk-label.ts'), '--report', path, '--labels', '[]'],
+        { stdout: 'pipe', stderr: 'pipe' },
+      );
+      expect(result.exitCode).toBe(0);
+      output = result.stdout.toString();
+    });
+    expect(output).toContain('`scripts/verify.sh` (security): verification script changed');
+    expect(output).toContain('a security surface');
+  });
+
   test('removes the label when the report is safe and the PR still carries it', () => {
     expect(runLabel(riskReport('docs-only'), ['risco', 'documentation'])).toEqual({
       action: 'remove',

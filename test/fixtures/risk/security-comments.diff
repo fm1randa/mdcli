@@ -1,0 +1,27 @@
+diff --git a/scripts/verify.sh b/scripts/verify.sh
+--- a/scripts/verify.sh
++++ b/scripts/verify.sh
+@@ -1,6 +1,6 @@
+ #!/usr/bin/env bash
+-# Run every verification step.
++# Run every verification step in order.
+ 
+ set -u
+ 
+-# Steps below fail the run when any of them fails.
++# Each step below fails the run when it fails.
+diff --git a/scripts/private-terms.ts b/scripts/private-terms.ts
+--- a/scripts/private-terms.ts
++++ b/scripts/private-terms.ts
+@@ -1,8 +1,10 @@
+-// Hashes of terms that must never appear in the repository.
++/**
++ * Hashes of terms that must never appear in the repository.
++ */
+ export const TERMS = [
+   'aaaa',
+ 
+-  // keep sorted
++  // keep this list sorted
+   'cccc',
+ ];

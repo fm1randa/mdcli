@@ -89,6 +89,25 @@ describe('classifyRisk', () => {
   });
 });
 
+describe('security surfaces', () => {
+  test('flags a behavior change in the guard, its test, the verify script and the ESLint rules', () => {
+    const report = classifyRisk(diff('security-surfaces'));
+    expect(report.risky).toBe(true);
+    expect(report.reasons.map((reason) => reason.path)).toEqual([
+      'scripts/private-terms.ts',
+      'test/private-terms.test.ts',
+      'scripts/verify.sh',
+      'eslint-rules/scope-exemptions.json',
+    ]);
+    expect(topics(report)).toEqual(['security', 'security', 'security', 'security']);
+    expect(report.reasons.every((reason) => reason.detail.length > 0)).toBe(true);
+  });
+
+  test('passes comment-only changes in a security surface', () => {
+    expect(classifyRisk(diff('security-comments'))).toEqual({ risky: false, reasons: [] });
+  });
+});
+
 describe('risk CLI', () => {
   test('exits 0 for a diff that only changes types', () => {
     const { code, report } = runRisk('types-only');
@@ -101,5 +120,11 @@ describe('risk CLI', () => {
     expect(code).toBe(2);
     expect(report.risky).toBe(true);
     expect(report.reasons.length).toBeGreaterThan(0);
+  });
+
+  test('exits 2 for a change in a security surface', () => {
+    const { code, report } = runRisk('security-surfaces');
+    expect(code).toBe(2);
+    expect(report.risky).toBe(true);
   });
 });

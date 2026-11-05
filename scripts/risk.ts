@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 
-export type RiskTopic = 'auth' | 'write';
+export type RiskTopic = 'auth' | 'write' | 'security';
 
 export interface RiskReason {
   topic: RiskTopic;
@@ -29,6 +29,19 @@ const AUTH_PATH =
   /^src\/(?:commands\/auth\/|lib\/(?:api|browser-auth|web-session|captcha|onepassword|config)\.ts|lib\/browser-session\/[^/]+\.ts|types\/config\.ts)/;
 const WRITE_PATH =
   /^src\/(?:lib\/api\.ts|commands\/(?:.*\/)?(?:create|update|delete)(?:-[^/]*)?\.ts|commands\/(?:categories|tags)\.ts|commands\/(?:entries\/import|sync)\/(?:run|commit)\.ts)$/;
+
+interface SecuritySurface {
+  path: RegExp;
+  detail: string;
+}
+
+const SECURITY_SURFACES: readonly SecuritySurface[] = [
+  { path: /^scripts\/private-terms\.ts$/, detail: 'private-data guard changed' },
+  { path: /^test\/private-terms\.test\.ts$/, detail: 'private-data guard test changed' },
+  { path: /^scripts\/verify\.sh$/, detail: 'verification script changed' },
+  { path: /^eslint-rules\//, detail: 'local ESLint rule changed' },
+];
+
 const TEST_PATH = /^(?:test\/|.*\.(?:test|spec)\.[cm]?[jt]sx?$)/;
 
 const AUTH_BEHAVIOR =
@@ -61,6 +74,9 @@ const OUTPUT_ONLY =
   /\b(?:flushStdout|exitAfterFlush|process\.exit|console\.(?:log|error|warn|info|debug)|logger\.\w+|chalk\.\w+)\b/;
 
 const COMMENT = /^\s*(?:\/\/|\/\*|\*|\*\/)/;
+// A bare leading `*` or `#` is only a comment marker when followed by a space or the line end, so a shell case
+// pattern like `*)` or a JS private field like `#x` still counts as a behavior change.
+const SECURITY_NON_BEHAVIOR = /^\s*(?:$|\/\/|\/\*|\*(?:\s|\/|$)|#(?:\s|!|$))/;
 const TYPE_DECLARATION = /^\s*(?:export\s+)?(?:declare\s+)?(?:interface\s+\w|type\s+\w+\s*[=<]|import\s+type\b)/;
 const TYPE_OPEN = /^\s*(?:export\s+)?(?:declare\s+)?(?:interface|type)\s+\w+/;
 
@@ -159,10 +175,27 @@ function addReason(reasons: RiskReason[], seen: Set<string>, reason: RiskReason)
   reasons.push(reason);
 }
 
+function securityDetail(path: string): string | undefined {
+  return SECURITY_SURFACES.find((surface) => surface.path.test(path))?.detail;
+}
+
+function changesSecurityBehavior(file: DiffFile): boolean {
+  return file.hunks.some((hunk) =>
+    hunk.some((line) => line.kind !== 'context' && !SECURITY_NON_BEHAVIOR.test(line.text)),
+  );
+}
+
 export function classifyRisk(diff: string): RiskReport {
   const reasons: RiskReason[] = [];
   const seen = new Set<string>();
   for (const file of diffsFrom(diff)) {
+    const surface = securityDetail(file.path);
+    if (surface !== undefined) {
+      if (changesSecurityBehavior(file)) {
+        addReason(reasons, seen, { topic: 'security', path: file.path, detail: surface });
+      }
+      continue;
+    }
     if (!file.path.startsWith('src/') || TEST_PATH.test(file.path)) continue;
     for (const hunk of file.hunks) {
       const ignored = markTypePairs(hunk);
