@@ -25,14 +25,32 @@ export function messageHits(
   return hits;
 }
 
-export function commitSources(base: string, root: string = join(import.meta.dirname, '..')): MessageSource[] {
-  const result = Bun.spawnSync(['git', 'log', `${base}..HEAD`, '--format=%H%x00%B%x00'], {
-    stdout: 'pipe',
-    stderr: 'pipe',
-    cwd: root,
-  });
-  if (result.exitCode !== 0) throw new Error(`git log ${base}..HEAD failed: ${result.stderr.toString().trim()}`);
-  const parts = result.stdout.toString().split('\0');
+interface RunResult {
+  stdout: string;
+  stderr: string;
+  code: number | null;
+}
+
+// Bun 1.4.2 can hang a spawnSync call under `bun test --parallel` (oven-sh/bun#34069),
+// so every child here goes through Bun.spawn, which the same reports clear.
+async function run(command: string[], cwd: string, timeout?: number): Promise<RunResult> {
+  const options = { cwd, stdout: 'pipe' as const, stderr: 'pipe' as const, ...(timeout === undefined ? {} : { timeout }) };
+  const proc = Bun.spawn(command, options);
+  const [stdout, stderr, code] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+    proc.exited,
+  ]);
+  return { stdout, stderr, code };
+}
+
+export async function commitSources(base: string, root: string = join(import.meta.dirname, '..')): Promise<MessageSource[]> {
+  const { stdout, stderr, code } = await run(
+    ['git', '--no-pager', 'log', `${base}..HEAD`, '--format=%H%x00%B%x00'],
+    root
+  );
+  if (code !== 0) throw new Error(`git log ${base}..HEAD failed: ${stderr.trim()}`);
+  const parts = stdout.split('\0');
   const sources: MessageSource[] = [];
   // git joins records with a newline, so the next record's SHA carries it.
   for (let index = 0; index + 1 < parts.length; index += 2) {
@@ -43,17 +61,13 @@ export function commitSources(base: string, root: string = join(import.meta.dirn
   return sources;
 }
 
-export function pullRequestSource(): MessageSource | undefined {
+export async function pullRequestSource(): Promise<MessageSource | undefined> {
   const body = process.env.PR_BODY;
   if (body !== undefined) return body.trim() === '' ? undefined : { label: 'PR body', text: body };
   try {
-    const result = Bun.spawnSync(['gh', 'pr', 'view', '--json', 'body'], {
-      stdout: 'pipe',
-      stderr: 'pipe',
-      timeout: 5000,
-    });
-    if (result.exitCode !== 0) return undefined;
-    const parsed = JSON.parse(result.stdout.toString()) as { body?: unknown };
+    const { stdout, code } = await run(['gh', 'pr', 'view', '--json', 'body'], process.cwd(), 5000);
+    if (code !== 0) return undefined;
+    const parsed = JSON.parse(stdout) as { body?: unknown };
     const text = parsed.body;
     return typeof text === 'string' && text.trim() !== '' ? { label: 'PR body', text } : undefined;
   } catch {
@@ -77,13 +91,13 @@ function parseOptions(argv: string[]): Options {
   return options;
 }
 
-function main(): void {
+async function main(): Promise<void> {
   try {
     const options = parseOptions(process.argv.slice(2));
-    const commits = commitSources(options.base);
+    const commits = await commitSources(options.base);
     const pr = options.bodyFile
       ? { label: 'PR body', text: readFileSync(options.bodyFile, 'utf8') }
-      : pullRequestSource();
+      : await pullRequestSource();
     const hits = messageHits(pr ? [...commits, pr] : commits);
     if (hits.length > 0) {
       console.error(`✗ private-data: ${hits.length} message source(s) carry a guarded term (issue #216).`);
@@ -99,4 +113,4 @@ function main(): void {
   }
 }
 
-if (import.meta.main) main();
+if (import.meta.main) await main();
