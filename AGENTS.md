@@ -48,6 +48,7 @@ Each rule below names the check that fails when it breaks. A rule marked *text o
 | A low-entropy numeric term is stored only as a keyed hash | `private terms` and `private-terms corpus` steps: a numeric removed value is covered only by `KEYED_TERM_HASHES` (or an excuse), never by an unsalted hash; the keyed canary and the #177 replay prove detection with the key | `scripts/private-terms.ts`, `scripts/private-terms-hashes.ts`, `scripts/private-terms-corpus.ts`, `test/private-terms.test.ts`, `test/private-terms-corpus.test.ts`, `scripts/verify.sh` |
 | Security surfaces (the private-data guard, its test, the message guard, its test, `scripts/verify.sh`, `eslint-rules/`) enter the risky set | `security surfaces` tests | `test/risk.test.ts`, `test/risk-label.test.ts` |
 | The CLI follows the web app, and a conflict with Filipe's decision is reported (items 9 and 10) | `prova` (`scripts/prova.ts`) requires, for a PR that changes `src/`, a `Web:` line with the bundle snippet or `sem equivalente na web`; a conflict with Filipe's decision stays *text only* (review) | `scripts/prova.ts`, `.github/workflows/prova.yml` |
+| A new or changed gate is replayed over the recent merges before merge | *text only*: the PR Prova carries the output of `bun scripts/replay-gates.ts --gate <name>` | `scripts/replay-gates.ts` |
 
 ## Merge by proof
 
@@ -65,6 +66,8 @@ gh label create risco --force --color B60205 --description "PR arriscado: exige 
 ```
 
 A PR labeled `risco` follows the two rules above.
+
+`bun scripts/replay-gates.ts --gate <name>` replays the current gates over the last 10 squash commits of `main`, each against its own parent, and lists every firing and skip. A PR that creates or changes a gate (`scripts/risk.ts`, `scripts/fails-on-main-exemption.ts`, `scripts/prova.ts`, or the registry in `scripts/replay-gates.ts`) attaches that output to the Prova section, so a false positive shows up before the merge instead of after it.
 
 `/code-review` is no longer the default merge path; use it for a targeted review when the proof or the risk analysis does not cover a change. After a session with three or more review rounds, or one that got stuck, run `/reflect` (read-only); its proposals land only with the maintainer's approval.
 
