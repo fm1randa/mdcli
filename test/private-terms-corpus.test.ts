@@ -2,8 +2,17 @@ import { expect, test } from 'bun:test';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { PRIVATE_TERM_HASHES, termHash } from '../scripts/private-terms.js';
-import { guardChanged, removedRunsBetween } from '../scripts/private-terms-corpus.js';
+import {
+  ALLOWED_PHRASE_HASHES,
+  KEYED_TERM_HASHES,
+  PRIVATE_TERM_HASHES,
+  formattedNumberCandidates,
+  keyedTermHash,
+  normalizeTerm,
+  termHash,
+} from '../scripts/private-terms.js';
+import { EXCUSED_REMOVED_TERMS } from '../scripts/private-terms-excused.js';
+import { deletedLines, guardChanged, removedRunsBetween } from '../scripts/private-terms-corpus.js';
 
 const TERM = 'Conta Removida';
 
@@ -67,15 +76,64 @@ test('reports a phrase whose words survive separately in the head', () => {
 });
 
 test('an unguarded id next to a guarded name is still reported', () => {
+  const key = 'test-key';
   withRepo('nome permitido 12345\n', 'linha limpa\n', (root, base, head) => {
     const terms = new Set([termHash('nome permitido')]);
-    const hits = removedRunsBetween(base, head, root, terms);
-    expect(hits.map((hit) => `${hit.file}:${hit.line}:${hit.hash}`)).toEqual([
-      `note.txt:1:${termHash('12345')}`,
+    const hits = removedRunsBetween(
+      base,
+      head,
+      root,
+      terms,
+      ALLOWED_PHRASE_HASHES,
+      EXCUSED_REMOVED_TERMS,
+      new Set(),
+      key
+    );
+    expect(hits.map((hit) => `${hit.file}:${hit.line}:${hit.hash}:${hit.numeric ?? false}`)).toEqual([
+      `note.txt:1:${termHash('12345')}:true`,
     ]);
 
-    const complete = new Set([...terms, termHash('12345')]);
-    expect(removedRunsBetween(base, head, root, complete)).toEqual([]);
+    const complete = new Set([keyedTermHash('12345', key)]);
+    expect(
+      removedRunsBetween(base, head, root, terms, ALLOWED_PHRASE_HASHES, EXCUSED_REMOVED_TERMS, complete, key)
+    ).toEqual([]);
+  });
+});
+
+test('skips a numeric term without the key instead of reporting a false positive', () => {
+  const previous = process.env.MDCLI_PRIVATE_TERMS_KEY;
+  delete process.env.MDCLI_PRIVATE_TERMS_KEY;
+  try {
+    withRepo('12345\n', 'linha limpa\n', (root, base, head) => {
+      expect(
+        removedRunsBetween(base, head, root, new Set(), ALLOWED_PHRASE_HASHES, EXCUSED_REMOVED_TERMS, KEYED_TERM_HASHES)
+      ).toEqual([]);
+    });
+  } finally {
+    if (previous !== undefined) process.env.MDCLI_PRIVATE_TERMS_KEY = previous;
+  }
+});
+
+test('an unsalted hash never covers a numeric removed term', () => {
+  const key = 'test-key';
+  withRepo('12345\n', 'linha limpa\n', (root, base, head) => {
+    const unsalted = new Set([termHash('12345')]);
+    const hits = removedRunsBetween(
+      base,
+      head,
+      root,
+      unsalted,
+      ALLOWED_PHRASE_HASHES,
+      EXCUSED_REMOVED_TERMS,
+      new Set(),
+      key
+    );
+    expect(hits.map((hit) => hit.numeric)).toEqual([true]);
+
+    const keyed = new Set([keyedTermHash('12345', key)]);
+    expect(
+      removedRunsBetween(base, head, root, unsalted, ALLOWED_PHRASE_HASHES, EXCUSED_REMOVED_TERMS, keyed, key)
+    ).toEqual([]);
   });
 });
 
@@ -158,6 +216,24 @@ replay('the #177 migration leaves no removed term without a guard hash', () => {
   expect(removedRunsBetween('0cf33e5', '73dc226')).toEqual([]);
 });
 
+replay('the public hash set carries no unsalted numeric fingerprint from the #177 migration', () => {
+  const candidates = new Set<string>();
+  for (const line of deletedLines('0cf33e5', '73dc226', process.cwd())) {
+    for (const token of normalizeTerm(line.text).split(' ')) {
+      if (/^\d+$/.test(token)) candidates.add(token);
+    }
+    for (const candidate of formattedNumberCandidates(line.text)) candidates.add(candidate);
+  }
+  // Positive control: the enumeration found the numbers, so an empty leak
+  // below is not the empty set passing for the wrong reason.
+  expect(candidates.size).toBeGreaterThan(100);
+  let leaked = 0;
+  for (const candidate of candidates) {
+    if (PRIVATE_TERM_HASHES.has(termHash(candidate))) leaked++;
+  }
+  expect(leaked).toBe(0);
+});
+
 replay('the migration check reports a guard hash removed from the set', () => {
   const omitted = 'c6f0c3cf2b9f61109a022215d9f9e2e1618c6415bbc99bce799a23e2375cf9b3';
   expect(PRIVATE_TERM_HASHES.has(omitted)).toBe(true);
@@ -166,21 +242,26 @@ replay('the migration check reports a guard hash removed from the set', () => {
   expect(hashes).toContain(omitted);
 });
 
-test('requires the corpus only when the private-data guard changes', () => {
+test('requires the corpus when the guard or its history helper changes', () => {
   const root = mkdtempSync(join(tmpdir(), 'mdcli-private-scope-'));
   try {
     initRepo(root);
     mkdirSync(join(root, 'scripts'), { recursive: true });
     writeFileSync(join(root, 'scripts/private-terms.ts'), 'export const guard = 1;\n');
+    writeFileSync(join(root, 'scripts/private-terms-history.ts'), 'export const history = 1;\n');
     writeFileSync(join(root, 'note.txt'), 'one\n');
     const base = commit(root, 'base');
     writeFileSync(join(root, 'note.txt'), 'two\n');
     const head = commit(root, 'head');
     expect(guardChanged(base, head, root)).toBe(false);
 
+    writeFileSync(join(root, 'scripts/private-terms-history.ts'), 'export const history = 2;\n');
+    const historyHead = commit(root, 'history');
+    expect(guardChanged(head, historyHead, root)).toBe(true);
+
     writeFileSync(join(root, 'scripts/private-terms.ts'), 'export const guard = 2;\n');
     const guardHead = commit(root, 'guard');
-    expect(guardChanged(head, guardHead, root)).toBe(true);
+    expect(guardChanged(historyHead, guardHead, root)).toBe(true);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
