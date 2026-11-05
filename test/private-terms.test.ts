@@ -101,6 +101,25 @@ test('detects a canary term from the production set in a temporary repository', 
   }
 });
 
-test('no versioned file carries a private term', () => {
-  expect(scanTrackedFiles()).toEqual([]);
+// The full-tree scan runs as the `private terms` step of scripts/verify.sh,
+// outside the parallel batch: under that load it took 6-10 s and blew Bun's 5 s
+// default timeout (#218). This asserts the entry point the verify step calls.
+test('the guard script scans the repository it runs in', () => {
+  const root = mkdtempSync(join(tmpdir(), 'mdcli-private-terms-script-'));
+  const script = join(import.meta.dirname, '..', 'scripts', 'private-terms.ts');
+  const run = () => Bun.spawnSync([process.execPath, script], { cwd: root });
+  try {
+    Bun.spawnSync(['git', 'init', '-q'], { cwd: root });
+    writeFileSync(join(root, 'note.txt'), 'linha limpa\noutra linha limpa\n');
+    Bun.spawnSync(['git', 'add', 'note.txt'], { cwd: root });
+
+    expect(run().exitCode).toBe(0);
+
+    writeFileSync(join(root, 'note.txt'), `linha limpa\n${canaryTerm} aqui\n`);
+    const hit = run();
+    expect(hit.exitCode).toBe(1);
+    expect(hit.stderr.toString()).toContain('note.txt:2');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });

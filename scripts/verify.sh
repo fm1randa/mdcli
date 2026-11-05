@@ -633,6 +633,11 @@ step "cli update fora de instalação global" expect_fail 'mdcli is not installe
 
 wait_steps
 
+# The guard reads every versioned file (about 2.3 MB). Inside the parallel batch
+# above it took 6-10 s and blew Bun's 5 s default timeout in review rounds; run
+# it alone here instead (#218).
+step "private terms" bun scripts/private-terms.ts
+
 echo
 printf '⏱ total: %ss\n' "$(fmt_s $(( $(now_ms) - RUN_START_MS )))"
 if [ ${#FAILED[@]} -gt 0 ]; then
