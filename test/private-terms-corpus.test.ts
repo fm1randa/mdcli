@@ -97,6 +97,55 @@ test('ignores the abbreviated base SHA in the README line', () => {
   });
 });
 
+test('fails a removed term longer than the representation limit until every word is guarded', () => {
+  const term = 'Conta Alfa Beta Gama Delta';
+  const window = 'Conta Alfa Beta Gama';
+  const tail = 'Alfa Beta Gama Delta';
+  withRepo(`${term}\n`, 'linha limpa\n', (root, base, head) => {
+    const unguarded = removedRunsBetween(base, head, root, new Set());
+    expect(unguarded).toHaveLength(1);
+    expect(unguarded[0]).toMatchObject({
+      file: 'note.txt',
+      line: 1,
+      hash: termHash(window),
+      overlong: 5,
+    });
+
+    expect(removedRunsBetween(base, head, root, new Set([termHash(window)])).map((hit) => hit.hash)).toEqual([
+      termHash('Delta'),
+    ]);
+    expect(removedRunsBetween(base, head, root, new Set([termHash(tail)])).map((hit) => hit.hash)).toEqual([
+      termHash('Conta'),
+    ]);
+    expect(removedRunsBetween(base, head, root, new Set([termHash(window), termHash(tail)]))).toEqual([]);
+  });
+});
+
+test('a guarded sub-phrase covers only its own words in a longer run', () => {
+  withRepo('Conta Alfa Beta Gama Delta\n', 'linha limpa\n', (root, base, head) => {
+    const hits = removedRunsBetween(base, head, root, new Set([termHash('Conta Alfa')]));
+    expect(hits.map((hit) => hit.hash)).toEqual([termHash('Beta Gama Delta')]);
+  });
+});
+
+test('reports a removed long run when every four-word window survives separately', () => {
+  const term = 'Conta Alfa Beta Gama Delta';
+  withRepo(`${term}\n`, 'Conta Alfa Beta Gama\nAlfa Beta Gama Delta\n', (root, base, head) => {
+    const hits = removedRunsBetween(base, head, root, new Set());
+    expect(hits).toHaveLength(1);
+    expect(hits[0]).toMatchObject({ hash: termHash('Conta Alfa Beta Gama'), overlong: 5 });
+  });
+});
+
+test('does not accept the full hash of a term longer than the representation limit', () => {
+  const term = 'Conta Alfa Beta Gama Delta';
+  withRepo(`${term}\n`, 'linha limpa\n', (root, base, head) => {
+    const fullOnly = removedRunsBetween(base, head, root, new Set([termHash(term)]));
+    expect(fullOnly).toHaveLength(1);
+    expect(fullOnly[0]).toMatchObject({ overlong: 5, hash: termHash('Conta Alfa Beta Gama') });
+  });
+});
+
 test('skips a code identifier rename', () => {
   const base = 'export function oldUniqueName() {\n  return 1;\n}\n';
   const head = 'export function newUniqueName() {\n  return 1;\n}\n';
