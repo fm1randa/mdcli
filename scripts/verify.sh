@@ -105,9 +105,10 @@ review_notes_not_tracked() {
   fi
 }
 step "review notes not tracked" review_notes_not_tracked
-# The private-data guard is derived from the migration: every term the diff
-# removes must already have a hash, so a sweep cannot close one finding at a
-# time. The test replays the #177 range; this step checks the current PR.
+# The private-data guard is derived from the migration: when a PR maintains
+# the guard, every value the diff removes must already have a hash or a reason,
+# so a sweep cannot close one finding at a time. The script skips an ordinary
+# PR; the test replays the #177 range.
 private_terms_corpus() {
   local base
   if git rev-parse --verify --quiet origin/main >/dev/null; then base=origin/main

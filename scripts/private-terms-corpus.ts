@@ -1,4 +1,5 @@
 import { join } from 'node:path';
+import { EXCUSED_REMOVED_TERMS } from './private-terms-excused.js';
 import {
   ALLOWED_PHRASE_HASHES,
   MAX_WORDS,
@@ -19,35 +20,74 @@ export interface RemovedTermHit extends DeletedLine {
   hash: string;
 }
 
-/** A git object id identifies content, not a person. */
-const CONTENT_HASH = /^[0-9a-f]{32,64}$/;
+/** Files whose contents are dependency metadata, never account data. */
+const SKIP_FILE = [
+  /(^|\/)(?:bun\.lockb?|package-lock\.json|yarn\.lock|pnpm-lock\.yaml|package\.json)$/,
+  /(^|\/)REVIEW-[^/]*\.md$/,
+];
 
-/** A word is letters or digits; `1e3` and `0x10` stay one token, like normalizeTerm. */
+/** A full git object id, or a short one that names the same content. */
+const CONTENT_HASH = /^[0-9a-f]{32,64}$/;
+const SHORT_HASH = /^[0-9a-f]{7,12}$/;
+const GIT_ID_CONTEXT = /["']?(?:origin|commit|base|sha|readme-blob)["']?\s*[:@]\s*["']?([0-9a-f]{7,12})\b/i;
+
+/** Words are letters or digits; `12345` and `São` stay one token. */
 const WORD = /[\p{L}\p{N}]+/gu;
 
-/**
- * Removed terms proven not to be account data. The hash keeps the term out of
- * the repository; the comment is the reason the review can check.
- */
-const EXCUSED_REMOVED_TERMS: ReadonlySet<string> = new Set([
-  // "shaped", the English word from a reworded comment about a card.
-  '0266a143d4d04392435431eea1f5d960e1e9a13af49bc7e54d79463b88f8a144',
-]);
+/** Files that maintain the private-data guard; a change here needs the corpus. */
+const GUARD_FILES = [
+  'scripts/private-terms.ts',
+  'scripts/private-terms-excused.ts',
+  'scripts/private-terms-corpus.ts',
+  'test/private-terms.test.ts',
+  'test/private-terms-corpus.test.ts',
+];
 
 interface Token {
   value: string;
+  raw: string;
   start: number;
   end: number;
+  camel: boolean;
+  number: boolean;
+  digit: boolean;
+  nonAscii: boolean;
+}
+
+export interface HeadCorpus {
+  readonly tokens: ReadonlySet<string>;
+  readonly lines: readonly string[];
+  readonly linesByToken: ReadonlyMap<string, readonly number[]>;
 }
 
 function tokenize(text: string): Token[] {
   const tokens: Token[] = [];
   for (const match of text.matchAll(WORD)) {
-    const value = normalizeTerm(match[0]);
+    const raw = match[0];
+    const value = normalizeTerm(raw);
+    if (value === '') continue;
     const start = match.index ?? 0;
-    if (value !== '') tokens.push({ value, start, end: start + match[0].length });
+    tokens.push({
+      value, raw, start, end: start + raw.length,
+      camel: /[a-z][A-Z]/.test(raw), number: /^\d+$/.test(raw),
+      digit: /\d/.test(raw), nonAscii: /[\u0080-\uFFFF]/.test(raw),
+    });
   }
   return tokens;
+}
+
+/** A token worth a hash on its own: an id, a name or an accented word. */
+function valueToken(token: Token): boolean {
+  if (token.camel) return false;
+  if (token.digit || token.nonAscii) return true;
+  return /^[A-Z][a-z]+$/.test(token.raw) || /^[A-Z]{4,}$/.test(token.raw);
+}
+
+/** A phrase word reads as a name; a bare number is a whole value of its own. */
+function phraseToken(token: Token): boolean {
+  if (token.camel || token.number) return false;
+  if (token.digit || token.nonAscii) return true;
+  return /^[A-Z][a-z]+$/.test(token.raw);
 }
 
 /**
@@ -73,7 +113,9 @@ function coveredTokens(
         .join(' ');
       const hash = termHash(joined);
       const hit =
-        terms.has(hash) || allowed.has(hash) || (isFormattedNumber(span) && findPrivateTerms(span, terms, allowed).length > 0);
+        terms.has(hash) ||
+        allowed.has(hash) ||
+        (isFormattedNumber(span) && findPrivateTerms(span, terms, allowed).length > 0);
       if (!hit) continue;
       for (let index = start; index < end; index++) covered[index] = true;
     }
@@ -81,34 +123,78 @@ function coveredTokens(
   return covered;
 }
 
+/** True when the full phrase still occurs on one line of `head`. */
+export function hasPhrase(head: HeadCorpus, joined: string): boolean {
+  const parts = joined.split(' ');
+  const first = parts[0]!;
+  if (parts.length === 1) return head.tokens.has(first);
+  const indexes = head.linesByToken.get(first);
+  if (indexes === undefined) return false;
+  const needle = ` ${joined} `;
+  return indexes.some((index) => ` ${head.lines[index]!} `.includes(needle));
+}
+
+function isContentHash(joined: string, line: string): boolean {
+  if (CONTENT_HASH.test(joined)) return true;
+  if (!SHORT_HASH.test(joined)) return false;
+  for (const match of line.matchAll(/[0-9a-f]{32,64}/g)) if (match[0].startsWith(joined)) return true;
+  if (!/\d/.test(joined) || !/[a-f]/.test(joined)) return false;
+  return GIT_ID_CONTEXT.exec(line)?.[1] === joined;
+}
+
 /**
- * Terms the base corpus lost without a guard hash. Every token that no longer
- * occurs anywhere in `head` is a candidate, so the check follows the migration
- * instead of the terms a review happened to notice.
+ * Removed terms the guard does not hash. A single token follows the migration
+ * token by token; a phrase catches a name whose words survive separately. Both
+ * skip code identifiers, dependency metadata and git object ids.
  */
-export function uncoveredRemovedRuns(
+export function uncoveredRemovedTerms(
   deleted: readonly DeletedLine[],
-  headTokens: ReadonlySet<string>,
+  head: HeadCorpus,
   terms: ReadonlySet<string> = PRIVATE_TERM_HASHES,
-  allowed: ReadonlySet<string> = ALLOWED_PHRASE_HASHES
+  allowed: ReadonlySet<string> = ALLOWED_PHRASE_HASHES,
+  excused: ReadonlyMap<string, string> = EXCUSED_REMOVED_TERMS
 ): RemovedTermHit[] {
   const hits: RemovedTermHit[] = [];
   for (const entry of deleted) {
+    if (SKIP_FILE.some((pattern) => pattern.test(entry.file))) continue;
     const tokens = tokenize(entry.text);
-    if (!tokens.some((token) => !headTokens.has(token.value))) continue;
+    if (tokens.length === 0) continue;
     const covered = coveredTokens(tokens, entry.text, terms, allowed);
-    let run = '';
-    const flush = (): void => {
-      if (run === '') return;
-      const hash = termHash(run);
-      if (!EXCUSED_REMOVED_TERMS.has(hash) && !CONTENT_HASH.test(run)) hits.push({ ...entry, hash });
-      run = '';
+    const spans: { start: number; end: number; length: number; hash: string }[] = [];
+    const push = (start: number, end: number): void => {
+      const joined = tokens
+        .slice(start, end)
+        .map((token) => token.value)
+        .join(' ');
+      if (hasPhrase(head, joined)) return;
+      const hash = termHash(joined);
+      if (excused.has(hash) || isContentHash(joined, entry.text)) return;
+      spans.push({ start, end, length: end - start, hash });
     };
-    tokens.forEach((token, index) => {
-      if (headTokens.has(token.value) || covered[index]) flush();
-      else run = run === '' ? token.value : `${run} ${token.value}`;
-    });
-    flush();
+    for (let index = 0; index < tokens.length; index++) {
+      if (covered[index] || !valueToken(tokens[index]!)) continue;
+      push(index, index + 1);
+    }
+    for (let start = 0; start < tokens.length; start++) {
+      const max = Math.min(MAX_WORDS, tokens.length - start);
+      for (let length = 2; length <= max; length++) {
+        const end = start + length;
+        if (covered.slice(start, end).some(Boolean)) continue;
+        const slice = tokens.slice(start, end);
+        const span = entry.text.slice(tokens[start]!.start, tokens[end - 1]!.end);
+        const formatted = slice.every((token) => token.number) && isFormattedNumber(span);
+        if (!formatted && !slice.every(phraseToken)) continue;
+        push(start, end);
+      }
+    }
+    spans.sort((a, b) => b.length - a.length || a.start - b.start);
+    const chosen: typeof spans = [];
+    for (const span of spans) {
+      if (chosen.some((other) => span.start < other.end && other.start < span.end)) continue;
+      chosen.push(span);
+    }
+    chosen.sort((a, b) => a.start - b.start);
+    for (const span of chosen) hits.push({ ...entry, hash: span.hash });
   }
   return hits;
 }
@@ -139,8 +225,9 @@ export function deletedLines(base: string, head: string, root: string): DeletedL
       const match = /^@@ -(\d+)(?:,\d+)? /.exec(raw);
       line = match ? Number(match[1]) : 0;
     } else if (inHunk) {
-      if (raw.startsWith('-')) lines.push({ file, line, text: raw.slice(1) });
-      if (raw.startsWith('-')) line++;
+      if (!raw.startsWith('-')) continue;
+      lines.push({ file, line, text: raw.slice(1) });
+      line++;
     } else if (raw.startsWith('--- ')) {
       file = raw.slice(4).replace(/^a\//, '');
       if (file === '/dev/null') file = '';
@@ -149,21 +236,32 @@ export function deletedLines(base: string, head: string, root: string): DeletedL
   return lines;
 }
 
-/** Every token present anywhere in `head`, so a word that survived is not removed. */
-export function headTokens(head: string, root: string): Set<string> {
+/** Every normalized line of `head`, indexed by its tokens for phrase lookups. */
+export function headCorpus(head: string, root: string): HeadCorpus {
   const result = Bun.spawnSync(
     ['git', '-c', 'core.quotepath=false', 'grep', '--no-color', '-h', '-I', '-e', '.', head, '--', '.'],
     { cwd: root }
   );
-  if (result.exitCode === 1) return new Set();
+  const tokens = new Set<string>();
+  const lines: string[] = [];
+  const linesByToken = new Map<string, number[]>();
+  if (result.exitCode === 1) return { tokens, lines, linesByToken };
   if (result.exitCode !== 0) {
     throw new Error(`git grep failed in ${root}: ${result.stderr.toString().trim()}`);
   }
-  const tokens = new Set<string>();
-  for (const token of normalizeTerm(result.stdout.toString()).split(' ')) {
-    if (token !== '') tokens.add(token);
+  for (const raw of result.stdout.toString().split('\n')) {
+    const line = normalizeTerm(raw);
+    if (line === '') continue;
+    const index = lines.length;
+    lines.push(line);
+    for (const token of line.split(' ')) {
+      tokens.add(token);
+      const indexes = linesByToken.get(token);
+      if (indexes === undefined) linesByToken.set(token, [index]);
+      else indexes.push(index);
+    }
   }
-  return tokens;
+  return { tokens, lines, linesByToken };
 }
 
 export function removedRunsBetween(
@@ -171,18 +269,20 @@ export function removedRunsBetween(
   head: string,
   root: string = join(import.meta.dirname, '..'),
   terms: ReadonlySet<string> = PRIVATE_TERM_HASHES,
-  allowed: ReadonlySet<string> = ALLOWED_PHRASE_HASHES
+  allowed: ReadonlySet<string> = ALLOWED_PHRASE_HASHES,
+  excused: ReadonlyMap<string, string> = EXCUSED_REMOVED_TERMS
 ): RemovedTermHit[] {
-  return uncoveredRemovedRuns(deletedLines(base, head, root), headTokens(head, root), terms, allowed);
+  return uncoveredRemovedTerms(deletedLines(base, head, root), headCorpus(head, root), terms, allowed, excused);
 }
 
-interface Options {
-  base: string;
-  head: string;
+/** A PR that does not maintain the private-data guard has no corpus to check. */
+export function guardChanged(base: string, head: string, root: string): boolean {
+  const changed = git(['diff', '--name-only', `${base}...${head}`, '--', ...GUARD_FILES], root);
+  return changed.trim() !== '';
 }
 
-function parseOptions(argv: string[]): Options {
-  const options: Options = { base: 'origin/main', head: 'HEAD' };
+function parseOptions(argv: string[]): { base: string; head: string } {
+  const options = { base: 'origin/main', head: 'HEAD' };
   for (let index = 0; index < argv.length; index++) {
     const arg = argv[index];
     if (arg === '--base') options.base = argv[++index] ?? options.base;
@@ -194,8 +294,13 @@ function parseOptions(argv: string[]): Options {
 
 function main(): void {
   try {
+    const root = join(import.meta.dirname, '..');
     const { base, head } = parseOptions(process.argv.slice(2));
-    const hits = removedRunsBetween(base, head);
+    if (!guardChanged(base, head, root)) {
+      console.log(`private-terms corpus: skipped (${base}...${head} does not maintain the private-data guard)`);
+      return;
+    }
+    const hits = removedRunsBetween(base, head, root);
     if (hits.length === 0) {
       console.log(`private-terms corpus: every removed term is guarded (${base}...${head})`);
       return;
