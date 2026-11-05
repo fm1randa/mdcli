@@ -259,9 +259,16 @@ export function scanTrackedFiles(
   return hits;
 }
 
+/** The repository root of `cwd`, so a subdirectory still scans the whole tree. */
+function repoRoot(cwd: string): string {
+  const top = Bun.spawnSync(['git', 'rev-parse', '--show-toplevel'], { cwd });
+  if (top.exitCode !== 0) throw new Error(`git rev-parse --show-toplevel failed in ${cwd}`);
+  return top.stdout.toString().trim();
+}
+
 function main(): void {
   try {
-    const hits = scanTrackedFiles(process.cwd());
+    const hits = scanTrackedFiles(repoRoot(process.cwd()));
     if (hits.length === 0) {
       console.log('✓ guarda de dados privados: nenhum termo privado nos arquivos versionados');
       return;
