@@ -242,21 +242,26 @@ replay('the migration check reports a guard hash removed from the set', () => {
   expect(hashes).toContain(omitted);
 });
 
-test('requires the corpus only when the private-data guard changes', () => {
+test('requires the corpus when the guard or its history helper changes', () => {
   const root = mkdtempSync(join(tmpdir(), 'mdcli-private-scope-'));
   try {
     initRepo(root);
     mkdirSync(join(root, 'scripts'), { recursive: true });
     writeFileSync(join(root, 'scripts/private-terms.ts'), 'export const guard = 1;\n');
+    writeFileSync(join(root, 'scripts/private-terms-history.ts'), 'export const history = 1;\n');
     writeFileSync(join(root, 'note.txt'), 'one\n');
     const base = commit(root, 'base');
     writeFileSync(join(root, 'note.txt'), 'two\n');
     const head = commit(root, 'head');
     expect(guardChanged(base, head, root)).toBe(false);
 
+    writeFileSync(join(root, 'scripts/private-terms-history.ts'), 'export const history = 2;\n');
+    const historyHead = commit(root, 'history');
+    expect(guardChanged(head, historyHead, root)).toBe(true);
+
     writeFileSync(join(root, 'scripts/private-terms.ts'), 'export const guard = 2;\n');
     const guardHead = commit(root, 'guard');
-    expect(guardChanged(head, guardHead, root)).toBe(true);
+    expect(guardChanged(historyHead, guardHead, root)).toBe(true);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

@@ -71,6 +71,22 @@ export function privateTermsKey(): string | undefined {
   return key === undefined || key === '' ? undefined : key;
 }
 
+/**
+ * The key, or a loud failure when the environment requires it (#221). CI sets
+ * `MDCLI_REQUIRE_PRIVATE_TERMS_KEY=1` for a same-repository run, so a missing
+ * secret fails the guard instead of leaving numeric terms silently unchecked.
+ * A fork PR cannot read the secret and keeps the warn-and-skip path.
+ */
+export function requirePrivateTermsKey(): string | undefined {
+  const key = privateTermsKey();
+  if (key === undefined && process.env.MDCLI_REQUIRE_PRIVATE_TERMS_KEY === '1') {
+    throw new Error(
+      'MDCLI_PRIVATE_TERMS_KEY is required (MDCLI_REQUIRE_PRIVATE_TERMS_KEY=1) but unset; low-entropy numeric terms cannot be verified'
+    );
+  }
+  return key;
+}
+
 /** True when an already-normalized term is only digits, such as an id or an amount. */
 export function isNumericTerm(normalized: string): boolean {
   return /^\d+(?: \d+)*$/.test(normalized);

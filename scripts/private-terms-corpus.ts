@@ -11,6 +11,7 @@ import {
   keyedTermHash,
   normalizeTerm,
   privateTermsKey,
+  requirePrivateTermsKey,
   termHash,
 } from './private-terms.js';
 
@@ -45,6 +46,7 @@ const WORD = /[\p{L}\p{N}]+/gu;
 const GUARD_FILES = [
   'scripts/private-terms.ts',
   'scripts/private-terms-hashes.ts',
+  'scripts/private-terms-history.ts',
   'scripts/private-terms-excused.ts',
   'scripts/private-terms-corpus.ts',
   'test/private-terms.test.ts',
@@ -276,11 +278,12 @@ function main(): void {
   try {
     const root = join(import.meta.dirname, '..');
     const { base, head } = parseOptions(process.argv.slice(2));
+    const key = requirePrivateTermsKey();
     if (!guardChanged(base, head, root)) {
       console.log(`private-terms corpus: skipped (${base}...${head} does not maintain the private-data guard)`);
       return;
     }
-    if (privateTermsKey() === undefined && KEYED_TERM_HASHES.size > 0) {
+    if (key === undefined && KEYED_TERM_HASHES.size > 0) {
       console.error(
         'private-terms corpus: warning: MDCLI_PRIVATE_TERMS_KEY is unset; low-entropy numeric terms were not checked'
       );

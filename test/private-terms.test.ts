@@ -8,6 +8,7 @@ import {
   findPrivateTerms,
   keyedTermHash,
   privateTermsKey,
+  requirePrivateTermsKey,
   scanTrackedFiles,
   scanText,
   termHash,
@@ -125,6 +126,27 @@ test('detects the keyed canary from the production set when the key is available
   if (key === undefined) return;
   expect(findPrivateTerms(keyedCanary, new Set(), new Set(), KEYED_TERM_HASHES, key)).toHaveLength(1);
   expect(PRIVATE_TERM_HASHES.has(termHash(keyedCanary))).toBe(false);
+});
+
+test('requires the key only when the environment demands it', () => {
+  const previousKey = process.env.MDCLI_PRIVATE_TERMS_KEY;
+  const previousRequire = process.env.MDCLI_REQUIRE_PRIVATE_TERMS_KEY;
+  try {
+    delete process.env.MDCLI_PRIVATE_TERMS_KEY;
+    delete process.env.MDCLI_REQUIRE_PRIVATE_TERMS_KEY;
+    expect(requirePrivateTermsKey()).toBeUndefined();
+
+    process.env.MDCLI_REQUIRE_PRIVATE_TERMS_KEY = '1';
+    expect(() => requirePrivateTermsKey()).toThrow(/MDCLI_PRIVATE_TERMS_KEY/);
+
+    process.env.MDCLI_PRIVATE_TERMS_KEY = 'test-key';
+    expect(requirePrivateTermsKey()).toBe('test-key');
+  } finally {
+    if (previousKey === undefined) delete process.env.MDCLI_PRIVATE_TERMS_KEY;
+    else process.env.MDCLI_PRIVATE_TERMS_KEY = previousKey;
+    if (previousRequire === undefined) delete process.env.MDCLI_REQUIRE_PRIVATE_TERMS_KEY;
+    else process.env.MDCLI_REQUIRE_PRIVATE_TERMS_KEY = previousRequire;
+  }
 });
 
 test('detects a keyed numeric term in a committed file with a test key', () => {
@@ -262,6 +284,34 @@ test('the guard script scans the repository root from a subdirectory', () => {
     const hit = run();
     expect(hit.exitCode).toBe(1);
     expect(hit.stderr.toString()).toContain('canary.txt:2');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('the guard script fails when the environment requires the key and it is unset', () => {
+  const root = mkdtempSync(join(tmpdir(), 'mdcli-private-require-'));
+  const script = join(import.meta.dirname, '..', 'scripts', 'private-terms-cli.ts');
+  const env: Record<string, string> = {};
+  for (const [name, value] of Object.entries(process.env)) {
+    if (value !== undefined) env[name] = value;
+  }
+  env.MDCLI_REQUIRE_PRIVATE_TERMS_KEY = '1';
+  delete env.MDCLI_PRIVATE_TERMS_KEY;
+  try {
+    Bun.spawnSync(['git', 'init', '-q'], { cwd: root });
+    writeFileSync(join(root, 'note.txt'), 'linha limpa\n');
+    Bun.spawnSync(['git', 'add', '.'], { cwd: root });
+
+    const missing = Bun.spawnSync([process.execPath, script], { cwd: root, env });
+    expect(missing.exitCode).toBe(1);
+    expect(missing.stderr.toString()).toContain('MDCLI_PRIVATE_TERMS_KEY');
+
+    const present = Bun.spawnSync([process.execPath, script], {
+      cwd: root,
+      env: { ...env, MDCLI_PRIVATE_TERMS_KEY: 'test-key' },
+    });
+    expect(present.exitCode).toBe(0);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

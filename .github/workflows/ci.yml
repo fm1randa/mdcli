@@ -40,4 +40,8 @@ jobs:
           # Key for the low-entropy numeric terms (#221). Unset on a fork PR,
           # where the guard warns and skips them instead of failing.
           MDCLI_PRIVATE_TERMS_KEY: ${{ secrets.MDCLI_PRIVATE_TERMS_KEY }}
+          # A same-repository run must carry the key, so a missing secret fails
+          # instead of leaving numeric terms silently unchecked. A fork PR
+          # cannot read the secret, so it keeps the warn-and-skip path.
+          MDCLI_REQUIRE_PRIVATE_TERMS_KEY: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && '1' || '0' }}
         run: scripts/verify.sh

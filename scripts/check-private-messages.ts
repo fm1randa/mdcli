@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { KEYED_TERM_HASHES, privateTermsKey, scanText } from './private-terms.js';
+import { KEYED_TERM_HASHES, requirePrivateTermsKey, scanText } from './private-terms.js';
 
 export interface MessageSource {
   label: string;
@@ -109,7 +109,8 @@ async function main(): Promise<void> {
     const pr = options.bodyFile
       ? { label: 'PR body', text: readFileSync(options.bodyFile, 'utf8') }
       : await pullRequestSource();
-    if (privateTermsKey() === undefined && KEYED_TERM_HASHES.size > 0) {
+    const key = requirePrivateTermsKey();
+    if (key === undefined && KEYED_TERM_HASHES.size > 0) {
       console.error(
         'private-data: warning: MDCLI_PRIVATE_TERMS_KEY is unset; low-entropy numeric terms were not checked'
       );
