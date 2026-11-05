@@ -61,16 +61,25 @@ export async function commitSources(base: string, root: string = join(import.met
   return sources;
 }
 
+// `gh pr view` reaches the GitHub API, and on a slow network it has taken over
+// ten seconds. A shorter deadline silently drops the body, so leave headroom.
+const GH_TIMEOUT_MS = 30_000;
+
 export async function pullRequestSource(): Promise<MessageSource | undefined> {
   const body = process.env.PR_BODY;
   if (body !== undefined) return body.trim() === '' ? undefined : { label: 'PR body', text: body };
+  const command = ['gh', 'pr', 'view', '--json', 'body'];
   try {
-    const { stdout, code } = await run(['gh', 'pr', 'view', '--json', 'body'], process.cwd(), 5000);
-    if (code !== 0) return undefined;
+    const { stdout, stderr, code } = await run(command, process.cwd(), GH_TIMEOUT_MS);
+    if (code !== 0) {
+      console.error(`private-data: gh pr view failed (${stderr.trim() || `exit ${code ?? 'unknown'}`}); PR body not checked`);
+      return undefined;
+    }
     const parsed = JSON.parse(stdout) as { body?: unknown };
     const text = parsed.body;
     return typeof text === 'string' && text.trim() !== '' ? { label: 'PR body', text } : undefined;
-  } catch {
+  } catch (error) {
+    console.error(`private-data: gh pr view failed (${error instanceof Error ? error.message : String(error)}); PR body not checked`);
     return undefined;
   }
 }
