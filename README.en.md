@@ -1,4 +1,4 @@
-<!-- traduzido de README.md @ a699eaa (base: a699eaa6ee878976f58680a59345d23ccdb27094; readme-blob: 96bf6ee6b2e1dfcf406c288fa624a7af29b452e1); ao atualizar o README.md, sincronize este arquivo e atualize o SHA e o readme-blob (git hash-object README.md) -->
+<!-- traduzido de README.md @ 2ad45ad (base: 2ad45ad3f49256ef987ff8938043c809bee83d9c; readme-blob: 1d3044af38e316dd93c0196ab183e47cca47ea95); ao atualizar o README.md, sincronize este arquivo e atualize o SHA e o readme-blob (git hash-object README.md) -->
 [Português (Brasil)](README.md) · **English**
 
 > The Portuguese [README.md](README.md) is the reference version; this English translation may lag behind it.
@@ -438,9 +438,13 @@ mdcli entries import run --account principal --edit
 mdcli sync list
 
 # Requests an update (sync) of an account's connection, or of all of them. Each
-# connector accepts at most 3 per day, so it asks for confirmation
+# connector accepts at most 3 per day, so it asks for confirmation. The CLI waits
+# for the final status (default: 120s, --timeout <seconds>) showing progress,
+# ends with the final status and exits 1 when the connection is still UPDATING
+# at the limit. --timeout 0 only requests the Sync and prints the current status.
 mdcli sync run principal
-mdcli sync run all --yes
+mdcli sync run all --yes --timeout 300
+mdcli sync run principal --timeout 0
 
 # List credit cards (--json has limit, dueDay, nextDueDate, nextClosingDate,
 # closingDaysBeforeDue and paymentAccountId; no balance, which means nothing
