@@ -37,8 +37,8 @@
     "@inquirer/figures": "^2.0.10",
     "@types/bun": "^1.4.4",
     "@types/node": "^26.6.6",
-    "eslint": "^10.13.0",
-    "knip": "^6.44.0",
+    "eslint": "^10.14.0",
+    "knip": "^6.44.1",
     "typescript": "^5.7.3",
     "typescript-eslint": "^8.72.1"
   }
