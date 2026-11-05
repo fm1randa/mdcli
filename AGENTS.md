@@ -51,6 +51,7 @@ Each rule below names the check that fails when it breaks. A rule marked *text o
 | The CLI follows the web app, and a conflict with Filipe's decision is reported (items 9 and 10) | `prova` (`scripts/prova.ts`) requires, for a PR that changes `src/`, a `Web:` line with the bundle snippet or `sem equivalente na web`; a conflict with Filipe's decision stays *text only* (review) | `scripts/prova.ts`, `.github/workflows/prova.yml` |
 | An implementation PR is opened and pushed on top of the current `main` (item 14) | *text only*: `git log HEAD..origin/main` is empty before `gh pr create` and before each push | review |
 | A new or changed gate is replayed over the recent merges before merge | *text only*: the PR Prova carries the output of `bun scripts/replay-gates.ts --gate <name>` | `scripts/replay-gates.ts` |
+| A CI failure is reported from its log, not guessed from a passing rerun (item 14) | *text only*: the report names the file and test from `gh run view <run-id> --log-failed`, the run id, and the flake's issue | review |
 
 ## Merge by proof
 
@@ -141,7 +142,7 @@ An agent session prompt is a short intention followed by the skill call at the e
 
 ## Pull requests (implementation flow)
 
-14. Before opening the PR and before every later push, run `git fetch origin && git log --oneline HEAD..origin/main`. When it is not empty, merge `origin/main` into the branch, resolve any conflict, run `scripts/verify.sh` again as in item 3, and push only after it passes, so the PR never starts behind the trunk it will land on (issue #249). Open the PR with `gh pr create -R fm1randa/mdcli --base main`. The body is in Brazilian Portuguese with `Closes #n` for each issue, the root cause, what changed, and how it was verified (reproduction before and after). Then wait for CI (`gh pr checks <n> -R fm1randa/mdcli --watch`) with a tool timeout of at least 20 minutes, and fix if `verify` fails.
+14. Before opening the PR and before every later push, run `git fetch origin && git log --oneline HEAD..origin/main`. When it is not empty, merge `origin/main` into the branch, resolve any conflict, run `scripts/verify.sh` again as in item 3, and push only after it passes, so the PR never starts behind the trunk it will land on (issue #249). Open the PR with `gh pr create -R fm1randa/mdcli --base main`. The body is in Brazilian Portuguese with `Closes #n` for each issue, the root cause, what changed, and how it was verified (reproduction before and after). Then wait for CI (`gh pr checks <n> -R fm1randa/mdcli --watch`) with a tool timeout of at least 20 minutes, and fix if `verify` fails. A rerun that passes does not close a CI failure: name the file and the test that `gh run view <run-id> --log-failed` shows, with the run id, and open or cite the flake's issue. Bun prints a failed hook as `(fail) (unnamed)`; its file is the `at test/...` frame above that line, not the nearest named test (issue #250).
 15. The implementation session does not run review rounds: review rounds come in separate sessions.
 16. The session's final message carries the PR URL, the pushed SHA, and the `verify.sh` result, with the last line exactly:
 
