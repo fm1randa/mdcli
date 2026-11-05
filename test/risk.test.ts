@@ -96,10 +96,22 @@ describe('security surfaces', () => {
     expect(report.reasons.map((reason) => reason.path)).toEqual([
       'scripts/private-terms.ts',
       'test/private-terms.test.ts',
+      'scripts/private-terms-corpus.ts',
+      'test/private-terms-corpus.test.ts',
       'scripts/verify.sh',
       'eslint-rules/scope-exemptions.json',
     ]);
-    expect(topics(report)).toEqual(['security', 'security', 'security', 'security']);
+    expect(topics(report)).toEqual(['security', 'security', 'security', 'security', 'security', 'security']);
+    expect(report.reasons.every((reason) => reason.detail.length > 0)).toBe(true);
+  });
+
+  test('flags a behavior change in the private-message guard and its test', () => {
+    const report = classifyRisk(diff('private-messages-surface'));
+    expect(report.risky).toBe(true);
+    expect(report.reasons.map((reason) => reason.path)).toEqual([
+      'scripts/check-private-messages.ts',
+      'test/check-private-messages.test.ts',
+    ]);
     expect(report.reasons.every((reason) => reason.detail.length > 0)).toBe(true);
   });
 

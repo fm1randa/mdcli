@@ -1,4 +1,4 @@
-import type { AuthConfig, AuthMethod, CategoriesResponse, Category, CreateCategoryPayload, UpdateCategoryPayload, AccountsResponse, AccountBalanceSum, TagsResponse, EntriesResponse, EntriesParams, CreateEntryPayload, CreateEntryResponse, UpdateEntryPayload, UpdateTransferPayload, Entry, CardInvoiceResponse, CardFutureResponse, CardPlastic, Account, CreateAccountPayload, UpdateAccountPayload, CreateTagPayload, CreateTagResponse, ConnectionsResponse, BankStatementResponse } from '../types/index.js';
+import type { AuthConfig, AuthMethod, CategoriesResponse, Category, CreateCategoryPayload, UpdateCategoryPayload, AccountsResponse, AccountBalanceSum, TagsResponse, EntriesResponse, EntriesParams, CreateEntryPayload, CreateEntryResponse, UpdateEntryPayload, UpdateTransferPayload, Entry, CardInvoiceResponse, CardFutureResponse, CardPlastic, Account, CreateAccountPayload, UpdateAccountPayload, CreateTagPayload, CreateTagResponse, ConnectionsResponse, BankStatementResponse, SyncRequestResponse } from '../types/index.js';
 import { getAuth, getAuthMethod, setAuth, getOpItem, invalidateNameCache } from './config.js';
 import { popStaleNameCacheUse } from './cache-invalidation.js';
 import { captureAuthHeadless } from './browser-auth.js';
@@ -239,8 +239,8 @@ export async function importBankTransactions(body: object): Promise<void> {
 }
 
 /** One manual Sync. The body is the web app's sync button; there is no local daily counter. */
-export async function requestSync(connectionId: number): Promise<void> {
-  await request<unknown>('PUT', `/v1/integracao/connection/update/${connectionId}`, { force: true });
+export async function requestSync(connectionId: number): Promise<SyncRequestResponse | undefined> {
+  return request<SyncRequestResponse | undefined>('PUT', `/v1/integracao/connection/update/${connectionId}`, { force: true });
 }
 
 export async function createAccount(payload: CreateAccountPayload): Promise<Account> {

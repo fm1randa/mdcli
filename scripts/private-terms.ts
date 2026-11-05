@@ -110,15 +110,17 @@ export const PRIVATE_TERM_HASHES: ReadonlySet<string> = new Set([
   '2c8b871e52d4e5f5db5ff84a82a45327e20df77edef961c4b6fa0e9c3d97ce5b',
   '6ad4a6b1e5ea5569795e516d71909e0ce4809d9dc983d2c219144f684f816e12',
   '171c89627f9fa4caa793ba683061ae3cfbc0aca1ef04b4d2281cfed9946eff21',
+  '24d7f03d8dc3c3666969e6fa5bb1fac4736d3f1353c28307ed51b320f9dc42d3',
+  'c6f0c3cf2b9f61109a022215d9f9e2e1618c6415bbc99bce799a23e2375cf9b3',
 ]);
 
 /** Generic phrases that contain a guarded word and are allowed as-is. */
-const ALLOWED_PHRASE_HASHES: ReadonlySet<string> = new Set([
+export const ALLOWED_PHRASE_HASHES: ReadonlySet<string> = new Set([
   '3e776fdee327ee7ecc77e412bfde5678f50206db7e99b98850346738c2302fe1',
   '23b2bfa33873d3e65638773f0707a4869662d5276e7619d1b56c3442f91335be',
 ]);
 
-const MAX_WORDS = 4;
+export const MAX_WORDS = 4;
 
 /**
  * A pt-BR number: thousands dots with an optional comma, or a comma decimal.
@@ -127,6 +129,17 @@ const MAX_WORDS = 4;
  */
 const FORMATTED_NUMBER =
   /(?<![\d.,])\d{1,3}(?:\.[0-9]{3})+(?:,[0-9]{1,2})?(?!\d|[.,]\d)|(?<![\d.,])\d+(?:,\d+)+(?!\d|[.,]\d)/g;
+
+const WHOLE_FORMATTED_NUMBER = new RegExp(`^(?:${FORMATTED_NUMBER.source})$`);
+
+/**
+ * True when `text` is exactly one pt-BR number, separators included. The
+ * corpus check uses it to cover a value whose tokens the guard stores in
+ * another spelling (`1.234,56` is `1234 56` in the hash set).
+ */
+export function isFormattedNumber(text: string): boolean {
+  return WHOLE_FORMATTED_NUMBER.test(text.trim().replace(/\\([.,])/g, '$1'));
+}
 
 /** Lowercase, accent-free words separated by one space. */
 export function normalizeTerm(text: string): string {

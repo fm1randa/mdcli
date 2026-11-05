@@ -435,9 +435,13 @@ mdcli entries import run --account principal --edit
 mdcli sync list
 
 # Pede a atualização (sync) da conexão de uma conta, ou de todas. Cada conector
-# aceita no máximo 3 por dia, por isso pede confirmação
+# aceita no máximo 3 por dia, por isso pede confirmação. A CLI espera pelo status
+# final (padrão: 120s, --timeout <segundos>) mostrando o progresso, termina com
+# o status final e sai com código 1 se ainda estiver UPDATING no limite.
+# --timeout 0 só pede a sincronização e imprime o estado atual.
 mdcli sync run principal
-mdcli sync run all --yes
+mdcli sync run all --yes --timeout 300
+mdcli sync run principal --timeout 0
 
 # Lista os cartões de crédito (o --json tem limit, dueDay, nextDueDate, nextClosingDate,
 # closingDaysBeforeDue e paymentAccountId; sem saldo, que não significa nada

@@ -2,6 +2,7 @@ name: CI
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, edited]
   push:
     branches: [main]
 
@@ -35,4 +36,5 @@ jobs:
         env:
           TERM: linux
           FORCE_COLOR: '1'
+          PR_BODY: ${{ github.event.pull_request.body }}
         run: scripts/verify.sh

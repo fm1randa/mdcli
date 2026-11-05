@@ -105,6 +105,30 @@ review_notes_not_tracked() {
   fi
 }
 step "review notes not tracked" review_notes_not_tracked
+# The private-data guard is derived from the migration: when a PR maintains
+# the guard, every value the diff removes must already have a hash or a reason,
+# so a sweep cannot close one finding at a time. The script skips an ordinary
+# PR; the test replays the #177 range.
+private_terms_corpus() {
+  local base
+  if git rev-parse --verify --quiet origin/main >/dev/null; then base=origin/main
+  elif git rev-parse --verify --quiet main >/dev/null; then base=main
+  else echo "sem origin/main nem main: corpus da guarda ignorado"; return 0
+  fi
+  bun scripts/private-terms-corpus.ts --base "$base"
+}
+step "private-terms corpus" private_terms_corpus
+# A squash-merge copies the PR body into the commit, and a pushed message only
+# changes with a force-push (issue #216): scan both before they leave.
+private_messages() {
+  local base
+  if git rev-parse --verify --quiet origin/main >/dev/null; then base=origin/main
+  elif git rev-parse --verify --quiet main >/dev/null; then base=main
+  else echo "sem origin/main nem main: comparação de mensagens ignorada"; return 0
+  fi
+  bun scripts/check-private-messages.ts --base "$base"
+}
+step "private messages" private_messages
 # A copied eslint-disable is a suppression, not a fix (#187): fail when an
 # added directive has no reason after "--"; a removal elsewhere never excuses
 # it. A shallow checkout without a base ref skips the comparison instead of
@@ -242,6 +266,31 @@ sync_list() {
 }
 step "cli accounts list (mock)"        expect_ok 'Conta Teste' accounts list
 step "cli sync list (mock)"            sync_list
+# The mock turns the connection UPDATING after the PUT and UPDATED on the next
+# status check. The CLI waits (statusCheckWindow) and prints the final status;
+# a second PUT would spend the daily limit, so the run must keep it at one.
+sync_run() {
+  local log="$MDCLI_MOCK_LOG"
+  local before=0
+  [ -f "$log" ] && before=$(wc -l <"$log")
+  local out
+  out=$("${CLI[@]}" sync run 201 --yes </dev/null 2>&1) || { echo "output: $out"; return 1; }
+  grep -Eq 'Sync finished: connection 501 UPDATED\.' <<<"$out" \
+    || { echo "expected the final status in: $out"; return 1; }
+  grep -Eq 'Still UPDATING after' <<<"$out" \
+    || { echo "expected the wait progress in: $out"; return 1; }
+  grep -Eq 'no final status' <<<"$out" && { echo "unexpected timeout in: $out"; return 1; }
+  local fresh
+  fresh=$(tail -n +"$((before + 1))" "$log")
+  [ "$(grep -Fc '"method":"PUT","path":"/api/v1/integracao/connection/update/501"' <<<"$fresh")" = 1 ] \
+    || { echo "expected exactly one Sync PUT: $fresh"; return 1; }
+  [ "$(grep -Fc '"method":"GET","path":"/api/v1/integracao/connections"' <<<"$fresh")" -ge 3 ] \
+    || { echo "expected the status checks after the PUT: $fresh"; return 1; }
+  local writes
+  writes=$(grep -Ev '"method":"GET"' <<<"$fresh" | grep -Fxv '{"method":"PUT","path":"/api/v1/integracao/connection/update/501"}')
+  [ -z "$writes" ] || { echo "sync run made another write: $writes"; return 1; }
+}
+step "cli sync run (mock)"             sync_run
 # The import steps only read. The one POST allowed is the AI category
 # suggestion (smartmatch/ai); a commit POST, a Sync PUT, or any other write
 # fails the step. The commit bodies are asserted by the test suite.
