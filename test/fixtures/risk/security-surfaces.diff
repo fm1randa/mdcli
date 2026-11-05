@@ -6,6 +6,22 @@ diff --git a/scripts/private-terms.ts b/scripts/private-terms.ts
 -  'bbbb',
    'cccc',
  ];
+diff --git a/scripts/private-terms-hashes.ts b/scripts/private-terms-hashes.ts
+--- a/scripts/private-terms-hashes.ts
++++ b/scripts/private-terms-hashes.ts
+@@ -10,7 +10,6 @@ export const TERMS = [
+   'aaaa',
+-  'bbbb',
+   'cccc',
+ ];
+diff --git a/scripts/private-terms-history.ts b/scripts/private-terms-history.ts
+--- a/scripts/private-terms-history.ts
++++ b/scripts/private-terms-history.ts
+@@ -10,7 +10,6 @@ export const TERMS = [
+   'aaaa',
+-  'bbbb',
+   'cccc',
+ ];
 diff --git a/test/private-terms.test.ts b/test/private-terms.test.ts
 --- a/test/private-terms.test.ts
 +++ b/test/private-terms.test.ts

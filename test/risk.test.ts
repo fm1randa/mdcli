@@ -95,13 +95,24 @@ describe('security surfaces', () => {
     expect(report.risky).toBe(true);
     expect(report.reasons.map((reason) => reason.path)).toEqual([
       'scripts/private-terms.ts',
+      'scripts/private-terms-hashes.ts',
+      'scripts/private-terms-history.ts',
       'test/private-terms.test.ts',
       'scripts/private-terms-corpus.ts',
       'test/private-terms-corpus.test.ts',
       'scripts/verify.sh',
       'eslint-rules/scope-exemptions.json',
     ]);
-    expect(topics(report)).toEqual(['security', 'security', 'security', 'security', 'security', 'security']);
+    expect(topics(report)).toEqual([
+      'security',
+      'security',
+      'security',
+      'security',
+      'security',
+      'security',
+      'security',
+      'security',
+    ]);
     expect(report.reasons.every((reason) => reason.detail.length > 0)).toBe(true);
   });
 

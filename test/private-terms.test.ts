@@ -2,7 +2,17 @@ import { expect, test } from 'bun:test';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { findPrivateTerms, scanTrackedFiles, scanText, termHash } from '../scripts/private-terms.js';
+import {
+  KEYED_TERM_HASHES,
+  PRIVATE_TERM_HASHES,
+  findPrivateTerms,
+  keyedTermHash,
+  privateTermsKey,
+  requirePrivateTermsKey,
+  scanTrackedFiles,
+  scanText,
+  termHash,
+} from '../scripts/private-terms.js';
 
 const fakeTerm = 'termo-sintetico-proibido';
 const fakeHashes = new Set([termHash(fakeTerm)]);
@@ -89,6 +99,68 @@ test('matches a hash in the stored normalized form, not one recomputed from the 
   const stored = new Set(['b45f4536f9e5072382394c5a2e64a864548f6d80c5a828243f1abe4175c7a794']);
 
   expect(findPrivateTerms('  São JOÃO ', stored)).toHaveLength(1);
+});
+
+test('detects a keyed numeric term only with the key', () => {
+  const key = 'test-key';
+  const keyed = new Set([keyedTermHash('12345', key)]);
+
+  expect(findPrivateTerms('12345', new Set(), new Set(), keyed, key)).toHaveLength(1);
+  expect(findPrivateTerms('12345', new Set(), new Set(), keyed, undefined)).toEqual([]);
+  expect(findPrivateTerms('linha limpa', new Set(), new Set(), keyed, key)).toEqual([]);
+});
+
+test('an unsalted hash of a numeric term is not in the public set', () => {
+  expect(PRIVATE_TERM_HASHES.has(termHash('12345'))).toBe(false);
+  expect(KEYED_TERM_HASHES.has(termHash('12345'))).toBe(false);
+});
+
+// A synthetic number whose keyed hash is in the production set. Base64 keeps
+// this file free of the guarded number while the test rebuilds it. With the
+// key available (the maintainer's file or the CI secret), the guard detects
+// it; without the key it warns and skips it.
+const keyedCanary = Buffer.from('OTE4MjczNjQ1', 'base64').toString();
+
+test('detects the keyed canary from the production set when the key is available', () => {
+  const key = privateTermsKey();
+  if (key === undefined) return;
+  expect(findPrivateTerms(keyedCanary, new Set(), new Set(), KEYED_TERM_HASHES, key)).toHaveLength(1);
+  expect(PRIVATE_TERM_HASHES.has(termHash(keyedCanary))).toBe(false);
+});
+
+test('requires the key only when the environment demands it', () => {
+  const previousKey = process.env.MDCLI_PRIVATE_TERMS_KEY;
+  const previousRequire = process.env.MDCLI_REQUIRE_PRIVATE_TERMS_KEY;
+  try {
+    delete process.env.MDCLI_PRIVATE_TERMS_KEY;
+    delete process.env.MDCLI_REQUIRE_PRIVATE_TERMS_KEY;
+    expect(requirePrivateTermsKey()).toBeUndefined();
+
+    process.env.MDCLI_REQUIRE_PRIVATE_TERMS_KEY = '1';
+    expect(() => requirePrivateTermsKey()).toThrow(/MDCLI_PRIVATE_TERMS_KEY/);
+
+    process.env.MDCLI_PRIVATE_TERMS_KEY = 'test-key';
+    expect(requirePrivateTermsKey()).toBe('test-key');
+  } finally {
+    if (previousKey === undefined) delete process.env.MDCLI_PRIVATE_TERMS_KEY;
+    else process.env.MDCLI_PRIVATE_TERMS_KEY = previousKey;
+    if (previousRequire === undefined) delete process.env.MDCLI_REQUIRE_PRIVATE_TERMS_KEY;
+    else process.env.MDCLI_REQUIRE_PRIVATE_TERMS_KEY = previousRequire;
+  }
+});
+
+test('detects a keyed numeric term in a committed file with a test key', () => {
+  const key = 'test-key';
+  const keyed = new Set([keyedTermHash('12345', key)]);
+  withRepo((root) => {
+    writeFileSync(join(root, 'note.txt'), 'linha limpa\n12345 aqui\n');
+    commitAll(root, 'add the id');
+
+    expect(scanTrackedFiles(root, new Set(), new Set(), 'HEAD', keyed, key)).toEqual([
+      { file: 'note.txt', line: 2 },
+    ]);
+    expect(scanTrackedFiles(root, new Set(), new Set(), 'HEAD', keyed, undefined)).toEqual([]);
+  });
 });
 
 test('fails on a committed file carrying a prohibited term and passes without it', () => {
@@ -212,6 +284,34 @@ test('the guard script scans the repository root from a subdirectory', () => {
     const hit = run();
     expect(hit.exitCode).toBe(1);
     expect(hit.stderr.toString()).toContain('canary.txt:2');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('the guard script fails when the environment requires the key and it is unset', () => {
+  const root = mkdtempSync(join(tmpdir(), 'mdcli-private-require-'));
+  const script = join(import.meta.dirname, '..', 'scripts', 'private-terms-cli.ts');
+  const env: Record<string, string> = {};
+  for (const [name, value] of Object.entries(process.env)) {
+    if (value !== undefined) env[name] = value;
+  }
+  env.MDCLI_REQUIRE_PRIVATE_TERMS_KEY = '1';
+  delete env.MDCLI_PRIVATE_TERMS_KEY;
+  try {
+    Bun.spawnSync(['git', 'init', '-q'], { cwd: root });
+    writeFileSync(join(root, 'note.txt'), 'linha limpa\n');
+    Bun.spawnSync(['git', 'add', '.'], { cwd: root });
+
+    const missing = Bun.spawnSync([process.execPath, script], { cwd: root, env });
+    expect(missing.exitCode).toBe(1);
+    expect(missing.stderr.toString()).toContain('MDCLI_PRIVATE_TERMS_KEY');
+
+    const present = Bun.spawnSync([process.execPath, script], {
+      cwd: root,
+      env: { ...env, MDCLI_PRIVATE_TERMS_KEY: 'test-key' },
+    });
+    expect(present.exitCode).toBe(0);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

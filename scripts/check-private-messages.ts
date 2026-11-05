@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { scanText } from './private-terms.js';
+import { KEYED_TERM_HASHES, requirePrivateTermsKey, scanText } from './private-terms.js';
 
 export interface MessageSource {
   label: string;
@@ -15,11 +15,13 @@ export interface MessageHit {
 export function messageHits(
   sources: MessageSource[],
   terms?: ReadonlySet<string>,
-  allowed?: ReadonlySet<string>
+  allowed?: ReadonlySet<string>,
+  keyed?: ReadonlySet<string>,
+  key?: string
 ): MessageHit[] {
   const hits: MessageHit[] = [];
   for (const source of sources) {
-    const lines = scanText(source.text, terms, allowed);
+    const lines = scanText(source.text, terms, allowed, keyed, key);
     if (lines.length > 0) hits.push({ label: source.label, lines });
   }
   return hits;
@@ -107,6 +109,12 @@ async function main(): Promise<void> {
     const pr = options.bodyFile
       ? { label: 'PR body', text: readFileSync(options.bodyFile, 'utf8') }
       : await pullRequestSource();
+    const key = requirePrivateTermsKey();
+    if (key === undefined && KEYED_TERM_HASHES.size > 0) {
+      console.error(
+        'private-data: warning: MDCLI_PRIVATE_TERMS_KEY is unset; low-entropy numeric terms were not checked'
+      );
+    }
     const hits = messageHits(pr ? [...commits, pr] : commits);
     if (hits.length > 0) {
       console.error(`✗ private-data: ${hits.length} message source(s) carry a guarded term (issue #216).`);
