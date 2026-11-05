@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createHome, MANUAL_AUTH, runCli, startMockApi } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, TAGS_RESPONSE, entriesPage } from './fixtures.js';
@@ -10,7 +11,44 @@ import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, TAGS_RESPONSE, entriesPage } fr
 // This guards the pinned runtime (package.json, bun 1.4.2): bun 1.4.4 flushes
 // stdout on a natural exit itself, so the old code passes there.
 
+// Issue #239: the proof only holds where the red does. Declare the runtime it
+// was proven on; the guard below fails when the pin or the running Bun leaves
+// it, instead of letting the proof decay into a test that passes without the
+// fix.
+const PROVEN_BUN = '1.4.2';
+const TEST_FILE = 'test/stdout-flush-guard.test.ts';
+
+function runtimePremiseViolation(packageManager: unknown, runtime: string): string | undefined {
+  const pin =
+    typeof packageManager === 'string' && packageManager.startsWith('bun@')
+      ? packageManager.slice('bun@'.length)
+      : String(packageManager ?? '');
+  const drifted: string[] = [];
+  if (pin !== PROVEN_BUN) drifted.push(`package.json pins bun@${pin || '<missing>'}`);
+  if (runtime !== PROVEN_BUN) drifted.push(`this run uses Bun ${runtime}`);
+  if (drifted.length === 0) return undefined;
+  return `${TEST_FILE} proves its red against the pre-fix code only on Bun ${PROVEN_BUN}, but ${drifted.join(' and ')}. Reject the pin back to bun@${PROVEN_BUN}, or rewrite the test for the new runtime and update PROVEN_BUN.`;
+}
+
 describe('stdout flush guard', () => {
+  test('runs on the Bun version where the pre-fix red is deterministic', () => {
+    const packageJson = JSON.parse(readFileSync(join(import.meta.dir, '..', 'package.json'), 'utf8')) as {
+      packageManager?: unknown;
+    };
+    const violation = runtimePremiseViolation(packageJson.packageManager, Bun.version);
+    if (violation !== undefined) throw new Error(violation);
+  });
+
+  test('a pin outside the proven version fails, naming the test and the action', () => {
+    const message = runtimePremiseViolation('bun@1.4.4', '1.4.4') ?? '';
+    expect(message).toContain(TEST_FILE);
+    expect(message).toContain(`Bun ${PROVEN_BUN}`);
+    expect(message).toContain('bun@1.4.4');
+    expect(message).toContain(`Reject the pin back to bun@${PROVEN_BUN}`);
+    expect(message).toContain('rewrite the test');
+    expect(runtimePremiseViolation('bun@1.4.2', '1.4.2')).toBeUndefined();
+  });
+
   test('full JSON output reaches the reader (> 64 KiB)', async () => {
     const api = startMockApi();
     api.on('GET /v1/cadastros/contas', ACCOUNTS_RESPONSE);
