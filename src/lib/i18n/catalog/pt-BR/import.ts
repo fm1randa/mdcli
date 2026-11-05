@@ -144,6 +144,7 @@ export const ptBRImport = {
   errorPlanEntry: () => '"entry" deve ser um ID de lançamento numérico.',
   errorPlanEntryOnlyConciliate: () => '"entry" só vale para conciliate.',
   errorPlanAccount: () => '"account" deve ser um objeto com "id" numérico.',
+  errorPlanSince: () => '"since" deve ser uma data de calendário (AAAA-MM-DD) ou null.',
   errorPlanAccountMismatch: (plan: string, run: string) =>
     `o plano é da conta ${plan}, mas o run é da conta ${run}.`,
   errorPlanCategoryRequired: () => '"category" é obrigatório para import.',

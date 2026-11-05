@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { isCalendarDate } from '../../../lib/dates.js';
 import { asRecord } from '../../../lib/payload.js';
 import { t } from '../../../lib/i18n/index.js';
 import { isPositiveSafeInteger } from '../../../utils/parse.js';
@@ -9,9 +10,10 @@ import {
 } from './document.js';
 import { readEntryId } from './selection.js';
 
-/** A `--plan` file: the account it was built for, when the document names one, and the selection. */
+/** A `--plan` file: the account it was built for, when the document names one, the selection, and its `since`. */
 interface PlanFile {
   accountId: number | null;
+  since: string | null;
   transactions: ImportSelectionItem[];
 }
 
@@ -72,6 +74,7 @@ export function readPlanFile(path: string): PlanFile {
   if (rows.length === 0) throw invalid([t('errorPlanEmpty')]);
 
   const problems: string[] = [];
+  const since = readSince(plan.since, (problem) => problems.push(problem));
   const items: ImportSelectionItem[] = [];
   rows.forEach((row: unknown, index) => {
     const where = `transactions[${index}]`;
@@ -79,7 +82,15 @@ export function readPlanFile(path: string): PlanFile {
     if (item !== null) items.push(item);
   });
   if (problems.length > 0) throw invalid(problems);
-  return { accountId, transactions: items };
+  return { accountId, since, transactions: items };
+}
+
+/** The `since` from `import list --json`: a calendar day, or null when absent or null. */
+function readSince(input: unknown, report: (problem: string) => void): string | null {
+  if (input === undefined || input === null) return null;
+  if (typeof input === 'string' && isCalendarDate(input)) return input;
+  report(t('errorPlanSince'));
+  return null;
 }
 
 /** The Account the document was built for (`account.id` from `import list --json`); null when absent. */
