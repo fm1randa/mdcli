@@ -14,7 +14,7 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "knip": "knip",
-    "test": "bun test --timeout 20000 --parallel"
+    "test": "bun test --timeout 20000 --parallel --path-ignore-patterns='test/browser-*.test.ts' && bun test --timeout 20000 test/browser-"
   },
   "keywords": [
     "meu-dinheiro",
