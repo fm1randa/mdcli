@@ -1,0 +1,28 @@
+diff --git a/src/lib/browser-session/index.ts b/src/lib/browser-session/index.ts
+--- a/src/lib/browser-session/index.ts
++++ b/src/lib/browser-session/index.ts
+@@ -70,7 +70,7 @@ export async function extractSessionFromBrowser(
+       await page.addInitScript(() => {
+-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
++        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- the page's own global is untyped inside addInitScript
+         const browserWindow = globalThis as any;
+         Object.defineProperty(browserWindow, 'loginconfig', {
+diff --git a/test/captcha.test.ts b/test/captcha.test.ts
+--- a/test/captcha.test.ts
++++ b/test/captcha.test.ts
+@@ -1,7 +1,6 @@
+ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+ import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
+ import { join } from 'node:path';
+-import type { Page } from 'playwright';
+ import { solveRecaptcha } from '../src/lib/captcha.js';
+@@ -15,12 +14,12 @@ function fakePage(overrides: {
+-}): Page {
++}) {
+   return {
+     evaluate: async () => overrides.evaluateResult ?? null,
+     content: async () => overrides.content ?? '<html></html>',
+     url: () => overrides.url ?? 'https://example.com/login',
+-  } as unknown as Page;
++  };
+ }

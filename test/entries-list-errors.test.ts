@@ -23,7 +23,7 @@ const entriesCalls = () => api.requests.filter((r) => r.path === '/v2/lancamento
 describe('entries list date range', () => {
   test('rejects --to past 2031-12-31 before calling the API, as JSON under --json', async () => {
     const result = await runCli(
-      ['entries', 'list', '-a', '1001', '-f', '2026-11-01', '-t', '2035-12-31', '--json'],
+      ['entries', 'list', '-a', '201', '-f', '2026-11-01', '-t', '2035-12-31', '--json'],
       { home, api }
     );
 
@@ -36,7 +36,7 @@ describe('entries list date range', () => {
   });
 
   test('without --json the same error is text on stderr', async () => {
-    const result = await runCli(['entries', 'summary', '-a', '1001', '-t', '2032-01-01'], { home, api });
+    const result = await runCli(['entries', 'summary', '-a', '201', '-t', '2032-01-01'], { home, api });
 
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toBe('');
@@ -45,7 +45,7 @@ describe('entries list date range', () => {
   });
 
   test('accepts 2031-12-31 itself', async () => {
-    const result = await runCli(['entries', 'list', '-a', '1001', '-f', '2031-01-01', '-t', '2031-12-31', '--json'], { home, api });
+    const result = await runCli(['entries', 'list', '-a', '201', '-f', '2031-01-01', '-t', '2031-12-31', '--json'], { home, api });
 
     expect(result.exitCode).toBe(0);
     expect(JSON.parse(result.stdout)).toEqual([]);
@@ -53,7 +53,7 @@ describe('entries list date range', () => {
   });
 
   test('rejects a date that is not YYYY-MM-DD', async () => {
-    const result = await runCli(['entries', 'list', '-a', '1001', '-f', '2026-13-01', '--json'], { home, api });
+    const result = await runCli(['entries', 'list', '-a', '201', '-f', '2026-13-01', '--json'], { home, api });
 
     expect(result.exitCode).toBe(1);
     expect(JSON.parse(result.stderr)).toEqual({ error: 'Invalid --from date: 2026-13-01. Use YYYY-MM-DD.' });
@@ -65,7 +65,7 @@ describe('errors under --json', () => {
   test('an API error becomes a JSON error on stderr with nothing on stdout', async () => {
     api.on('GET /v2/lancamentos', { type: 2, error: 'A data limite de carregamento dos lançamentos é 31/12/2031' }, 400);
 
-    const result = await runCli(['entries', 'list', '-a', '1001', '--json'], { home, api });
+    const result = await runCli(['entries', 'list', '-a', '201', '--json'], { home, api });
 
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toBe('');

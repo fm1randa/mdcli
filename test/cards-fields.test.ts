@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createHome, MANUAL_AUTH, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CREDIT_CARD_ACCOUNT, cardInvoice } from './fixtures.js';
 
-// Dogfood 2026-10-19 (cards and invoices): --month due day and validation,
+// Real use 2026-10-19 (cards and invoices): --month due day and validation,
 // the item dates of cards invoice --json and the card fields of cards list --json.
 let api: MockApi;
 let home: TestHome;
@@ -19,9 +19,9 @@ afterEach(() => {
 });
 
 describe('cards list --json', () => {
-  // Dogfood 2026-10-19: the JSON lacked what the table and the web show.
-  // Filipe (dogfood 2026-10-19): balance (saldoUltimoExtrato, Open Finance)
-  // means nothing for a card, so it is gone; the card fields stay.
+  // Real use 2026-10-19: the JSON lacked what the table and the web show;
+  // balance (saldoUltimoExtrato, Open Finance) means nothing for a card, so
+  // it is gone and the card fields stay.
   // Each card has a distinct due date: cards list pairs normalizeCards with
   // the source item by index, so a mismatch would move a date to another card.
   test('--json has limit, due and closing dates and the payment account, and no balance', async () => {
@@ -30,18 +30,18 @@ describe('cards list --json', () => {
       items: [
         {
           ...CREDIT_CARD_ACCOUNT,
-          limite: 21804,
+          limite: 5000,
           fechamento: 11,
-          contada: 1001,
+          contada: 201,
           proximoVencimento: '2026-11-16',
           proximoFechamento: '2026-11-05',
-          saldoUltimoExtrato: 16207,
+          saldoUltimoExtrato: 321.45,
         },
-        { ...CREDIT_CARD_ACCOUNT, id: 1003, nome: 'Cartão Novo', proximoVencimento: undefined, proximoFechamento: undefined },
+        { ...CREDIT_CARD_ACCOUNT, id: 203, nome: 'Cartão Novo', proximoVencimento: undefined, proximoFechamento: undefined },
         {
           ...CREDIT_CARD_ACCOUNT,
-          id: 1004,
-          nome: 'Cartão Verde',
+          id: 205,
+          nome: 'Cartão Teste Dois',
           proximoVencimento: '2026-12-03',
           proximoFechamento: '2026-11-20',
         },
@@ -54,21 +54,21 @@ describe('cards list --json', () => {
     expect(result.stdout).not.toContain('balance');
     expect(JSON.parse(result.stdout)).toEqual([
       {
-        id: 1002,
-        name: 'Cartão Azul',
+        id: 202,
+        name: 'Cartão Teste',
         type: 'CARTAOCREDITO',
         bank: null,
         active: true,
         closed: false,
-        limit: 21804,
+        limit: 5000,
         dueDay: 16,
         nextDueDate: '2026-11-16',
         nextClosingDate: '2026-11-05',
         closingDaysBeforeDue: 11,
-        paymentAccountId: 1001,
+        paymentAccountId: 201,
       },
       {
-        id: 1003,
+        id: 203,
         name: 'Cartão Novo',
         type: 'CARTAOCREDITO',
         bank: null,
@@ -82,8 +82,8 @@ describe('cards list --json', () => {
         paymentAccountId: null,
       },
       {
-        id: 1004,
-        name: 'Cartão Verde',
+        id: 205,
+        name: 'Cartão Teste Dois',
         type: 'CARTAOCREDITO',
         bank: null,
         active: true,
@@ -100,7 +100,7 @@ describe('cards list --json', () => {
 });
 
 describe('cards invoice --month', () => {
-  // Dogfood 2026-10-19: the real API sends proximoVencimento as a bare date;
+  // Real use 2026-10-19: the real API sends proximoVencimento as a bare date;
   // new Date('2026-11-16').getDate() is 15 in UTC-3, so --month asked for the
   // invoice due on the 15th. CI runs in UTC, so force Brazil's time zone.
   test('--month keeps the due day of a date-only proximoVencimento in UTC-3', async () => {
@@ -108,18 +108,18 @@ describe('cards invoice --month', () => {
       ...ACCOUNTS_RESPONSE,
       items: [{ ...CREDIT_CARD_ACCOUNT, proximoVencimento: '2026-11-16', proximoFechamento: '2026-11-05' }],
     });
-    api.on('GET /v1/cartoes/1002/fatura/2026-11-16', cardInvoice('2026-11-16', '2026-11-05', -10));
+    api.on('GET /v1/cartoes/202/fatura/2026-11-16', cardInvoice('2026-11-16', '2026-11-05', -10));
 
-    const result = await runCli(['cards', 'invoice', '-a', '1002', '--month', '2026-11'], {
+    const result = await runCli(['cards', 'invoice', '-a', '202', '--month', '2026-11'], {
       home,
       api,
       extraEnv: { TZ: 'America/Sao_Paulo' },
     });
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain('Invoice for Cartão Azul - 2026-11-16');
+    expect(result.stdout).toContain('Invoice for Cartão Teste - 2026-11-16');
     expect(api.requests.filter((r) => r.path.startsWith('/v1/cartoes/')).map((r) => r.path)).toEqual([
-      '/v1/cartoes/1002/fatura/2026-11-16',
+      '/v1/cartoes/202/fatura/2026-11-16',
     ]);
   });
 
@@ -128,17 +128,17 @@ describe('cards invoice --month', () => {
       ...ACCOUNTS_RESPONSE,
       items: [{ ...CREDIT_CARD_ACCOUNT, proximoVencimento: '2026-01-31' }],
     });
-    api.on('GET /v1/cartoes/1002/fatura/2026-02-28', cardInvoice('2026-02-28', '2026-02-20'));
+    api.on('GET /v1/cartoes/202/fatura/2026-02-28', cardInvoice('2026-02-28', '2026-02-20'));
 
-    const result = await runCli(['cards', 'invoice', '-a', '1002', '--month', '2026-02', '--json'], { home, api });
+    const result = await runCli(['cards', 'invoice', '-a', '202', '--month', '2026-02', '--json'], { home, api });
 
     expect(result.exitCode).toBe(0);
-    expect(api.requests.at(-1)?.path).toBe('/v1/cartoes/1002/fatura/2026-02-28');
+    expect(api.requests.at(-1)?.path).toBe('/v1/cartoes/202/fatura/2026-02-28');
   });
 
   for (const month of ['2026-00', '2026-13', '2026-1', '11/2026']) {
     test(`--month ${month} is refused before any API call`, async () => {
-      const result = await runCli(['cards', 'invoice', '-a', '1002', '--month', month], { home, api });
+      const result = await runCli(['cards', 'invoice', '-a', '202', '--month', month], { home, api });
 
       expect(result.exitCode).toBe(1);
       expect(result.stderr).toContain(
@@ -148,14 +148,14 @@ describe('cards invoice --month', () => {
     });
   }
 
-  // Dogfood 2026-10-19: item 315471241 showed date 2025-11-19 here and
-  // 2026-11-16 in entries list. Filipe decided date is the due date, as in
+  // Real use 2026-10-19: item 123456 showed date 2025-11-19 here and
+  // 2026-11-16 in entries list. The maintainer decided the date is the due date, as in
   // entries list; the purchase date moves to purchaseDate and dueDate stays.
   test('--json date is the due date; the purchase date is purchaseDate', async () => {
-    api.on('GET /v1/cartoes/1002/fatura/2026-11-16', {
-      ...cardInvoice('2026-11-16T00:00:00', '2026-11-05T00:00:00', -401.29),
+    api.on('GET /v1/cartoes/202/fatura/2026-11-16', {
+      ...cardInvoice('2026-11-16T00:00:00', '2026-11-05T00:00:00', -223.45),
       lancamentos: [
-        { id: 315471241, descricao: 'Mac mini M4', valor: -301.29, data: '2025-11-19', parcela: '12/18', categoria: 11 },
+        { id: 123456, descricao: 'Item Parcelado', valor: -123.45, data: '2025-11-19', parcela: '12/18', categoria: 11 },
         {
           id: 7,
           descricao: 'Livro',
@@ -167,18 +167,18 @@ describe('cards invoice --month', () => {
       ],
     });
 
-    const result = await runCli(['cards', 'invoice', '-a', '1002', '--month', '2026-11', '--json'], { home, api });
+    const result = await runCli(['cards', 'invoice', '-a', '202', '--month', '2026-11', '--json'], { home, api });
 
     expect(result.exitCode).toBe(0);
     expect(JSON.parse(result.stdout)).toEqual([
       {
-        id: 315471241,
-        description: 'Mac mini M4',
+        id: 123456,
+        description: 'Item Parcelado',
         date: '2026-11-16',
         dueDate: '2026-11-16',
         purchaseDate: '2025-11-19',
         competenceDate: '2025-11-19',
-        value: -301.29,
+        value: -123.45,
         categoryId: 11,
         installment: '12/18',
       },

@@ -6,14 +6,14 @@ let home: TestHome;
 
 const SERIES_OCCURRENCE = {
   id: 80,
-  descricao: 'Psicólogo',
+  descricao: 'Consulta Teste',
   tipo: 'd',
   valor: -50,
   data: '2026-10-16',
   dataPrevista: '2026-10-16',
   status: 'agendado',
   conciliado: false,
-  conta: 1001,
+  conta: 201,
   categoria: 10,
   parcela: 'fixa',
   agendaId: 77,

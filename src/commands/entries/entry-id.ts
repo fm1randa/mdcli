@@ -7,8 +7,8 @@ import { shiftDueDate } from '../../lib/dates.js';
 import type { CreateEntryResponse, EntryId, EntryIdText, OccurrenceId } from '../../types/index.js';
 
 /**
- * What POST /v1/lancamentos answered for a card purchase (Finanças,
- * 2026-10-16): "<series>A<date>", e.g. "46349170A2026-10-20". It is not an
+ * What POST /v1/lancamentos answered for a card purchase (Real use,
+ * 2026-10-16): "<series>A<date>", e.g. "1234567A2026-10-20". It is not an
  * entry ID: GET/PUT/DELETE /v1/lancamentos/:id need the numeric one.
  */
 const OCCURRENCE_ID = /^\d+A\d{4}-\d{2}-\d{2}$/;

@@ -6,9 +6,9 @@ import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE } from './fixtures.js';
 import { CONNECTIONS, mockStatement } from './import-harness.js';
 
 // The `since` a --plan carries: the value `entries import list --json` writes.
-// Fictional ids. 1001 is Nubank (connection account 9001); its last statement date is 2026-01-10.
+// Fictional ids. 201 is Conta Teste (connection account 301); its last statement date is 2026-01-10.
 const TX1 = 'aaaa1111-1111-4000-8000-000000000001';
-const STATEMENT_PATH = '/v1/integracao/account/9001/transactions';
+const STATEMENT_PATH = '/v1/integracao/account/301/transactions';
 
 let api: MockApi;
 let home: TestHome;
@@ -48,7 +48,7 @@ function planFile(content: unknown): string {
 
 /** `entries import run` without a --since: each test passes only what it needs. */
 function run(args: string[]) {
-  return runCli(['entries', 'import', 'run', '-a', '1001', ...args], { home, api });
+  return runCli(['entries', 'import', 'run', '-a', '201', ...args], { home, api });
 }
 
 /** The `start` of the last statement request the CLI sent, or null when it sent none. */

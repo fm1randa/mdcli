@@ -1,5 +1,5 @@
 name: Relatório via agente
-description: Relatório de problema investigado por um agente (triagem, jardineiro, dogfooding, finanças)
+description: Relatório de problema investigado por um agente
 title: "agente: "
 labels: ["via-agente", "needs-triage"]
 body:

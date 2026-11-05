@@ -11,10 +11,10 @@ import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, EMPTY_ENTRIES_RESPONSE, cardInv
 let api: MockApi;
 let home: TestHome;
 
-const CARD_ACCOUNT = 1002;
-const CHECKING_ACCOUNT = 1001;
+const CARD_ACCOUNT = 202;
+const CHECKING_ACCOUNT = 201;
 const CARD_DUE = '2026-01-16';
-const OCCURRENCE_ID = '46349170A2026-01-05';
+const OCCURRENCE_ID = '1234567A2026-01-05';
 
 const CARD_CREATE = ['entries', 'create', '-a', String(CARD_ACCOUNT), '-d', 'Voo', '-v', '10', '-c', '10', '-D', '2026-01-05', '-p'];
 const SCHEDULED_CREATE = ['entries', 'create', '-a', String(CHECKING_ACCOUNT), '-d', 'IPVA', '-v', '800', '-c', '10', '-p', '-D', '2031-01-20'];
@@ -37,8 +37,8 @@ beforeEach(() => {
   api.on('GET /v1/cadastros/contas', ACCOUNTS_RESPONSE);
   api.on('GET /v1/cadastros/categorias', CATEGORIES_RESPONSE);
   api.on('GET /v2/lancamentos', EMPTY_ENTRIES_RESPONSE);
-  api.on('GET /v1/cartoes/1002/fatura/2026-01-16', invoice(CARD_DUE));
-  api.on('GET /v1/cartoes/1002/fatura/2025-12-16', invoice('2025-12-16'));
+  api.on('GET /v1/cartoes/202/fatura/2026-01-16', invoice(CARD_DUE));
+  api.on('GET /v1/cartoes/202/fatura/2025-12-16', invoice('2025-12-16'));
   home = createHome(MANUAL_AUTH);
 });
 
@@ -78,8 +78,8 @@ describe('entries create looks up an id the API answered that is neither an entr
     expect(result.exitCode).toBe(0);
     expect(JSON.parse(result.stdout).id).toBe('abc');
     expect(result.stderr).toContain('is not an entry ID');
-    expect(result.stderr).toContain('mdcli cards invoice -a 1002 --month 2026-01');
-    expect(requestsAfterPost()).toContain(`GET /v1/cartoes/1002/fatura/${CARD_DUE}`);
+    expect(result.stderr).toContain('mdcli cards invoice -a 202 --month 2026-01');
+    expect(requestsAfterPost()).toContain(`GET /v1/cartoes/202/fatura/${CARD_DUE}`);
   });
 
   test('scheduled: leaves the API id alone without reading the list or warning', async () => {

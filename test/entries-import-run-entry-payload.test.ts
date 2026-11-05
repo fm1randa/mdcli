@@ -4,7 +4,7 @@ import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE } from './fixtures.js';
 import { CONNECTIONS, mockStatement, SINCE } from './import-harness.js';
 
 // The new Entry's payload in /lancamentos/importar, field by field as the web builds it.
-// Fictional ids. 1001 is Nubank (connection account 9001). Category 10 is Alimentação (d).
+// Fictional ids. 201 is Conta Teste (connection account 301). Category 10 is Alimentação (d).
 
 const TX1 = 'aaaa1111-1111-4000-8000-000000000001';
 const TX3 = 'cccc3333-3333-4000-8000-000000000003';
@@ -43,7 +43,7 @@ function entries(list: unknown[]) {
 }
 
 function run(args: string[], stdin?: string) {
-  return runCli(['entries', 'import', 'run', '-a', '1001', '--since', SINCE, ...args], { home, api, stdin });
+  return runCli(['entries', 'import', 'run', '-a', '201', '--since', SINCE, ...args], { home, api, stdin });
 }
 
 function routes(): string[] {
@@ -69,7 +69,7 @@ describe('entries import run: the new Entry payload', () => {
         integrationId: TX1,
         moeda: 1,
         descricao: 'Padaria Ficticia',
-        conta: 1001,
+        conta: 201,
         categoria: 10,
         tags: [],
         tipo: 'd',
@@ -86,10 +86,10 @@ describe('entries import run: the new Entry payload', () => {
 
   test('a card Entry takes the bank date as dataCompetencia, without dataPrevista or dataEfetiva', async () => {
     api.on('GET /v1/integracao/connections', [
-      { id: 502, status: 'UPDATED', accounts: [{ id: 9002, type: 'CARTAO DE CREDITO', conta: 1002 }] },
+      { id: 502, status: 'UPDATED', accounts: [{ id: 302, type: 'CARTAO DE CREDITO', conta: 202 }] },
     ]);
-    api.on('GET /v1/cartoes/1002/fatura/2026-01-16', { lancamentos: [] });
-    api.on('GET /v1/integracao/account/9002/transactions', {
+    api.on('GET /v1/cartoes/202/fatura/2026-01-16', { lancamentos: [] });
+    api.on('GET /v1/integracao/account/302/transactions', {
       inicio: '2026-10-01',
       fim: '2026-10-10',
       saldo: -40,
@@ -97,7 +97,7 @@ describe('entries import run: the new Entry payload', () => {
     });
 
     const result = await runCli(
-      ['entries', 'import', 'run', '-a', '1002', '--since', SINCE, '--ids', 'aaaa,cccc', '-c', '10', '--yes', '--json'],
+      ['entries', 'import', 'run', '-a', '202', '--since', SINCE, '--ids', 'aaaa,cccc', '-c', '10', '--yes', '--json'],
       { home, api },
     );
 
@@ -105,8 +105,8 @@ describe('entries import run: the new Entry payload', () => {
     expect(result.exitCode).toBe(0);
     expect(routes()).toEqual(COMMIT);
     const [mark, , importing] = mutations(api);
-    expect(mark.body).toEqual({ account: 9002, ids: [TX3], date: '2099-02-01' });
-    const common = { moeda: 1, descricao: 'Padaria Ficticia', conta: 1002, categoria: 10, tags: [], tipo: 'd' };
+    expect(mark.body).toEqual({ account: 302, ids: [TX3], date: '2099-02-01' });
+    const common = { moeda: 1, descricao: 'Padaria Ficticia', conta: 202, categoria: 10, tags: [], tipo: 'd' };
     expect((importing.body as { lancamentos: unknown }).lancamentos).toEqual([
       {
         ...common,

@@ -40,7 +40,7 @@ A recurring Entry rule (agenda). Occurrences carry `agendaId` and `parcela` (e.g
 _Avoid_: "recurrence" alone (prefer Series when talking about `--scope`)
 
 **Connection**:
-A link between a bank and Meu Dinheiro through the web app's bank integration (Integração bancária). A Connection has zero or more Accounts (Banco do Brasil and Ourocard can share one). Each bank-side account is a connection account, optionally linked to an Account. **Sync** asks the bank for new data through the Connection (the web's "Atualizar conexão"), at most 3 times a day per connector.
+A link between a bank and Meu Dinheiro through the web app's bank integration (Integração bancária). A Connection has zero or more Accounts (a checking account and its card can share one). Each bank-side account is a connection account, optionally linked to an Account. **Sync** asks the bank for new data through the Connection (the web's "Atualizar conexão"), at most 3 times a day per connector.
 _Avoid_: "integration" for a single link (the integration is the feature; a Connection is one bank link)
 
 **Bank Transaction**:
@@ -83,7 +83,7 @@ _Avoid_: "auto-upgrade", "sync with main"
 
 The order in which an **Identifier** is resolved is fixed and intentional:
 
-1. **Numeric** — if the string is a positive integer in plain digits (`1167419`; not `''`, `0`, `1e3` or `0x10`), treat it as the API ID directly. Fastest, fully offline, no ambiguity. Anything else falls through to the next steps.
+1. **Numeric** — if the string is a positive integer in plain digits (`201`; not `''`, `0`, `1e3` or `0x10`), treat it as the API ID directly. Fastest, fully offline, no ambiguity. Anything else falls through to the next steps.
 2. **Alias** — look up the string in the local Alias map for the relevant entity type. Still offline.
 3. **Name** — if a non-numeric string matches no Alias, fetch the entity list from the API (or read the Name cache) and do a case-insensitive exact match against the `nome` field. This step is the only one that may hit the network.
 
@@ -91,10 +91,10 @@ Aliases intentionally win over names so that short user-chosen shortcuts are nev
 
 ## Example dialogue
 
-> **Dev:** "If a user types `--account 1167419`, does that hit the network?"
+> **Dev:** "If a user types `--account 201`, does that hit the network?"
 > **Domain expert:** "No — numeric Identifiers are taken at face value as the API ID. No Alias lookup, no Name cache."
 >
-> **Dev:** "What if they type `--account mp` and they have an Alias `mp` for account `1167419` but also own a real account named 'mp'?"
+> **Dev:** "What if they type `--account principal` and they have an Alias `principal` for account `201` but also own a real account named 'principal'?"
 > **Domain expert:** "The Alias wins. The user can rename or remove the Alias to fall through to name resolution."
 >
 > **Dev:** "What if they rename an account in the Meu Dinheiro web UI and the cached name still points to the old ID?"

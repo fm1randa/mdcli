@@ -19,7 +19,7 @@ describe('sync run all', () => {
   test('updates each connection id once and does not resolve an account or alias named all', async () => {
     const aliased = createHome({
       ...MANUAL_AUTH,
-      aliases: { accounts: [{ id: 1001, name: 'all' }], categories: [], tags: [] },
+      aliases: { accounts: [{ id: 201, name: 'all' }], categories: [], tags: [] },
     });
     try {
       api.on('GET /v1/cadastros/contas', ACCOUNTS_WITH_ALL);
@@ -38,15 +38,15 @@ describe('sync run all', () => {
             id: 501,
             status: 'UPDATING',
             accounts: [
-              { connectionAccount: 9001, accountId: 1001, accountName: 'Nubank', type: 'CONTA CORRENTE' },
-              { connectionAccount: 9002, accountId: 1002, accountName: 'Cartão Azul', type: 'CARTAOCREDITO' },
+              { connectionAccount: 301, accountId: 201, accountName: 'Conta Teste', type: 'CONTA CORRENTE' },
+              { connectionAccount: 302, accountId: 202, accountName: 'Cartão Teste', type: 'CARTAOCREDITO' },
             ],
           },
           {
             id: 502,
             status: 'UPDATING',
             accounts: [
-              { connectionAccount: 9003, accountId: 1009, accountName: 'all', type: 'CONTA CORRENTE' },
+              { connectionAccount: 303, accountId: 213, accountName: 'all', type: 'CONTA CORRENTE' },
             ],
           },
         ],
@@ -78,7 +78,7 @@ describe('sync run all', () => {
     api.on('GET /v1/cadastros/contas', ACCOUNTS_WITH_ALL);
     connections(MANY_CONNECTIONS, MANY_AFTER);
 
-    const byId = await runCli(['sync', 'run', '1009', '--yes', '--json'], { home, api });
+    const byId = await runCli(['sync', 'run', '213', '--yes', '--json'], { home, api });
 
     expect(byId.exitCode).toBe(0);
     expect(byId.stderr).toContain('Connection 502 is UPDATING. Run sync list again to see the result.');
@@ -90,7 +90,7 @@ describe('sync run all', () => {
           id: 502,
           status: 'UPDATING',
           accounts: [
-            { connectionAccount: 9003, accountId: 1009, accountName: 'all', type: 'CONTA CORRENTE' },
+            { connectionAccount: 303, accountId: 213, accountName: 'all', type: 'CONTA CORRENTE' },
           ],
         },
       ],
@@ -112,9 +112,9 @@ describe('sync run all', () => {
 
   test('stops after a failed PUT and names the connections already updated', async () => {
     const three = [
-      { id: 501, status: 'UPDATED', accounts: [{ id: 9001, type: 'CONTA CORRENTE', conta: 1001 }] },
-      { id: 502, status: 'UPDATED', accounts: [{ id: 9003, type: 'CONTA CORRENTE', conta: 1002 }] },
-      { id: 504, status: 'UPDATED', accounts: [{ id: 9007, type: 'CONTA CORRENTE', conta: 1004 }] },
+      { id: 501, status: 'UPDATED', accounts: [{ id: 301, type: 'CONTA CORRENTE', conta: 201 }] },
+      { id: 502, status: 'UPDATED', accounts: [{ id: 303, type: 'CONTA CORRENTE', conta: 202 }] },
+      { id: 504, status: 'UPDATED', accounts: [{ id: 9007, type: 'CONTA CORRENTE', conta: 204 }] },
     ];
     connections(three, three);
     api.on('PUT /v1/integracao/connection/update/502', { message: 'limit' }, 500);
@@ -198,7 +198,7 @@ describe('sync run all', () => {
   test('without login, fails with the same message as the other commands and calls nothing', async () => {
     const loggedOut = createHome({});
     try {
-      const text = await runCli(['sync', 'run', '1001', '--yes'], { home: loggedOut, api });
+      const text = await runCli(['sync', 'run', '201', '--yes'], { home: loggedOut, api });
       expect(text.exitCode).toBe(1);
       expect(text.stdout).toBe('');
       expect(text.stderr).toContain('Not authenticated. Run "mdcli auth login" first.');

@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { planLabelAction } from '../scripts/risk-label.js';
 
 const root = join(import.meta.dir, '..');
+const fixtures = join(import.meta.dir, 'fixtures', 'risk');
 
 function withReport(report: string, callback: (path: string) => void): void {
   const dir = mkdtempSync(join(tmpdir(), 'mdcli-risk-label-'));
@@ -38,11 +39,14 @@ function runLabel(report: string, labels: string[]): { action: string; risky: bo
   return parsed;
 }
 
-function riskReport(files: string): string {
-  const result = Bun.spawnSync(['bun', join(root, 'scripts', 'risk.ts'), '--files', files], {
-    stdout: 'pipe',
-    stderr: 'pipe',
-  });
+function riskReport(name: string): string {
+  const result = Bun.spawnSync(
+    ['bun', join(root, 'scripts', 'risk.ts'), '--diff', join(fixtures, `${name}.diff`)],
+    {
+      stdout: 'pipe',
+      stderr: 'pipe',
+    },
+  );
   return result.stdout.toString();
 }
 
@@ -66,28 +70,28 @@ describe('planLabelAction', () => {
 
 describe('risk-label CLI', () => {
   test('turns the risk script output for an auth change into an add', () => {
-    expect(runLabel(riskReport('src/commands/auth/login.ts'), ['needs-triage'])).toEqual({
+    expect(runLabel(riskReport('auth-behavior'), ['needs-triage'])).toEqual({
       action: 'add',
       risky: true,
     });
   });
 
   test('turns the risk script output for a write change into an add', () => {
-    expect(runLabel(riskReport('src/commands/entries/create.ts'), [])).toEqual({
+    expect(runLabel(riskReport('write-behavior'), [])).toEqual({
       action: 'add',
       risky: true,
     });
   });
 
   test('removes the label when the report is safe and the PR still carries it', () => {
-    expect(runLabel(riskReport('README.md'), ['risco', 'documentation'])).toEqual({
+    expect(runLabel(riskReport('docs-only'), ['risco', 'documentation'])).toEqual({
       action: 'remove',
       risky: false,
     });
   });
 
   test('keeps a safe PR without the label untouched', () => {
-    expect(runLabel(riskReport('README.md'), ['documentation'])).toEqual({
+    expect(runLabel(riskReport('docs-only'), ['documentation'])).toEqual({
       action: 'keep',
       risky: false,
     });

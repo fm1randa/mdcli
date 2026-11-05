@@ -3,8 +3,8 @@ import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi,
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE } from './fixtures.js';
 import { CONNECTIONS, SINCE } from './import-harness.js';
 
-// Fictional ids. 1001 is Nubank and 1002 is Cartão Azul in the account fixture.
-// connection account 9001 is not the Meu Dinheiro account id.
+// Fictional ids. 201 is Conta Teste and 202 is Cartão Teste in the account fixture.
+// connection account 301 is not the Meu Dinheiro account id.
 
 const LONE = 'bbbbbbbb-1111-4000-8000-000000000001';
 const SHARED_A = 'aaaaaaaa-1111-4000-8000-000000000001';
@@ -69,8 +69,8 @@ function tx(
 // Literals from the statement above, not from the production date helper.
 // 2026-10-02 minus 2 days is 2026-09-30. 2026-10-18 plus 2 days is 2026-10-20.
 const LIST_JSON = {
-  account: { id: 1001, name: 'Nubank' },
-  connection: { id: 501, connectionAccount: 9001 },
+  account: { id: 201, name: 'Conta Teste' },
+  connection: { id: 501, connectionAccount: 301 },
   source: 'statement',
   since: SINCE,
   statement: { start: '2026-10-02', end: '2026-10-18', balance: 42.5 },
@@ -101,13 +101,13 @@ beforeEach(() => {
   api = startMockApi();
   api.on('GET /v1/integracao/connections', CONNECTIONS);
   api.on('GET /v1/cadastros/contas', ACCOUNTS_RESPONSE);
-  api.on('GET /v1/integracao/account/9001/transactions', STATEMENT);
+  api.on('GET /v1/integracao/account/301/transactions', STATEMENT);
   api.on('GET /v1/cadastros/categorias', CATEGORIES_RESPONSE);
   api.on('GET /v1/lancamentos/duplicidade', {});
   api.on('GET /v2/lancamentos', { list: [], meta: { total: 0, page: 1, pageSize: 500 } });
   home = createHome({
     ...MANUAL_AUTH,
-    aliases: { accounts: [{ id: 1001, name: 'nu' }], categories: [], tags: [] },
+    aliases: { accounts: [{ id: 201, name: 'conta' }], categories: [], tags: [] },
   });
 });
 
@@ -123,7 +123,7 @@ function cli(args: string[]) {
 const READS = [
   'GET /v1/cadastros/categorias',
   'GET /v1/cadastros/contas',
-  'GET /v1/integracao/account/9001/transactions',
+  'GET /v1/integracao/account/301/transactions',
   'GET /v1/integracao/connections',
   'GET /v1/lancamentos/duplicidade',
   'GET /v2/lancamentos',
@@ -131,7 +131,7 @@ const READS = [
 
 describe('entries import list', () => {
   test('prints the statement as JSON and only reads connections, accounts, transactions, categories, duplicates, and candidates', async () => {
-    const result = await cli(['entries', 'import', 'list', '-a', '1001', '--since', SINCE, '--json']);
+    const result = await cli(['entries', 'import', 'list', '-a', '201', '--since', SINCE, '--json']);
 
     expect(result.exitCode).toBe(0);
     expect(result.stderr).toBe('');
@@ -146,19 +146,19 @@ describe('entries import list', () => {
     const duplicates = api.requests.find((r) => r.path === '/v1/lancamentos/duplicidade');
     expect(duplicates?.query.get('inicio')).toBe('2026-10-07');
     expect(duplicates?.query.get('fim')).toBe('2026-10-14');
-    expect(duplicates?.query.get('conta')).toBe('1001');
+    expect(duplicates?.query.get('conta')).toBe('201');
     const candidates = api.requests.find((r) => r.path === '/v2/lancamentos');
     expect(candidates?.method).toBe('GET');
     expect(candidates?.query.get('finalidade')).toBe('3');
     expect(candidates?.query.get('inicio')).toBe('2026-09-30');
     expect(candidates?.query.get('fim')).toBe('2026-10-20');
-    expect(JSON.parse(candidates?.query.get('contas') ?? 'null')).toEqual({ ids: [1001] });
+    expect(JSON.parse(candidates?.query.get('contas') ?? 'null')).toEqual({ ids: [201] });
     expect(JSON.parse(candidates?.query.get('list') ?? 'null')).toEqual({ page: 1, pageSize: 500 });
     expect(mutations(api)).toHaveLength(0);
   });
 
   test('prints prefix, date, signed value, bank description, suggestion, and the default action', async () => {
-    const result = await cli(['entries', 'import', 'list', '-a', '1001', '--since', SINCE]);
+    const result = await cli(['entries', 'import', 'list', '-a', '201', '--since', SINCE]);
     const stdout = result.stdout.replace(/\u00a0/g, ' ');
 
     expect(result.exitCode).toBe(0);
@@ -195,54 +195,54 @@ describe('entries import list', () => {
   });
 
   test('resolves an alias and an exact account name to the same connection account', async () => {
-    const alias = await cli(['entries', 'import', 'list', '-a', 'nu', '--since', SINCE, '--json']);
+    const alias = await cli(['entries', 'import', 'list', '-a', 'conta', '--since', SINCE, '--json']);
     expect(alias.exitCode).toBe(0);
-    expect(JSON.parse(alias.stdout).account).toEqual({ id: 1001, name: 'Nubank' });
+    expect(JSON.parse(alias.stdout).account).toEqual({ id: 201, name: 'Conta Teste' });
 
-    const named = await cli(['entries', 'import', 'list', '-a', 'nubank', '--since', SINCE, '--json']);
+    const named = await cli(['entries', 'import', 'list', '-a', 'Conta Teste', '--since', SINCE, '--json']);
     expect(named.exitCode).toBe(0);
-    expect(JSON.parse(named.stdout).account).toEqual({ id: 1001, name: 'Nubank' });
+    expect(JSON.parse(named.stdout).account).toEqual({ id: 201, name: 'Conta Teste' });
     const transactionPaths = api.requests.filter((r) => r.path.includes('/transactions')).map((r) => r.path);
     expect(transactionPaths).toEqual([
-      '/v1/integracao/account/9001/transactions',
-      '/v1/integracao/account/9001/transactions',
+      '/v1/integracao/account/301/transactions',
+      '/v1/integracao/account/301/transactions',
     ]);
     expect(mutations(api)).toHaveLength(0);
   });
 
   test('uses conta as the account id and accounts[].id as the connection account', async () => {
     api.on('GET /v1/integracao/connections', [
-      { id: 501, accounts: [{ id: 1001, type: 'CONTA CORRENTE', conta: 1002 }] },
+      { id: 501, accounts: [{ id: 201, type: 'CONTA CORRENTE', conta: 202 }] },
     ]);
-    api.on('GET /v1/integracao/account/1001/transactions', STATEMENT);
-    api.on('GET /v1/cartoes/1002/fatura/2026-01-16', {
+    api.on('GET /v1/integracao/account/201/transactions', STATEMENT);
+    api.on('GET /v1/cartoes/202/fatura/2026-01-16', {
       lancamentos: [],
       vencimento: '2026-01-16',
       fechamento: '2026-01-08',
       valor: 0,
     });
 
-    const linked = await cli(['entries', 'import', 'list', '-a', '1002', '--since', SINCE, '--json']);
+    const linked = await cli(['entries', 'import', 'list', '-a', '202', '--since', SINCE, '--json']);
     expect(linked.exitCode).toBe(0);
-    expect(JSON.parse(linked.stdout).account).toEqual({ id: 1002, name: 'Cartão Azul' });
-    expect(JSON.parse(linked.stdout).connection).toEqual({ id: 501, connectionAccount: 1001 });
+    expect(JSON.parse(linked.stdout).account).toEqual({ id: 202, name: 'Cartão Teste' });
+    expect(JSON.parse(linked.stdout).connection).toEqual({ id: 501, connectionAccount: 201 });
     expect(api.requests.filter((r) => r.path.includes('/transactions')).map((r) => r.path)).toEqual([
-      '/v1/integracao/account/1001/transactions',
+      '/v1/integracao/account/201/transactions',
     ]);
     const duplicates = api.requests.find((r) => r.path === '/v1/lancamentos/duplicidade');
-    expect(duplicates?.query.get('conta')).toBe('1002');
-    expect(api.requests.some((r) => r.path === '/v1/cartoes/1002/fatura/2026-01-16')).toBe(true);
+    expect(duplicates?.query.get('conta')).toBe('202');
+    expect(api.requests.some((r) => r.path === '/v1/cartoes/202/fatura/2026-01-16')).toBe(true);
     expect(api.requests.some((r) => r.path === '/v2/lancamentos')).toBe(false);
     expect(api.requests.some((r) => r.path.includes('primeiraFatura'))).toBe(false);
 
     api.requests.length = 0;
     const notTheConnectionAccount = await cli([
-      'entries', 'import', 'list', '-a', '1001', '--since', SINCE, '--json',
+      'entries', 'import', 'list', '-a', '201', '--since', SINCE, '--json',
     ]);
     expect(notTheConnectionAccount.exitCode).toBe(1);
     expect(notTheConnectionAccount.stdout).toBe('');
     expect(JSON.parse(notTheConnectionAccount.stderr)).toEqual({
-      error: 'Account 1001 is not linked to any connection.',
+      error: 'Account 201 is not linked to any connection.',
     });
     expect(api.requests.some((r) => r.path.includes('/transactions'))).toBe(false);
     expect(mutations(api)).toHaveLength(0);
@@ -250,13 +250,13 @@ describe('entries import list', () => {
 
   test('a duplicated connection row is still one link', async () => {
     api.on('GET /v1/integracao/connections', [
-      { id: 501, accounts: [{ id: 9001, conta: 1001 }] },
-      { id: 501, accounts: [{ id: 9001, conta: 1001 }] },
+      { id: 501, accounts: [{ id: 301, conta: 201 }] },
+      { id: 501, accounts: [{ id: 301, conta: 201 }] },
     ]);
 
-    const result = await cli(['entries', 'import', 'list', '-a', '1001', '--since', SINCE, '--json']);
+    const result = await cli(['entries', 'import', 'list', '-a', '201', '--since', SINCE, '--json']);
     expect(result.exitCode).toBe(0);
-    expect(JSON.parse(result.stdout).connection).toEqual({ id: 501, connectionAccount: 9001 });
+    expect(JSON.parse(result.stdout).connection).toEqual({ id: 501, connectionAccount: 301 });
     expect(api.requests.filter((r) => r.path.includes('/transactions'))).toHaveLength(1);
   });
 
@@ -275,7 +275,7 @@ describe('entries import list', () => {
 
   test('accepts --search-from and --search-to, and rejects an invalid search date before calling the API', async () => {
     const widened = await cli([
-      'entries', 'import', 'list', '-a', '1001', '--since', SINCE, '--json',
+      'entries', 'import', 'list', '-a', '201', '--since', SINCE, '--json',
       '--search-from', '2026-09-01', '--search-to', '2026-10-25',
     ]);
     expect(widened.exitCode).toBe(0);
@@ -287,7 +287,7 @@ describe('entries import list', () => {
 
     api.requests.length = 0;
     for (const flag of ['--search-from', '--search-to']) {
-      const bad = await cli(['entries', 'import', 'list', '-a', '1001', flag, '2026-02-31', '--json']);
+      const bad = await cli(['entries', 'import', 'list', '-a', '201', flag, '2026-02-31', '--json']);
       expect(bad.exitCode).toBe(1);
       expect(bad.stdout).toBe('');
       expect(JSON.parse(bad.stderr)).toEqual({
@@ -297,7 +297,7 @@ describe('entries import list', () => {
     }
 
     const backwards = await cli([
-      'entries', 'import', 'list', '-a', '1001', '--json',
+      'entries', 'import', 'list', '-a', '201', '--json',
       '--search-from', '2026-10-20', '--search-to', '2026-10-01',
     ]);
     expect(backwards.exitCode).toBe(1);

@@ -117,7 +117,7 @@ describe('i18n', () => {
 
   test('JSON output identical under both languages', async () => {
     home = createHome(MANUAL_AUTH);
-    api.on('GET /v1/cadastros/contas', { items: [{ id: 1, nome: 'Nubank' }] });
+    api.on('GET /v1/cadastros/contas', { items: [{ id: 1, nome: 'Conta Teste' }] });
     const pt = await runCli(['accounts', 'list', '--json'], { home, api });
     const en = await runCli(['accounts', 'list', '--json', '--lang', 'en'], { home, api });
     expect(pt.stdout).toBe(en.stdout);

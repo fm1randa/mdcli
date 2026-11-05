@@ -1,0 +1,6 @@
+diff --git a/src/commands/auth/login.ts b/src/commands/auth/login.ts
+--- a/src/commands/auth/login.ts
++++ b/src/commands/auth/login.ts
+@@ -10,3 +10,3 @@ export async function loginAction(options: LoginOptions): Promise<void> {
+-  const token = await authenticate(user, password);
++  const token = await authenticateWithRefresh(user, password);

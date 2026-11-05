@@ -19,33 +19,33 @@ const CATEGORIES_PATH = '/api/v1/cadastros/categorias';
 const TAGS_PATH = '/api/v1/cadastros/tags';
 const ENTRIES_PATH = '/api/v1/lancamentos';
 const NEW_ACCOUNT_ID = 2001;
-const NEW_ENTRY_ID = 9001;
+const NEW_ENTRY_ID = 401;
 
 // Extra card without proximoVencimento so cards invoice (no --month) hits
 // GET .../primeiraFatura (CREDIT_CARD_ACCOUNT alone always has a due date).
 const CARD_NO_DUE: Account = {
   ...CREDIT_CARD_ACCOUNT,
-  id: 1003,
-  nome: 'Cartão Sem Vencimento',
+  id: 203,
+  nome: 'Cartão Teste Sem Vencimento',
   proximoVencimento: undefined,
   proximoFechamento: undefined,
 };
 
-// Card shaped like the real Ourocard (dogfood 2026-10-19): date-only
+// Card with a date-only due date (real use 2026-10-19): date-only
 // proximoVencimento, which new Date() reads as UTC midnight (the 15th in
 // Brazil), plus the card settings cards list --json reports.
 const CARD_DATE_ONLY: Account = {
   ...CREDIT_CARD_ACCOUNT,
-  id: 1005,
-  nome: 'Cartão Ouro',
-  limite: 21804,
+  id: 205,
+  nome: 'Cartão Teste Dois',
+  limite: 5000,
   fechamento: 11,
-  contada: 1001,
+  contada: 201,
   proximoVencimento: '2026-11-16',
   proximoFechamento: '2026-11-05',
 };
 
-// Finanças report (2026-10-16): an inactive category (hidden in the web app)
+// Real use (2026-10-16): an inactive category (hidden in the web app)
 // listed after an active one with the same name. The two active "Casa" below
 // reproduce #170: a name that matches several active categories is ambiguous.
 const MOCK_CATEGORIES: CategoriesResponse = {

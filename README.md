@@ -168,7 +168,7 @@ mdcli auth logout --all
 
 `--account`, `--category` e `--tag` aceitam três formas, tentadas nesta ordem:
 
-1. **ID numérico** — ex.: `--account 1167419`. O mais rápido, sem precisar de rede.
+1. **ID numérico** — ex.: `--account 201`. O mais rápido, sem precisar de rede.
 2. **Alias** — um nome curto que você associou a um ID com `mdcli accounts alias add`. Fica salvo localmente em `~/.config/mdcli/mdcli.config.json`.
 3. **Nome exato** — o nome real da entidade, como mostrado por `mdcli accounts list`, comparado sem diferenciar maiúsculas de minúsculas. Os nomes são buscados em um cache em disco de 30 dias, invalidado automaticamente quando uma requisição que usou um ID do cache retorna um status fora da faixa 2xx.
 
@@ -201,7 +201,7 @@ mdcli accounts list --json
 mdcli accounts types
 
 # Cria uma conta (--type aceita o ID ou o nome mostrado em "accounts types")
-mdcli accounts create --name "Nubank" --type "Conta Corrente" --bank nubank --balance 0
+mdcli accounts create --name "Conta Teste" --type "Conta Corrente" --bank teste --balance 0
 
 # Campos do formulário "Nova conta" da web: data do saldo inicial (padrão:
 # ontem, como na web), Credor/Devedor (--balance negativo também é devedor) e
@@ -213,36 +213,36 @@ mdcli accounts create --name "Empréstimo" --type "Conta Corrente" --balance 500
 mdcli accounts create --name "Conta em outra moeda" --type "Conta Corrente" --currency <id>
 
 # Atualiza uma conta (só os campos informados são alterados)
-mdcli accounts update 1167419 --name "Nubank PF"
+mdcli accounts update 201 --name "Conta Teste PF"
 
 # --balance mantém o sinal atual (como o Credor/Devedor da web), salvo um valor
 # negativo, que é devedor; --debtor ou --creditor sozinhos só trocam o sinal do
 # saldo inicial
-mdcli accounts update 1167419 --balance 82.09 --balance-date 2026-01-01
-mdcli accounts update 1167419 --debtor
+mdcli accounts update 201 --balance 123.45 --balance-date 2026-01-01
+mdcli accounts update 201 --debtor
 
 # Tira do patrimônio ou volta a incluir
-mdcli accounts update 1167419 --hide-net-worth
-mdcli accounts update 1167419 --show-net-worth
+mdcli accounts update 201 --hide-net-worth
+mdcli accounts update 201 --show-net-worth
 
 # Arquiva (desativa) ou reativa uma conta; --close também encerra a conta
-mdcli accounts update 1167419 --inactive
-mdcli accounts update 1167419 --inactive --close
-mdcli accounts update 1167419 --active
+mdcli accounts update 201 --inactive
+mdcli accounts update 201 --inactive --close
+mdcli accounts update 201 --active
 
 # Exclui uma conta (pede confirmação)
-mdcli accounts delete 1167419
+mdcli accounts delete 201
 
 # --dangerously-skip-confirmation pula a confirmação (para scripts); vale para todo delete
-mdcli accounts delete 1167419 --dangerously-skip-confirmation
+mdcli accounts delete 201 --dangerously-skip-confirmation
 
 # Cria um alias para acesso rápido
-mdcli accounts alias add --id 1167419 --name mp
+mdcli accounts alias add --id 201 --name principal
 
 # Lista, troca ou remove aliases (salvos só neste computador)
 mdcli accounts alias list
-mdcli accounts alias update --id 1167419 --name mercadopago
-mdcli accounts alias rm --name mercadopago
+mdcli accounts alias update --id 201 --name carteira
+mdcli accounts alias rm --name carteira
 
 # Categorias e tags têm os mesmos comandos de alias
 mdcli categories alias add --id 12345 --name food
@@ -255,20 +255,20 @@ mdcli tags alias update --id 678 --name trip
 mdcli tags alias rm --name trip
 
 # Lista lançamentos usando o alias
-mdcli entries list --account mp --from 2024-01-01 --to 2024-01-31
+mdcli entries list --account principal --from 2024-01-01 --to 2024-01-31
 
 # Lista lançamentos usando o nome exato da conta (sem diferenciar maiúsculas de minúsculas)
-mdcli entries list --account "Nubank - Conta Corrente" --from 2024-01-01 --to 2024-01-31
+mdcli entries list --account "Conta Teste - Conta Corrente" --from 2024-01-01 --to 2024-01-31
 
 # O Meu Dinheiro carrega lançamentos até 2031-12-31; um --to posterior é recusado
 # antes de qualquer requisição. Erros vão para o stderr com código de saída 1; com
 # --json eles também são JSON ({"error": "..."}), então o stdout só contém o resultado.
-mdcli entries list --account mp --from 2026-11-01 --to 2031-12-31 --json
+mdcli entries list --account principal --from 2026-11-01 --to 2031-12-31 --json
 
 # Exporta lançamentos para CSV (todas as páginas, com nomes de conta, categoria,
 # conta da transferência e tags, datas efetiva/de competência, repetição,
 # observações e número do documento; date é a data prevista, a que --from/--to filtram)
-mdcli entries list --account mp --from 2026-01-01 --to 2026-03-31 --csv > entries.csv
+mdcli entries list --account principal --from 2026-01-01 --to 2026-03-31 --csv > entries.csv
 
 # As compras de um cartão de crédito, lidas das faturas que vencem no período (a
 # listagem do extrato deixa as compras no cartão de fora); datadas pelo vencimento
@@ -277,67 +277,67 @@ mdcli entries list --account <cardId> --from 2026-10-01 --to 2026-12-31 --json
 
 # Conta corrente sem a projeção da fatura do cartão (tipo invoice, sem ID) que a
 # API adiciona para cada cartão pago por ela; também no summary
-mdcli entries list --account mp --from 2026-11-01 --to 2026-11-30 --no-invoices
+mdcli entries list --account principal --from 2026-11-01 --to 2026-11-30 --no-invoices
 
 # Só parcelados e séries fixas (o filtro Repetição do app web);
 # também no summary. Valores: single, installment, fixed
-mdcli entries list --account mp --repetition installment,fixed
+mdcli entries list --account principal --repetition installment,fixed
 
 # Filtra por status (pending, confirmed, reconciled, scheduled) ou busca por palavras-chave;
 # também no summary
-mdcli entries list --account mp --status pending
-mdcli entries list --account mp --keywords "mercado"
+mdcli entries list --account principal --status pending
+mdcli entries list --account principal --keywords "mercado"
 
 # Todos os campos de um lançamento; --json é o formato da listagem, --raw a resposta da API
 mdcli entries show 12345
 mdcli entries show 12345 --raw
 
 # Receitas x despesas por categoria no mês atual (transferências ficam de fora)
-mdcli entries summary --account mp,nubank
+mdcli entries summary --account principal,conta
 
 # Mês a mês em um trimestre, ou por conta; --json/--csv também funcionam aqui
-mdcli entries summary --account mp --from 2026-01-01 --to 2026-03-31 --by month
-mdcli entries summary --account mp,nubank --by account --include-transfers
+mdcli entries summary --account principal --from 2026-01-01 --to 2026-03-31 --by month
+mdcli entries summary --account principal,conta --by account --include-transfers
 
 # Deixa categorias (e suas subcategorias) de fora, ex.: uma fatura de cartão paga
 # pela conta corrente, que contaria em dobro as compras já lançadas no cartão
-mdcli entries summary --account mp,nubank --exclude-category "Pagamento de cartão"
+mdcli entries summary --account principal,conta --exclude-category "Pagamento de cartão"
 
 # Cria um lançamento. O tipo (-T, despesa por padrão) e a categoria têm de
 # combinar: a web só lista categorias do tipo do lançamento, então uma
 # categoria de outro tipo é recusada antes de chamar a API
-mdcli entries create --account mp --description "Groceries" --value 150 --category food
+mdcli entries create --account principal --description "Groceries" --value 150 --category food
 
 # Tags e observações (--tags aceita IDs, aliases ou nomes)
-mdcli entries create --account mp --description "Groceries" --value 150 --category food --tags food --notes "Compra do mês"
+mdcli entries create --account principal --description "Groceries" --value 150 --category food --tags food --notes "Compra do mês"
 
 # Uma compra no cartão vai para a fatura aberta (ou --invoice YYYY-MM); o ID
 # impresso é o do lançamento na fatura, que serve para update/show/delete
 mdcli entries create --account <cardId> --description "Voo" --value 900 --category travel
 
 # Cria um lançamento usando o nome da conta em vez de um alias
-mdcli entries create --account "Mercado Pago" --description "Groceries" --value 150 --category food
+mdcli entries create --account "Conta Teste" --description "Groceries" --value 150 --category food
 
 # Transferência entre duas contas (--account é a origem); a categoria padrão é
 # a categoria de transferência do sistema, como no app web. Transferências de ou
 # para um cartão de crédito, ou entre moedas, ainda não são suportadas.
-mdcli entries create --account mp --type transfer --to-account nubank --description "Reserva" --value 500
+mdcli entries create --account principal --type transfer --to-account conta --description "Reserva" --value 500
 
 # Parcelado: 1200 dividido em 10 parcelas mensais; a primeira absorve o centavo
 # do arredondamento. --per-installment faz de --value o valor de cada parcela,
 # --repeat/--frequency definem o intervalo, --first-installment o número inicial.
-mdcli entries create --account mp --description "Notebook" --value 1200 --category tech --installments 10
+mdcli entries create --account principal --description "Notebook" --value 1200 --category tech --installments 10
 
 # Série fixa a cada 2 meses, 6 vezes (--frequency e --times podem ser combinados)
-mdcli entries create --account mp --description "Academia" --value 90 --category gym --repeat monthly --frequency 2 --times 6
+mdcli entries create --account principal --description "Academia" --value 90 --category gym --repeat monthly --frequency 2 --times 6
 
 # Pendente (Confirmado desligado, ainda sem data efetiva). A API o mostra como
 # pendente até hoje e como agendado para uma data futura.
-mdcli entries create --account mp --description "IPVA" --value 800 --category car --date 2027-01-20 --pending
+mdcli entries create --account principal --description "IPVA" --value 800 --category car --date 2027-01-20 --pending
 
 # Confirmado, mas não conciliado (sem flag de status, o create concilia).
 # Compras no cartão de crédito sempre ficam não conciliadas na fatura.
-mdcli entries create --account mp --description "Feira" --value 30 --category food --confirmed
+mdcli entries create --account principal --description "Feira" --value 30 --category food --confirmed
 
 # Atualiza um lançamento (só os campos informados são alterados). -T define o
 # tipo, e com ele o sinal do valor (receita positiva, despesa negativa) e o
@@ -366,7 +366,7 @@ mdcli entries update 12345 --date 2027-01-25 --scope following
 # Muda a conta (ID, alias ou nome, como no create); numa série, junto com --scope.
 # Passar a conta atual não é erro: o lançamento é salvo como está, como na web.
 # Conta inativa é recusada (a web não a oferece).
-mdcli entries update 12345 --account nubank --scope following
+mdcli entries update 12345 --account conta --scope following
 # Para um cartão de crédito, como na web: a compra vai para a fatura da data do
 # lançamento (ou de --date) contada a partir do próximo vencimento do cartão
 # (uma data anterior cai na próxima fatura), sem data efetiva, no plástico do
@@ -393,23 +393,23 @@ mdcli entries delete 12345 --scope following
 # conexão informa como novo; sem isso, o extrato desde a data do último extrato
 # da conta (no máximo 90 dias atrás). O prefixo identifica cada transação nos
 # comandos seguintes, como o de um commit no git
-mdcli entries import list --account mp
-mdcli entries import list --account mp --since 2026-10-01 --json
+mdcli entries import list --account principal
+mdcli entries import list --account principal --since 2026-10-01 --json
 
 # Amplia a busca de lançamentos para conciliar (o "Alterar busca" da web; o
 # padrão é o período do extrato ±2 dias). Num cartão, os candidatos são a fatura
 # inteira do próximo vencimento; um cartão sem próximo vencimento não importa
-mdcli entries import list --account mp --search-from 2026-10-01 --search-to 2026-10-20
+mdcli entries import list --account principal --search-from 2026-10-01 --search-to 2026-10-20
 
 # Importa transações escolhidas pelo prefixo, todas na mesma categoria;
 # --reject marca outras como não importadas. Pede confirmação (y/N), e
 # --dry-run mostra o que seria feito sem gravar nada
-mdcli entries import run --account mp --ids 1a2b3c4d,5e6f7a8b --category food --dry-run
-mdcli entries import run --account mp --ids 1a2b3c4d --category food --reject 9c0d1e2f --yes
+mdcli entries import run --account principal --ids 1a2b3c4d,5e6f7a8b --category food --dry-run
+mdcli entries import run --account principal --ids 1a2b3c4d --category food --reject 9c0d1e2f --yes
 
 # --include-duplicates importa também as transações que o servidor marcou como duplicadas;
 # --search-from/--search-to ampliam a busca de conciliação, como no list
-mdcli entries import run --account mp --ids 1a2b3c4d --category food --include-duplicates --search-from 2026-10-01 --search-to 2026-10-20 --yes
+mdcli entries import run --account principal --ids 1a2b3c4d --category food --include-duplicates --search-from 2026-10-01 --search-to 2026-10-20 --yes
 
 # A conciliação segue a preferência salva no app web. --overwrite liga a
 # sobrescrita só nesta execução (atualiza contato, categoria, centro de custo,
@@ -417,11 +417,11 @@ mdcli entries import run --account mp --ids 1a2b3c4d --category food --include-d
 # conciliados) e --no-overwrite desliga; --fill-description preenche a
 # descrição vazia dos vinculados e --no-fill-description desliga. Nada é
 # gravado de volta na preferência
-mdcli entries import run --account mp --ids 1a2b3c4d --category food --overwrite --fill-description --yes
+mdcli entries import run --account principal --ids 1a2b3c4d --category food --overwrite --fill-description --yes
 
 # Uma ação por transação (import, conciliate, skip, reject) num arquivo JSON:
 # {"transactions": [{"id": "1a2b3c4d", "action": "conciliate", "entry": 12345}]}
-mdcli entries import run --account mp --plan plan.json --yes
+mdcli entries import run --account principal --plan plan.json --yes
 # A saída de "entries import list --json" já é um plano válido: edite action,
 # category, value, description ou entry e passe o arquivo para --plan.
 # O plano leva o --since da listagem: o run carrega o mesmo extrato. Um --since
@@ -433,14 +433,14 @@ mdcli entries import run --account mp --plan plan.json --yes
 # Ou no $EDITOR, no estilo do git rebase -i: uma linha por transação
 # (<comando> <prefixo> <data> <valor> <categoria> | <descrição>). Um erro reabre
 # o editor com a mensagem; apagar todas as linhas cancela
-mdcli entries import run --account mp --edit
+mdcli entries import run --account principal --edit
 
 # Lista as conexões bancárias e as contas ligadas a cada uma
 mdcli sync list
 
 # Pede a atualização (sync) da conexão de uma conta, ou de todas. Cada conector
 # aceita no máximo 3 por dia, por isso pede confirmação
-mdcli sync run mp
+mdcli sync run principal
 mdcli sync run all --yes
 
 # Lista os cartões de crédito (o --json tem limit, dueDay, nextDueDate, nextClosingDate,
@@ -456,7 +456,7 @@ mdcli cards list --active
 mdcli cards invoice --account <cardId> --month 2026-02
 
 # Mostra uma fatura do cartão de crédito usando o nome exato do cartão
-mdcli cards invoice --account "Itaú Personalité" --month 2026-02
+mdcli cards invoice --account "Cartão Teste" --month 2026-02
 
 # No --json (um array de itens), date é o vencimento da fatura, a mesma data que
 # entries list --json mostra para o item; purchaseDate é quando foi comprado,
