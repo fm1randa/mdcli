@@ -23,6 +23,14 @@ interface Connection {
 
 export type ConnectionsResponse = Connection[];
 
+/** The answer to PUT /v1/integracao/connection/update/:id. */
+export interface SyncRequestResponse {
+  id?: number;
+  status?: string;
+  /** Seconds the web waits before checking the connection again (5 when absent). */
+  statusCheckWindow?: number;
+}
+
 /** One row of GET /v1/integracao/account/:connectionAccount/transactions. */
 interface BankTransaction {
   integrationId?: string;

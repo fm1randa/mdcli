@@ -242,6 +242,31 @@ sync_list() {
 }
 step "cli accounts list (mock)"        expect_ok 'Conta Teste' accounts list
 step "cli sync list (mock)"            sync_list
+# The mock turns the connection UPDATING after the PUT and UPDATED on the next
+# status check. The CLI waits (statusCheckWindow) and prints the final status;
+# a second PUT would spend the daily limit, so the run must keep it at one.
+sync_run() {
+  local log="$MDCLI_MOCK_LOG"
+  local before=0
+  [ -f "$log" ] && before=$(wc -l <"$log")
+  local out
+  out=$("${CLI[@]}" sync run 201 --yes </dev/null 2>&1) || { echo "output: $out"; return 1; }
+  grep -Eq 'Sync finished: connection 501 UPDATED\.' <<<"$out" \
+    || { echo "expected the final status in: $out"; return 1; }
+  grep -Eq 'Still UPDATING after' <<<"$out" \
+    || { echo "expected the wait progress in: $out"; return 1; }
+  grep -Eq 'no final status' <<<"$out" && { echo "unexpected timeout in: $out"; return 1; }
+  local fresh
+  fresh=$(tail -n +"$((before + 1))" "$log")
+  [ "$(grep -Fc '"method":"PUT","path":"/api/v1/integracao/connection/update/501"' <<<"$fresh")" = 1 ] \
+    || { echo "expected exactly one Sync PUT: $fresh"; return 1; }
+  [ "$(grep -Fc '"method":"GET","path":"/api/v1/integracao/connections"' <<<"$fresh")" -ge 3 ] \
+    || { echo "expected the status checks after the PUT: $fresh"; return 1; }
+  local writes
+  writes=$(grep -Ev '"method":"GET"' <<<"$fresh" | grep -Fxv '{"method":"PUT","path":"/api/v1/integracao/connection/update/501"}')
+  [ -z "$writes" ] || { echo "sync run made another write: $writes"; return 1; }
+}
+step "cli sync run (mock)"             sync_run
 # The import steps only read. The one POST allowed is the AI category
 # suggestion (smartmatch/ai); a commit POST, a Sync PUT, or any other write
 # fails the step. The commit bodies are asserted by the test suite.

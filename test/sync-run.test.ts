@@ -19,7 +19,7 @@ describe('sync run', () => {
   test('requests a Sync for the account connection and prints that connection from the GET after the PUT', async () => {
     connections(ONE_CONNECTION, AFTER_SYNC);
 
-    const result = await runCli(['sync', 'run', '201', '--yes', '--json'], { home, api });
+    const result = await runCli(['sync', 'run', '201', '--yes', '--json', '--timeout', '0'], { home, api });
 
     expect(result.exitCode).toBe(0);
     expect(result.stdout.startsWith('{')).toBe(true);
@@ -27,6 +27,7 @@ describe('sync run', () => {
     expect(result.stderr).toContain('Connection 501 is UPDATING. Run sync list again to see the result.');
     expect(JSON.parse(result.stdout)).toEqual({
       requested: true,
+      timedOut: false,
       connections: [
         {
           id: 501,
@@ -60,7 +61,7 @@ describe('sync run', () => {
   test('asks before the PUT, naming the connection and the daily limit, and y sends it', async () => {
     connections(ONE_CONNECTION, AFTER_SYNC);
 
-    const result = await runCli(['sync', 'run', '201'], { home, api, stdin: 'y\n' });
+    const result = await runCli(['sync', 'run', '201', '--timeout', '0'], { home, api, stdin: 'y\n' });
 
     expect(result.exitCode).toBe(0);
     expect(result.stderr).toBe('');
@@ -171,7 +172,7 @@ describe('sync run', () => {
     try {
       connections(ONE_CONNECTION, AFTER_SYNC);
 
-      const alias = await runCli(['sync', 'run', 'cartao', '--yes', '--json'], { home: aliased, api });
+      const alias = await runCli(['sync', 'run', 'cartao', '--yes', '--json', '--timeout', '0'], { home: aliased, api });
       expect(alias.exitCode).toBe(0);
       expect(alias.stderr).toContain('Connection 501 is UPDATING. Run sync list again to see the result.');
       expect(alias.stdout).not.toContain('Run sync list again');
@@ -180,7 +181,7 @@ describe('sync run', () => {
       expect(JSON.parse(alias.stdout).connections[0].id).toBe(501);
 
       api.requests.length = 0;
-      const named = await runCli(['sync', 'run', 'Conta Teste', '--yes', '--json'], { home, api });
+      const named = await runCli(['sync', 'run', 'Conta Teste', '--yes', '--json', '--timeout', '0'], { home, api });
       expect(named.exitCode).toBe(0);
       expect(api.requests[0]?.path).toBe('/v1/cadastros/contas');
       expect(mutations(api).map((r) => r.path)).toEqual(['/v1/integracao/connection/update/501']);
@@ -202,10 +203,10 @@ describe('sync run', () => {
     expect(api.requests.map((r) => `${r.method} ${r.path}`)).toEqual(['GET /v1/cadastros/contas']);
   });
 
-  test('UPDATING exits 0, does not poll, and says to run sync list again', async () => {
+  test('--timeout 0 exits 0 without polling and says to run sync list again', async () => {
     connections(ONE_CONNECTION, AFTER_SYNC);
 
-    const text = await runCli(['sync', 'run', '201', '--yes'], { home, api });
+    const text = await runCli(['sync', 'run', '201', '--yes', '--timeout', '0'], { home, api });
 
     expect(text.exitCode).toBe(0);
     expect(text.stderr).toBe('');
@@ -214,13 +215,87 @@ describe('sync run', () => {
 
     api.requests.length = 0;
     connections(ONE_CONNECTION, AFTER_SYNC);
-    const json = await runCli(['sync', 'run', '201', '--yes', '--json'], { home, api });
+    const json = await runCli(['sync', 'run', '201', '--yes', '--json', '--timeout', '0'], { home, api });
     expect(json.exitCode).toBe(0);
     expect(json.stdout.startsWith('{')).toBe(true);
     expect(json.stdout).not.toContain('Run sync list again');
     expect(json.stderr).toContain('Connection 501 is UPDATING. Run sync list again to see the result.');
-    expect(JSON.parse(json.stdout).connections[0].status).toBe('UPDATING');
+    expect(JSON.parse(json.stdout)).toEqual({
+      requested: true,
+      timedOut: false,
+      connections: [
+        {
+          id: 501,
+          status: 'UPDATING',
+          accounts: [
+            { connectionAccount: 301, accountId: 201, accountName: 'Conta Teste', type: 'CONTA CORRENTE' },
+            { connectionAccount: 302, accountId: 202, accountName: 'Cartão Teste', type: 'CARTAOCREDITO' },
+            { connectionAccount: 303, accountId: 4242, accountName: null, type: null },
+            { connectionAccount: 9004, accountId: null, accountName: null, type: null },
+          ],
+        },
+      ],
+    });
     expect(api.requests.filter((r) => r.path === '/v1/integracao/connections')).toHaveLength(2);
+  });
+
+  test('waits with progress until the connection reaches a final status', async () => {
+    connections(ONE_CONNECTION, AFTER_SYNC, AFTER_SYNC, ONE_CONNECTION);
+
+    const result = await runCli(['sync', 'run', '201', '--yes', '--json'], { home, api });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toContain('Waiting up to 120s for connection 501 to finish the Sync...');
+    expect(result.stderr).toContain('Still UPDATING after 1s: connection 501.');
+    expect(result.stderr).toContain('Sync finished: connection 501 UPDATED.');
+    expect(result.stderr).not.toContain('no final status');
+    expect(JSON.parse(result.stdout)).toEqual({
+      requested: true,
+      timedOut: false,
+      connections: [
+        {
+          id: 501,
+          status: 'UPDATED',
+          accounts: [
+            { connectionAccount: 301, accountId: 201, accountName: 'Conta Teste', type: 'CONTA CORRENTE' },
+            { connectionAccount: 302, accountId: 202, accountName: 'Cartão Teste', type: 'CARTAOCREDITO' },
+            { connectionAccount: 303, accountId: 4242, accountName: null, type: null },
+            { connectionAccount: 9004, accountId: null, accountName: null, type: null },
+          ],
+        },
+      ],
+    });
+    expect(api.requests.filter((r) => r.path === '/v1/integracao/connections')).toHaveLength(4);
+    expect(mutations(api)).toHaveLength(1);
+  });
+
+  test('times out with exit 1 when the connection stays UPDATING', async () => {
+    connections(ONE_CONNECTION, AFTER_SYNC);
+
+    const result = await runCli(['sync', 'run', '201', '--yes', '--json', '--timeout', '1'], { home, api });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('Waiting up to 1s for connection 501 to finish the Sync...');
+    expect(result.stderr).toContain('Connection 501 is still UPDATING after 1s; no final status. Run sync list again to see the result.');
+    expect(result.stderr).not.toContain('Sync finished');
+    const doc = JSON.parse(result.stdout) as { timedOut: boolean; connections: { status: string }[] };
+    expect(doc.timedOut).toBe(true);
+    expect(doc.connections[0]?.status).toBe('UPDATING');
+    expect(api.requests.filter((r) => r.path === '/v1/integracao/connections').length).toBeGreaterThan(2);
+    expect(mutations(api)).toHaveLength(1);
+  });
+
+  test('rejects an invalid --timeout before any request', async () => {
+    connections(ONE_CONNECTION, AFTER_SYNC);
+
+    for (const timeout of ['-1', 'abc', '1.5']) {
+      const result = await runCli(['sync', 'run', '201', '--yes', '--timeout', timeout], { home, api });
+      expect(result.exitCode).toBe(1);
+      expect(result.stdout).toBe('');
+      expect(result.stderr).toContain(`Invalid timeout "${timeout}"`);
+    }
+    expect(api.requests).toHaveLength(0);
+    expect(mutations(api)).toHaveLength(0);
   });
 
   test('a failed PUT reports the API message and does not read status again', async () => {
