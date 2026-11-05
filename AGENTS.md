@@ -49,6 +49,7 @@ Each rule below names the check that fails when it breaks. A rule marked *text o
 | A low-entropy numeric term is stored only as a keyed hash | `private terms` and `private-terms corpus` steps: a numeric removed value is covered only by `KEYED_TERM_HASHES` (or an excuse), never by an unsalted hash; the keyed canary and the #177 replay prove detection with the key | `scripts/private-terms.ts`, `scripts/private-terms-hashes.ts`, `scripts/private-terms-corpus.ts`, `test/private-terms.test.ts`, `test/private-terms-corpus.test.ts`, `scripts/verify.sh` |
 | Security surfaces (the private-data guard, its test, the message guard, its test, `scripts/verify.sh`, `eslint-rules/`) enter the risky set | `security surfaces` tests | `test/risk.test.ts`, `test/risk-label.test.ts` |
 | The CLI follows the web app, and a conflict with Filipe's decision is reported (items 9 and 10) | `prova` (`scripts/prova.ts`) requires, for a PR that changes `src/`, a `Web:` line with the bundle snippet or `sem equivalente na web`; a conflict with Filipe's decision stays *text only* (review) | `scripts/prova.ts`, `.github/workflows/prova.yml` |
+| An implementation PR is opened and pushed on top of the current `main` (item 14) | *text only*: `git log HEAD..origin/main` is empty before `gh pr create` and before each push | review |
 | A new or changed gate is replayed over the recent merges before merge | *text only*: the PR Prova carries the output of `bun scripts/replay-gates.ts --gate <name>` | `scripts/replay-gates.ts` |
 
 ## Merge by proof
@@ -140,7 +141,7 @@ An agent session prompt is a short intention followed by the skill call at the e
 
 ## Pull requests (implementation flow)
 
-14. Open the PR with `gh pr create -R fm1randa/mdcli --base main`. The body is in Brazilian Portuguese with `Closes #n` for each issue, the root cause, what changed, and how it was verified (reproduction before and after). Then wait for CI (`gh pr checks <n> -R fm1randa/mdcli --watch`) with a tool timeout of at least 20 minutes, and fix if `verify` fails.
+14. Before opening the PR and before every later push, run `git fetch origin && git log --oneline HEAD..origin/main`. When it is not empty, merge `origin/main` into the branch, resolve any conflict, run `scripts/verify.sh` again as in item 3, and push only after it passes, so the PR never starts behind the trunk it will land on (issue #249). Open the PR with `gh pr create -R fm1randa/mdcli --base main`. The body is in Brazilian Portuguese with `Closes #n` for each issue, the root cause, what changed, and how it was verified (reproduction before and after). Then wait for CI (`gh pr checks <n> -R fm1randa/mdcli --watch`) with a tool timeout of at least 20 minutes, and fix if `verify` fails.
 15. The implementation session does not run review rounds: review rounds come in separate sessions.
 16. The session's final message carries the PR URL, the pushed SHA, and the `verify.sh` result, with the last line exactly:
 
