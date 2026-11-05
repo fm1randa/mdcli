@@ -15,7 +15,16 @@ const LAUNCH_ARGS = [
   '--disable-features=TranslateUI',
 ] as const;
 
+// The flags alone did not stop it: 5 of 60 CI runs still timed out in the
+// launch (#248), and in each one the other browser file also took 6-10 s for
+// a single page flow. Chrome was starving next to the `bun test --parallel`
+// workers, so `bun run test` runs test/browser-*.test.ts in a serial phase
+// after the pool. A launch inside a pool worker fails here instead of
+// flaking in CI.
 export async function launchTestBrowser(): Promise<Browser> {
+  if (process.env.BUN_TEST_WORKER_ID !== undefined) {
+    throw new Error('Chrome launched inside a --parallel worker: name the file test/browser-*.test.ts so `bun run test` runs it serially.');
+  }
   return chromium.launch({ channel: 'chrome', headless: true, timeout: 15000, args: [...LAUNCH_ARGS] });
 }
 
