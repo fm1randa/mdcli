@@ -1,7 +1,8 @@
-import { cpSync, existsSync, mkdtempSync, rmSync, symlinkSync } from 'node:fs';
+import { appendFileSync, cpSync, existsSync, mkdtempSync, rmSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { parseInteger } from '../src/utils/parse.js';
+import { decideGate, exemptionSummary, invalidExemptionSummary } from './fails-on-main-exemption.js';
 
 // Issue #186: a test that passes with the fix reverted proves nothing (#155
 // admitted exactly that). This runs every new or changed test file against the
@@ -113,6 +114,16 @@ function git(args: string[], cwd: string): string {
   return result.stdout.toString();
 }
 
+function writeSummary(markdown: string): void {
+  const path = process.env.GITHUB_STEP_SUMMARY;
+  if (!path) return;
+  try {
+    appendFileSync(path, `${markdown}\n\n`);
+  } catch (error) {
+    console.error(`fails-on-main: could not write the step summary: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
 function repoRoot(): string {
   return git(['rev-parse', '--show-toplevel'], process.cwd()).trim();
 }
@@ -166,9 +177,29 @@ function main(): void {
       ['diff', '-U0', '--no-renames', `${options.base}...HEAD`, '--', 'src', 'bin'],
       root
     );
-    if (options.files === undefined && !changesProduct(diff, productDiff)) {
-      console.log('fails-on-main: not required (no src/ or bin/ code change)');
-      return;
+    // A `--files` run is the manual proof from the PR: it always runs, so an
+    // exemption never hides a proof the author asked for.
+    if (options.files === undefined) {
+      const decision = decideGate(
+        changesProduct(diff, productDiff),
+        process.env.PR_TITLE ?? '',
+        process.env.PR_BODY ?? ''
+      );
+      if (decision.kind === 'not-required') {
+        console.log('fails-on-main: not required (no src/ or bin/ code change)');
+        return;
+      }
+      if (decision.kind === 'exempt') {
+        console.log(`fails-on-main: exempt (${decision.source}): ${decision.reason}`);
+        writeSummary(exemptionSummary(decision.source, decision.reason));
+        return;
+      }
+      if (decision.kind === 'invalid-exemption') {
+        console.error(`fails-on-main: ${decision.reason}`);
+        writeSummary(invalidExemptionSummary(decision.reason));
+        process.exitCode = 1;
+        return;
+      }
     }
     const files = options.files ?? changedTestFiles(diff);
 
