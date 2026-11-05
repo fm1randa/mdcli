@@ -25,7 +25,7 @@ describe('sync run all', () => {
       api.on('GET /v1/cadastros/contas', ACCOUNTS_WITH_ALL);
       connections(MANY_CONNECTIONS, MANY_AFTER);
 
-      const result = await runCli(['sync', 'run', 'all', '--yes', '--json'], { home: aliased, api });
+      const result = await runCli(['sync', 'run', 'all', '--yes', '--json', '--timeout', '0'], { home: aliased, api });
 
       expect(result.exitCode).toBe(0);
       expect(result.stdout.startsWith('{')).toBe(true);
@@ -33,6 +33,7 @@ describe('sync run all', () => {
       expect(result.stderr).toContain('Connections 501, 502 are UPDATING. Run sync list again to see the result.');
       expect(JSON.parse(result.stdout)).toEqual({
         requested: true,
+        timedOut: false,
         connections: [
           {
             id: 501,
@@ -78,13 +79,14 @@ describe('sync run all', () => {
     api.on('GET /v1/cadastros/contas', ACCOUNTS_WITH_ALL);
     connections(MANY_CONNECTIONS, MANY_AFTER);
 
-    const byId = await runCli(['sync', 'run', '213', '--yes', '--json'], { home, api });
+    const byId = await runCli(['sync', 'run', '213', '--yes', '--json', '--timeout', '0'], { home, api });
 
     expect(byId.exitCode).toBe(0);
     expect(byId.stderr).toContain('Connection 502 is UPDATING. Run sync list again to see the result.');
     expect(byId.stdout).not.toContain('Run sync list again');
     expect(JSON.parse(byId.stdout)).toEqual({
       requested: true,
+      timedOut: false,
       connections: [
         {
           id: 502,
@@ -103,7 +105,7 @@ describe('sync run all', () => {
     ]);
 
     api.requests.length = 0;
-    const byName = await runCli(['sync', 'run', 'ALL', '--yes', '--json'], { home, api });
+    const byName = await runCli(['sync', 'run', 'ALL', '--yes', '--json', '--timeout', '0'], { home, api });
     expect(byName.exitCode).toBe(0);
     expect(api.requests[0]?.path).toBe('/v1/cadastros/contas');
     expect(mutations(api).map((r) => r.path)).toEqual(['/v1/integracao/connection/update/502']);
@@ -166,7 +168,7 @@ describe('sync run all', () => {
     const bare = [{ id: 503, status: 'UPDATED', accounts: [] }];
     connections(bare, [{ ...bare[0], status: 'UPDATING' }]);
 
-    const result = await runCli(['sync', 'run', 'all', '--yes'], { home, api });
+    const result = await runCli(['sync', 'run', 'all', '--yes', '--timeout', '0'], { home, api });
 
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain('Connections (1)');
@@ -191,7 +193,7 @@ describe('sync run all', () => {
     const json = await runCli(['sync', 'run', 'all', '--yes', '--json'], { home, api });
     expect(json.exitCode).toBe(0);
     expect(json.stderr).toBe('');
-    expect(JSON.parse(json.stdout)).toEqual({ requested: true, connections: [] });
+    expect(JSON.parse(json.stdout)).toEqual({ requested: true, timedOut: false, connections: [] });
     expect(mutations(api)).toHaveLength(0);
   });
 

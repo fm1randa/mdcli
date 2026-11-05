@@ -80,26 +80,27 @@ export const ACCOUNTS_WITH_ALL = {
 export interface SyncRun {
   api: MockApi;
   home: TestHome;
-  /** First read, then the read that follows the PUT. Further reads keep the latter. */
-  connections: (before: unknown, after: unknown) => void;
+  /** First read, then the reads that follow the PUT in order; the last one repeats. */
+  connections: (before: unknown, ...after: unknown[]) => void;
 }
 
 export function openSyncRun(): SyncRun {
   const api = startMockApi();
   const home = createHome(MANUAL_AUTH);
   api.on('GET /v1/cadastros/contas', ACCOUNTS_RESPONSE);
-  api.on('PUT /v1/integracao/connection/update/501', {});
-  api.on('PUT /v1/integracao/connection/update/502', {});
-  api.on('PUT /v1/integracao/connection/update/503', {});
+  api.on('PUT /v1/integracao/connection/update/501', { statusCheckWindow: 0.02 });
+  api.on('PUT /v1/integracao/connection/update/502', { statusCheckWindow: 0.02 });
+  api.on('PUT /v1/integracao/connection/update/503', { statusCheckWindow: 0.02 });
 
   return {
     api,
     home,
-    connections(before, after) {
+    connections(before, ...after) {
       let reads = 0;
       api.on('GET /v1/integracao/connections', () => {
         reads += 1;
-        return reads === 1 ? before : after;
+        if (reads === 1) return before;
+        return after[Math.min(reads - 2, after.length - 1)];
       });
     },
   };
