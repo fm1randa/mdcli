@@ -38,6 +38,8 @@ interface SecuritySurface {
 const SECURITY_SURFACES: readonly SecuritySurface[] = [
   { path: /^scripts\/private-terms\.ts$/, detail: 'private-data guard changed' },
   { path: /^test\/private-terms\.test\.ts$/, detail: 'private-data guard test changed' },
+  { path: /^scripts\/check-private-messages\.ts$/, detail: 'private-data message guard changed' },
+  { path: /^test\/check-private-messages\.test\.ts$/, detail: 'private-data message guard test changed' },
   { path: /^scripts\/verify\.sh$/, detail: 'verification script changed' },
   { path: /^eslint-rules\//, detail: 'local ESLint rule changed' },
 ];
