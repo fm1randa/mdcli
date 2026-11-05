@@ -1,6 +1,7 @@
 import { appendFileSync, cpSync, existsSync, mkdtempSync, rmSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { changesBehavior, parseDiff } from './behavior-change.js';
 import { parseInteger } from '../src/utils/parse.js';
 import { decideGate, exemptionSummary, invalidExemptionSummary } from './fails-on-main-exemption.js';
 
@@ -39,25 +40,10 @@ export function changedTestFiles(nameStatus: string): string[] {
 }
 
 const PRODUCT_PATH = /^(?:src|bin)(?:\/|$)/;
-// Only an unambiguous whole-line comment: `//` or a block comment that closes
-// on the same line. A trimmed `*` can continue an expression (`* 2;`) or be
-// template text, so it counts as code.
-const COMMENT_LINE = /^(?:\/\/|\/\*.*\*\/$)/;
 
-/** True when the diff changes product code (src/ or bin/), the only case the gate requires. */
-export function changesProduct(nameStatus: string, productDiff: string): boolean {
-  const touchesProduct = nameStatus.split('\n').some((line) => {
-    const fields = line.split('\t');
-    return PRODUCT_PATH.test(fields[fields.length - 1] ?? '');
-  });
-  if (!touchesProduct) return false;
-  return productDiff.split('\n').some((line) => {
-    // Headers carry no content; an empty line and a comment are not behavior.
-    if (!line.startsWith('+') && !line.startsWith('-')) return false;
-    if (line.startsWith('+++ ') || line.startsWith('--- ')) return false;
-    const content = line.slice(1).trim();
-    return content !== '' && !COMMENT_LINE.test(content);
-  });
+/** True when the product diff (src/ or bin/) changes behavior, the only case the gate requires. */
+export function changesProduct(productDiff: string): boolean {
+  return changesBehavior(parseDiff(productDiff), { includes: (path) => PRODUCT_PATH.test(path) });
 }
 
 const INFRASTRUCTURE_ERROR = /# Unhandled error between tests|^[ \t]+[1-9]\d* errors?[ \t]*$/m;
@@ -114,16 +100,6 @@ function git(args: string[], cwd: string): string {
   return result.stdout.toString();
 }
 
-function writeSummary(markdown: string): void {
-  const path = process.env.GITHUB_STEP_SUMMARY;
-  if (!path) return;
-  try {
-    appendFileSync(path, `${markdown}\n\n`);
-  } catch (error) {
-    console.error(`fails-on-main: could not write the step summary: ${error instanceof Error ? error.message : String(error)}`);
-  }
-}
-
 function repoRoot(): string {
   return git(['rev-parse', '--show-toplevel'], process.cwd()).trim();
 }
@@ -165,6 +141,16 @@ function runTests(root: string, base: string, files: string[], repeat: number): 
   }
 }
 
+function writeSummary(markdown: string): void {
+  const path = process.env.GITHUB_STEP_SUMMARY;
+  if (!path) return;
+  try {
+    appendFileSync(path, `${markdown}\n\n`);
+  } catch (error) {
+    console.error(`fails-on-main: could not write the step summary: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
 function main(): void {
   try {
     const options = parseOptions(process.argv.slice(2));
@@ -174,14 +160,14 @@ function main(): void {
     // behavior to prove, and a comment in src/ is not behavior either; the gate
     // only guards PRs that change product code.
     const productDiff = git(
-      ['diff', '-U0', '--no-renames', `${options.base}...HEAD`, '--', 'src', 'bin'],
+      ['diff', '--no-renames', '--no-color', `${options.base}...HEAD`, '--', 'src', 'bin'],
       root
     );
     // A `--files` run is the manual proof from the PR: it always runs, so an
     // exemption never hides a proof the author asked for.
     if (options.files === undefined) {
       const decision = decideGate(
-        changesProduct(diff, productDiff),
+        changesProduct(productDiff),
         process.env.PR_TITLE ?? '',
         process.env.PR_BODY ?? ''
       );

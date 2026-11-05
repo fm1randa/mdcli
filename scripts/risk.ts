@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { behaviorIndexes, fileChangesBehavior, parseDiff, type DiffFile } from './behavior-change.js';
 
 export type RiskTopic = 'auth' | 'write' | 'security';
 
@@ -11,18 +12,6 @@ export interface RiskReason {
 export interface RiskReport {
   risky: boolean;
   reasons: RiskReason[];
-}
-
-type LineKind = 'add' | 'remove' | 'context';
-
-interface DiffLine {
-  kind: LineKind;
-  text: string;
-}
-
-interface DiffFile {
-  path: string;
-  hunks: DiffLine[][];
 }
 
 const AUTH_PATH =
@@ -80,80 +69,8 @@ const WRITE_METHOD = /\bmethod\s*[:=]\s*['"](?:POST|PUT|DELETE)['"]/;
 const OUTPUT_ONLY =
   /\b(?:flushStdout|exitAfterFlush|process\.exit|console\.(?:log|error|warn|info|debug)|logger\.\w+|chalk\.\w+)\b/;
 
-const COMMENT = /^\s*(?:\/\/|\/\*|\*|\*\/)/;
-// A bare leading `*` or `#` is only a comment marker when followed by a space or the line end, so a shell case
-// pattern like `*)` or a JS private field like `#x` still counts as a behavior change.
-const SECURITY_NON_BEHAVIOR = /^\s*(?:$|\/\/|\/\*|\*(?:\s|\/|$)|#(?:\s|!|$))/;
-const TYPE_DECLARATION = /^\s*(?:export\s+)?(?:declare\s+)?(?:interface\s+\w|type\s+\w+\s*[=<]|import\s+type\b)/;
-const TYPE_OPEN = /^\s*(?:export\s+)?(?:declare\s+)?(?:interface|type)\s+\w+/;
-
-function stripTypeSyntax(line: string): string {
-  return line
-    .replace(/\bimport\s+type\b[^\n]*$/, '')
-    .replace(
-      /(?<![A-Za-z0-9_$\]>])\(([^()]*(?:\([^()]*\)[^()]*)*)\s+as\s+(?:unknown|any|[A-Z_$][\w$.]*)(?:\s*<[^>]*>)?\)/g,
-      '$1',
-    )
-    .replace(/\s+as\s+(?:unknown|any|[A-Z_$][\w$.]*)(?:\s*<[^>]*>)?/g, '')
-    .replace(/\)\s*:\s*[A-Z_$][\w$.]*(?:\s*<[^>]*>)?(?=\s*\{)/g, ')')
-    .replace(/\b(const|let|var)\s+([A-Za-z_$][\w$]*)\s*:\s*[A-Za-z_$][\w$.]*(?:\s*<[^>]*>)?(?=\s*=)/g, '$1 $2')
-    .replace(/\(([A-Za-z_$][\w$]*)\??\s*:\s*[A-Z_$][\w$.]*(?:\s*<[^>]*>)?(?=\))/g, '($1');
-}
-
-function typeOnlyForm(line: string): string {
-  return stripTypeSyntax(line)
-    .replace(/[\s;]/g, '')
-    .replace(/,+$/, '');
-}
-
-function braceDelta(text: string): number {
-  const opens = text.split('{').length - 1;
-  const closes = text.split('}').length - 1;
-  return opens - closes;
-}
-
-function diffsFrom(text: string): DiffFile[] {
-  const files: DiffFile[] = [];
-  let file: DiffFile | undefined;
-  let hunk: DiffLine[] | undefined;
-  for (const raw of text.split('\n')) {
-    const header = /^diff --git a\/(.+) b\/(.+)$/.exec(raw);
-    if (header) {
-      file = { path: header[2] === '/dev/null' ? header[1] : header[2], hunks: [] };
-      files.push(file);
-      hunk = undefined;
-      continue;
-    }
-    if (!file) continue;
-    if (raw.startsWith('@@')) {
-      hunk = [];
-      file.hunks.push(hunk);
-      continue;
-    }
-    if (!hunk) continue;
-    if (raw.startsWith('+')) hunk.push({ kind: 'add', text: raw.slice(1) });
-    else if (raw.startsWith('-')) hunk.push({ kind: 'remove', text: raw.slice(1) });
-    else if (raw.startsWith(' ')) hunk.push({ kind: 'context', text: raw.slice(1) });
-  }
-  return files;
-}
-
-function markTypePairs(hunk: DiffLine[]): Set<number> {
-  const ignored = new Set<number>();
-  const removals = hunk.map((line, index) => ({ line, index })).filter((entry) => entry.line.kind === 'remove');
-  const additions = hunk.map((line, index) => ({ line, index })).filter((entry) => entry.line.kind === 'add');
-  const usedAdditions = new Set<number>();
-  for (const removal of removals) {
-    const form = typeOnlyForm(removal.line.text);
-    const match = additions.find(
-      (addition) => !usedAdditions.has(addition.index) && typeOnlyForm(addition.line.text) === form,
-    );
-    if (!match) continue;
-    usedAdditions.add(match.index);
-    ignored.add(removal.index);
-    ignored.add(match.index);
-  }
-  return ignored;
+function commentStyle(path: string): 'js' | 'shell' {
+  return path.endsWith('.sh') ? 'shell' : 'js';
 }
 
 function topicOf(text: string): RiskTopic | null {
@@ -187,15 +104,13 @@ function securityDetail(path: string): string | undefined {
 }
 
 function changesSecurityBehavior(file: DiffFile): boolean {
-  return file.hunks.some((hunk) =>
-    hunk.some((line) => line.kind !== 'context' && !SECURITY_NON_BEHAVIOR.test(line.text)),
-  );
+  return fileChangesBehavior(file, { commentStyle: commentStyle(file.path) });
 }
 
 export function classifyRisk(diff: string): RiskReport {
   const reasons: RiskReason[] = [];
   const seen = new Set<string>();
-  for (const file of diffsFrom(diff)) {
+  for (const file of parseDiff(diff)) {
     const surface = securityDetail(file.path);
     if (surface !== undefined) {
       if (changesSecurityBehavior(file)) {
@@ -205,27 +120,20 @@ export function classifyRisk(diff: string): RiskReport {
     }
     if (!file.path.startsWith('src/') || TEST_PATH.test(file.path)) continue;
     for (const hunk of file.hunks) {
-      const ignored = markTypePairs(hunk);
-      let typeDepth = 0;
-      for (const [index, line] of hunk.entries()) {
-        const changed = line.kind !== 'context';
-        if (changed && !ignored.has(index)) {
-          const typeOnly = COMMENT.test(line.text) || TYPE_DECLARATION.test(line.text) || typeDepth > 0;
-          const topic = typeOnly ? null : topicOf(line.text);
-          if (topic) {
-            addReason(reasons, seen, { topic, path: file.path, detail: sensitiveDetail(topic) });
-          } else if (!typeOnly && !OUTPUT_ONLY.test(line.text)) {
-            for (const sensitive of sensitivity(file.path)) {
-              addReason(reasons, seen, {
-                topic: sensitive,
-                path: file.path,
-                detail: 'unclassified change in a sensitive file',
-              });
-            }
+      for (const index of behaviorIndexes(hunk, { ignoreTypeOnly: true })) {
+        const line = hunk[index];
+        const topic = topicOf(line.text);
+        if (topic) {
+          addReason(reasons, seen, { topic, path: file.path, detail: sensitiveDetail(topic) });
+        } else if (!OUTPUT_ONLY.test(line.text)) {
+          for (const sensitive of sensitivity(file.path)) {
+            addReason(reasons, seen, {
+              topic: sensitive,
+              path: file.path,
+              detail: 'unclassified change in a sensitive file',
+            });
           }
         }
-        if (TYPE_OPEN.test(line.text)) typeDepth += braceDelta(line.text);
-        else if (typeDepth > 0) typeDepth = Math.max(0, typeDepth + braceDelta(line.text));
       }
     }
   }

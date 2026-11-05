@@ -35,16 +35,6 @@ export interface ReplayReport {
   skipped: number;
 }
 
-function changedFiles(nameStatus: string): string[] {
-  const files: string[] = [];
-  for (const line of nameStatus.split('\n')) {
-    const fields = line.split('\t');
-    const path = fields[fields.length - 1];
-    if (path !== undefined && path !== '') files.push(path);
-  }
-  return files;
-}
-
 function riskDetail(reasons: readonly RiskReason[]): string {
   return reasons.map((reason) => `${reason.path} (${reason.topic}): ${reason.detail}`).join('; ');
 }
@@ -67,7 +57,7 @@ const RISK_GATE: Gate = {
 const FAILS_ON_MAIN_GATE: Gate = {
   name: 'fails-on-main',
   decide(commit) {
-    const decision = decideGate(changesProduct(commit.nameStatus, commit.diff), commit.subject, commit.body);
+    const decision = decideGate(changesProduct(commit.diff), commit.subject, commit.body);
     if (decision.kind === 'not-required') {
       return {
         gate: 'fails-on-main',
@@ -105,9 +95,9 @@ function missingProva(check: ReturnType<typeof checkProva>): string[] {
 const PROVA_GATE: Gate = {
   name: 'prova',
   decide(commit) {
-    const check = checkProva(commit.body, changedFiles(commit.nameStatus));
+    const check = checkProva(commit.body, commit.diff);
     if (!check.required) {
-      return { gate: 'prova', fired: false, detail: 'not required: no src/ file changed' };
+      return { gate: 'prova', fired: false, detail: 'not required: no src/ behavior change' };
     }
     if (check.ok) {
       return { gate: 'prova', fired: true, detail: 'required: the body fills the proof' };

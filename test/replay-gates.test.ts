@@ -58,13 +58,13 @@ describe('replayGates', () => {
         Object.fromEntries(bySha.get(sha)!.decisions.map((decision) => [decision.gate, decision.fired]));
 
       expect(verdicts(shas.risky)).toEqual({ risk: true, 'fails-on-main': true, prova: true });
-      expect(verdicts(shas.comment)).toEqual({ risk: false, 'fails-on-main': false, prova: true });
+      expect(verdicts(shas.comment)).toEqual({ risk: false, 'fails-on-main': false, prova: false });
       expect(verdicts(shas.docs)).toEqual({ risk: false, 'fails-on-main': false, prova: false });
 
       const riskyDetail = bySha.get(shas.risky)!.decisions.find((decision) => decision.gate === 'risk')!.detail;
       expect(riskyDetail).toContain('src/lib/api.ts (write): data write behavior changed');
-      expect(report.fired).toBe(4);
-      expect(report.skipped).toBe(5);
+      expect(report.fired).toBe(3);
+      expect(report.skipped).toBe(6);
     });
   });
 
