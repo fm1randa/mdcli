@@ -2,6 +2,8 @@ name: fails-on-main
 
 on:
   pull_request:
+    # `edited` reruns the gate when the title or body declares an exemption.
+    types: [opened, synchronize, reopened, edited]
 
 permissions:
   contents: read
@@ -27,7 +29,12 @@ jobs:
       - name: Install
         run: bun install --frozen-lockfile
       - name: Every new or changed test must fail against origin/main
-        # A test that passes without the change proves nothing (#155).
+        # A test that passes without the change proves nothing (#155). Issue
+        # #237: a behavior-preserving PR skips the gate, and the step summary
+        # says which title or body reason did it.
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
         run: |
           git fetch --no-tags origin main
           bun scripts/new-tests-fail-on-main.ts --base origin/main
