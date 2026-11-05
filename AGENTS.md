@@ -40,6 +40,8 @@ Each rule below names the check that fails when it breaks. A rule marked *text o
 | An `eslint-disable` is a described exception, never a copied pattern | `disable-directive-description`, unused-directive reporting, and the `eslint disables` step (CI `verify`) | `eslint-rules/`, `eslint.config.js`, `scripts/check-eslint-disables.ts`, `scripts/verify.sh` |
 | The mock answers with the API's response types, not what the CLI happens to read | `typecheck` (`tsc --noEmit`): every fixture and `scripts/mock-*.ts` payload carries its `src/types` response type | `test/fixtures.ts`, `scripts/mock-*.ts` |
 | Tests assert behavior, not a mock or a constant (item 12) | `no-tautological-expect` (literal vs itself, assertions over src/bin text) and the `fails-on-main` CI job (in a PR that changes `src/` or `bin/`, every new or changed test must fail against `origin/main`) | `eslint-rules/no-tautological-expect.js`, `.github/workflows/fails-on-main.yml`, `scripts/new-tests-fail-on-main.ts` |
+| A "no hits" assertion is paired with a positive control against the same production constant | *text only* | review |
+| The private-data guard is derived from the whole pre-change corpus, not from the terms a review noticed | *text only* | review |
 | The CLI follows the web app, and a conflict with Filipe's decision is reported (items 9 and 10) | *text only* | review |
 
 ## Merge by proof
@@ -65,9 +67,17 @@ A PR labeled `risco` follows the two rules above.
 
 Do not write tautological tests: a test is tautological when it only re-asserts a mock or stub, re-implements the code under test, asserts constants or types, or cannot fail when the behavior breaks. The `fails-on-main` CI job runs every new or changed test in a PR that changes `src/` or `bin/` against `origin/main` and fails when it passes there.
 
+A test that asserts a collection is empty passes just as well when the collection or its matcher is broken. Pair every "no hits" assertion with a positive control against the same production constant and a literal expected value, as `test/private-terms.test.ts` does for the guard.
+
 ## Private data
 
-Never put real account data in the repository: no real account, card, entry, category, tag or plastic name, id or value, and no personal agent name. Use obviously synthetic values, such as "Conta Teste", "Cartão Teste" and small ids. This applies to code, fixtures, docs, issues and PRs. `test/private-terms.test.ts` fails when a hash of a known term appears in any versioned file; add a hash to `scripts/private-terms.ts` when you learn a new real term.
+Never put real account data in the repository: no real account, card, entry, category, tag or plastic name, id or value, and no personal agent name. Use obviously synthetic values, such as "Conta Teste", "Cartão Teste" and small ids. This applies to code, fixtures, docs, issues, PR bodies and commit messages. `test/private-terms.test.ts` fails when a hash of a known term appears in any versioned file.
+
+Derive the guard from the whole pre-change corpus, not from the terms a review happened to notice. Before the sweep, enumerate every candidate from the base commit and from the deletions of `git diff origin/main...HEAD`, and add a hash for all of them. A guard built one review finding at a time is incomplete by construction.
+
+Identify a value semantically, not by one literal spelling. When you add a term, add every alias, every component of the record (a total and its breakdown), every locale number spelling (plain, thousands, comma or dot decimal), escaped separators as they appear in a regex, ids split by the tokenizer, and ids with a date variant. Scan the public surface outside the tracked files too: `git log origin/main..HEAD --format=%B` for commit messages and the PR body. A pushed commit message can only change with a force-push, so check it before pushing.
+
+A short numeric id has low entropy: an unsalted hash publishes a brute-forceable fingerprint of the value it hides. Do not add a low-entropy term as an unsalted hash; use a keyed hash whose key stays outside the repository, or do not store it.
 
 ## Versioning
 
@@ -127,7 +137,7 @@ PR RESULT: pr=<number> pushed <sha>, verify=<OK or FAIL>
 
 ## Review rounds (round N of PR P)
 
-17. Confirm `HEAD` equals `origin/<branch>` (`git fetch origin && git status -sb`) and get context on GitHub (`gh pr view`, `gh issue view`, `git log origin/main..HEAD`).
+17. Confirm `HEAD` equals `origin/<branch>` (`git fetch origin && git status -sb`) and get context on GitHub (`gh pr view`, `gh issue view`, `git log origin/main..HEAD`). When `git log HEAD..origin/main` is not empty, merge `origin/main` before reviewing or pushing so the round sees the trunk the merge will land on.
 18. When a review round is requested, follow the `/code-review` skill process on axes (a) repo standards (types, i18n, file size limits, CLI-boundary validation, non-tautological tests, no deleted/loosened assertions, no larger timeouts) and (b) spec (the issue resolved consistently and behavior matching the web).
 19. Classify each finding as high, medium, low, or taste and write in `REVIEW-<P>-r<N>.md` at the repo root, without committing (`.gitignore` ignores `REVIEW-*.md`, and `scripts/verify.sh` fails when one is tracked).
 20. Fix every high and medium finding and the cheap low ones, with commits in English (conventional commits). Run `verify.sh` as in item 3 and push non-force to the PR branch if there is a commit.
@@ -137,3 +147,5 @@ PR RESULT: pr=<number> pushed <sha>, verify=<OK or FAIL>
 ```
 ROUND RESULT: high=<n> medium=<n> low=<n> taste=<n>, pushed <sha or "nothing">
 ```
+
+23. Stop adding instances after two consecutive rounds find the same defect class. Rebuild the check from the base corpus and run `/reflect` instead of opening another round; a loop whose only exit is an empty round has no stop rule.
