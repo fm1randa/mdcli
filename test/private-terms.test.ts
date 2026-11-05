@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { findPrivateTerms, scanText, scanTrackedFiles, termHash } from '../scripts/private-terms.js';
@@ -101,6 +101,29 @@ test('detects a canary term from the production set in a temporary repository', 
   }
 });
 
-test('no versioned file carries a private term', () => {
-  expect(scanTrackedFiles()).toEqual([]);
+// The full-tree scan runs as the `private terms` step of scripts/verify.sh,
+// outside the parallel batch: under that load it took 6-10 s and blew Bun's 5 s
+// default timeout (#218). This asserts the entry point the verify step calls,
+// and that a subdirectory still scans the whole repository (#233).
+test('the guard script scans the repository root from a subdirectory', () => {
+  const root = mkdtempSync(join(tmpdir(), 'mdcli-private-terms-script-'));
+  const script = join(import.meta.dirname, '..', 'scripts', 'private-terms.ts');
+  const sub = join(root, 'sub');
+  const run = () => Bun.spawnSync([process.execPath, script], { cwd: sub });
+  try {
+    Bun.spawnSync(['git', 'init', '-q'], { cwd: root });
+    mkdirSync(sub);
+    writeFileSync(join(sub, 'note.txt'), 'linha limpa\noutra linha limpa\n');
+    Bun.spawnSync(['git', 'add', '.'], { cwd: root });
+
+    expect(run().exitCode).toBe(0);
+
+    writeFileSync(join(root, 'canary.txt'), `linha limpa\n${canaryTerm} aqui\n`);
+    Bun.spawnSync(['git', 'add', 'canary.txt'], { cwd: root });
+    const hit = run();
+    expect(hit.exitCode).toBe(1);
+    expect(hit.stderr.toString()).toContain('canary.txt:2');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
