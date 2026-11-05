@@ -1,6 +1,15 @@
 import { describe, expect, test } from 'bun:test';
 import { join } from 'node:path';
 import { changedTestFiles, changesProduct, classify, evaluate } from '../scripts/new-tests-fail-on-main.js';
+import type { RunResult } from '../scripts/new-tests-fail-on-main.js';
+
+const result = (
+  exitCode: number | null,
+  output: string,
+  file = 'test/a.test.ts',
+  run = 1,
+  repeat = 1
+): RunResult => ({ file, run, repeat, exitCode, output });
 
 describe('changedTestFiles', () => {
   test('keeps added and modified test files', () => {
@@ -58,49 +67,55 @@ const UNHANDLED = '# Unhandled error between tests\n1 fail\n1 error\nRan 1 test 
 
 describe('classify', () => {
   test('a zero exit passed on main', () => {
-    expect(classify({ file: 'test/a.test.ts', exitCode: 0, output: '1 pass' })).toBe('passed');
+    expect(classify(result(0, '1 pass'))).toBe('passed');
   });
 
   test('a test assertion failure is proof', () => {
-    expect(classify({ file: 'test/a.test.ts', exitCode: 1, output: FAILED })).toBe('failed');
-    expect(classify({ file: 'test/a.test.ts', exitCode: 1, output: 'Expected: 2\nReceived: 1' })).toBe('failed');
+    expect(classify(result(1, FAILED))).toBe('failed');
+    expect(classify(result(1, 'Expected: 2\nReceived: 1'))).toBe('failed');
   });
 
   test('a compile, import or runner error is not proof', () => {
-    expect(classify({ file: 'test/a.test.ts', exitCode: 1, output: UNHANDLED })).toBe('infrastructure-error');
-    expect(classify({ file: 'test/a.test.ts', exitCode: 1, output: '1 fail\n 2 errors\nRan 2 tests' })).toBe(
-      'infrastructure-error'
-    );
-    expect(classify({ file: 'test/a.test.ts', exitCode: null, output: '' })).toBe('infrastructure-error');
+    expect(classify(result(1, UNHANDLED))).toBe('infrastructure-error');
+    expect(classify(result(1, '1 fail\n 2 errors\nRan 2 tests'))).toBe('infrastructure-error');
+    expect(classify(result(null, ''))).toBe('infrastructure-error');
   });
 });
 
 describe('evaluate', () => {
-  test('passes when every changed test fails on main by assertion', () => {
-    expect(evaluate([{ file: 'test/a.test.ts', exitCode: 1, output: FAILED }])).toEqual({
-      ok: true,
-      passedOnMain: [],
-      infrastructureErrors: [],
-    });
+  test('passes when every run of every changed test fails on main by assertion', () => {
+    expect(
+      evaluate([
+        result(1, FAILED, 'test/a.test.ts', 1, 3),
+        result(1, FAILED, 'test/a.test.ts', 2, 3),
+        result(1, FAILED, 'test/a.test.ts', 3, 3),
+      ])
+    ).toEqual({ ok: true, passedOnMain: [], infrastructureErrors: [] });
     expect(evaluate([])).toEqual({ ok: true, passedOnMain: [], infrastructureErrors: [] });
   });
 
-  test('fails and names a test that passes on main', () => {
+  test('fails and names the run that passed on main', () => {
+    const passed = result(0, '', 'test/a.test.ts', 2, 3);
     expect(
       evaluate([
-        { file: 'test/a.test.ts', exitCode: 0, output: '' },
-        { file: 'test/b.test.ts', exitCode: 1, output: FAILED },
+        result(1, FAILED, 'test/a.test.ts', 1, 3),
+        passed,
+        result(1, FAILED, 'test/a.test.ts', 3, 3),
       ])
-    ).toEqual({ ok: false, passedOnMain: ['test/a.test.ts'], infrastructureErrors: [] });
+    ).toEqual({ ok: false, passedOnMain: [passed], infrastructureErrors: [] });
   });
 
-  test('fails and names a test that broke against main', () => {
-    expect(
-      evaluate([
-        { file: 'test/a.test.ts', exitCode: 1, output: FAILED },
-        { file: 'test/b.test.ts', exitCode: 1, output: UNHANDLED },
-      ])
-    ).toEqual({ ok: false, passedOnMain: [], infrastructureErrors: ['test/b.test.ts'] });
+  test('fails and names the run that broke against main', () => {
+    const verdict = evaluate([
+      result(1, FAILED, 'test/a.test.ts', 1, 3),
+      result(1, UNHANDLED, 'test/b.test.ts', 2, 3),
+    ]);
+    expect(verdict.ok).toBe(false);
+    expect(verdict.passedOnMain).toEqual([]);
+    // Keep the fixture out of the failure diff: the gate reads this output to
+    // tell an assertion from a broken run, and an echoed fixture would fake one.
+    expect(verdict.infrastructureErrors.map((error) => error.file)).toEqual(['test/b.test.ts']);
+    expect(verdict.infrastructureErrors.map((error) => error.run)).toEqual([2]);
   });
 });
 
@@ -127,5 +142,32 @@ describe('fails-on-main CLI', () => {
     });
     expect(result.exitCode).toBe(1);
     expect(result.stderr.toString()).toContain('test/dates.test.ts PASSED against HEAD');
+  });
+
+  test('repeats the test three times and names every run that passed', () => {
+    const result = Bun.spawnSync(['bun', script, '--base', 'HEAD', '--files', 'test/dates.test.ts'], {
+      cwd: join(import.meta.dir, '..'),
+      stdout: 'pipe',
+      stderr: 'pipe',
+    });
+    expect(result.exitCode).toBe(1);
+    const stderr = result.stderr.toString();
+    for (const run of [1, 2, 3]) {
+      expect(stderr).toContain(`test/dates.test.ts PASSED against HEAD on run ${run} of 3`);
+    }
+  });
+
+  test('--repeat sets the number of runs', () => {
+    const result = Bun.spawnSync(
+      ['bun', script, '--base', 'HEAD', '--files', 'test/dates.test.ts', '--repeat', '2'],
+      {
+        cwd: join(import.meta.dir, '..'),
+        stdout: 'pipe',
+        stderr: 'pipe',
+      }
+    );
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr.toString()).toContain('test/dates.test.ts PASSED against HEAD on run 2 of 2');
+    expect(result.stderr.toString()).not.toContain('on run 3 of 2');
   });
 });

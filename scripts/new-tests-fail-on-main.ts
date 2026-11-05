@@ -2,23 +2,29 @@ import { cpSync, existsSync, mkdtempSync, rmSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { changesBehavior, parseDiff } from './behavior-change.js';
+import { parseInteger } from '../src/utils/parse.js';
 
 // Issue #186: a test that passes with the fix reverted proves nothing (#155
 // admitted exactly that). This runs every new or changed test file against the
-// src/ and bin/ of origin/main and requires each one to fail there.
+// src/ and bin/ of origin/main and requires each one to fail there. Issue #235:
+// a single red run under load proved nothing in the #200 proof, so each test
+// runs several times and the gate accepts only when every run fails.
 
 const TEST_FILE = /^test\/.*\.test\.ts$/;
+const DEFAULT_REPEAT = 3;
 
 export interface RunResult {
   file: string;
+  run: number;
+  repeat: number;
   exitCode: number | null;
   output: string;
 }
 
 export interface Verdict {
   ok: boolean;
-  passedOnMain: string[];
-  infrastructureErrors: string[];
+  passedOnMain: RunResult[];
+  infrastructureErrors: RunResult[];
 }
 
 /** The added or modified test files in `git diff --name-status` output. */
@@ -53,31 +59,31 @@ export function classify(result: RunResult): 'passed' | 'failed' | 'infrastructu
   return 'failed';
 }
 
-/** The gate passes only when every changed test file fails on main by assertion. */
+/** The gate passes only when every run of every changed test fails on main by assertion. */
 export function evaluate(results: RunResult[]): Verdict {
-  const passedOnMain: string[] = [];
-  const infrastructureErrors: string[] = [];
-  for (const result of results) {
-    const outcome = classify(result);
-    if (outcome === 'passed') passedOnMain.push(result.file);
-    if (outcome === 'infrastructure-error') infrastructureErrors.push(result.file);
-  }
+  const passedOnMain = results.filter((result) => classify(result) === 'passed');
+  const infrastructureErrors = results.filter((result) => classify(result) === 'infrastructure-error');
   return { ok: passedOnMain.length === 0 && infrastructureErrors.length === 0, passedOnMain, infrastructureErrors };
 }
 
 interface Options {
   base: string;
+  repeat: number;
   files?: string[];
 }
 
 function parseOptions(argv: string[]): Options {
-  const options: Options = { base: 'origin/main' };
+  const options: Options = { base: 'origin/main', repeat: DEFAULT_REPEAT };
   for (let index = 0; index < argv.length; index++) {
     const arg = argv[index];
     if (arg === '--base') {
       options.base = argv[++index] ?? options.base;
     } else if (arg === '--files') {
       options.files = (argv[++index] ?? '').split(',').filter((file) => file !== '');
+    } else if (arg === '--repeat') {
+      const repeat = parseInteger(argv[++index] ?? '', 1);
+      if (repeat === undefined) throw new Error('--repeat needs a whole number of at least 1');
+      options.repeat = repeat;
     } else {
       throw new Error(`unknown argument: ${arg}`);
     }
@@ -97,7 +103,7 @@ function repoRoot(): string {
   return git(['rev-parse', '--show-toplevel'], process.cwd()).trim();
 }
 
-function runTests(root: string, base: string, files: string[]): RunResult[] {
+function runTests(root: string, base: string, files: string[], repeat: number): RunResult[] {
   const dir = mkdtempSync(join(tmpdir(), 'mdcli-fails-on-main-'));
   const worktree = join(dir, 'worktree');
   try {
@@ -109,17 +115,22 @@ function runTests(root: string, base: string, files: string[]): RunResult[] {
     cpSync(join(root, 'bunfig.toml'), join(worktree, 'bunfig.toml'));
     symlinkSync(join(root, 'node_modules'), join(worktree, 'node_modules'), 'dir');
 
-    return files.map((file) => {
-      const result = Bun.spawnSync(['bun', 'test', `./${file}`, '--timeout', '20000'], {
-        cwd: worktree,
-        stdout: 'pipe',
-        stderr: 'pipe',
-      });
-      const output = `${result.stdout.toString()}\n${result.stderr.toString()}`;
-      process.stdout.write(result.stdout);
-      process.stderr.write(result.stderr);
-      return { file, exitCode: result.exitCode, output };
-    });
+    const results: RunResult[] = [];
+    for (const file of files) {
+      for (let run = 1; run <= repeat; run++) {
+        console.log(`fails-on-main: ${file} run ${run} of ${repeat}`);
+        const result = Bun.spawnSync(['bun', 'test', `./${file}`, '--timeout', '20000'], {
+          cwd: worktree,
+          stdout: 'pipe',
+          stderr: 'pipe',
+        });
+        const output = `${result.stdout.toString()}\n${result.stderr.toString()}`;
+        process.stdout.write(result.stdout);
+        process.stderr.write(result.stderr);
+        results.push({ file, run, repeat, exitCode: result.exitCode, output });
+      }
+    }
+    return results;
   } finally {
     try {
       if (existsSync(worktree)) git(['worktree', 'remove', '--force', worktree], root);
@@ -152,19 +163,21 @@ function main(): void {
       return;
     }
 
-    console.log(`fails-on-main: running against ${options.base}: ${files.join(', ')}`);
-    const verdict = evaluate(runTests(root, options.base, files));
+    console.log(`fails-on-main: running against ${options.base} ${options.repeat} times: ${files.join(', ')}`);
+    const verdict = evaluate(runTests(root, options.base, files, options.repeat));
     if (verdict.ok) {
-      console.log('fails-on-main: every changed test failed against main (good)');
+      console.log('fails-on-main: every changed test failed against main in every run (good)');
       return;
     }
 
-    for (const file of verdict.passedOnMain) {
-      console.error(`fails-on-main: ${file} PASSED against ${options.base}; it cannot prove the change.`);
-    }
-    for (const file of verdict.infrastructureErrors) {
+    for (const result of verdict.passedOnMain) {
       console.error(
-        `fails-on-main: ${file} did not compile or run against ${options.base}; a broken run is not a failing assertion.`
+        `fails-on-main: ${result.file} PASSED against ${options.base} on run ${result.run} of ${result.repeat}; it cannot prove the change.`
+      );
+    }
+    for (const result of verdict.infrastructureErrors) {
+      console.error(
+        `fails-on-main: ${result.file} did not compile or run against ${options.base} on run ${result.run} of ${result.repeat}; a broken run is not a failing assertion.`
       );
     }
     console.error('fails-on-main: add a test that fails on main, or split the test refactor from the fix.');
