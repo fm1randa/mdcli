@@ -1,7 +1,7 @@
 {
   "rule": "no-literal-since",
   "origin": "8058541^",
-  "source": "test/entries-import-list.test.ts",
+  "source": "test/entries-import-list-errors.test.ts",
   "note": "A fixed --since date that expires out of the 90-day window (#131).",
-  "code": "const result = await cli(['entries', 'import', 'list', '-a', '1001', '--since', '2026-10-01', '--json']);"
+  "code": "const result = await cli(['entries', 'import', 'list', '-a', 'nope', '--since', '2026-10-01', '--json']);"
 }

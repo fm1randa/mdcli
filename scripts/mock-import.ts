@@ -2,8 +2,8 @@ import type { BankStatementResponse, Entry } from '../src/types/index.js';
 import { localDay } from '../test/helpers.js';
 
 // GET /v1/integracao/account/:connectionAccount/transactions for scripts/verify.sh, and the AI
-// category suggestion it triggers. Fictional ids only. 9001 is
-// Nubank's connection account in mock-connections.ts; 10 is Alimentação (d).
+// category suggestion it triggers. Fictional ids only. 301 is
+// Conta Teste's connection account in mock-connections.ts; 10 is Alimentação (d).
 
 const TRANSACTIONS = /^\/api\/v1\/integracao\/account\/(\d+)\/transactions$/;
 const DUPLICATES = '/api/v1/lancamentos/duplicidade';
@@ -62,7 +62,7 @@ export const IMPORT_CANDIDATES: Entry[] = [
     dataEfetiva: '2026-10-08',
     status: 'nconciliado',
     conciliado: false,
-    conta: 1001,
+    conta: 201,
     categoria: 11,
     tags: [],
   },
@@ -71,16 +71,16 @@ export const IMPORT_CANDIDATES: Entry[] = [
 const DUPLICATE_ENTRIES = { '2026-10-09': [{ id: 77, valor: -5 }] };
 
 /**
- * Nubank (1001) with a last statement (dataUltimoExtrato) 3 days ago, local time, with the time the API adds:
+ * Conta Teste (201) with a last statement (dataUltimoExtrato) 3 days ago, local time, with the time the API adds:
  * inside the 90-day window whatever day verify runs on, so import list without --since loads from it.
  */
 export function withRecentStatement<T extends { id: number }>(account: T): T {
-  if (account.id !== 1001) return account;
+  if (account.id !== 201) return account;
   return { ...account, dataUltimoExtrato: `${localDay(-3)}T00:00:00` };
 }
 
 /**
- * The fictional statement for connection account 9001 and the AI answer, or null for any other request.
+ * The fictional statement for connection account 301 and the AI answer, or null for any other request.
  * The Import commit has no route here: verify.sh never writes, and the test suite asserts the commit bodies.
  */
 export function importRoute(method: string, url: URL): Response | null {
@@ -88,6 +88,6 @@ export function importRoute(method: string, url: URL): Response | null {
   if (method === 'POST' && url.pathname === AI) return Response.json([10]);
   const match = TRANSACTIONS.exec(url.pathname);
   if (!match || method !== 'GET') return null;
-  if (match[1] !== '9001') return Response.json({ message: 'not found' }, { status: 404 });
+  if (match[1] !== '301') return Response.json({ message: 'not found' }, { status: 404 });
   return Response.json(STATEMENT);
 }

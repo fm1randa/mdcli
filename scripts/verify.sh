@@ -228,7 +228,7 @@ sync_list() {
   [ -f "$log" ] && before=$(wc -l <"$log")
   local out
   out=$("${CLI[@]}" sync list </dev/null 2>&1) || { echo "output: $out"; return 1; }
-  grep -Eq 'Nubank' <<<"$out" || { echo "expected Nubank in: $out"; return 1; }
+  grep -Eq 'Conta Teste' <<<"$out" || { echo "expected Conta Teste in: $out"; return 1; }
   grep -Eq 'No account' <<<"$out" || { echo "expected an unlinked account in: $out"; return 1; }
   local fresh
   fresh=$(tail -n +"$((before + 1))" "$log")
@@ -240,7 +240,7 @@ sync_list() {
   grep -Eq '/api/v1/integracao/connections' <<<"$fresh" \
     || { echo "missing GET of connections: $fresh"; return 1; }
 }
-step "cli accounts list (mock)"        expect_ok 'Nubank' accounts list
+step "cli accounts list (mock)"        expect_ok 'Conta Teste' accounts list
 step "cli sync list (mock)"            sync_list
 # The import steps only read. The one POST allowed is the AI category
 # suggestion (smartmatch/ai); a commit POST, a Sync PUT, or any other write
@@ -263,14 +263,14 @@ import_list() {
   local before=0
   [ -f "$log" ] && before=$(wc -l <"$log")
   local out
-  out=$("${CLI[@]}" entries import list -a 1001 </dev/null 2>&1) || { echo "output: $out"; return 1; }
+  out=$("${CLI[@]}" entries import list -a 201 </dev/null 2>&1) || { echo "output: $out"; return 1; }
   grep -Eq 'Padaria Ficticia' <<<"$out" || { echo "expected the statement in: $out"; return 1; }
   grep -Eq 'aaaaaaaa' <<<"$out" || { echo "expected the prefix in: $out"; return 1; }
   grep -Eq 'Alimentação \(AI\)' <<<"$out" || { echo "expected the AI category in: $out"; return 1; }
   local fresh
   fresh=$(tail -n +"$((before + 1))" "$log")
   [ -n "$fresh" ] || { echo "the mock did not log import list"; return 1; }
-  grep -Fq "\"path\":\"/api/v1/integracao/account/9001/transactions\",\"query\":\"start=$LAST_STATEMENT\"" <<<"$fresh" \
+  grep -Fq "\"path\":\"/api/v1/integracao/account/301/transactions\",\"query\":\"start=$LAST_STATEMENT\"" <<<"$fresh" \
     || { echo "without --since, import list must load the statement since $LAST_STATEMENT: $fresh"; return 1; }
   grep -Eq '/v2/lancamentos' <<<"$fresh" \
     || { echo "missing GET of candidates: $fresh"; return 1; }
@@ -279,20 +279,20 @@ import_list() {
   reads_and_ai_only "$fresh" "entries import list"
 }
 step "cli entries import list (mock)"  import_list
-step "cli entries import list --search-* (mock)" expect_ok 'Candidates' entries import list -a 1001 --search-from 2026-01-01 --search-to 2026-12-31
+step "cli entries import list --search-* (mock)" expect_ok 'Candidates' entries import list -a 201 --search-from 2026-01-01 --search-to 2026-12-31
 # Rehearses an Import with --ids over the full statement (--since). No --yes.
 import_run_dry() {
   local log="$MDCLI_MOCK_LOG"
   local before=0
   [ -f "$log" ] && before=$(wc -l <"$log")
   local out
-  out=$("${CLI[@]}" entries import run -a 1001 --since "$IMPORT_SINCE" --ids aaaaaaaa -c 10 --dry-run </dev/null 2>&1) \
+  out=$("${CLI[@]}" entries import run -a 201 --since "$IMPORT_SINCE" --ids aaaaaaaa -c 10 --dry-run </dev/null 2>&1) \
     || { echo "output: $out"; return 1; }
   grep -Eq 'aaaaaaaa' <<<"$out" || { echo "expected the prefix in: $out"; return 1; }
   grep -Eq 'Dry run' <<<"$out" || { echo "expected the dry-run notice in: $out"; return 1; }
   local fresh
   fresh=$(tail -n +"$((before + 1))" "$log")
-  grep -Eq '/api/v1/integracao/account/9001/transactions' <<<"$fresh" \
+  grep -Eq '/api/v1/integracao/account/301/transactions' <<<"$fresh" \
     || { echo "missing GET of transactions: $fresh"; return 1; }
   # One read of the session state, with the uid like the web, for every preference the run needs.
   [ "$(grep -Fc '"path":"/api/v1/frontend/sessao","query":"uid=verify-uid"' <<<"$fresh")" = 1 ] \
@@ -308,7 +308,7 @@ import_run_overwrite_dry() {
   local before=0
   [ -f "$log" ] && before=$(wc -l <"$log")
   local out
-  out=$("${CLI[@]}" entries import run -a 1001 --since "$IMPORT_SINCE" --ids aaaaaaaa -c 10 --dry-run --overwrite --json </dev/null) \
+  out=$("${CLI[@]}" entries import run -a 201 --since "$IMPORT_SINCE" --ids aaaaaaaa -c 10 --dry-run --overwrite --json </dev/null) \
     || { echo "output: $out"; return 1; }
   OUT="$out" bun -e 'const d = JSON.parse(process.env.OUT); const o = d.overwrite; if (o.value !== true || o.valueSource !== "flag" || o.description !== true || o.descriptionSource !== "preferences") process.exit(1)' \
     || { echo "expected --overwrite to set sobrescrever from a flag in: $out"; return 1; }
@@ -327,7 +327,7 @@ import_run_plan_dry() {
 {"transactions":[{"id":"aaaaaaaa","action":"import","category":10,"description":"Plano ensaiado"}]}
 JSON
   local out
-  out=$("${CLI[@]}" entries import run -a 1001 --plan "$plan" --dry-run </dev/null 2>&1) \
+  out=$("${CLI[@]}" entries import run -a 201 --plan "$plan" --dry-run </dev/null 2>&1) \
     || { echo "output: $out"; return 1; }
   grep -Eq 'Plano ensaiado' <<<"$out" || { echo "expected the plan description in: $out"; return 1; }
   grep -Eq 'Dry run' <<<"$out" || { echo "expected the dry-run notice in: $out"; return 1; }
@@ -345,10 +345,10 @@ import_list_roundtrip() {
   local before=0
   [ -f "$log" ] && before=$(wc -l <"$log")
   local plan="$SANDBOX/import-list-plan.json"
-  "${CLI[@]}" entries import list -a 1001 --since "$IMPORT_SINCE" --json >"$plan" </dev/null \
+  "${CLI[@]}" entries import list -a 201 --since "$IMPORT_SINCE" --json >"$plan" </dev/null \
     || { echo "entries import list --json failed"; return 1; }
   local out
-  out=$("${CLI[@]}" entries import run -a 1001 --since "$IMPORT_SINCE" --plan "$plan" --dry-run --json </dev/null) \
+  out=$("${CLI[@]}" entries import run -a 201 --since "$IMPORT_SINCE" --plan "$plan" --dry-run --json </dev/null) \
     || { echo "entries import run --plan rejected the list output: $out"; return 1; }
   OUT="$out" bun -e '
     const d = JSON.parse(process.env.OUT);
@@ -380,7 +380,7 @@ grep -qx 'import aaaaaaaa 2026-10-07 -12.34 Alimentação | Padaria Ficticia' "\
 echo 'import aaaaaaaa 2026-10-07 -12,34 10 | Padaria editada' > "\$1"
 SH
   local out
-  out=$(EDITOR="sh $editor" "${CLI[@]}" entries import run -a 1001 --edit --dry-run --json </dev/null 2>&1) \
+  out=$(EDITOR="sh $editor" "${CLI[@]}" entries import run -a 201 --edit --dry-run --json </dev/null 2>&1) \
     || { echo "output: $out"; return 1; }
   bun -e 'const d = JSON.parse(process.argv[1]); const i = d.imported[0]; if (d.dryRun !== true || d.imported.length !== 1 || i.description !== "Padaria editada" || i.categoryId !== 10) process.exit(1)' "$out" \
     || { echo "expected the edited dry run in: $out"; return 1; }
@@ -392,105 +392,105 @@ SH
   reads_and_ai_only "$fresh" "entries import run --edit --dry-run"
 }
 step "cli entries import run --edit --dry-run (mock)" import_run_edit_dry
-# The web's balances (#67): the mock sums Nubank's seeded entries up to --at
+# The web's balances (#67): the mock sums Conta Teste's seeded entries up to --at
 # (the -45 scheduled for 2027-01-10 only in the projected one); the stale
 # bank statement (250.50) is only bankBalance.
-step "cli accounts list --at balances (mock)" expect_json 'd.find((a) => a.id === 1001).balance === -1562.5 && d.find((a) => a.id === 1001).projectedBalance === -1607.5 && d.find((a) => a.id === 1001).bankBalance === 250.5 && d.find((a) => a.id === 1002).balance === null' accounts list --json --at 2027-01-31
-step "cli accounts list --json (mock)" bash -c '"$@" accounts list --json </dev/null | bun -e "const d=JSON.parse(await Bun.stdin.text()); if(!JSON.stringify(d).includes(\"Nubank\")) process.exit(1)"' _ "${CLI[@]}"
+step "cli accounts list --at balances (mock)" expect_json 'd.find((a) => a.id === 201).balance === -1562.5 && d.find((a) => a.id === 201).projectedBalance === -1607.5 && d.find((a) => a.id === 201).bankBalance === 250.5 && d.find((a) => a.id === 202).balance === null' accounts list --json --at 2027-01-31
+step "cli accounts list --json (mock)" bash -c '"$@" accounts list --json </dev/null | bun -e "const d=JSON.parse(await Bun.stdin.text()); if(!JSON.stringify(d).includes(\"Conta Teste\")) process.exit(1)"' _ "${CLI[@]}"
 # Writes (POST/PUT/DELETE) go through the same request() path as reads; the
 # mock checks the JSON payload, echoes it back and answers DELETE with 204.
 step "cli accounts create (mock)"        expect_ok 'Type: Poupança' accounts create --name Reserva --type Poupança --balance 100
 step "cli accounts create --json (mock)" expect_json 'd.id === 2001 && d.nome === "Reserva" && d.tipoNovo === 122 && d.saldoInicial === 100' accounts create --name Reserva --type Poupança --balance 100 --json
 step "cli accounts create form (mock)"   expect_json 'd.dataSaldoInicial === "2026-01-31" && d.saldoInicial === -100 && d.liquidez === 0' accounts create --name Reserva --type Poupança --balance 100 --debtor --balance-date 2026-01-31 --liquidity fixed --json
-step "cli accounts update --close (mock)" expect_json 'd.status === false && d.encerrada === true && d.exibirBP === false' accounts update 1001 --inactive --close --hide-net-worth --json
-step "cli accounts update (mock)"        expect_ok 'Account "Nubank PF" updated' accounts update 1001 --name "Nubank PF" --inactive
-step "cli accounts update --json (mock)" expect_json 'd.id === 1001 && d.nome === "Nubank PF" && d.status === false' accounts update 1001 --name "Nubank PF" --inactive --json
-step "cli accounts delete (mock)"        expect_ok 'Account 1001 deleted' accounts delete 1001 --dangerously-skip-confirmation
-step "cli accounts delete --json (mock)" expect_json 'd.deleted === true && d.id === 1001' accounts delete 1001 --dangerously-skip-confirmation --json
+step "cli accounts update --close (mock)" expect_json 'd.status === false && d.encerrada === true && d.exibirBP === false' accounts update 201 --inactive --close --hide-net-worth --json
+step "cli accounts update (mock)"        expect_ok 'Account "Conta Teste PF" updated' accounts update 201 --name "Conta Teste PF" --inactive
+step "cli accounts update --json (mock)" expect_json 'd.id === 201 && d.nome === "Conta Teste PF" && d.status === false' accounts update 201 --name "Conta Teste PF" --inactive --json
+step "cli accounts delete (mock)"        expect_ok 'Account 201 deleted' accounts delete 201 --dangerously-skip-confirmation
+step "cli accounts delete --json (mock)" expect_json 'd.deleted === true && d.id === 201' accounts delete 201 --dangerously-skip-confirmation --json
 step "cli accounts delete inexistente (mock)" expect_fail 'DELETE /v1/cadastros/contas/9999\): 404' accounts delete 9999 --dangerously-skip-confirmation
 
 # Card / invoice / entries writes — regressions #12/#17 (card dates) and #10/#15
 # (installment/transfer update). Mock only; never the real API.
-step "cli cards list (mock)"                 expect_ok 'Cartão Azul' cards list
-step "cli cards invoice (mock)"              expect_ok 'Mercado' cards invoice -a 1002 --month 2026-01
+step "cli cards list (mock)"                 expect_ok 'Cartão Teste' cards list
+step "cli cards invoice (mock)"              expect_ok 'Mercado' cards invoice -a 202 --month 2026-01
 # Bill total (-87.50) must ignore the payment (+100) listed among the items.
-step "cli cards invoice total (mock)"        expect_ok 'Total: -R\$.*87,50' cards invoice -a 1002 --month 2026-01
-step "cli cards invoice --json (mock)"       expect_json 'Array.isArray(d) && d[0]?.description === "Mercado"' cards invoice -a 1002 --month 2026-01 --json
-step "cli cards invoice primeiraFatura (mock)" expect_ok 'Mercado' cards invoice -a 1003
-# Jardinagem 2026-10-21: --month on a card without proximoVencimento assumed
+step "cli cards invoice total (mock)"        expect_ok 'Total: -R\$.*87,50' cards invoice -a 202 --month 2026-01
+step "cli cards invoice --json (mock)"       expect_json 'Array.isArray(d) && d[0]?.description === "Mercado"' cards invoice -a 202 --month 2026-01 --json
+step "cli cards invoice primeiraFatura (mock)" expect_ok 'Mercado' cards invoice -a 203
+# Maintenance 2026-10-21: --month on a card without proximoVencimento assumed
 # day 10; it now takes primeiraFatura's day (16 in the mock).
-step "cli cards invoice --month sem vencimento (mock)" expect_ok 'Cartão Sem Vencimento - 2026-02-16' cards invoice -a 1003 --month 2026-02
-# Dogfood 2026-10-19: --month on a card with a date-only proximoVencimento
+step "cli cards invoice --month sem vencimento (mock)" expect_ok 'Cartão Teste Sem Vencimento - 2026-02-16' cards invoice -a 203 --month 2026-02
+# Real use 2026-10-19: --month on a card with a date-only proximoVencimento
 # (2026-11-16) asked for the 15th in UTC-3; months 00/13 reached the API.
 in_sao_paulo() { TZ=America/Sao_Paulo "$@"; }
-step "cli cards invoice --month vencimento local (mock)" in_sao_paulo expect_ok 'Cartão Ouro - 2026-11-16 \(1 entries\)' cards invoice -a 1005 --month 2026-11
-step "cli cards invoice --month 2026-13 recusado (mock)" expect_fail 'Invalid invoice month "2026-13"' cards invoice -a 1005 --month 2026-13
-step "cli cards invoice --month 2026-00 recusado (mock)" expect_fail 'Invalid invoice month "2026-00"' cards invoice -a 1005 --month 2026-00
-step "cli entries create --invoice 2026-13 recusado (mock)" expect_fail 'Invalid invoice month "2026-13"' entries create -a 1005 -d X -v 1 -c 10 --invoice 2026-13
-# Same item, same date in both commands (Filipe, 2026-10-19): date is the due
+step "cli cards invoice --month vencimento local (mock)" in_sao_paulo expect_ok 'Cartão Teste Dois - 2026-11-16 \(1 entries\)' cards invoice -a 205 --month 2026-11
+step "cli cards invoice --month 2026-13 recusado (mock)" expect_fail 'Invalid invoice month "2026-13"' cards invoice -a 205 --month 2026-13
+step "cli cards invoice --month 2026-00 recusado (mock)" expect_fail 'Invalid invoice month "2026-00"' cards invoice -a 205 --month 2026-00
+step "cli entries create --invoice 2026-13 recusado (mock)" expect_fail 'Invalid invoice month "2026-13"' entries create -a 205 -d X -v 1 -c 10 --invoice 2026-13
+# Same item, same date in both commands (real use, 2026-10-19): date is the due
 # date, as in entries list; the purchase date is purchaseDate; dueDate stays.
-step "cli cards invoice --json date = vencimento (mock)" in_sao_paulo expect_json 'd.length === 1 && d[0].id === 315471241 && d[0].date === "2026-11-16" && d[0].dueDate === "2026-11-16" && d[0].purchaseDate === "2025-11-19" && d[0].competenceDate === "2025-11-19"' cards invoice -a 1005 --month 2026-11 --json
+step "cli cards invoice --json date = vencimento (mock)" in_sao_paulo expect_json 'd.length === 1 && d[0].id === 123456 && d[0].date === "2026-11-16" && d[0].dueDate === "2026-11-16" && d[0].purchaseDate === "2025-11-19" && d[0].competenceDate === "2025-11-19"' cards invoice -a 205 --month 2026-11 --json
 # Invoice summary (resumo) in text mode; --json stays a bare array.
-step "cli cards invoice resumo pago (mock)" expect_ok 'Paid +R\$.*100,00' cards invoice -a 1002 --month 2026-01
-step "cli cards invoice resumo anterior (mock)"  expect_ok 'Previous invoice +-R\$.*100,00' cards invoice -a 1002 --month 2026-01
-step "cli cards invoice resumo não conciliado (mock)" expect_ok 'Unreconciled +-R\$.*87,50' cards invoice -a 1002 --month 2026-01
-step "cli cards invoice resumo fechamento (mock)" expect_ok 'Closing date +2026-01-08' cards invoice -a 1002 --month 2026-01
-step "cli cards invoice resumo limite (mock)"     in_sao_paulo expect_ok 'Limit +R\$.*21\.804,00' cards invoice -a 1005 --month 2026-11
-step "cli cards invoice resumo disponível (mock)" in_sao_paulo expect_ok 'Available +R\$.*21\.502,71' cards invoice -a 1005 --month 2026-11
-step "cli cards invoice coluna da compra (mock)" in_sao_paulo expect_ok '2025-11-19 +│ Mac mini M4' cards invoice -a 1005 --month 2026-11
-step "cli cards invoice --json segue array (mock)" expect_json 'Array.isArray(d) && d.length === 2 && d.every((e) => !("resumo" in e) && !("Paid" in e))' cards invoice -a 1002 --month 2026-01 --json
-step "cli cards invoice --json --summary (mock)" expect_json 'd.invoice.total === -87.5 && d.invoice.unreconciled === -87.5 && d.invoice.paid === 100 && d.invoice.closingDate === "2026-01-08" && Array.isArray(d.entries) && d.entries.length === 2' cards invoice -a 1002 --month 2026-01 --json --summary
-step "cli cards invoice --summary sem itens (mock)" expect_ok_without 'Unreconciled +-R\$.*87,50' 'Mercado' cards invoice -a 1002 --month 2026-01 --summary
-step "cli cards invoice conta que não é cartão (mock)" expect_fail 'Account 1004 is not a credit card' cards invoice -a 1004
-step "cli cards invoice --month inválido com --json (mock)" expect_json_error 'Invalid invoice month "2026-13"' cards invoice -a 1005 --month 2026-13 --json
-step "cli entries list cartão mesma data do invoice (mock)" in_sao_paulo expect_json 'd.length === 1 && d[0].id === 315471241 && d[0].date === "2026-11-16" && d[0].competenceDate === "2025-11-19"' entries list -a 1005 -f 2026-11-01 -t 2026-11-30 --json
-step "cli cards list --json campos do cartão (mock)" expect_json 'd.some((c) => c.id === 1005 && c.limit === 21804 && c.dueDay === 16 && c.nextDueDate === "2026-11-16" && c.nextClosingDate === "2026-11-05" && c.closingDaysBeforeDue === 11 && c.paymentAccountId === 1001) && d.every((c) => !("balance" in c))' cards list --json
-step "cli cards future (mock)"               expect_ok 'Notebook' cards future -a 1002
+step "cli cards invoice resumo pago (mock)" expect_ok 'Paid +R\$.*100,00' cards invoice -a 202 --month 2026-01
+step "cli cards invoice resumo anterior (mock)"  expect_ok 'Previous invoice +-R\$.*100,00' cards invoice -a 202 --month 2026-01
+step "cli cards invoice resumo não conciliado (mock)" expect_ok 'Unreconciled +-R\$.*87,50' cards invoice -a 202 --month 2026-01
+step "cli cards invoice resumo fechamento (mock)" expect_ok 'Closing date +2026-01-08' cards invoice -a 202 --month 2026-01
+step "cli cards invoice resumo limite (mock)"     in_sao_paulo expect_ok 'Limit +R\$.*5\.000,00' cards invoice -a 205 --month 2026-11
+step "cli cards invoice resumo disponível (mock)" in_sao_paulo expect_ok 'Available +R\$.*4\.876,55' cards invoice -a 205 --month 2026-11
+step "cli cards invoice coluna da compra (mock)" in_sao_paulo expect_ok '2025-11-19 +│ Item Parcelado' cards invoice -a 205 --month 2026-11
+step "cli cards invoice --json segue array (mock)" expect_json 'Array.isArray(d) && d.length === 2 && d.every((e) => !("resumo" in e) && !("Paid" in e))' cards invoice -a 202 --month 2026-01 --json
+step "cli cards invoice --json --summary (mock)" expect_json 'd.invoice.total === -87.5 && d.invoice.unreconciled === -87.5 && d.invoice.paid === 100 && d.invoice.closingDate === "2026-01-08" && Array.isArray(d.entries) && d.entries.length === 2' cards invoice -a 202 --month 2026-01 --json --summary
+step "cli cards invoice --summary sem itens (mock)" expect_ok_without 'Unreconciled +-R\$.*87,50' 'Mercado' cards invoice -a 202 --month 2026-01 --summary
+step "cli cards invoice conta que não é cartão (mock)" expect_fail 'Account 204 is not a credit card' cards invoice -a 204
+step "cli cards invoice --month inválido com --json (mock)" expect_json_error 'Invalid invoice month "2026-13"' cards invoice -a 205 --month 2026-13 --json
+step "cli entries list cartão mesma data do invoice (mock)" in_sao_paulo expect_json 'd.length === 1 && d[0].id === 123456 && d[0].date === "2026-11-16" && d[0].competenceDate === "2025-11-19"' entries list -a 205 -f 2026-11-01 -t 2026-11-30 --json
+step "cli cards list --json campos do cartão (mock)" expect_json 'd.some((c) => c.id === 205 && c.limit === 5000 && c.dueDay === 16 && c.nextDueDate === "2026-11-16" && c.nextClosingDate === "2026-11-05" && c.closingDaysBeforeDue === 11 && c.paymentAccountId === 201) && d.every((c) => !("balance" in c))' cards list --json
+step "cli cards future (mock)"               expect_ok 'Notebook' cards future -a 202
 # Bare-array API: remaining derived from "3/6" → 4 (old code always returned []).
-step "cli cards future --json (mock)"        expect_json 'Array.isArray(d) && d.length === 1 && d[0]?.installment === "3/6" && d[0]?.remaining === 4' cards future -a 1002 --json
+step "cli cards future --json (mock)"        expect_json 'Array.isArray(d) && d.length === 1 && d[0]?.installment === "3/6" && d[0]?.remaining === 4' cards future -a 202 --json
 # Card create: dataCompetencia=purchase, dataPrevista=invoice due, not reconciled.
-step "cli entries create cartão (mock)"      expect_ok 'ID: 91[0-9]{2}' entries create -a 1002 -d Voo -v 10 -c 10 -D 2026-01-05
-step "cli entries create cartão --json (mock)" expect_json 'd.id === 9102 && d.occurrenceId === "46349170A2026-01-05" && d.dataCompetencia === "2026-01-05" && d.dataPrevista === "2026-01-16" && d.conciliado === false && d.status === "confirmado"' entries create -a 1002 -d Voo -v 10 -c 10 -D 2026-01-05 --json
-# Finanças 2026-10-16: the POST answers an occurrence ID for card purchases
+step "cli entries create cartão (mock)"      expect_ok 'ID: 91[0-9]{2}' entries create -a 202 -d Voo -v 10 -c 10 -D 2026-01-05
+step "cli entries create cartão --json (mock)" expect_json 'd.id === 9102 && d.occurrenceId === "1234567A2026-01-05" && d.dataCompetencia === "2026-01-05" && d.dataPrevista === "2026-01-16" && d.conciliado === false && d.status === "confirmado"' entries create -a 202 -d Voo -v 10 -c 10 -D 2026-01-05 --json
+# Real use 2026-10-16: the POST answers an occurrence ID for card purchases
 # (the CLI swaps in the entry ID from the invoice) and the statement list
 # leaves card purchases out (the CLI reads them from the invoices).
 # Seeded invoice has Mercado + Pagamento (tipo p); create adds two Voo purchases.
-step "cli entries list cartão (mock)" expect_json 'd.length === 4 && d.every((e) => e.accountId === 1002 && e.date === "2026-01-16") && d.filter((e) => e.description === "Voo" && e.competenceDate === "2026-01-05").length === 2 && d.some((e) => e.description === "Pagamento cartão")' entries list -a 1002 -f 2026-01-01 -t 2026-01-31 --json
-step "cli entries list cartão -k (mock)" expect_json 'd.length === 1 && d[0].id === 1' entries list -a 1002 -f 2026-01-01 -t 2026-01-31 -k merc --json
+step "cli entries list cartão (mock)" expect_json 'd.length === 4 && d.every((e) => e.accountId === 202 && e.date === "2026-01-16") && d.filter((e) => e.description === "Voo" && e.competenceDate === "2026-01-05").length === 2 && d.some((e) => e.description === "Pagamento cartão")' entries list -a 202 -f 2026-01-01 -t 2026-01-31 --json
+step "cli entries list cartão -k (mock)" expect_json 'd.length === 1 && d[0].id === 1' entries list -a 202 -f 2026-01-01 -t 2026-01-31 -k merc --json
 # Pagamento (tipo p, +100) must not become Income; bill purchases stay as expenses.
-step "cli entries summary cartão sem pagamento (mock)" expect_json 'd.skippedPayments === 1 && d.total.income === 0 && d.total.expenses < 0' entries summary -a 1002 -f 2026-01-01 -t 2026-01-31 --json
+step "cli entries summary cartão sem pagamento (mock)" expect_json 'd.skippedPayments === 1 && d.total.income === 0 && d.total.expenses < 0' entries summary -a 202 -f 2026-01-01 -t 2026-01-31 --json
 step "cli entries update lançamento de cartão (mock)" expect_json 'd.id === 9102 && d.descricao === "Voo editado"' entries update 9102 -d "Voo editado" --json
-step "cli entries update id de ocorrência (mock)" expect_fail 'series occurrence ID, not an entry ID' entries update 46349170A2026-01-05 -d X
-# Create shapes deduced from the web bundle (dogfooding 2026-10-16): transfer
+step "cli entries update id de ocorrência (mock)" expect_fail 'series occurrence ID, not an entry ID' entries update 1234567A2026-01-05 -d X
+# Create shapes deduced from the web bundle (real use 2026-10-16): transfer
 # naming contaOrigem/contaDestino, parcelada series with parcelas, scheduled.
-step "cli entries create transferência --json (mock)" expect_json 'd.conta === 1001 && d.contaT === 1004 && d.valor === -500 && d.valorT === 500 && d.status === "conciliado"' entries create -a 1001 -T transfer --to-account 1004 -d Reserva -v 500 -D 2026-01-05 --json
-step "cli entries create transferência sem destino (mock)" expect_fail 'needs a destination account' entries create -a 1001 -T transfer -d Reserva -v 500
-step "cli entries create parcelada --json (mock)" expect_json 'd.parcela === "1/3" && d.valor === -33.34' entries create -a 1001 -d Geladeira -v 100 -c 10 -i 3 -D 2026-01-31 --json
-step "cli entries create parcelada texto (mock)" expect_ok 'Installments: 1x .*33,34 \+ 2x .*33,33 \(monthly, every 1\)' entries create -a 1001 -d Geladeira -v 100 -c 10 -i 3 -D 2026-01-31
-step "cli entries create fixa --frequency + --times (mock)" expect_ok 'Recurrence: monthly, every 2, 6 times' entries create -a 1001 -d Academia -v 90 -c 10 -r monthly --frequency 2 --times 6
-step "cli entries create agendado --json (mock)" expect_json 'd.status === "agendado" && d.dataEfetiva === null && d.valorEfetivo === null' entries create -a 1001 -d IPVA -v 800 -c 10 -p -D 2031-11-05 --json
-# Finanças 2026-10-19: -p is Confirmado off (no effective date or value); the
+step "cli entries create transferência --json (mock)" expect_json 'd.conta === 201 && d.contaT === 204 && d.valor === -500 && d.valorT === 500 && d.status === "conciliado"' entries create -a 201 -T transfer --to-account 204 -d Reserva -v 500 -D 2026-01-05 --json
+step "cli entries create transferência sem destino (mock)" expect_fail 'needs a destination account' entries create -a 201 -T transfer -d Reserva -v 500
+step "cli entries create parcelada --json (mock)" expect_json 'd.parcela === "1/3" && d.valor === -33.34' entries create -a 201 -d Geladeira -v 100 -c 10 -i 3 -D 2026-01-31 --json
+step "cli entries create parcelada texto (mock)" expect_ok 'Installments: 1x .*33,34 \+ 2x .*33,33 \(monthly, every 1\)' entries create -a 201 -d Geladeira -v 100 -c 10 -i 3 -D 2026-01-31
+step "cli entries create fixa --frequency + --times (mock)" expect_ok 'Recurrence: monthly, every 2, 6 times' entries create -a 201 -d Academia -v 90 -c 10 -r monthly --frequency 2 --times 6
+step "cli entries create agendado --json (mock)" expect_json 'd.status === "agendado" && d.dataEfetiva === null && d.valorEfetivo === null' entries create -a 201 -d IPVA -v 800 -c 10 -p -D 2031-11-05 --json
+# Real use 2026-10-19: -p is Confirmado off (no effective date or value); the
 # API calls that pendente up to today and agendado after it (md.js). The old
 # confirmed-not-reconciled state is --confirmed; --scheduled is an alias of -p.
-step "cli entries create -p hoje = pendente (mock)" expect_json 'd.status === "pendente" && d.conciliado === false && d.dataEfetiva === null && d.valorEfetivo === null' entries create -a 1001 -d Farmácia -v 42.9 -c 10 -p --json
-step "cli entries create -p hoje texto (mock)" expect_ok 'Status: Pending' entries create -a 1001 -d Farmácia -v 42.9 -c 10 -p
-step "cli entries create --scheduled = -p (mock)" expect_json 'd.status === "pendente" && d.dataEfetiva === null' entries create -a 1001 -d Farmácia -v 42.9 -c 10 --scheduled --json
-step "cli entries create --confirmed (mock)" expect_json 'd.status === "confirmado" && d.conciliado === false && d.dataEfetiva === "2026-01-05" && d.valorEfetivo === -30' entries create -a 1001 -d Feira -v 30 -c 10 --confirmed -D 2026-01-05 --json
-step "cli entries create -p --confirmed recusado (mock)" expect_fail 'either --pending or --confirmed' entries create -a 1001 -d Feira -v 30 -c 10 -p --confirmed
-step "cli entries create cartão -p não concilia (mock)" expect_json 'd.conciliado === false && d.status === "confirmado" && d.dataEfetiva === null && typeof d.occurrenceId === "string"' entries create -a 1002 -d Hotel -v 99 -c 10 -D 2026-01-06 -p --json
-# Inactive categories (Finanças 2026-10-16): a shared name picks the active
+step "cli entries create -p hoje = pendente (mock)" expect_json 'd.status === "pendente" && d.conciliado === false && d.dataEfetiva === null && d.valorEfetivo === null' entries create -a 201 -d Farmácia -v 42.9 -c 10 -p --json
+step "cli entries create -p hoje texto (mock)" expect_ok 'Status: Pending' entries create -a 201 -d Farmácia -v 42.9 -c 10 -p
+step "cli entries create --scheduled = -p (mock)" expect_json 'd.status === "pendente" && d.dataEfetiva === null' entries create -a 201 -d Farmácia -v 42.9 -c 10 --scheduled --json
+step "cli entries create --confirmed (mock)" expect_json 'd.status === "confirmado" && d.conciliado === false && d.dataEfetiva === "2026-01-05" && d.valorEfetivo === -30' entries create -a 201 -d Feira -v 30 -c 10 --confirmed -D 2026-01-05 --json
+step "cli entries create -p --confirmed recusado (mock)" expect_fail 'either --pending or --confirmed' entries create -a 201 -d Feira -v 30 -c 10 -p --confirmed
+step "cli entries create cartão -p não concilia (mock)" expect_json 'd.conciliado === false && d.status === "confirmado" && d.dataEfetiva === null && typeof d.occurrenceId === "string"' entries create -a 202 -d Hotel -v 99 -c 10 -D 2026-01-06 -p --json
+# Inactive categories (Real use 2026-10-16): a shared name picks the active
 # one; an explicit ID (or a name with no active match) is refused.
-step "cli entries create categoria ativa por nome (mock)" expect_json 'd.categoria === 42' entries create -a 1001 -d Aluguel -v 10 -c moradia -D 2026-01-05 --json
-step "cli entries create categoria inativa (mock)" expect_fail 'Category "Moradia" \(41\) is inactive' entries create -a 1001 -d Aluguel -v 10 -c 41 -D 2026-01-05
+step "cli entries create categoria ativa por nome (mock)" expect_json 'd.categoria === 42' entries create -a 201 -d Aluguel -v 10 -c moradia -D 2026-01-05 --json
+step "cli entries create categoria inativa (mock)" expect_fail 'Category "Moradia" \(41\) is inactive' entries create -a 201 -d Aluguel -v 10 -c 41 -D 2026-01-05
 step "cli entries update categoria inativa (mock)" expect_fail 'is inactive' entries update 70 -c 41
 # Categories (#170): --move-to refuses an inactive destination and an
 # ambiguous name, before any DELETE (the active+inactive pair is covered by tests).
 step "cli categories delete --move-to inativa (mock)" expect_fail 'Category "Moradia" \(41\) is inactive' categories delete 11 --move-to 41 --dangerously-skip-confirmation
 step "cli categories delete --move-to nome ambíguo (mock)" expect_fail 'matches more than one active category' categories delete 11 --move-to casa --dangerously-skip-confirmation
-# Finanças 2026-10-27: the web app only lists categories of the entry's type
+# Real use 2026-10-27: the web app only lists categories of the entry's type
 # (md.js filterCats) and signs the value from the type (Tt); a mismatch is
 # refused before the API, and the chosen type sets the sign and estorno.
-step "cli entries create tipo e categoria divergentes (mock)" expect_fail 'is an expense, but the entry type is income' entries create -a 1001 -d X -v 1700 -c 10 -T income
+step "cli entries create tipo e categoria divergentes (mock)" expect_fail 'is an expense, but the entry type is income' entries create -a 201 -d X -v 1700 -c 10 -T income
 step "cli entries update tipo e categoria divergentes (mock)" expect_fail 'is an expense, but the entry type is income' entries update 70 -T income
 step "cli entries update estorno: tipo manda no sinal e no estorno (mock)" expect_json 'd.tipo === "r" && d.valor === 1700 && d.valorEfetivo === 1700 && d.estorno === false' entries update 71 -T income -c 20 -v 1700 --json
 step "cli entries update -p volta a pendente (mock)" expect_json 'd.status === "pendente" && d.conciliado === false && d.dataEfetiva === null' entries update 70 -p --json
@@ -508,50 +508,50 @@ step "cli entries update --scope following (mock)" expect_json 'd.status === "ag
 step "cli entries update --scope following texto (mock)" expect_ok 'Status: Scheduled' entries update 80 -D 2027-01-25 --scope following
 step "cli entries update --confirmed confirma (mock)" expect_json 'd.status === "confirmado" && d.conciliado === false' entries update 80 --confirmed --scope this --json
 step "cli entries update --scope fora de série (mock)" expect_fail 'not part of a recurring series' entries update 70 -d X --scope following
-# update --account (#123): the NuCel fixed series moves to another account from
+# update --account (#123): the Assinatura Teste fixed series moves to another account from
 # this occurrence on; into a card the invoice is picked from the entry's date;
 # a transfer moves origin/destination and refuses cards, as entries create.
-step "cli entries update --account série (mock)" expect_json 'd.conta === 1004 && d.agendaId === 77 && d.parcela === "fixa" && d.scope === "following"' entries update 80 --account 1004 --scope following --json
-step "cli entries update --account texto (mock)" expect_ok 'Account: 1004' entries update 80 --account 1004 --scope following
+step "cli entries update --account série (mock)" expect_json 'd.conta === 204 && d.agendaId === 77 && d.parcela === "fixa" && d.scope === "following"' entries update 80 --account 204 --scope following --json
+step "cli entries update --account texto (mock)" expect_ok 'Account: 204' entries update 80 --account 204 --scope following
 # Into a card the invoice is the web form's (from proximoVencimento, closing
 # fechamento days before) and the plastic is the new card's holder, or null.
-step "cli entries update --account cartão (mock)" expect_json 'd.conta === 1005 && d.dataCompetencia === "2026-11-10" && d.dataPrevista === "2026-12-16" && d.dataEfetiva === null && d.plastico === 7' entries update 70 --account 1005 -D 2026-11-10 --json
-step "cli entries update --account cartão data passada (mock)" expect_json 'd.conta === 1005 && d.dataCompetencia === "2026-01-12" && d.dataPrevista === "2026-11-16"' entries update 70 --account 1005 --json
-step "cli entries update --account cartão sem plástico (mock)" expect_json 'd.conta === 1002 && d.plastico === null' entries update 70 --account 1002 --json
+step "cli entries update --account cartão (mock)" expect_json 'd.conta === 205 && d.dataCompetencia === "2026-11-10" && d.dataPrevista === "2026-12-16" && d.dataEfetiva === null && d.plastico === 62' entries update 70 --account 205 -D 2026-11-10 --json
+step "cli entries update --account cartão data passada (mock)" expect_json 'd.conta === 205 && d.dataCompetencia === "2026-01-12" && d.dataPrevista === "2026-11-16"' entries update 70 --account 205 --json
+step "cli entries update --account cartão sem plástico (mock)" expect_json 'd.conta === 202 && d.plastico === null' entries update 70 --account 202 --json
 step "cli entries update --account inexistente (mock)" expect_fail 'Unknown account: Inexistente' entries update 70 --account Inexistente
-step "cli entries update --to-account fora de transferência (mock)" expect_fail 'to-account only applies to transfers' entries update 70 --to-account 1004
-step "cli entries update transferência --account/--to-account (mock)" expect_json 'd.conta === 1004 && d.contaT === 1001' entries update 52 --account 1004 --to-account 1001 --json
-step "cli entries update transferência mesma conta (mock)" expect_fail 'origin and destination would both be account 1004' entries update 52 --account 1004
-step "cli entries update transferência com cartão (mock)" expect_fail 'credit card account are not supported' entries update 50 --to-account 1004
+step "cli entries update --to-account fora de transferência (mock)" expect_fail 'to-account only applies to transfers' entries update 70 --to-account 204
+step "cli entries update transferência --account/--to-account (mock)" expect_json 'd.conta === 204 && d.contaT === 201' entries update 52 --account 204 --to-account 201 --json
+step "cli entries update transferência mesma conta (mock)" expect_fail 'origin and destination would both be account 204' entries update 52 --account 204
+step "cli entries update transferência com cartão (mock)" expect_fail 'credit card account are not supported' entries update 50 --to-account 204
 # entries list: the API refuses end dates past 2031-12-31 (#65), so the CLI
 # checks first; under --json any error is {"error": ...} on stderr, exit 1.
-step "cli entries list --json (mock)" expect_json 'Array.isArray(d) && d.some((e) => e.id === 70 && e.description === "Café")' entries list -a 1001 -f 2026-01-01 -t 2026-01-31 --json
-step "cli entries list --no-invoices (mock)" expect_ok 'Entries' entries list -a 1001 -f 2026-01-01 -t 2026-01-31 --no-invoices
-step "cli entries list total com sinal (mock)" expect_ok 'Total:' entries list -a 1001 -f 2026-01-01 -t 2026-01-31
-# Dogfooding 2026-10-16: --repetition -> tipoRepeticao (1 single, 2 installment,
+step "cli entries list --json (mock)" expect_json 'Array.isArray(d) && d.some((e) => e.id === 70 && e.description === "Café")' entries list -a 201 -f 2026-01-01 -t 2026-01-31 --json
+step "cli entries list --no-invoices (mock)" expect_ok 'Entries' entries list -a 201 -f 2026-01-01 -t 2026-01-31 --no-invoices
+step "cli entries list total com sinal (mock)" expect_ok 'Total:' entries list -a 201 -f 2026-01-01 -t 2026-01-31
+# Real use 2026-10-16: --repetition -> tipoRepeticao (1 single, 2 installment,
 # 4 fixed), the extra list fields and entries show.
-step "cli entries list --repetition (mock)" expect_json 'd.length === 1 && d[0].id === 60 && d[0].repetition === "installment" && d[0].tagIds[0] === 501 && d[0].documentNumber === "NF-1"' entries list -a 1001 -f 2026-01-01 -t 2026-01-31 --repetition installment --json
-step "cli entries list --csv campos extras (mock)" expect_ok 'transfer_account,tags,notes,document_number' entries list -a 1001 -f 2026-01-01 -t 2026-01-31 --csv
-step "cli entries list --csv nomes de tag (mock)" expect_ok ',Trabalho,parcelado,NF-1' entries list -a 1001 -f 2026-01-01 -t 2026-01-31 --csv
-step "cli entries summary --repetition (mock)" expect_json 'd.total.count === 1 && d.skippedTransfers === 1' entries summary -a 1001 -f 2026-01-01 -t 2026-01-31 -R single --json
+step "cli entries list --repetition (mock)" expect_json 'd.length === 1 && d[0].id === 60 && d[0].repetition === "installment" && d[0].tagIds[0] === 501 && d[0].documentNumber === "NF-1"' entries list -a 201 -f 2026-01-01 -t 2026-01-31 --repetition installment --json
+step "cli entries list --csv campos extras (mock)" expect_ok 'transfer_account,tags,notes,document_number' entries list -a 201 -f 2026-01-01 -t 2026-01-31 --csv
+step "cli entries list --csv nomes de tag (mock)" expect_ok ',Trabalho,parcelado,NF-1' entries list -a 201 -f 2026-01-01 -t 2026-01-31 --csv
+step "cli entries summary --repetition (mock)" expect_json 'd.total.count === 1 && d.skippedTransfers === 1' entries summary -a 201 -f 2026-01-01 -t 2026-01-31 -R single --json
 step "cli entries show (mock)" expect_ok 'Repetition: Installment \(2/6\)' entries show 60
 step "cli entries show --json (mock)" expect_json 'd.id === 60 && d.notes === "parcelado" && d.seriesId === 99 && d.competenceDate === "2026-01-10"' entries show 60 --json
 step "cli entries show --raw (mock)" expect_json 'd.agendaId === 77 && d.parcela === "fixa"' entries show 80 --raw
 step "cli entries show inexistente (mock)" expect_fail 'GET /v1/lancamentos/9999\): 404' entries show 9999
-step "cli entries list --to > 2031 (mock)" expect_fail 'is past 2031-12-31' entries list -a 1001 -f 2026-11-01 -t 2035-12-31
-step "cli entries list --to > 2031 --json (mock)" expect_json_error 'is past 2031-12-31' entries list -a 1001 -f 2026-11-01 -t 2035-12-31 --json
+step "cli entries list --to > 2031 (mock)" expect_fail 'is past 2031-12-31' entries list -a 201 -f 2026-11-01 -t 2035-12-31
+step "cli entries list --to > 2031 --json (mock)" expect_json_error 'is past 2031-12-31' entries list -a 201 -f 2026-11-01 -t 2035-12-31 --json
 step "cli erro da API em --json (mock)" expect_json_error 'GET /v1/lancamentos/9999\): 404' entries delete 9999 --dangerously-skip-confirmation --json
-# Jardinagem 2026-10-19: Number("") is 0, so -v "" created an R$ 0 entry and
+# Maintenance 2026-10-19: Number("") is 0, so -v "" created an R$ 0 entry and
 # delete "" reached the API with id 0. Strict parsing refuses both.
-step "cli entries create -v vazio recusado (mock)" expect_fail 'Invalid value ""' entries create -a 1001 -d X -v "" -c 10
-step "cli entries create -v 1e3 recusado (mock)" expect_fail 'Invalid value "1e3"' entries create -a 1001 -d X -v 1e3 -c 10
-step "cli entries create -v 1,50 (mock)" expect_json 'd.valor === -1.5' entries create -a 1001 -d Pão -v 1,50 -c 10 -D 2026-01-05 --json
+step "cli entries create -v vazio recusado (mock)" expect_fail 'Invalid value ""' entries create -a 201 -d X -v "" -c 10
+step "cli entries create -v 1e3 recusado (mock)" expect_fail 'Invalid value "1e3"' entries create -a 201 -d X -v 1e3 -c 10
+step "cli entries create -v 1,50 (mock)" expect_json 'd.valor === -1.5' entries create -a 201 -d Pão -v 1,50 -c 10 -D 2026-01-05 --json
 step "cli entries delete id vazio recusado (mock)" expect_fail 'Invalid entry ID' entries delete "" --dangerously-skip-confirmation
 step "cli accounts delete 0x10 recusado (mock)" expect_fail 'Invalid account ID' accounts delete 0x10 --dangerously-skip-confirmation
-# Jardinagem 2026-10-19: money is signed everywhere (create/update/delete
+# Maintenance 2026-10-19: money is signed everywhere (create/update/delete
 # showed expenses without the minus) and tag resolution is shared.
-step "cli entries create valor com sinal (mock)" expect_ok 'Value: -R\$.*30,00' entries create -a 1001 -d Feira -v 30 -c 10 -D 2026-01-05
-step "cli entries create tag inexistente (mock)" expect_fail 'Unknown tag\(s\): nope' entries create -a 1001 -d Feira -v 30 -c 10 -g nope
+step "cli entries create valor com sinal (mock)" expect_ok 'Value: -R\$.*30,00' entries create -a 201 -d Feira -v 30 -c 10 -D 2026-01-05
+step "cli entries create tag inexistente (mock)" expect_fail 'Unknown tag\(s\): nope' entries create -a 201 -d Feira -v 30 -c 10 -g nope
 step "cli entries delete (mock)"             expect_ok 'Entry 70 deleted' entries delete 70 --dangerously-skip-confirmation
 step "cli entries delete --json (mock)"      expect_json 'd.deleted === true && d.id === 70' entries delete 70 --dangerously-skip-confirmation --json
 step "cli entries delete inexistente (mock)" expect_fail 'GET /v1/lancamentos/9999\): 404' entries delete 9999 --dangerously-skip-confirmation

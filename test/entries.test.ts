@@ -12,7 +12,7 @@ beforeEach(() => {
   api.on('GET /v2/lancamentos', EMPTY_ENTRIES_RESPONSE);
   home = createHome({
     ...MANUAL_AUTH,
-    aliases: { accounts: [{ id: 1001, name: 'nu' }], categories: [], tags: [] },
+    aliases: { accounts: [{ id: 201, name: 'conta' }], categories: [], tags: [] },
   });
 });
 
@@ -30,7 +30,7 @@ function entriesQuery(): URLSearchParams {
 describe('entries list', () => {
   test('turns status and type names into the API bitmasks', async () => {
     const result = await runCli(
-      ['entries', 'list', '-a', '1001', '-s', 'pending,reconciled', '-T', 'expense,income', '--json'],
+      ['entries', 'list', '-a', '201', '-s', 'pending,reconciled', '-T', 'expense,income', '--json'],
       { home, api }
     );
 
@@ -41,20 +41,20 @@ describe('entries list', () => {
 
   test('resolves account aliases and category names', async () => {
     const result = await runCli(
-      ['entries', 'list', '-a', 'nu', '-c', 'alimentação/mercado', '--from', '2026-01-01', '--to', '2026-01-31', '--json'],
+      ['entries', 'list', '-a', 'conta', '-c', 'alimentação/mercado', '--from', '2026-01-01', '--to', '2026-01-31', '--json'],
       { home, api }
     );
 
     expect(result.exitCode).toBe(0);
     const query = entriesQuery();
-    expect(JSON.parse(query.get('contas') ?? '')).toEqual({ faturas: true, ids: [1001] });
+    expect(JSON.parse(query.get('contas') ?? '')).toEqual({ faturas: true, ids: [201] });
     expect(JSON.parse(query.get('categorias') ?? '')).toEqual({ ids: ['11'] });
     expect(query.get('inicio')).toBe('2026-01-01');
     expect(query.get('fim')).toBe('2026-01-31');
   });
 
   test('rejects an unknown status name before calling the API', async () => {
-    const result = await runCli(['entries', 'list', '-a', '1001', '-s', 'done'], { home, api });
+    const result = await runCli(['entries', 'list', '-a', '201', '-s', 'done'], { home, api });
 
     expect(result.exitCode).toBe(1);
     expect(result.output).toContain('Unknown status: done');
@@ -70,19 +70,19 @@ describe('entries list', () => {
 
   test('--no-invoices sends faturas: false', async () => {
     const result = await runCli(
-      ['entries', 'list', '-a', '1001', '--from', '2026-01-01', '--to', '2026-01-31', '--no-invoices', '--json'],
+      ['entries', 'list', '-a', '201', '--from', '2026-01-01', '--to', '2026-01-31', '--no-invoices', '--json'],
       { home, api }
     );
 
     expect(result.exitCode).toBe(0);
-    expect(JSON.parse(entriesQuery().get('contas') ?? '')).toEqual({ faturas: false, ids: [1001] });
+    expect(JSON.parse(entriesQuery().get('contas') ?? '')).toEqual({ faturas: false, ids: [201] });
   });
 
   test('shows signed values in the list Total and Value column', async () => {
     api.on('GET /v2/lancamentos', entriesPage([SAMPLE_ENTRIES[0], SAMPLE_ENTRIES[2]]));
 
     const result = await runCli(
-      ['entries', 'list', '-a', '1001', '--from', '2026-01-01', '--to', '2026-01-31'],
+      ['entries', 'list', '-a', '201', '--from', '2026-01-01', '--to', '2026-01-31'],
       { home, api }
     );
 
@@ -95,18 +95,18 @@ describe('entries list', () => {
 
   test('marks invoice projections as type invoice', async () => {
     const projection = {
-      descricao: 'Fatura Cartão Azul',
+      descricao: 'Fatura Cartão Teste',
       valor: -450.0,
       data: '2026-01-16',
       dataPrevista: '2026-01-16',
       status: 'pendente',
-      conta: 1001,
-      projecaoFatura: 1002,
+      conta: 201,
+      projecaoFatura: 202,
     };
     api.on('GET /v2/lancamentos', entriesPage([projection]));
 
     const result = await runCli(
-      ['entries', 'list', '-a', '1001', '--from', '2026-01-01', '--to', '2026-01-31', '--json'],
+      ['entries', 'list', '-a', '201', '--from', '2026-01-01', '--to', '2026-01-31', '--json'],
       { home, api }
     );
 
@@ -114,11 +114,11 @@ describe('entries list', () => {
     const entries = JSON.parse(result.stdout);
     expect(entries).toEqual([
       expect.objectContaining({
-        id: 'invoice:1002',
-        description: 'Fatura Cartão Azul',
+        id: 'invoice:202',
+        description: 'Fatura Cartão Teste',
         value: -450,
         type: 'invoice',
-        accountId: 1001,
+        accountId: 201,
       }),
     ]);
   });
@@ -131,23 +131,23 @@ describe('entries create', () => {
     api.on('POST /v1/lancamentos', created);
 
     const result = await runCli(
-      ['entries', 'create', '-a', '1001', '-d', 'Mercado', '-v', '10', '-c', '10', '-D', '2026-01-05', '--json'],
+      ['entries', 'create', '-a', '201', '-d', 'Mercado', '-v', '10', '-c', '10', '-D', '2026-01-05', '--json'],
       { home, api }
     );
 
     expect(result.exitCode).toBe(0);
     const body = mutations(api)[0].body as Record<string, unknown>;
-    expect(body).toMatchObject({ conta: '1001', categoria: 10, tipo: 'd', valor: -10, dataEfetiva: '2026-01-05' });
+    expect(body).toMatchObject({ conta: '201', categoria: 10, tipo: 'd', valor: -10, dataEfetiva: '2026-01-05' });
     expect(body).not.toHaveProperty('dataCompetencia');
   });
 
   test('puts a credit card purchase on the open invoice', async () => {
     api.on('POST /v1/lancamentos', created);
-    api.on('GET /v1/cartoes/1002/fatura/2026-01-16', cardInvoice('2026-01-16', '2026-01-08'));
-    api.on('GET /v1/cartoes/1002/fatura/2025-12-16', cardInvoice('2025-12-16', '2025-12-08'));
+    api.on('GET /v1/cartoes/202/fatura/2026-01-16', cardInvoice('2026-01-16', '2026-01-08'));
+    api.on('GET /v1/cartoes/202/fatura/2025-12-16', cardInvoice('2025-12-16', '2025-12-08'));
 
     const result = await runCli(
-      ['entries', 'create', '-a', '1002', '-d', 'Voo', '-v', '10', '-c', '10', '-D', '2026-01-05', '--json'],
+      ['entries', 'create', '-a', '202', '-d', 'Voo', '-v', '10', '-c', '10', '-D', '2026-01-05', '--json'],
       { home, api }
     );
 
@@ -165,7 +165,7 @@ describe('entries create', () => {
     api.on('POST /v1/lancamentos', { ...created, status: 'confirmado', conciliado: false, dataEfetiva: '2026-11-05' });
 
     const result = await runCli(
-      ['entries', 'create', '-a', '1001', '-d', 'Mercado', '-v', '1', '-c', '10', '-D', '2026-11-05', '--confirmed'],
+      ['entries', 'create', '-a', '201', '-d', 'Mercado', '-v', '1', '-c', '10', '-D', '2026-11-05', '--confirmed'],
       { home, api }
     );
 
@@ -176,7 +176,7 @@ describe('entries create', () => {
   });
 
   test('requires a category', async () => {
-    const result = await runCli(['entries', 'create', '-a', '1001', '-d', 'X', '-v', '10'], { home, api });
+    const result = await runCli(['entries', 'create', '-a', '201', '-d', 'X', '-v', '10'], { home, api });
 
     expect(result.exitCode).toBe(1);
     expect(mutations(api)).toHaveLength(0);
@@ -204,8 +204,8 @@ describe('entries update', () => {
       dataEfetiva: '2026-01-15',
       status: 'conciliado',
       conciliado: true,
-      conta: 1001,
-      contaT: 1003,
+      conta: 201,
+      contaT: 203,
       categoria: 30,
       tags: [],
       observacoes: '',
@@ -222,10 +222,10 @@ describe('entries update', () => {
     const body = mutations(api)[0].body as Record<string, unknown>;
     expect(body).toMatchObject({
       transferencia: true,
-      conta: 1001,
-      contaT: 1003,
-      contaOrigem: 1001,
-      contaDestino: 1003,
+      conta: 201,
+      contaT: 203,
+      contaOrigem: 201,
+      contaDestino: 203,
       valor: -1200,
       valorT: 1200,
       descricao: 'Poupança mensal',
@@ -244,8 +244,8 @@ describe('entries update', () => {
       dataPrevista: '2026-01-15',
       status: 'conciliado',
       conciliado: true,
-      conta: 1003,
-      contaT: 1001,
+      conta: 203,
+      contaT: 201,
       categoria: 30,
       tags: [],
     };
@@ -261,10 +261,10 @@ describe('entries update', () => {
     const body = mutations(api)[0].body as Record<string, unknown>;
     expect(body).toMatchObject({
       transferencia: true,
-      contaOrigem: 1001,
-      contaDestino: 1003,
-      conta: 1001,
-      contaT: 1003,
+      contaOrigem: 201,
+      contaDestino: 203,
+      conta: 201,
+      contaT: 203,
       valor: -1000,
       valorT: 1000,
       observacoes: 'via CLI',
@@ -283,12 +283,12 @@ describe('entries update', () => {
       dataCompetencia: '2026-01-10',
       status: 'conciliado',
       conciliado: true,
-      conta: 1001,
+      conta: 201,
       categoria: 10,
       categoriaPai: 0,
       parcela: '2/6',
       agendaId: 99,
-      plastico: 7,
+      plastico: 62,
       tags: [501],
       observacoes: 'parcelado',
       ndocumento: 'NF-1',
@@ -316,7 +316,7 @@ describe('entries update', () => {
       valor: -250,
       parcela: '2/6',
       agendaId: 99,
-      plastico: 7,
+      plastico: 62,
       categoria: 10,
       tags: [501],
     });

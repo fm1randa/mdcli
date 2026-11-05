@@ -1,4 +1,4 @@
-// Money is formatted in one place, signed by default (Jardinagem 2026-10-19:
+// Money is formatted in one place, signed by default (Maintenance 2026-10-19:
 // four copies, two of them dropping the sign).
 export default {
   meta: {

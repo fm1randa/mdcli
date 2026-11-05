@@ -78,7 +78,7 @@ export const ENTRY_STATUS_LABELS: Record<string, EntryStatus> = {
 
 /**
  * A label outside the table is 'unknown', not a guess: the old 'pending'
- * fallback hid 'confirmado' until #71 (Jardinagem 2026-10-19). The raw label
+ * fallback hid 'confirmado' until #71 (Maintenance 2026-10-19). The raw label
  * is in entries show --raw.
  */
 function mapEntryStatus(status: string | undefined): EntryStatus {
@@ -131,7 +131,7 @@ export function normalizeEntries(entries: Entry[]): NormalizedEntry[] {
 
 /**
  * date is the invoice due date (dataPrevista ?? vencimento), the same rule as
- * entries list, so one item has one date in both commands (Filipe, dogfood
+ * entries list, so one item has one date in both commands (real use
  * 2026-10-19). dueDate repeats it for compatibility; purchaseDate is the
  * item's data (e.g. 2025-11-19 for an installment 12/18).
  */

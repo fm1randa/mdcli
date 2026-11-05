@@ -1,4 +1,4 @@
-# Weekly dependency updates (Jardinagem 2026-10-19: no Dependabot/Renovate).
+# Weekly dependency updates (Maintenance 2026-10-19: no Dependabot/Renovate).
 # Minors and patches come together in one PR per ecosystem (the CI verify
 # check validates them); each major gets its own PR, to be reviewed apart.
 version: 2

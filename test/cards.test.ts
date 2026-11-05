@@ -10,7 +10,7 @@ beforeEach(() => {
   api.on('GET /v1/cadastros/contas', ACCOUNTS_RESPONSE);
   home = createHome({
     ...MANUAL_AUTH,
-    aliases: { accounts: [{ id: 1002, name: 'azul' }], categories: [], tags: [] },
+    aliases: { accounts: [{ id: 202, name: 'cartao' }], categories: [], tags: [] },
   });
 });
 
@@ -27,8 +27,8 @@ describe('cards list', () => {
     const cards = JSON.parse(result.stdout);
     expect(cards).toHaveLength(1);
     expect(cards[0]).toMatchObject({
-      id: 1002,
-      name: 'Cartão Azul',
+      id: 202,
+      name: 'Cartão Teste',
       type: 'CARTAOCREDITO',
       active: true,
       closed: false,
@@ -40,7 +40,7 @@ describe('cards list', () => {
       ...ACCOUNTS_RESPONSE,
       items: [
         ...ACCOUNTS_RESPONSE.items,
-        { ...CREDIT_CARD_ACCOUNT, id: 1003, nome: 'Cartão Velho', status: false },
+        { ...CREDIT_CARD_ACCOUNT, id: 203, nome: 'Cartão Velho', status: false },
       ],
     });
 
@@ -48,14 +48,14 @@ describe('cards list', () => {
 
     expect(result.exitCode).toBe(0);
     const names = JSON.parse(result.stdout).map((c: { name: string }) => c.name);
-    expect(names).toEqual(['Cartão Azul']);
+    expect(names).toEqual(['Cartão Teste']);
   });
 });
 
 describe('cards invoice', () => {
   test('resolves the account alias and returns invoice entries as JSON', async () => {
     // --month builds YYYY-MM-DD from the card's day-of-month (16 from proximoVencimento)
-    api.on('GET /v1/cartoes/1002/fatura/2026-01-16', {
+    api.on('GET /v1/cartoes/202/fatura/2026-01-16', {
       ...cardInvoice('2026-01-16', '2026-01-08'),
       lancamentos: [
         {
@@ -70,7 +70,7 @@ describe('cards invoice', () => {
     });
 
     const result = await runCli(
-      ['cards', 'invoice', '--account', 'azul', '--month', '2026-01', '--json'],
+      ['cards', 'invoice', '--account', 'cartao', '--month', '2026-01', '--json'],
       { home, api }
     );
 
@@ -91,7 +91,7 @@ describe('cards invoice', () => {
   });
 
   test('rejects a non-credit-card account', async () => {
-    const result = await runCli(['cards', 'invoice', '--account', '1001'], { home, api });
+    const result = await runCli(['cards', 'invoice', '--account', '201'], { home, api });
 
     expect(result.exitCode).toBe(1);
     expect(result.output).toContain('not a credit card');
@@ -99,10 +99,10 @@ describe('cards invoice', () => {
 });
 
 describe('cards future', () => {
-  // Dogfood 2026-10-19: GET /parcelasFuturas returns a bare array; the old
+  // Real use 2026-10-19: GET /parcelasFuturas returns a bare array; the old
   // normalize expected { parcelas } and always showed 0 items.
   test('lists installments when the API returns a bare array', async () => {
-    api.on('GET /v1/cartoes/1002/parcelasFuturas', [
+    api.on('GET /v1/cartoes/202/parcelasFuturas', [
       {
         id: 801,
         descricao: 'Notebook',
@@ -121,7 +121,7 @@ describe('cards future', () => {
       },
     ]);
 
-    const result = await runCli(['cards', 'future', '-a', '1002', '--json'], { home, api });
+    const result = await runCli(['cards', 'future', '-a', '202', '--json'], { home, api });
 
     expect(result.exitCode).toBe(0);
     expect(JSON.parse(result.stdout)).toEqual([
@@ -147,14 +147,14 @@ describe('cards future', () => {
   });
 
   test('still accepts the legacy { parcelas } wrapper', async () => {
-    api.on('GET /v1/cartoes/1002/parcelasFuturas', {
+    api.on('GET /v1/cartoes/202/parcelasFuturas', {
       parcelas: [
         { id: 9, descricao: 'TV', valor: -100, data: '2026-04-16', parcela: '1/2', parcelasRestantes: 2, categoria: 11 },
       ],
       total: -100,
     });
 
-    const result = await runCli(['cards', 'future', '-a', '1002', '--json'], { home, api });
+    const result = await runCli(['cards', 'future', '-a', '202', '--json'], { home, api });
 
     expect(result.exitCode).toBe(0);
     expect(JSON.parse(result.stdout)).toEqual([
@@ -171,9 +171,9 @@ describe('cards future', () => {
   });
 
   test('treats a payload that is not a list as no installments', async () => {
-    api.on('GET /v1/cartoes/1002/parcelasFuturas', {});
+    api.on('GET /v1/cartoes/202/parcelasFuturas', {});
 
-    const result = await runCli(['cards', 'future', '-a', '1002', '--json'], { home, api });
+    const result = await runCli(['cards', 'future', '-a', '202', '--json'], { home, api });
 
     expect(result.exitCode).toBe(0);
     expect(JSON.parse(result.stdout)).toEqual([]);
@@ -181,28 +181,28 @@ describe('cards future', () => {
 });
 
 describe('cards invoice total', () => {
-  // Dogfood 2026-10-19: summing items counted the previous invoice's payment
-  // (tipo p, positive) and showed +1920.62 instead of totalFatura -3264.53.
+  // Real use 2026-10-19: summing items counted the previous invoice's payment
+  // (tipo p, positive) and showed +1500 instead of totalFatura -2500.
   test('header total uses resumo.totalFatura, not the sum of items', async () => {
-    api.on('GET /v1/cartoes/1002/fatura/2026-01-16', {
-      ...cardInvoice('2026-01-16', '2026-01-08', -3264.53),
+    api.on('GET /v1/cartoes/202/fatura/2026-01-16', {
+      ...cardInvoice('2026-01-16', '2026-01-08', -2500),
       lancamentos: [
-        { id: 1, descricao: 'Pagamento cartão', valor: 5185.15, data: '2025-12-16', categoria: 30, tipo: 'p' },
+        { id: 1, descricao: 'Pagamento cartão', valor: 4000, data: '2025-12-16', categoria: 30, tipo: 'p' },
         { id: 2, descricao: 'Mercado', valor: -50, data: '2026-01-05', categoria: 11, tipo: 'd' },
-        { id: 3, descricao: 'VPS', valor: -23, data: '2026-01-04', categoria: 10, tipo: 'd' },
+        { id: 3, descricao: 'Servidor Teste', valor: -23, data: '2026-01-04', categoria: 10, tipo: 'd' },
       ],
     });
 
-    const result = await runCli(['cards', 'invoice', '-a', '1002', '--month', '2026-01'], { home, api });
+    const result = await runCli(['cards', 'invoice', '-a', '202', '--month', '2026-01'], { home, api });
 
     expect(result.exitCode).toBe(0);
-    // Items sum to +5112.15; the bill is -3264.53.
-    expect(result.stdout.replace(/\u00a0/g, ' ')).toContain('Total: -R$ 3.264,53');
-    expect(result.stdout.replace(/\u00a0/g, ' ')).not.toContain('Total: R$ 5.112,15');
+    // Items sum to +3927; the bill is -2500.
+    expect(result.stdout.replace(/\u00a0/g, ' ')).toContain('Total: -R$ 2.500,00');
+    expect(result.stdout.replace(/\u00a0/g, ' ')).not.toContain('Total: R$ 3.927,00');
   });
 
   test('falls back to valor when resumo is missing', async () => {
-    api.on('GET /v1/cartoes/1002/fatura/2026-01-16', {
+    api.on('GET /v1/cartoes/202/fatura/2026-01-16', {
       lancamentos: [
         { id: 1, descricao: 'Pagamento cartão', valor: 100, data: '2025-12-16', tipo: 'p' },
         { id: 2, descricao: 'Mercado', valor: -87.5, data: '2026-01-05', categoria: 11, tipo: 'd' },
@@ -212,7 +212,7 @@ describe('cards invoice total', () => {
       valor: -87.5,
     });
 
-    const result = await runCli(['cards', 'invoice', '-a', '1002', '--month', '2026-01'], { home, api });
+    const result = await runCli(['cards', 'invoice', '-a', '202', '--month', '2026-01'], { home, api });
 
     expect(result.exitCode).toBe(0);
     expect(result.stdout.replace(/\u00a0/g, ' ')).toContain('Total: -R$ 87,50');

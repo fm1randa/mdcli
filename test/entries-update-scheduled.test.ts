@@ -26,7 +26,7 @@ const confirmedExpense = {
   dataEfetiva: '2026-01-12',
   status: 'conciliado',
   conciliado: true,
-  conta: 1001,
+  conta: 201,
   categoria: 10,
   tags: [],
 };
@@ -57,8 +57,8 @@ describe('entries update --pending (and its old name --scheduled)', () => {
       valor: -1000,
       valorT: 1000,
       valorEfetivoT: 1000,
-      conta: 1001,
-      contaT: 1004,
+      conta: 201,
+      contaT: 204,
       categoria: 30,
     };
     api.on('GET /v1/lancamentos/50', transfer);

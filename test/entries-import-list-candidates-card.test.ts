@@ -5,14 +5,14 @@ import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi,
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, CHECKING_ACCOUNT, CREDIT_CARD_ACCOUNT } from './fixtures.js';
 import { SINCE } from './import-harness.js';
 
-// Cartão Azul is 1002, proximoVencimento 2026-01-16T00:00:00. Connection account 9002 is not that id.
+// Cartão Teste is 202, proximoVencimento 2026-01-16T00:00:00. Connection account 302 is not that id.
 const CARD_LINK = [
-  { id: 501, status: 'UPDATED', accounts: [{ id: 9002, type: 'CONTA CORRENTE', conta: 1002 }] },
+  { id: 501, status: 'UPDATED', accounts: [{ id: 302, type: 'CONTA CORRENTE', conta: 202 }] },
 ];
 const TX = '56565656-1111-4000-8000-000000000001';
-const INVOICE = '/v1/cartoes/1002/fatura/2026-01-16';
+const INVOICE = '/v1/cartoes/202/fatura/2026-01-16';
 const NO_DUE_DATE =
-  'Card 1002 has no next due date in Meu Dinheiro, so there is no current invoice to find matching entries in. ' +
+  'Card 202 has no next due date in Meu Dinheiro, so there is no current invoice to find matching entries in. ' +
   "Set the card's due date in the web app (edit the card), then run the import again.";
 
 let api: MockApi;
@@ -24,7 +24,7 @@ beforeEach(() => {
   api.on('GET /v1/cadastros/contas', ACCOUNTS_RESPONSE);
   api.on('GET /v1/cadastros/categorias', CATEGORIES_RESPONSE);
   api.on('GET /v1/lancamentos/duplicidade', {});
-  api.on('GET /v1/integracao/account/9002/transactions', {
+  api.on('GET /v1/integracao/account/302/transactions', {
     inicio: '2026-10-01',
     fim: '2026-10-10',
     saldo: 0,
@@ -51,7 +51,7 @@ function cli(args: string[]) {
 }
 
 function list(args: string[] = []) {
-  return cli(['entries', 'import', 'list', '-a', '1002', '--since', SINCE, '--json', ...args]);
+  return cli(['entries', 'import', 'list', '-a', '202', '--since', SINCE, '--json', ...args]);
 }
 
 function invoice(items: unknown[]) {
@@ -134,7 +134,7 @@ describe('entries import list card candidates', () => {
 
     const plan = join(home.dir, 'plan.json');
     writeFileSync(plan, JSON.stringify({ transactions: [{ id: TX.slice(0, 8), action: 'conciliate', entry: 783 }] }));
-    const result = await cli(['entries', 'import', 'run', '-a', '1002', '--since', SINCE, '--plan', plan, '--dry-run', '--json']);
+    const result = await cli(['entries', 'import', 'run', '-a', '202', '--since', SINCE, '--plan', plan, '--dry-run', '--json']);
 
     expect(result.stderr).toBe('');
     expect(result.exitCode).toBe(0);
@@ -143,7 +143,7 @@ describe('entries import list card candidates', () => {
   });
 
   test('lists invoice candidates when the statement has no period', async () => {
-    api.on('GET /v1/integracao/account/9002/transactions', {
+    api.on('GET /v1/integracao/account/302/transactions', {
       saldo: 0,
       lancamentos: [{ integrationId: TX, descricao: 'Compra no cartao', valor: -12.34, data: '2026-10-07', moeda: 1 }],
     });
@@ -191,7 +191,7 @@ describe('entries import list card candidates', () => {
 
   test('fails when proximoVencimento is missing or not a calendar date, without loading any invoice', async () => {
     const { proximoVencimento: _omit, ...withoutDue } = CREDIT_CARD_ACCOUNT;
-    api.on('GET /v1/cartoes/1002/primeiraFatura', () => '2026-02-21T00:00:00');
+    api.on('GET /v1/cartoes/202/primeiraFatura', () => '2026-02-21T00:00:00');
     const cards = [withoutDue, { ...CREDIT_CARD_ACCOUNT, proximoVencimento: '2026-02-31T00:00:00' }];
     for (const card of cards) {
       api.requests.length = 0;
@@ -220,10 +220,10 @@ describe('entries import list card candidates', () => {
 
   test('import run on a card without a due date fails with what to do and writes nothing', async () => {
     const { proximoVencimento: _omit, ...withoutDue } = CREDIT_CARD_ACCOUNT;
-    api.on('GET /v1/cartoes/1002/primeiraFatura', () => '2026-02-21T00:00:00');
+    api.on('GET /v1/cartoes/202/primeiraFatura', () => '2026-02-21T00:00:00');
     api.on('GET /v1/cadastros/contas', { ...ACCOUNTS_RESPONSE, items: [CHECKING_ACCOUNT, withoutDue] });
 
-    const result = await cli(['entries', 'import', 'run', '-a', '1002', '--since', SINCE, '--ids', TX.slice(0, 8), '--category', '10', '--yes']);
+    const result = await cli(['entries', 'import', 'run', '-a', '202', '--since', SINCE, '--ids', TX.slice(0, 8), '--category', '10', '--yes']);
 
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toContain(NO_DUE_DATE);
@@ -232,7 +232,7 @@ describe('entries import list card candidates', () => {
   });
 
   test('does not load an invoice when the card statement is empty', async () => {
-    api.on('GET /v1/integracao/account/9002/transactions', {
+    api.on('GET /v1/integracao/account/302/transactions', {
       inicio: '2026-10-01', fim: '2026-10-10', saldo: 0, lancamentos: [],
     });
     invoice([{ id: 777, descricao: 'Compra Ficticia', valor: -12.34, data: '2026-10-08', categoria: 10 }]);

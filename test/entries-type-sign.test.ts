@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE } from './fixtures.js';
 
-// Finanças report (2026-10-27): `entries create -T income -c <expense category>`
+// Real use (2026-10-27): `entries create -T income -c <expense category>`
 // reached the API and came back as an expense refund, and `entries update -T
 // income` kept the old sign and the estorno flag. The web app's picker lists
 // only categories of the entry's type and clears the category when the type
@@ -16,7 +16,7 @@ let home: TestHome;
 // estorno on, which the web app never sends.
 const refund = {
   id: 70,
-  descricao: 'Estorno café',
+  descricao: 'Estorno Teste',
   tipo: 'r',
   valor: -1700,
   valorPrevisto: -1700,
@@ -27,7 +27,7 @@ const refund = {
   status: 'conciliado',
   conciliado: true,
   estorno: true,
-  conta: 1001,
+  conta: 201,
   categoria: 20,
   tags: [],
 };
@@ -54,7 +54,7 @@ function sentBody(): Record<string, unknown> {
   return request.body as Record<string, unknown>;
 }
 
-const CREATE = ['entries', 'create', '-a', '1001', '-d', 'Aluguel', '-v', '1700', '-D', '2026-01-05'];
+const CREATE = ['entries', 'create', '-a', '201', '-d', 'Aluguel', '-v', '1700', '-D', '2026-01-05'];
 
 describe('entries create refuses a category of another type', () => {
   test('an income entry with an expense category exits before the POST', async () => {
@@ -187,7 +187,7 @@ describe('entries refuse a type it does not know', () => {
 
 describe('entries update keeps invoice payments transfer-like', () => {
   test('a category cannot turn an invoice payment into an expense', async () => {
-    const payment = { ...refund, tipo: 'p' as const, categoria: 30, contaT: 1002, transferencia: 9 };
+    const payment = { ...refund, tipo: 'p' as const, categoria: 30, contaT: 202, transferencia: 9 };
     api.on('GET /v1/lancamentos/70', payment);
 
     const result = await runCli(['entries', 'update', '70', '-c', '10'], { home, api });
@@ -198,7 +198,7 @@ describe('entries update keeps invoice payments transfer-like', () => {
   });
 
   test('-T cannot turn an invoice payment into an income', async () => {
-    const payment = { ...refund, tipo: 'p' as const, categoria: 30, contaT: 1002, transferencia: 9 };
+    const payment = { ...refund, tipo: 'p' as const, categoria: 30, contaT: 202, transferencia: 9 };
     api.on('GET /v1/lancamentos/70', payment);
 
     const result = await runCli(['entries', 'update', '70', '-T', 'income'], { home, api });

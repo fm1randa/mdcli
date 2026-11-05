@@ -2,22 +2,22 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE } from './fixtures.js';
 
-// Fictional ids. 1001 and 1002 are Nubank and Cartão Azul in the account fixture.
-// 4242 is not in that registry. Connection 502 omits status; 9003 omits type;
+// Fictional ids. 201 and 202 are Conta Teste and Cartão Teste in the account fixture.
+// 4242 is not in that registry. Connection 502 omits status; 303 omits type;
 // 9004 omits the linked Account (`conta`).
 const CONNECTIONS = [
   {
     id: 501,
     status: 'UPDATED',
     accounts: [
-      { id: 9001, type: 'CONTA CORRENTE', conta: 1001 },
-      { id: 9002, type: 'CARTAOCREDITO', conta: 1002 },
+      { id: 301, type: 'CONTA CORRENTE', conta: 201 },
+      { id: 302, type: 'CARTAOCREDITO', conta: 202 },
     ],
   },
   {
     id: 502,
     accounts: [
-      { id: 9003, conta: 4242 },
+      { id: 303, conta: 4242 },
       { id: 9004 },
     ],
   },
@@ -29,15 +29,15 @@ const SYNC_LIST_JSON = {
       id: 501,
       status: 'UPDATED',
       accounts: [
-        { connectionAccount: 9001, accountId: 1001, accountName: 'Nubank', type: 'CONTA CORRENTE' },
-        { connectionAccount: 9002, accountId: 1002, accountName: 'Cartão Azul', type: 'CARTAOCREDITO' },
+        { connectionAccount: 301, accountId: 201, accountName: 'Conta Teste', type: 'CONTA CORRENTE' },
+        { connectionAccount: 302, accountId: 202, accountName: 'Cartão Teste', type: 'CARTAOCREDITO' },
       ],
     },
     {
       id: 502,
       status: null,
       accounts: [
-        { connectionAccount: 9003, accountId: 4242, accountName: null, type: null },
+        { connectionAccount: 303, accountId: 4242, accountName: null, type: null },
         { connectionAccount: 9004, accountId: null, accountName: null, type: null },
       ],
     },
@@ -89,25 +89,25 @@ describe('sync list', () => {
     expect(result.stdout).toContain('Account');
 
     const lines = result.stdout.split('\n');
-    const nubank = lines.find((line) => line.includes('9001'));
-    const card = lines.find((line) => line.includes('9002'));
-    const unknown = lines.find((line) => line.includes('9003'));
+    const conta = lines.find((line) => line.includes('301'));
+    const card = lines.find((line) => line.includes('302'));
+    const unknown = lines.find((line) => line.includes('303'));
     const unlinked = lines.find((line) => line.includes('9004'));
 
-    expect(nubank).toContain('501');
-    expect(nubank).toContain('UPDATED');
-    expect(nubank).toContain('CONTA CORRENTE');
-    expect(nubank).toContain('Nubank');
+    expect(conta).toContain('501');
+    expect(conta).toContain('UPDATED');
+    expect(conta).toContain('CONTA CORRENTE');
+    expect(conta).toContain('Conta Teste');
 
     expect(card).toContain('501');
     expect(card).toContain('UPDATED');
     expect(card).toContain('CARTAOCREDITO');
-    expect(card).toContain('Cartão Azul');
+    expect(card).toContain('Cartão Teste');
 
     expect(unknown).toContain('502');
     expect(unknown).not.toContain('UPDATED');
     expect(unknown).not.toContain('CONTA');
-    expect(unknown).not.toContain('Nubank');
+    expect(unknown).not.toContain('Conta Teste');
     expect(unknown).not.toContain('4242');
 
     expect(unlinked).toContain('502');

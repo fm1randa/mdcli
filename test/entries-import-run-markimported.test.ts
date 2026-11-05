@@ -40,7 +40,7 @@ function entries(list: unknown[]) {
 }
 
 function run(args: string[], stdin?: string) {
-  return runCli(['entries', 'import', 'run', '-a', '1001', '--since', SINCE, ...args], { home, api, stdin });
+  return runCli(['entries', 'import', 'run', '-a', '201', '--since', SINCE, ...args], { home, api, stdin });
 }
 
 function routes(): string[] {
@@ -70,7 +70,7 @@ describe('entries import run markImported', () => {
     expect(result.exitCode).toBe(0);
     expect(routes()).toEqual(COMMIT);
     const [mark, conciliation, importing] = mutations(api);
-    expect(mark.body).toEqual({ account: 9001, ids: [TX1, TX2], date: '2026-10-07' });
+    expect(mark.body).toEqual({ account: 301, ids: [TX1, TX2], date: '2026-10-07' });
     expect((conciliation.body as { lancamentos: unknown[] }).lancamentos).toHaveLength(2);
     expect(importing.body).toMatchObject({ lancamentos: [], maxDate: '2026-10-07' });
     expect(JSON.parse(result.stdout).conciliated).toHaveLength(2);
@@ -90,7 +90,7 @@ describe('entries import run markImported', () => {
     expect(result.stderr).toBe('');
     expect(result.exitCode).toBe(0);
     const [mark, conciliation, importing] = mutations(api);
-    expect(mark.body).toEqual({ account: 9001, ids: [TX1], date: '2026-10-09' });
+    expect(mark.body).toEqual({ account: 301, ids: [TX1], date: '2026-10-09' });
     expect((conciliation.body as { maxDate: string }).maxDate).toBe('2026-10-09');
     expect((importing.body as { maxDate: string }).maxDate).toBe('2026-10-09');
   });
@@ -110,7 +110,7 @@ describe('entries import run markImported', () => {
     expect(result.exitCode).toBe(0);
     const [mark] = mutations(api);
     expect(mark.body).toEqual({
-      account: 9001,
+      account: 301,
       ids: ['cccc3333-3333-4000-8000-000000000003', TX2, TX1],
       date: '2026-10-10',
     });
@@ -130,7 +130,7 @@ describe('entries import run markImported', () => {
     expect(result.exitCode).toBe(0);
     const [mark] = mutations(api);
     expect(mark.body).toEqual({
-      account: 9001,
+      account: 301,
       ids: [TX1, 'cccc3333-3333-4000-8000-000000000003'],
       date: '2026-10-10',
     });
@@ -138,7 +138,7 @@ describe('entries import run markImported', () => {
 
   test('a Connection without markImportedWindowDays marks the rows on maxDate, the window moment gets for a missing value', async () => {
     api.on('GET /v1/integracao/connections', [
-      { id: 501, status: 'UPDATED', accounts: [{ id: 9001, type: 'CONTA CORRENTE', conta: 1001 }] },
+      { id: 501, status: 'UPDATED', accounts: [{ id: 301, type: 'CONTA CORRENTE', conta: 201 }] },
     ]);
     statement([bank(TX1, { data: '2026-10-10' }), bank(TX2, { data: '2026-10-09' })]);
 
@@ -147,6 +147,6 @@ describe('entries import run markImported', () => {
     expect(result.stderr).toBe('');
     expect(result.exitCode).toBe(0);
     const [mark] = mutations(api);
-    expect(mark.body).toEqual({ account: 9001, ids: [TX1], date: '2026-10-10' });
+    expect(mark.body).toEqual({ account: 301, ids: [TX1], date: '2026-10-10' });
   });
 });

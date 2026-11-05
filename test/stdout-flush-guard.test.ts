@@ -19,7 +19,7 @@ describe('stdout flush guard', () => {
     const largeEntries = Array.from({ length: 20000 }, (_, i) => ({
       id: i + 1,
       descricao: `Large entry ${i + 1} with enough text to make the JSON exceed 64KB easily`,
-      conta: 1001,
+      conta: 201,
       categoria: 10,
       tipo: 'd',
       valor: -123.45,
@@ -33,7 +33,7 @@ describe('stdout flush guard', () => {
 
     try {
       const result = await runCli(
-        ['entries', 'list', '-a', '1001', '-f', '2026-01-01', '-t', '2026-12-31', '--json'],
+        ['entries', 'list', '-a', '201', '-f', '2026-01-01', '-t', '2026-12-31', '--json'],
         { home, api }
       );
 
