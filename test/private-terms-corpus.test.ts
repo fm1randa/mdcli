@@ -97,9 +97,10 @@ test('ignores the abbreviated base SHA in the README line', () => {
   });
 });
 
-test('fails a removed term longer than the representation limit until a sub-phrase is guarded', () => {
+test('fails a removed term longer than the representation limit until every word is guarded', () => {
   const term = 'Conta Alfa Beta Gama Delta';
   const window = 'Conta Alfa Beta Gama';
+  const tail = 'Alfa Beta Gama Delta';
   withRepo(`${term}\n`, 'linha limpa\n', (root, base, head) => {
     const unguarded = removedRunsBetween(base, head, root, new Set());
     expect(unguarded).toHaveLength(1);
@@ -110,8 +111,29 @@ test('fails a removed term longer than the representation limit until a sub-phra
       overlong: 5,
     });
 
-    expect(removedRunsBetween(base, head, root, new Set([termHash(window)]))).toEqual([]);
-    expect(removedRunsBetween(base, head, root, new Set([termHash('Alfa Beta Gama Delta')]))).toEqual([]);
+    expect(removedRunsBetween(base, head, root, new Set([termHash(window)])).map((hit) => hit.hash)).toEqual([
+      termHash('Delta'),
+    ]);
+    expect(removedRunsBetween(base, head, root, new Set([termHash(tail)])).map((hit) => hit.hash)).toEqual([
+      termHash('Conta'),
+    ]);
+    expect(removedRunsBetween(base, head, root, new Set([termHash(window), termHash(tail)]))).toEqual([]);
+  });
+});
+
+test('a guarded sub-phrase covers only its own words in a longer run', () => {
+  withRepo('Conta Alfa Beta Gama Delta\n', 'linha limpa\n', (root, base, head) => {
+    const hits = removedRunsBetween(base, head, root, new Set([termHash('Conta Alfa')]));
+    expect(hits.map((hit) => hit.hash)).toEqual([termHash('Beta Gama Delta')]);
+  });
+});
+
+test('reports a removed long run when every four-word window survives separately', () => {
+  const term = 'Conta Alfa Beta Gama Delta';
+  withRepo(`${term}\n`, 'Conta Alfa Beta Gama\nAlfa Beta Gama Delta\n', (root, base, head) => {
+    const hits = removedRunsBetween(base, head, root, new Set());
+    expect(hits).toHaveLength(1);
+    expect(hits[0]).toMatchObject({ hash: termHash('Conta Alfa Beta Gama'), overlong: 5 });
   });
 });
 
