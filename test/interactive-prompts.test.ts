@@ -87,21 +87,21 @@ describe('delete confirmation on a TTY', () => {
   beforeEach(() => {
     home = createHome(MANUAL_AUTH);
     api.on('GET /v1/cadastros/contas', ACCOUNTS_RESPONSE);
-    api.on('DELETE /v1/cadastros/contas/1001', null);
+    api.on('DELETE /v1/cadastros/contas/201', null);
   });
 
   test('"y" deletes', async () => {
-    const result = await runCliInTerminal(['accounts', 'delete', '1001'], { home, api }, [
+    const result = await runCliInTerminal(['accounts', 'delete', '201'], { home, api }, [
       { waitFor: '(y/N)', send: `y${KEY.enter}` },
     ]);
 
     expect(result.exitCode).toBe(0);
-    expect(result.output).toContain('Account 1001 deleted successfully!');
-    expect(mutations(api).map((r) => `${r.method} ${r.path}`)).toEqual(['DELETE /v1/cadastros/contas/1001']);
+    expect(result.output).toContain('Account 201 deleted successfully!');
+    expect(mutations(api).map((r) => `${r.method} ${r.path}`)).toEqual(['DELETE /v1/cadastros/contas/201']);
   });
 
   test('Enter alone (default N) cancels', async () => {
-    const result = await runCliInTerminal(['accounts', 'delete', '1001'], { home, api }, [
+    const result = await runCliInTerminal(['accounts', 'delete', '201'], { home, api }, [
       { waitFor: '(y/N)', send: KEY.enter },
     ]);
 

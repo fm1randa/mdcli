@@ -65,6 +65,10 @@ A PR labeled `risco` follows the two rules above.
 
 Do not write tautological tests: a test is tautological when it only re-asserts a mock or stub, re-implements the code under test, asserts constants or types, or cannot fail when the behavior breaks. The `fails-on-main` CI job runs every new or changed test in a PR that changes `src/` or `bin/` against `origin/main` and fails when it passes there.
 
+## Private data
+
+Never put real account data in the repository: no real account, card, entry, category, tag or plastic name, id or value, and no personal agent name. Use obviously synthetic values, such as "Conta Teste", "Cartão Teste" and small ids. This applies to code, fixtures, docs, issues and PRs. `test/private-terms.test.ts` fails when a hash of a known term appears in any versioned file; add a hash to `scripts/private-terms.ts` when you learn a new real term.
+
 ## Versioning
 
 - Use CalVer `YYYY.M.D` without leading zeros (e.g. `2026.10.13`), which is valid semver for npm.

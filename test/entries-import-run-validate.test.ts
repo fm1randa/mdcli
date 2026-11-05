@@ -3,15 +3,15 @@ import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi,
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE } from './fixtures.js';
 import { mockStatement, SINCE } from './import-harness.js';
 
-// Fictional ids. 1001 is Nubank (9001), 1002 is Cartão Azul (9002, due 2026-01-16).
+// Fictional ids. 201 is Conta Teste (301), 202 is Cartão Teste (302, due 2026-01-16).
 // Categories: 10 Alimentação (d), 20 Salário (r), 30 Transferência (t), 60 Antiga (d, inactive).
 const CONNECTIONS = [
   {
     id: 501,
     status: 'UPDATED',
     accounts: [
-      { id: 9001, type: 'CONTA CORRENTE', conta: 1001 },
-      { id: 9002, type: 'CARTAO DE CREDITO', conta: 1002 },
+      { id: 301, type: 'CONTA CORRENTE', conta: 201 },
+      { id: 302, type: 'CARTAO DE CREDITO', conta: 202 },
     ],
   },
 ];
@@ -42,7 +42,7 @@ function bank(integrationId: string, extra: Record<string, unknown> = {}) {
   return { integrationId, descricao: 'Padaria Ficticia', valor: -12.34, data: '2026-10-07', moeda: 1, ...extra };
 }
 
-function statement(rows: unknown[], connectionAccount = 9001) {
+function statement(rows: unknown[], connectionAccount = 301) {
   mockStatement(api, rows, { connectionAccount });
 }
 
@@ -50,7 +50,7 @@ function entries(list: unknown[]) {
   api.on('GET /v2/lancamentos', { list, meta: { total: list.length, page: 1, pageSize: 500 } });
 }
 
-function run(args: string[], account = '1001') {
+function run(args: string[], account = '201') {
   return runCli(['entries', 'import', 'run', '-a', account, '--since', SINCE, '--dry-run', ...args], { home, api });
 }
 
@@ -193,13 +193,13 @@ describe('entries import run status', () => {
   });
 
   test('a past card purchase is Reconciled too, and --search-to on a card fails', async () => {
-    statement([bank(TX1)], 9002);
-    api.on('GET /v1/cartoes/1002/fatura/2026-01-16', { lancamentos: [], vencimento: '2026-01-16' });
+    statement([bank(TX1)], 302);
+    api.on('GET /v1/cartoes/202/fatura/2026-01-16', { lancamentos: [], vencimento: '2026-01-16' });
 
-    const body = await plan(['--ids', 'aaaa', '-c', '10'], '1002');
+    const body = await plan(['--ids', 'aaaa', '-c', '10'], '202');
     expect(body.imported.map((item: { status: string }) => item.status)).toEqual(['reconciled']);
 
-    const result = await run(['--ids', 'aaaa', '-c', '10', '--search-to', '2026-10-20'], '1002');
+    const result = await run(['--ids', 'aaaa', '-c', '10', '--search-to', '2026-10-20'], '202');
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toContain('not specified');
     expect(mutations(api)).toHaveLength(0);

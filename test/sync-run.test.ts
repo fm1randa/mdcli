@@ -19,7 +19,7 @@ describe('sync run', () => {
   test('requests a Sync for the account connection and prints that connection from the GET after the PUT', async () => {
     connections(ONE_CONNECTION, AFTER_SYNC);
 
-    const result = await runCli(['sync', 'run', '1001', '--yes', '--json'], { home, api });
+    const result = await runCli(['sync', 'run', '201', '--yes', '--json'], { home, api });
 
     expect(result.exitCode).toBe(0);
     expect(result.stdout.startsWith('{')).toBe(true);
@@ -32,9 +32,9 @@ describe('sync run', () => {
           id: 501,
           status: 'UPDATING',
           accounts: [
-            { connectionAccount: 9001, accountId: 1001, accountName: 'Nubank', type: 'CONTA CORRENTE' },
-            { connectionAccount: 9002, accountId: 1002, accountName: 'Cartão Azul', type: 'CARTAOCREDITO' },
-            { connectionAccount: 9003, accountId: 4242, accountName: null, type: null },
+            { connectionAccount: 301, accountId: 201, accountName: 'Conta Teste', type: 'CONTA CORRENTE' },
+            { connectionAccount: 302, accountId: 202, accountName: 'Cartão Teste', type: 'CARTAOCREDITO' },
+            { connectionAccount: 303, accountId: 4242, accountName: null, type: null },
             { connectionAccount: 9004, accountId: null, accountName: null, type: null },
           ],
         },
@@ -60,7 +60,7 @@ describe('sync run', () => {
   test('asks before the PUT, naming the connection and the daily limit, and y sends it', async () => {
     connections(ONE_CONNECTION, AFTER_SYNC);
 
-    const result = await runCli(['sync', 'run', '1001'], { home, api, stdin: 'y\n' });
+    const result = await runCli(['sync', 'run', '201'], { home, api, stdin: 'y\n' });
 
     expect(result.exitCode).toBe(0);
     expect(result.stderr).toBe('');
@@ -68,8 +68,8 @@ describe('sync run', () => {
     expect(result.stdout).toContain('Each connector accepts at most 3 Syncs per day.');
     expect(result.stdout).toContain('UPDATING');
     expect(result.stdout).toContain('Connection 501 is UPDATING. Run sync list again to see the result.');
-    expect(result.stdout).toContain('Nubank');
-    expect(result.stdout).toContain('Cartão Azul');
+    expect(result.stdout).toContain('Conta Teste');
+    expect(result.stdout).toContain('Cartão Teste');
     expect(result.stdout).toContain('No account');
     expect(result.stdout).not.toContain('4242');
     expect(result.stdout).not.toContain('"requested"');
@@ -80,14 +80,14 @@ describe('sync run', () => {
   test('--yes skips the prompt and still sends the PUT', async () => {
     connections(ONE_CONNECTION, ONE_CONNECTION);
 
-    const result = await runCli(['sync', 'run', '1001', '--yes'], { home, api });
+    const result = await runCli(['sync', 'run', '201', '--yes'], { home, api });
 
     expect(result.exitCode).toBe(0);
     expect(result.stderr).toBe('');
     expect(result.stdout).not.toContain('3 Syncs per day');
     expect(result.stdout).not.toContain('Run sync list again');
     expect(result.stdout).toContain('UPDATED');
-    expect(result.stdout).toContain('Nubank');
+    expect(result.stdout).toContain('Conta Teste');
     expect(mutations(api)).toHaveLength(1);
   });
 
@@ -96,7 +96,7 @@ describe('sync run', () => {
 
     for (const stdin of ['n\n', '\n', 'yes\n']) {
       api.requests.length = 0;
-      const result = await runCli(['sync', 'run', '1001'], { home, api, stdin });
+      const result = await runCli(['sync', 'run', '201'], { home, api, stdin });
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toContain('501');
       expect(result.stdout).toContain('Each connector accepts at most 3 Syncs per day.');
@@ -109,7 +109,7 @@ describe('sync run', () => {
   test('--json without --yes fails before any request, even when stdin is y', async () => {
     connections(ONE_CONNECTION, AFTER_SYNC);
 
-    const result = await runCli(['sync', 'run', '1001', '--json'], { home, api, stdin: 'y\n' });
+    const result = await runCli(['sync', 'run', '201', '--json'], { home, api, stdin: 'y\n' });
 
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toBe('');
@@ -121,7 +121,7 @@ describe('sync run', () => {
   test('two accounts on the same connection produce one PUT', async () => {
     connections(ONE_CONNECTION, ONE_CONNECTION);
 
-    const result = await runCli(['sync', 'run', '1002', '--yes', '--json'], { home, api });
+    const result = await runCli(['sync', 'run', '202', '--yes', '--json'], { home, api });
 
     expect(result.exitCode).toBe(0);
     expect(result.stderr).toBe('');
@@ -130,17 +130,17 @@ describe('sync run', () => {
     ]);
     const doc = JSON.parse(result.stdout) as { connections: { accounts: { accountId: number | null }[] }[] };
     expect(doc.connections).toHaveLength(1);
-    expect(doc.connections[0]?.accounts.map((account) => account.accountId)).toEqual([1001, 1002, 4242, null]);
+    expect(doc.connections[0]?.accounts.map((account) => account.accountId)).toEqual([201, 202, 4242, null]);
   });
 
   test('an account outside every connection fails with no PUT', async () => {
     connections(ONE_CONNECTION, ONE_CONNECTION);
 
-    const result = await runCli(['sync', 'run', '1004', '--yes', '--json'], { home, api });
+    const result = await runCli(['sync', 'run', '204', '--yes', '--json'], { home, api });
 
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toBe('');
-    expect(JSON.parse(result.stderr)).toEqual({ error: 'Account 1004 is not linked to any connection.' });
+    expect(JSON.parse(result.stderr)).toEqual({ error: 'Account 204 is not linked to any connection.' });
     expect(mutations(api)).toHaveLength(0);
     expect(api.requests.map((r) => `${r.method} ${r.path}`)).toEqual(['GET /v1/integracao/connections']);
   });
@@ -148,17 +148,17 @@ describe('sync run', () => {
   test('an account in more than one connection fails with no PUT', async () => {
     connections(
       [
-        { id: 501, status: 'UPDATED', accounts: [{ id: 9001, type: 'CONTA CORRENTE', conta: 1001 }] },
-        { id: 502, status: 'UPDATED', accounts: [{ id: 9006, type: 'CONTA CORRENTE', conta: 1001 }] },
+        { id: 501, status: 'UPDATED', accounts: [{ id: 301, type: 'CONTA CORRENTE', conta: 201 }] },
+        { id: 502, status: 'UPDATED', accounts: [{ id: 9006, type: 'CONTA CORRENTE', conta: 201 }] },
       ],
       [],
     );
 
-    const result = await runCli(['sync', 'run', '1001', '--yes'], { home, api });
+    const result = await runCli(['sync', 'run', '201', '--yes'], { home, api });
 
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toBe('');
-    expect(result.stderr).toContain('Account 1001 is linked to more than one connection (501, 502).');
+    expect(result.stderr).toContain('Account 201 is linked to more than one connection (501, 502).');
     expect(mutations(api)).toHaveLength(0);
     expect(api.requests.map((r) => `${r.method} ${r.path}`)).toEqual(['GET /v1/integracao/connections']);
   });
@@ -166,12 +166,12 @@ describe('sync run', () => {
   test('resolves an alias offline and an exact account name', async () => {
     const aliased = createHome({
       ...MANUAL_AUTH,
-      aliases: { accounts: [{ id: 1002, name: 'azul' }], categories: [], tags: [] },
+      aliases: { accounts: [{ id: 202, name: 'cartao' }], categories: [], tags: [] },
     });
     try {
       connections(ONE_CONNECTION, AFTER_SYNC);
 
-      const alias = await runCli(['sync', 'run', 'azul', '--yes', '--json'], { home: aliased, api });
+      const alias = await runCli(['sync', 'run', 'cartao', '--yes', '--json'], { home: aliased, api });
       expect(alias.exitCode).toBe(0);
       expect(alias.stderr).toContain('Connection 501 is UPDATING. Run sync list again to see the result.');
       expect(alias.stdout).not.toContain('Run sync list again');
@@ -180,7 +180,7 @@ describe('sync run', () => {
       expect(JSON.parse(alias.stdout).connections[0].id).toBe(501);
 
       api.requests.length = 0;
-      const named = await runCli(['sync', 'run', 'nubank', '--yes', '--json'], { home, api });
+      const named = await runCli(['sync', 'run', 'Conta Teste', '--yes', '--json'], { home, api });
       expect(named.exitCode).toBe(0);
       expect(api.requests[0]?.path).toBe('/v1/cadastros/contas');
       expect(mutations(api).map((r) => r.path)).toEqual(['/v1/integracao/connection/update/501']);
@@ -205,7 +205,7 @@ describe('sync run', () => {
   test('UPDATING exits 0, does not poll, and says to run sync list again', async () => {
     connections(ONE_CONNECTION, AFTER_SYNC);
 
-    const text = await runCli(['sync', 'run', '1001', '--yes'], { home, api });
+    const text = await runCli(['sync', 'run', '201', '--yes'], { home, api });
 
     expect(text.exitCode).toBe(0);
     expect(text.stderr).toBe('');
@@ -214,7 +214,7 @@ describe('sync run', () => {
 
     api.requests.length = 0;
     connections(ONE_CONNECTION, AFTER_SYNC);
-    const json = await runCli(['sync', 'run', '1001', '--yes', '--json'], { home, api });
+    const json = await runCli(['sync', 'run', '201', '--yes', '--json'], { home, api });
     expect(json.exitCode).toBe(0);
     expect(json.stdout.startsWith('{')).toBe(true);
     expect(json.stdout).not.toContain('Run sync list again');
@@ -227,7 +227,7 @@ describe('sync run', () => {
     connections(ONE_CONNECTION, AFTER_SYNC);
     api.on('PUT /v1/integracao/connection/update/501', { message: 'limit' }, 500);
 
-    const result = await runCli(['sync', 'run', '1001', '--yes', '--json'], { home, api });
+    const result = await runCli(['sync', 'run', '201', '--yes', '--json'], { home, api });
 
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toBe('');
@@ -246,7 +246,7 @@ describe('sync run', () => {
     // One run past the bank's limit of 3 per day: the API decides, not a local counter.
     const exitCodes: number[] = [];
     for (let run = 0; run < 4; run += 1) {
-      exitCodes.push((await runCli(['sync', 'run', '1001', '--yes'], { home, api })).exitCode);
+      exitCodes.push((await runCli(['sync', 'run', '201', '--yes'], { home, api })).exitCode);
     }
 
     expect(exitCodes).toEqual([0, 0, 0, 0]);

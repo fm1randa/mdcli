@@ -1,5 +1,5 @@
 // `as unknown as` hid that the update payload did not match its type, right
-// where the -p status bug lived (Jardinagem 2026-10-21): fix the type instead.
+// where the -p status bug lived (Maintenance 2026-10-21): fix the type instead.
 export default {
   meta: {
     type: "problem",

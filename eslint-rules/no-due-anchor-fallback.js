@@ -1,4 +1,4 @@
-// A card's due date is read only in card-invoice.ts (Jardinagem 2026-10-21:
+// A card's due date is read only in card-invoice.ts (Maintenance 2026-10-21:
 // three paths had three fallbacks for a card without one). There,
 // cardDueAnchor falls back to primeiraFatura and ownDueDate (the Import) has
 // no fallback, so the Import fails for a card without one. Bans

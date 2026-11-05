@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, SAVINGS_ACCOUNT } from './fixtures.js';
 
-// Flag -> payload table for the entry status (Jardinagem 2026-10-19: the rule
+// Flag -> payload table for the entry status (Maintenance 2026-10-19: the rule
 // was written by hand in create, update and update-transfer). Semantics from
 // #79: -p = Confirmado off, --confirmed = confirmed not reconciled, create
 // reconciles by default, a card purchase is never reconciled.
@@ -32,7 +32,7 @@ const base = {
   valorPrevisto: -12.5,
   data: '2026-01-12',
   dataPrevista: '2026-01-12',
-  conta: 1001,
+  conta: 201,
   categoria: 10,
   tags: [],
 };
@@ -46,13 +46,13 @@ const ENTRIES: Record<number, object> = {
     tipo: 't',
     valor: -500,
     valorT: 500,
-    contaT: 1004,
+    contaT: 204,
     status: 'conciliado',
     conciliado: true,
     dataEfetiva: '2026-01-05',
     valorEfetivo: -500,
   },
-  75: { ...base, id: 75, tipo: 't', valor: -500, valorT: 500, contaT: 1004, status: 'pendente', conciliado: false },
+  75: { ...base, id: 75, tipo: 't', valor: -500, valorT: 500, contaT: 204, status: 'pendente', conciliado: false },
 };
 
 beforeEach(() => {
@@ -72,8 +72,8 @@ afterEach(() => {
   home.cleanup();
 });
 
-const CREATE = ['entries', 'create', '-a', '1001', '-d', 'Feira', '-v', '30', '-c', '10', '-D', '2026-01-05'];
-const CREATE_CARD = ['entries', 'create', '-a', '1002', '-d', 'Voo', '-v', '30', '-c', '10', '-D', '2026-01-05', '--invoice', '2026-01'];
+const CREATE = ['entries', 'create', '-a', '201', '-d', 'Feira', '-v', '30', '-c', '10', '-D', '2026-01-05'];
+const CREATE_CARD = ['entries', 'create', '-a', '202', '-d', 'Voo', '-v', '30', '-c', '10', '-D', '2026-01-05', '--invoice', '2026-01'];
 
 const RECONCILED = { status: { confirmado: true, conciliado: true }, confirmado: ABSENT, conciliado: true };
 const CONFIRMED = { status: { confirmado: true, conciliado: false }, confirmado: ABSENT, conciliado: false };

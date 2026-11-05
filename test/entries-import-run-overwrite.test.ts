@@ -3,7 +3,7 @@ import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi,
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, TAGS_RESPONSE } from './fixtures.js';
 import { CONNECTIONS, mockStatement, SINCE } from './import-harness.js';
 
-// Fictional ids. 1001 is Nubank (connection account 9001); Entry 4242 is linked to TX1 on its own.
+// Fictional ids. 201 is Conta Teste (connection account 301); Entry 4242 is linked to TX1 on its own.
 // The web reads the overwrite preference (config "conciliacao": {o, s, sd}) from the session state
 // GET /api/v1/frontend/sessao: payload.ngInit becomes window.mdconfig (session.js), and
 // configuracoesService reads usuario.config.mdweb from it (mdb.js 49687-49701, 20900-20903).
@@ -47,7 +47,7 @@ function session(conciliacao?: unknown) {
 }
 
 function run(args: string[]) {
-  return runCli(['entries', 'import', 'run', '-a', '1001', '--since', SINCE, '--ids', 'aaaa1111', '-c', '10', ...args], {
+  return runCli(['entries', 'import', 'run', '-a', '201', '--since', SINCE, '--ids', 'aaaa1111', '-c', '10', ...args], {
     home,
     api,
   });
@@ -297,7 +297,7 @@ describe('entries import run overwrite: before and after of the overwritten fiel
 });
 
 // The --overwrite/--fill-description flags override the saved preference for one toggle only, without
-// writing it back (Filipe's call: follow the preference when no flag is given; never updateConfig).
+// writing it back (maintainer's call: follow the preference when no flag is given; never updateConfig).
 describe('entries import run overwrite flags', () => {
   test('--overwrite turns sobrescrever on for this run, ignoring the saved off preference', async () => {
     session({ o: 'd', s: false, sd: false });

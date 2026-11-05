@@ -78,7 +78,7 @@ export async function fetchListEntries(params: ListParams): Promise<Entry[]> {
   const cards = items.filter((a) => params.accountIds.includes(a.id) && isCreditCard(a));
   // When the card is also in -a, its purchases come from the invoices below.
   // Drop the statement's projecaoFatura for that card so the bill is not
-  // counted twice (dogfood 2026-10-19 / regression of #78 over #72).
+  // counted twice (real use 2026-10-19 / regression of #78 over #72).
   const cardIds = new Set(cards.map((c) => c.id));
   const withoutDupedInvoices = listed.filter((e) => {
     if (e.projecaoFatura == null) return true;
@@ -86,7 +86,7 @@ export async function fetchListEntries(params: ListParams): Promise<Entry[]> {
     return matchesFilters(e, params);
   });
   // A year on two cards is 24 invoices: fetch them a few at a time instead of
-  // one after the other (Jardinagem 2026-10-21). Results come back in card
+  // one after the other (Maintenance 2026-10-21). Results come back in card
   // and due-date order, so the dedupe below keeps the same entry as before.
   const dueDates = await mapConcurrent(cards, INVOICE_CONCURRENCY, (card) =>
     dueDatesInRange(card, params.startDate, params.endDate)

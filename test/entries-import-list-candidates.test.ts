@@ -3,7 +3,7 @@ import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi,
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE } from './fixtures.js';
 import { CONNECTIONS, mockStatement, SINCE } from './import-harness.js';
 
-// Fictional ids. 1001 is Nubank. 9001 is its connection account, not the Account id.
+// Fictional ids. 201 is Conta Teste. 301 is its connection account, not the Account id.
 // Spec window for inicio 2026-10-01 and fim 2026-10-10 is 2026-09-29 through 2026-10-12.
 
 const TX = '12121212-1111-4000-8000-000000000001';
@@ -51,7 +51,7 @@ function entries(list: unknown[]) {
 }
 
 function list(args: string[] = []) {
-  return cli(['entries', 'import', 'list', '-a', '1001', '--since', SINCE, '--json', ...args]);
+  return cli(['entries', 'import', 'list', '-a', '201', '--since', SINCE, '--json', ...args]);
 }
 
 function rowOf(stdout: string) {

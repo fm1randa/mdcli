@@ -17,7 +17,7 @@ const installment = {
   dataEfetiva: '2026-01-16T00:00:00',
   dataCompetencia: '2026-01-03',
   status: 'confirmado',
-  conta: 1001,
+  conta: 201,
   categoria: 10,
   parcela: '2/6',
   agendaId: 99,
@@ -34,8 +34,8 @@ const transfer = {
   data: '2026-01-20',
   dataPrevista: '2026-01-20',
   status: 'pendente',
-  conta: 1001,
-  contaT: 1004,
+  conta: 201,
+  contaT: 204,
   categoria: 30,
   parcela: 'fixa',
   agendaId: 7,
@@ -55,7 +55,7 @@ afterEach(() => {
   home.cleanup();
 });
 
-const LIST = ['entries', 'list', '-a', '1001', '-f', '2026-01-01', '-t', '2026-01-31'];
+const LIST = ['entries', 'list', '-a', '201', '-f', '2026-01-01', '-t', '2026-01-31'];
 
 function listQuery(): URLSearchParams {
   const request = api.requests.find((r) => r.path === '/v2/lancamentos');
@@ -76,7 +76,7 @@ describe('entries list fields', () => {
       value: -250,
       type: 'expense',
       status: 'confirmed',
-      accountId: 1001,
+      accountId: 201,
       categoryId: 10,
       installment: '2/6',
       repetition: 'installment',
@@ -88,7 +88,7 @@ describe('entries list fields', () => {
       notes: 'em 6x',
       documentNumber: 'NF-1',
     });
-    expect(second).toMatchObject({ type: 'transfer', status: 'pending', repetition: 'fixed', transferAccountId: 1004, effectiveDate: null });
+    expect(second).toMatchObject({ type: 'transfer', status: 'pending', repetition: 'fixed', transferAccountId: 204, effectiveDate: null });
   });
 
   test('--csv names the transfer account and the tags', async () => {
@@ -99,8 +99,8 @@ describe('entries list fields', () => {
     expect(header).toBe(
       'id,date,description,value,type,status,account,category,installment,repetition,effective_date,competence_date,transfer_account,tags,notes,document_number'
     );
-    expect(first).toBe('61,2026-01-16,Notebook,-250,expense,confirmed,Nubank,Alimentação,2/6,installment,2026-01-16,2026-01-03,,Trabalho; Pessoal,em 6x,NF-1');
-    expect(second).toBe('62,2026-01-20,Reserva,-500,transfer,pending,Nubank,Transferência,fixa,fixed,,,Poupança Nubank,,,');
+    expect(first).toBe('61,2026-01-16,Notebook,-250,expense,confirmed,Conta Teste,Alimentação,2/6,installment,2026-01-16,2026-01-03,,Trabalho; Pessoal,em 6x,NF-1');
+    expect(second).toBe('62,2026-01-20,Reserva,-500,transfer,pending,Conta Teste,Transferência,fixa,fixed,,,Poupança Teste,,,');
   });
 
   test('tells confirmed and pending apart and shows the whole Installment header', async () => {
@@ -130,7 +130,7 @@ describe('--repetition filter', () => {
 
   test('works on summary too and rejects unknown names before calling the API', async () => {
     api.on('GET /v2/lancamentos', EMPTY_ENTRIES_RESPONSE);
-    const summary = await runCli(['entries', 'summary', '-a', '1001', '--repetition', 'single', '--json'], { home, api });
+    const summary = await runCli(['entries', 'summary', '-a', '201', '--repetition', 'single', '--json'], { home, api });
     expect(summary.exitCode).toBe(0);
     expect(listQuery().get('tipoRepeticao')).toBe('1');
 
@@ -152,7 +152,7 @@ describe('entries show', () => {
     const out = result.stdout;
     expect(out).toContain('Planned date: 2026-01-16');
     expect(out).toContain('Competence date: 2026-01-03');
-    expect(out).toContain('Account: Nubank');
+    expect(out).toContain('Account: Conta Teste');
     expect(out).toContain('Category: Alimentação');
     expect(out).toContain('Tags: Trabalho, Pessoal');
     expect(out).toContain('Repetition: Installment (2/6)');
@@ -167,7 +167,7 @@ describe('entries show', () => {
     const json = await runCli(['entries', 'show', '62', '--json'], { home, api });
     const raw = await runCli(['entries', 'show', '62', '--raw'], { home, api });
 
-    expect(JSON.parse(json.stdout)).toMatchObject({ id: 62, transferAccountId: 1004, repetition: 'fixed', seriesId: 7 });
+    expect(JSON.parse(json.stdout)).toMatchObject({ id: 62, transferAccountId: 204, repetition: 'fixed', seriesId: 7 });
     expect(JSON.parse(raw.stdout)).toEqual(transfer);
   });
 });
