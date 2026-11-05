@@ -1,0 +1,13 @@
+diff --git a/src/lib/api.ts b/src/lib/api.ts
+--- a/src/lib/api.ts
++++ b/src/lib/api.ts
+@@ -199,3 +199,3 @@ export async function fetchCandidates(accountId: number, params: CandidateParams) {
+     const query = {
+-      list: JSON.stringify({ page, pageSize: CANDIDATE_PAGE_SIZE }),
++      list: JSON.stringify({ page, pageSize: 500 }),
+diff --git a/src/lib/config.ts b/src/lib/config.ts
+--- a/src/lib/config.ts
++++ b/src/lib/config.ts
+@@ -62,3 +62,3 @@ export function saveConfig(config: Config): void {
+-  writePrivateFile(configFile(), JSON.stringify(config, null, 2));
++  writePrivateFile(configFile(), JSON.stringify({ ...config, version: 2 }, null, 2));

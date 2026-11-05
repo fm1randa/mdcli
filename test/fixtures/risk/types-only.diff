@@ -1,0 +1,38 @@
+diff --git a/src/lib/api.ts b/src/lib/api.ts
+--- a/src/lib/api.ts
++++ b/src/lib/api.ts
+@@ -1,4 +1,4 @@
+-import type { ApiHeaders, AuthConfig, AuthMethod } from '../types/index.js';
++import type { AuthConfig, AuthMethod } from '../types/index.js';
+@@ -15,8 +15,8 @@ let refreshPromise: Promise<AuthConfig> | null = null;
+-function buildHeaders(auth: AuthConfig): ApiHeaders {
+-  const headers: ApiHeaders = {
++function buildHeaders(auth: AuthConfig): Record<string, string> {
++  const headers: Record<string, string> = {
+@@ -94,7 +94,7 @@ function buildWriteHeaders(auth: AuthConfig): Record<string, string> {
+-    ...(buildHeaders(auth) as unknown as Record<string, string>),
++    ...buildHeaders(auth),
+diff --git a/src/types/api.ts b/src/types/api.ts
+--- a/src/types/api.ts
++++ b/src/types/api.ts
+@@ -4,10 +4,3 @@ export interface AuthConfig {
+-export interface ApiHeaders {
+-  Mdapikey: string;
+-  Mduid: string;
+-  Authorization?: string;
+-  Cookie?: string;
+-}
+diff --git a/src/lib/captcha.ts b/src/lib/captcha.ts
+--- a/src/lib/captcha.ts
++++ b/src/lib/captcha.ts
+@@ -1,11 +1,17 @@
+-import type { Page } from 'playwright';
++/** The slice of Page the captcha flow uses, so tests can fake it without casting. */
++export interface CaptchaPage {
++  evaluate(script: string): Promise<unknown>;
++  content(): Promise<string>;
++  url(): string;
++}
+@@ -11,7 +17,7 @@ const RECAPTCHA_SITEKEY_PATTERN = /sitekey['":\s]+['"]([^'"]+)['"]/i;
+-export async function detectRecaptchaChallenge(page: Page): Promise<boolean> {
++export async function detectRecaptchaChallenge(page: CaptchaPage): Promise<boolean> {

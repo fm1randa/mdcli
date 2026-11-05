@@ -1,0 +1,12 @@
+diff --git a/src/commands/entries/create.ts b/src/commands/entries/create.ts
+--- a/src/commands/entries/create.ts
++++ b/src/commands/entries/create.ts
+@@ -40,3 +40,3 @@ function buildPayload(options: CreateOptions) {
+-      id: account.id,
++      id: category.id,
+diff --git a/src/lib/api.ts b/src/lib/api.ts
+--- a/src/lib/api.ts
++++ b/src/lib/api.ts
+@@ -380,7 +380,7 @@ export async function createEntry(payload: CreateEntryPayload): Promise<CreateEn
+-  return request<CreateEntryResponse>('POST', `/v1/lancamentos/${id}`, payload);
++  return request<CreateEntryResponse>('PUT', `/v1/lancamentos/${id}`, payload);
