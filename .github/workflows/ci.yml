@@ -37,4 +37,7 @@ jobs:
           TERM: linux
           FORCE_COLOR: '1'
           PR_BODY: ${{ github.event.pull_request.body }}
+          # Key for the low-entropy numeric terms (#221). Unset on a fork PR,
+          # where the guard warns and skips them instead of failing.
+          MDCLI_PRIVATE_TERMS_KEY: ${{ secrets.MDCLI_PRIVATE_TERMS_KEY }}
         run: scripts/verify.sh

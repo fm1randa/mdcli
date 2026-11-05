@@ -6,6 +6,17 @@
 set -uo pipefail
 cd "$(dirname "$0")/.."
 
+# The private-data guard keys low-entropy numeric terms so the public hash set
+# is not a brute-forceable fingerprint (#221). The key lives outside the
+# repository; CI passes it as a secret.
+if [ -z "${MDCLI_PRIVATE_TERMS_KEY:-}" ] && [ -f "${HOME:-}/.mdcli-team/private-terms.key" ]; then
+  MDCLI_PRIVATE_TERMS_KEY=$(cat "${HOME}/.mdcli-team/private-terms.key")
+  export MDCLI_PRIVATE_TERMS_KEY
+fi
+if [ -z "${MDCLI_PRIVATE_TERMS_KEY:-}" ]; then
+  echo "aviso: MDCLI_PRIVATE_TERMS_KEY ausente; termos numéricos de baixa entropia não serão verificados"
+fi
+
 # Same result on any terminal: the caller's environment must not change what
 # the CLI prints. In GitHub CI TERM is unset; claude.ai containers set
 # TERM=linux (which makes @inquirer/prompts draw ">" instead of "❯") and may

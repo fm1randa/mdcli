@@ -2,7 +2,16 @@ import { expect, test } from 'bun:test';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { findPrivateTerms, scanTrackedFiles, scanText, termHash } from '../scripts/private-terms.js';
+import {
+  KEYED_TERM_HASHES,
+  PRIVATE_TERM_HASHES,
+  findPrivateTerms,
+  keyedTermHash,
+  privateTermsKey,
+  scanTrackedFiles,
+  scanText,
+  termHash,
+} from '../scripts/private-terms.js';
 
 const fakeTerm = 'termo-sintetico-proibido';
 const fakeHashes = new Set([termHash(fakeTerm)]);
@@ -89,6 +98,47 @@ test('matches a hash in the stored normalized form, not one recomputed from the 
   const stored = new Set(['b45f4536f9e5072382394c5a2e64a864548f6d80c5a828243f1abe4175c7a794']);
 
   expect(findPrivateTerms('  São JOÃO ', stored)).toHaveLength(1);
+});
+
+test('detects a keyed numeric term only with the key', () => {
+  const key = 'test-key';
+  const keyed = new Set([keyedTermHash('12345', key)]);
+
+  expect(findPrivateTerms('12345', new Set(), new Set(), keyed, key)).toHaveLength(1);
+  expect(findPrivateTerms('12345', new Set(), new Set(), keyed, undefined)).toEqual([]);
+  expect(findPrivateTerms('linha limpa', new Set(), new Set(), keyed, key)).toEqual([]);
+});
+
+test('an unsalted hash of a numeric term is not in the public set', () => {
+  expect(PRIVATE_TERM_HASHES.has(termHash('12345'))).toBe(false);
+  expect(KEYED_TERM_HASHES.has(termHash('12345'))).toBe(false);
+});
+
+// A synthetic number whose keyed hash is in the production set. Base64 keeps
+// this file free of the guarded number while the test rebuilds it. With the
+// key available (the maintainer's file or the CI secret), the guard detects
+// it; without the key it warns and skips it.
+const keyedCanary = Buffer.from('OTE4MjczNjQ1', 'base64').toString();
+
+test('detects the keyed canary from the production set when the key is available', () => {
+  const key = privateTermsKey();
+  if (key === undefined) return;
+  expect(findPrivateTerms(keyedCanary, new Set(), new Set(), KEYED_TERM_HASHES, key)).toHaveLength(1);
+  expect(PRIVATE_TERM_HASHES.has(termHash(keyedCanary))).toBe(false);
+});
+
+test('detects a keyed numeric term in a committed file with a test key', () => {
+  const key = 'test-key';
+  const keyed = new Set([keyedTermHash('12345', key)]);
+  withRepo((root) => {
+    writeFileSync(join(root, 'note.txt'), 'linha limpa\n12345 aqui\n');
+    commitAll(root, 'add the id');
+
+    expect(scanTrackedFiles(root, new Set(), new Set(), 'HEAD', keyed, key)).toEqual([
+      { file: 'note.txt', line: 2 },
+    ]);
+    expect(scanTrackedFiles(root, new Set(), new Set(), 'HEAD', keyed, undefined)).toEqual([]);
+  });
 });
 
 test('fails on a committed file carrying a prohibited term and passes without it', () => {

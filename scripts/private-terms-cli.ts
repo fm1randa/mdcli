@@ -1,4 +1,4 @@
-import { scanTrackedFiles } from './private-terms.js';
+import { KEYED_TERM_HASHES, privateTermsKey, scanTrackedFiles } from './private-terms.js';
 
 /** The repository root of `cwd`, so a subdirectory still scans the whole tree. */
 function repoRoot(cwd: string): string {
@@ -9,6 +9,11 @@ function repoRoot(cwd: string): string {
 
 function main(): void {
   try {
+    if (privateTermsKey() === undefined && KEYED_TERM_HASHES.size > 0) {
+      console.error(
+        'guarda de dados privados: aviso: MDCLI_PRIVATE_TERMS_KEY ausente; termos numéricos de baixa entropia não foram verificados'
+      );
+    }
     const hits = scanTrackedFiles(repoRoot(process.cwd()));
     if (hits.length === 0) {
       console.log('✓ guarda de dados privados: nenhum termo privado nos arquivos versionados');

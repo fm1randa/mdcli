@@ -2,24 +2,29 @@ import { join } from 'node:path';
 import { EXCUSED_REMOVED_TERMS } from './private-terms-excused.js';
 import {
   ALLOWED_PHRASE_HASHES,
+  KEYED_TERM_HASHES,
   MAX_WORDS,
   PRIVATE_TERM_HASHES,
   findPrivateTerms,
   isFormattedNumber,
+  isNumericTerm,
+  keyedTermHash,
   normalizeTerm,
+  privateTermsKey,
   termHash,
 } from './private-terms.js';
 
-export interface DeletedLine {
-  file: string;
-  line: number;
-  text: string;
-}
+import { deletedLines, git, headCorpus, type DeletedLine, type HeadCorpus } from './private-terms-history.js';
+
+export { deletedLines } from './private-terms-history.js';
+export type { DeletedLine, HeadCorpus } from './private-terms-history.js';
 
 export interface RemovedTermHit extends DeletedLine {
   hash: string;
   /** Word count when the value exceeds the guard's representation limit. */
   overlong?: number;
+  /** The value is numeric, so only a keyed hash or an excuse may cover it. */
+  numeric?: boolean;
 }
 
 /** Files whose contents are dependency metadata, never account data. */
@@ -39,6 +44,7 @@ const WORD = /[\p{L}\p{N}]+/gu;
 /** Files that maintain the private-data guard; a change here needs the corpus. */
 const GUARD_FILES = [
   'scripts/private-terms.ts',
+  'scripts/private-terms-hashes.ts',
   'scripts/private-terms-excused.ts',
   'scripts/private-terms-corpus.ts',
   'test/private-terms.test.ts',
@@ -54,12 +60,6 @@ interface Token {
   number: boolean;
   digit: boolean;
   nonAscii: boolean;
-}
-
-export interface HeadCorpus {
-  readonly tokens: ReadonlySet<string>;
-  readonly lines: readonly string[];
-  readonly linesByToken: ReadonlyMap<string, readonly number[]>;
 }
 
 function tokenize(text: string): Token[] {
@@ -101,7 +101,9 @@ function coveredTokens(
   tokens: readonly Token[],
   text: string,
   terms: ReadonlySet<string>,
-  allowed: ReadonlySet<string>
+  allowed: ReadonlySet<string>,
+  keyed: ReadonlySet<string>,
+  key: string | undefined
 ): boolean[] {
   const covered = tokens.map(() => false);
   for (let start = 0; start < tokens.length; start++) {
@@ -114,10 +116,13 @@ function coveredTokens(
         .map((token) => token.value)
         .join(' ');
       const hash = termHash(joined);
+      // An unsalted hash of a numeric value is a public fingerprint (#221), so
+      // only a keyed hash may cover it; a name keeps the unsalted hash.
+      const numeric = isNumericTerm(joined);
       const hit =
-        terms.has(hash) ||
         allowed.has(hash) ||
-        (isFormattedNumber(span) && findPrivateTerms(span, terms, allowed).length > 0);
+        (numeric ? key !== undefined && keyed.has(keyedTermHash(joined, key)) : terms.has(hash)) ||
+        (isFormattedNumber(span) && findPrivateTerms(span, new Set(), allowed, keyed, key).length > 0);
       if (!hit) continue;
       for (let index = start; index < end; index++) covered[index] = true;
     }
@@ -158,14 +163,16 @@ export function uncoveredRemovedTerms(
   head: HeadCorpus,
   terms: ReadonlySet<string> = PRIVATE_TERM_HASHES,
   allowed: ReadonlySet<string> = ALLOWED_PHRASE_HASHES,
-  excused: ReadonlyMap<string, string> = EXCUSED_REMOVED_TERMS
+  excused: ReadonlyMap<string, string> = EXCUSED_REMOVED_TERMS,
+  keyed: ReadonlySet<string> = KEYED_TERM_HASHES,
+  key: string | undefined = privateTermsKey()
 ): RemovedTermHit[] {
   const hits: RemovedTermHit[] = [];
   for (const entry of deleted) {
     if (SKIP_FILE.some((pattern) => pattern.test(entry.file))) continue;
     const tokens = tokenize(entry.text);
     if (tokens.length === 0) continue;
-    const covered = coveredTokens(tokens, entry.text, terms, allowed);
+    const covered = coveredTokens(tokens, entry.text, terms, allowed, keyed, key);
     for (let start = 0; start < tokens.length; ) {
       if (!phraseToken(tokens[start]!)) { start++; continue; }
       let end = start; while (end < tokens.length && phraseToken(tokens[end]!)) end++;
@@ -184,7 +191,7 @@ export function uncoveredRemovedTerms(
       }
       start = end;
     }
-    const spans: { start: number; end: number; length: number; hash: string }[] = [];
+    const spans: { start: number; end: number; length: number; hash: string; numeric: boolean }[] = [];
     const push = (start: number, end: number): void => {
       const joined = tokens
         .slice(start, end)
@@ -193,7 +200,11 @@ export function uncoveredRemovedTerms(
       if (hasPhrase(head, joined)) return;
       const hash = termHash(joined);
       if (excused.has(hash) || isContentHash(joined, entry.text)) return;
-      spans.push({ start, end, length: end - start, hash });
+      const numeric = isNumericTerm(joined);
+      // Without the key the guard cannot check a numeric value; the caller
+      // says so instead of failing every run or pretending it checked.
+      if (numeric && key === undefined) return;
+      spans.push({ start, end, length: end - start, hash, numeric });
     };
     for (let index = 0; index < tokens.length; index++) {
       if (covered[index] || !valueToken(tokens[index]!)) continue;
@@ -218,74 +229,9 @@ export function uncoveredRemovedTerms(
       chosen.push(span);
     }
     chosen.sort((a, b) => a.start - b.start);
-    for (const span of chosen) hits.push({ ...entry, hash: span.hash });
+    for (const span of chosen) hits.push({ ...entry, hash: span.hash, ...(span.numeric ? { numeric: true } : {}) });
   }
   return hits;
-}
-
-function git(args: readonly string[], root: string): string {
-  const result = Bun.spawnSync(['git', '-c', 'core.quotepath=false', ...args], { cwd: root });
-  if (result.exitCode !== 0) {
-    throw new Error(`git ${args.join(' ')} failed: ${result.stderr.toString().trim()}`);
-  }
-  return result.stdout.toString();
-}
-
-/** The old side of every changed line, with its path and line number. */
-export function deletedLines(base: string, head: string, root: string): DeletedLine[] {
-  const diff = git(
-    ['diff', '--unified=0', '--no-color', '--no-ext-diff', '--no-renames', `${base}...${head}`],
-    root
-  );
-  const lines: DeletedLine[] = [];
-  let file = '';
-  let line = 0;
-  let inHunk = false;
-  for (const raw of diff.split('\n')) {
-    if (raw.startsWith('diff --git ')) {
-      inHunk = false;
-    } else if (raw.startsWith('@@ ')) {
-      inHunk = true;
-      const match = /^@@ -(\d+)(?:,\d+)? /.exec(raw);
-      line = match ? Number(match[1]) : 0;
-    } else if (inHunk) {
-      if (!raw.startsWith('-')) continue;
-      lines.push({ file, line, text: raw.slice(1) });
-      line++;
-    } else if (raw.startsWith('--- ')) {
-      file = raw.slice(4).replace(/^a\//, '');
-      if (file === '/dev/null') file = '';
-    }
-  }
-  return lines;
-}
-
-/** Every normalized line of `head`, indexed by its tokens for phrase lookups. */
-export function headCorpus(head: string, root: string): HeadCorpus {
-  const result = Bun.spawnSync(
-    ['git', '-c', 'core.quotepath=false', 'grep', '--no-color', '-h', '-I', '-e', '.', head, '--', '.'],
-    { cwd: root }
-  );
-  const tokens = new Set<string>();
-  const lines: string[] = [];
-  const linesByToken = new Map<string, number[]>();
-  if (result.exitCode === 1) return { tokens, lines, linesByToken };
-  if (result.exitCode !== 0) {
-    throw new Error(`git grep failed in ${root}: ${result.stderr.toString().trim()}`);
-  }
-  for (const raw of result.stdout.toString().split('\n')) {
-    const line = normalizeTerm(raw);
-    if (line === '') continue;
-    const index = lines.length;
-    lines.push(line);
-    for (const token of line.split(' ')) {
-      tokens.add(token);
-      const indexes = linesByToken.get(token);
-      if (indexes === undefined) linesByToken.set(token, [index]);
-      else indexes.push(index);
-    }
-  }
-  return { tokens, lines, linesByToken };
 }
 
 export function removedRunsBetween(
@@ -294,9 +240,19 @@ export function removedRunsBetween(
   root: string = join(import.meta.dirname, '..'),
   terms: ReadonlySet<string> = PRIVATE_TERM_HASHES,
   allowed: ReadonlySet<string> = ALLOWED_PHRASE_HASHES,
-  excused: ReadonlyMap<string, string> = EXCUSED_REMOVED_TERMS
+  excused: ReadonlyMap<string, string> = EXCUSED_REMOVED_TERMS,
+  keyed: ReadonlySet<string> = KEYED_TERM_HASHES,
+  key: string | undefined = privateTermsKey()
 ): RemovedTermHit[] {
-  return uncoveredRemovedTerms(deletedLines(base, head, root), headCorpus(head, root), terms, allowed, excused);
+  return uncoveredRemovedTerms(
+    deletedLines(base, head, root),
+    headCorpus(head, root),
+    terms,
+    allowed,
+    excused,
+    keyed,
+    key
+  );
 }
 
 /** A PR that does not maintain the private-data guard has no corpus to check. */
@@ -324,6 +280,11 @@ function main(): void {
       console.log(`private-terms corpus: skipped (${base}...${head} does not maintain the private-data guard)`);
       return;
     }
+    if (privateTermsKey() === undefined && KEYED_TERM_HASHES.size > 0) {
+      console.error(
+        'private-terms corpus: warning: MDCLI_PRIVATE_TERMS_KEY is unset; low-entropy numeric terms were not checked'
+      );
+    }
     const hits = removedRunsBetween(base, head, root);
     if (hits.length === 0) {
       console.log(`private-terms corpus: every removed term is guarded (${base}...${head})`);
@@ -332,11 +293,13 @@ function main(): void {
     for (const hit of hits) {
       const subject = hit.overlong
         ? `removes a ${hit.overlong}-word term, above the guard's ${MAX_WORDS}-word limit, and no registered sub-phrase detects it`
-        : 'has an unguarded removed term';
+        : hit.numeric
+          ? 'has an unguarded removed numeric term; register its keyed hash (MDCLI_PRIVATE_TERMS_KEY)'
+          : 'has an unguarded removed term';
       console.error(`private-terms corpus: ${hit.file}:${hit.line} ${subject} (${hit.hash})`);
     }
     console.error(
-      `The guard matches n-grams up to ${MAX_WORDS} words; every word of a removed run must fall inside a registered n-gram. Add the shown sha256 to PRIVATE_TERM_HASHES, or prove the value is not account data.`
+      `The guard matches n-grams up to ${MAX_WORDS} words; every word of a removed run must fall inside a registered n-gram. Add the shown sha256 to PRIVATE_TERM_HASHES, or prove the value is not account data. A numeric value needs a keyed hash in KEYED_TERM_HASHES, never an unsalted one (#221).`
     );
     process.exitCode = 1;
   } catch (error) {

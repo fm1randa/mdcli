@@ -3,7 +3,7 @@ import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { commitSources, messageHits, pullRequestSource } from '../scripts/check-private-messages.js';
-import { termHash } from '../scripts/private-terms.js';
+import { keyedTermHash, termHash } from '../scripts/private-terms.js';
 
 const fakeTerm = 'termo-sintetico-proibido';
 const fakeHashes = new Set([termHash(fakeTerm)]);
@@ -92,6 +92,22 @@ test('detects a canary term from the production set in a commit message', async 
     expect(messageHits(await commitSources(base, root))).toHaveLength(1);
   } finally {
     rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('detects a keyed numeric term in a message only with the key', () => {
+  const key = 'test-key';
+  const keyed = new Set([keyedTermHash('12345', key)]);
+  const sources = [{ label: 'commit abc', text: 'linha\n12345 aqui' }];
+
+  expect(messageHits(sources, new Set(), undefined, keyed, key)).toEqual([{ label: 'commit abc', lines: [2] }]);
+
+  const previous = process.env.MDCLI_PRIVATE_TERMS_KEY;
+  delete process.env.MDCLI_PRIVATE_TERMS_KEY;
+  try {
+    expect(messageHits(sources, new Set(), undefined, keyed)).toEqual([]);
+  } finally {
+    if (previous !== undefined) process.env.MDCLI_PRIVATE_TERMS_KEY = previous;
   }
 });
 
