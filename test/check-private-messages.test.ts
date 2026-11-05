@@ -109,6 +109,13 @@ test('reports the PR body lines from PR_BODY and ignores an empty one', async ()
   }
 });
 
+test('the verify workflow reruns when the PR body is edited', async () => {
+  const workflow = Bun.YAML.parse(await Bun.file(join(repoRoot, '.github/workflows/ci.yml')).text()) as {
+    on: { pull_request: { types: string[] } };
+  };
+  expect(workflow.on.pull_request.types).toContain('edited');
+});
+
 test('waits for a gh slower than five seconds instead of dropping the PR body', async () => {
   const dir = fakeGh(`sleep 6\nprintf '%s' '{"body":"corpo sintetico"}'`);
   try {
