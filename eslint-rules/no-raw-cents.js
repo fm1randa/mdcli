@@ -1,5 +1,5 @@
 // Cents are computed in one place: checkWrittenValue in the import plan had
-// its own Math.round(Math.abs(value) * 100) next to toCents (Jardinagem
+// its own Math.round(Math.abs(value) * 100) next to toCents (Maintenance
 // 2026-10-26). Bans Math.round(... * 100) with 100 anywhere in the product:
 // v * 100, 100 * v and v * 100 * n, which parses as (v * 100) * n. The
 // dividend of a quotient counts too: v * 100 / n parses as (v * 100) / n.

@@ -8,7 +8,7 @@ let home: TestHome;
 // returns it: scheduled, so no effective date or value yet.
 const SCHEDULED_OCCURRENCE = {
   id: 80,
-  descricao: 'NuCel',
+  descricao: 'Assinatura Teste',
   tipo: 'd',
   valor: -45,
   valorPrevisto: -45,
@@ -16,7 +16,7 @@ const SCHEDULED_OCCURRENCE = {
   dataPrevista: '2027-01-10',
   status: 'agendado',
   conciliado: false,
-  conta: 1001,
+  conta: 201,
   categoria: 10,
   parcela: 'fixa',
   agendaId: 77,
@@ -35,7 +35,7 @@ const CONFIRMED_ENTRY = {
   dataEfetiva: '2026-01-12',
   status: 'confirmado',
   conciliado: false,
-  conta: 1001,
+  conta: 201,
   categoria: 10,
   tags: [],
 };
@@ -60,7 +60,7 @@ function putBody(): Record<string, unknown> {
 
 describe('entries update on a recurring series', () => {
   test('keeps a scheduled occurrence scheduled and warns that only it changes', async () => {
-    api.on('PUT /v1/lancamentos/80', { id: 80, descricao: 'NuCel', valor: -45, data: '2027-01-25', status: 'agendado' });
+    api.on('PUT /v1/lancamentos/80', { id: 80, descricao: 'Assinatura Teste', valor: -45, data: '2027-01-25', status: 'agendado' });
 
     const result = await runCli(['entries', 'update', '80', '-D', '2027-01-25', '--json'], { home, api });
 
@@ -83,7 +83,7 @@ describe('entries update on a recurring series', () => {
   });
 
   test('--scope following sends todos: true and prints the status the API answered', async () => {
-    api.on('PUT /v1/lancamentos/80', { id: 80, descricao: 'NuCel', valor: -45, data: '2027-01-25', status: 'agendado' });
+    api.on('PUT /v1/lancamentos/80', { id: 80, descricao: 'Assinatura Teste', valor: -45, data: '2027-01-25', status: 'agendado' });
 
     const result = await runCli(['entries', 'update', '80', '-D', '2027-01-25', '--scope', 'following'], { home, api });
 
@@ -96,7 +96,7 @@ describe('entries update on a recurring series', () => {
   });
 
   test('--scope following --json includes scope alongside the API response', async () => {
-    api.on('PUT /v1/lancamentos/80', { id: 80, descricao: 'NuCel', valor: -45, data: '2027-01-25', status: 'agendado' });
+    api.on('PUT /v1/lancamentos/80', { id: 80, descricao: 'Assinatura Teste', valor: -45, data: '2027-01-25', status: 'agendado' });
 
     const result = await runCli(
       ['entries', 'update', '80', '-D', '2027-01-25', '--scope', 'following', '--json'],
@@ -117,7 +117,7 @@ describe('entries update on a recurring series', () => {
   });
 
   test('--scope this is explicit, so no warning', async () => {
-    api.on('PUT /v1/lancamentos/80', { id: 80, descricao: 'NuCel', valor: -45, data: '2027-01-10', status: 'agendado' });
+    api.on('PUT /v1/lancamentos/80', { id: 80, descricao: 'Assinatura Teste', valor: -45, data: '2027-01-10', status: 'agendado' });
 
     const result = await runCli(['entries', 'update', '80', '--value=-50', '--scope', 'this'], { home, api });
 
@@ -130,7 +130,7 @@ describe('entries update on a recurring series', () => {
   test('--confirmed confirms a scheduled occurrence with its effective date and value', async () => {
     api.on('PUT /v1/lancamentos/80', {
       id: 80,
-      descricao: 'NuCel',
+      descricao: 'Assinatura Teste',
       valor: -45,
       data: '2027-01-10',
       status: { confirmado: true, conciliado: false },
@@ -159,8 +159,8 @@ describe('entries update on a recurring series', () => {
       dataPrevista: '2027-02-05',
       status: 'agendado',
       conciliado: false,
-      conta: 1001,
-      contaT: 1003,
+      conta: 201,
+      contaT: 203,
       categoria: 30,
       parcela: 'fixa',
       agendaId: 78,

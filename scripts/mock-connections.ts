@@ -1,6 +1,6 @@
 // GET /v1/integracao/connections for scripts/verify.sh. Fictional ids only.
-// 1001 and 1002 are Nubank and Cartão Azul in the shared account fixture.
-// 9003 has no Meu Dinheiro Account.
+// 201 and 202 are Conta Teste and Cartão Teste in the shared account fixture.
+// 303 has no Meu Dinheiro Account.
 // No account carries a summary: like the real GET, which rarely has one (the web gets it from the sync PUT).
 import { appendFileSync } from 'node:fs';
 import type { ConnectionsResponse } from '../src/types/index.js';
@@ -12,9 +12,9 @@ export const MOCK_CONNECTIONS: ConnectionsResponse = [
     id: 501,
     status: 'UPDATED',
     accounts: [
-      { id: 9001, type: 'CONTA CORRENTE', conta: 1001 },
-      { id: 9002, type: 'CARTAOCREDITO', conta: 1002 },
-      { id: 9003, type: 'CARTAOCREDITO' },
+      { id: 301, type: 'CONTA CORRENTE', conta: 201 },
+      { id: 302, type: 'CARTAOCREDITO', conta: 202 },
+      { id: 303, type: 'CARTAOCREDITO' },
     ],
   },
 ];

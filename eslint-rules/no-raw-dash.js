@@ -1,5 +1,5 @@
 // An empty table cell is cell(null) from src/utils/text.ts: the import and
-// sync tables repeated chalk.gray('-') next to it (Jardinagem 2026-10-26).
+// sync tables repeated chalk.gray('-') next to it (Maintenance 2026-10-26).
 function isChalkGray(callee) {
   return (
     callee.type === "MemberExpression" &&

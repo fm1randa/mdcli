@@ -1,7 +1,7 @@
 import chalk from 'chalk';
 
 // The only place that formats money: an ESLint rule bans
-// toLocaleString(..., { style: 'currency' }) elsewhere (Jardinagem 2026-10-19).
+// toLocaleString(..., { style: 'currency' }) elsewhere (Maintenance 2026-10-19).
 function brl(value: number): string {
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
@@ -25,7 +25,7 @@ export function formatMagnitude(value: number): string {
 
 /**
  * Whole cents of the value's magnitude, the unit to compare or split money
- * in: 0.1 + 0.2 is 30 cents, not 0.30000000000000004 (Jardinagem 2026-10-21).
+ * in: 0.1 + 0.2 is 30 cents, not 0.30000000000000004 (Maintenance 2026-10-21).
  */
 export function toCents(value: number): number {
   return Math.round(Math.abs(value) * 100);

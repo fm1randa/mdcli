@@ -72,34 +72,34 @@ The `tipoLancamento` parameter is a bitmask where each bit represents an entry t
 
 ```bash
 # Filter by status (names or bitmask)
-mdcli entries list -a 1167419 -s pending              # status=1
-mdcli entries list -a 1167419 -s reconciled           # status=4
-mdcli entries list -a 1167419 -s pending,reconciled   # status=5
-mdcli entries list -a 1167419 -s 5                    # status=5 (bitmask)
+mdcli entries list -a 201 -s pending              # status=1
+mdcli entries list -a 201 -s reconciled           # status=4
+mdcli entries list -a 201 -s pending,reconciled   # status=5
+mdcli entries list -a 201 -s 5                    # status=5 (bitmask)
 
 # Filter by type (names or bitmask)
-mdcli entries list -a 1167419 -T expense              # tipoLancamento=1
-mdcli entries list -a 1167419 -T income               # tipoLancamento=2
-mdcli entries list -a 1167419 -T transfer-out         # tipoLancamento=4
-mdcli entries list -a 1167419 -T expense,income       # tipoLancamento=3
+mdcli entries list -a 201 -T expense              # tipoLancamento=1
+mdcli entries list -a 201 -T income               # tipoLancamento=2
+mdcli entries list -a 201 -T transfer-out         # tipoLancamento=4
+mdcli entries list -a 201 -T expense,income       # tipoLancamento=3
 
 # Filter by category
-mdcli entries list -a 1167419 -c 29331286             # Single category
-mdcli entries list -a 1167419 -c 29331286,19034100    # Multiple categories
+mdcli entries list -a 201 -c 11                  # Single category
+mdcli entries list -a 201 -c 11,20               # Multiple categories
 
 # Filter by tag
-mdcli entries list -a 1167419 -g 82243                # Single tag
-mdcli entries list -a 1167419 -g 82243,275407         # Multiple tags
+mdcli entries list -a 201 -g 501                 # Single tag
+mdcli entries list -a 201 -g 501,502             # Multiple tags
 
 # Search by keywords
-mdcli entries list -a 1167419 -k "dizimo"
-mdcli entries list -a 1167419 -k "spotify"
+mdcli entries list -a 201 -k "aluguel"
+mdcli entries list -a 201 -k "internet"
 
 # Filter by value
-mdcli entries list -a 1167419 -v 100
+mdcli entries list -a 201 -v 100
 
 # Combine filters
-mdcli entries list -a 1167419 -s pending -T expense -k "reserva"
+mdcli entries list -a 201 -s pending -T expense -k "reserva"
 ```
 
 ## Calculating Bitmask Values

@@ -3,7 +3,7 @@ import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi,
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE } from './fixtures.js';
 import { CONNECTIONS, mockStatement, SINCE } from './import-harness.js';
 
-// Fictional ids. 1001 is Nubank. 9001 is its connection account, not the Account id.
+// Fictional ids. 201 is Conta Teste. 301 is its connection account, not the Account id.
 
 const EXPENSE_ID = 'eeeeeeee-1111-4000-8000-000000000001';
 const INCOME_ID = 'eeeeeeee-2222-4000-8000-000000000002';
@@ -64,13 +64,13 @@ describe('entries import list suggestions', () => {
       },
     ]);
 
-    const result = await cli(['entries', 'import', 'list', '-a', '1001', '--since', SINCE, '--json']);
+    const result = await cli(['entries', 'import', 'list', '-a', '201', '--since', SINCE, '--json']);
 
     expect(result.exitCode).toBe(0);
     expect(result.stderr).toBe('');
     const body = JSON.parse(result.stdout);
     expect(body.ai).toBe('unused');
-    expect(body.account).toEqual({ id: 1001, name: 'Nubank' });
+    expect(body.account).toEqual({ id: 201, name: 'Conta Teste' });
     expect(body.transactions).toEqual([
       {
         id: 'eeeeeeee',
@@ -112,7 +112,7 @@ describe('entries import list suggestions', () => {
       },
     ]);
 
-    const result = await cli(['entries', 'import', 'list', '-a', '1001', '--since', SINCE, '--json']);
+    const result = await cli(['entries', 'import', 'list', '-a', '201', '--since', SINCE, '--json']);
 
     expect(result.exitCode).toBe(0);
     expect(result.stderr).toBe('');
@@ -155,7 +155,7 @@ describe('entries import list suggestions', () => {
       },
     ]);
 
-    const result = await cli(['entries', 'import', 'list', '-a', '1001', '--since', SINCE, '--json']);
+    const result = await cli(['entries', 'import', 'list', '-a', '201', '--since', SINCE, '--json']);
 
     expect(result.exitCode).toBe(0);
     expect(result.stderr).toBe('');
@@ -190,7 +190,7 @@ describe('entries import list suggestions', () => {
       },
     ]);
 
-    const result = await cli(['entries', 'import', 'list', '-a', '1001', '--since', SINCE, '--json']);
+    const result = await cli(['entries', 'import', 'list', '-a', '201', '--since', SINCE, '--json']);
 
     expect(result.exitCode).toBe(0);
     expect(result.stderr).toBe('');
@@ -238,7 +238,7 @@ describe('entries import list suggestions', () => {
       },
     ]);
 
-    const result = await cli(['entries', 'import', 'list', '-a', '1001', '--since', SINCE, '--json']);
+    const result = await cli(['entries', 'import', 'list', '-a', '201', '--since', SINCE, '--json']);
 
     expect(result.exitCode).toBe(0);
     expect(result.stderr).toBe('');
@@ -300,7 +300,7 @@ describe('entries import list suggestions', () => {
       },
     ]);
 
-    const result = await cli(['entries', 'import', 'list', '-a', '1001', '--since', SINCE, '--json']);
+    const result = await cli(['entries', 'import', 'list', '-a', '201', '--since', SINCE, '--json']);
 
     expect(result.exitCode).toBe(0);
     expect(result.stderr).toBe('');

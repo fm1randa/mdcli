@@ -72,7 +72,7 @@ afterAll(() => {
 describe('concurrent refresh after 401', () => {
   test('two parallel requests share one refresh and both retry with the new credentials', async () => {
     let calls = 0;
-    api.on('DELETE /v1/cadastros/contas/1001', () => {
+    api.on('DELETE /v1/cadastros/contas/201', () => {
       calls += 1;
       return calls <= 2
         ? new Response(JSON.stringify({ error: 'expired' }), { status: 401 })
@@ -81,7 +81,7 @@ describe('concurrent refresh after 401', () => {
 
     const { deleteAccount } = await import('../src/lib/api.js');
 
-    await expect(Promise.all([deleteAccount(1001), deleteAccount(1001)])).resolves.toEqual([undefined, undefined]);
+    await expect(Promise.all([deleteAccount(201), deleteAccount(201)])).resolves.toEqual([undefined, undefined]);
     expect(refreshes).toBe(1);
     expect(calls).toBe(4);
     // Both retries went out with the refreshed credentials.
@@ -93,7 +93,7 @@ describe('concurrent refresh after 401', () => {
 
   test('refresh progress goes to stderr so --json/--csv stdout stays parseable', async () => {
     let calls = 0;
-    api.on('DELETE /v1/cadastros/contas/1001', () => {
+    api.on('DELETE /v1/cadastros/contas/201', () => {
       calls += 1;
       return calls === 1
         ? new Response(JSON.stringify({ error: 'expired' }), { status: 401 })
@@ -112,7 +112,7 @@ describe('concurrent refresh after 401', () => {
     };
     try {
       const { deleteAccount } = await import('../src/lib/api.js');
-      await deleteAccount(1001);
+      await deleteAccount(201);
     } finally {
       console.log = origLog;
       console.error = origError;
@@ -124,7 +124,7 @@ describe('concurrent refresh after 401', () => {
 
   test('a failure after refresh keeps the API error body in the message', async () => {
     let calls = 0;
-    api.on('DELETE /v1/cadastros/contas/1001', () => {
+    api.on('DELETE /v1/cadastros/contas/201', () => {
       calls += 1;
       if (calls === 1) {
         return new Response(JSON.stringify({ error: 'expired' }), { status: 401 });
@@ -134,7 +134,7 @@ describe('concurrent refresh after 401', () => {
 
     const { deleteAccount } = await import('../src/lib/api.js');
 
-    await expect(deleteAccount(1001)).rejects.toThrow('account has entries');
+    await expect(deleteAccount(201)).rejects.toThrow('account has entries');
   });
 });
 
@@ -150,20 +150,20 @@ describe('response handling', () => {
   });
 
   test('an API failure names the request and keeps the error body', async () => {
-    api.on('PUT /v1/cadastros/contas/1001', () =>
+    api.on('PUT /v1/cadastros/contas/201', () =>
       new Response(JSON.stringify({ error: 'name taken' }), { status: 409 })
     );
 
     const { updateAccount } = await import('../src/lib/api.js');
 
-    await expect(updateAccount(1001, { nome: 'X' } as never)).rejects.toThrow(
-      /A requisição à API falhou \(PUT \/v1\/cadastros\/contas\/1001\): 409 .*name taken/
+    await expect(updateAccount(201, { nome: 'X' } as never)).rejects.toThrow(
+      /A requisição à API falhou \(PUT \/v1\/cadastros\/contas\/201\): 409 .*name taken/
     );
   });
 
   test('a failure after refresh is labeled as such', async () => {
     let calls = 0;
-    api.on('DELETE /v1/cadastros/contas/1001', () => {
+    api.on('DELETE /v1/cadastros/contas/201', () => {
       calls += 1;
       return calls === 1
         ? new Response(JSON.stringify({ error: 'expired' }), { status: 401 })
@@ -172,6 +172,6 @@ describe('response handling', () => {
 
     const { deleteAccount } = await import('../src/lib/api.js');
 
-    await expect(deleteAccount(1001)).rejects.toThrow('(DELETE /v1/cadastros/contas/1001, após renovar as credenciais): 403');
+    await expect(deleteAccount(201)).rejects.toThrow('(DELETE /v1/cadastros/contas/201, após renovar as credenciais): 403');
   });
 });

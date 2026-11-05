@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE } from './fixtures.js';
 
-// Jardinagem 2026-10-19: `entries create -v ""` created an R$ 0 entry and
+// Maintenance 2026-10-19: `entries create -v ""` created an R$ 0 entry and
 // `entries delete ""` reached the API with id 0, because Number('') is 0.
 let api: MockApi;
 let home: TestHome;
@@ -23,7 +23,7 @@ afterEach(() => {
 describe('entries create -v', () => {
   for (const value of ['', ' ', '1e3', '0x10', 'Infinity']) {
     test(`refuses ${JSON.stringify(value)} without calling the API`, async () => {
-      const result = await runCli(['entries', 'create', '-a', '1001', '-d', 'X', '-c', '10', '-v', value], { home, api });
+      const result = await runCli(['entries', 'create', '-a', '201', '-d', 'X', '-c', '10', '-v', value], { home, api });
 
       expect(result.exitCode).toBe(1);
       expect(result.stderr).toContain(`Invalid value "${value}". Use a number like 10, 10.50 or 10,50.`);
@@ -33,7 +33,7 @@ describe('entries create -v', () => {
 
   test('reads a decimal comma', async () => {
     const result = await runCli(
-      ['entries', 'create', '-a', '1001', '-d', 'Pão', '-c', '10', '-v', '1,50', '-D', '2026-01-05', '--json'],
+      ['entries', 'create', '-a', '201', '-d', 'Pão', '-c', '10', '-v', '1,50', '-D', '2026-01-05', '--json'],
       { home, api }
     );
 

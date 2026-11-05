@@ -14,8 +14,8 @@ export const SEEDED_ENTRIES: Record<number, Entry> = {
     dataEfetiva: '2026-01-15',
     status: 'conciliado',
     conciliado: true,
-    conta: 1001,
-    contaT: 1003,
+    conta: 201,
+    contaT: 203,
     categoria: 30,
     tags: [],
     observacoes: '',
@@ -31,12 +31,12 @@ export const SEEDED_ENTRIES: Record<number, Entry> = {
     dataCompetencia: '2026-01-10',
     status: 'conciliado',
     conciliado: true,
-    conta: 1001,
+    conta: 201,
     categoria: 10,
     categoriaPai: 0,
     parcela: '2/6',
     agendaId: 99,
-    plastico: 7,
+    plastico: 62,
     tags: [501],
     observacoes: 'parcelado',
     ndocumento: 'NF-1',
@@ -51,7 +51,7 @@ export const SEEDED_ENTRIES: Record<number, Entry> = {
   // effective date or value yet.
   80: {
     id: 80,
-    descricao: 'NuCel',
+    descricao: 'Assinatura Teste',
     tipo: 'd',
     valor: -45,
     valorPrevisto: -45,
@@ -59,14 +59,14 @@ export const SEEDED_ENTRIES: Record<number, Entry> = {
     dataPrevista: '2027-01-10',
     status: 'agendado',
     conciliado: false,
-    conta: 1001,
+    conta: 201,
     categoria: 10,
     parcela: 'fixa',
     agendaId: 77,
     agenda: { frequencia: 1, intervalo: 'M', quantidade: -1, primeiraData: '2026-11-10' },
     tags: [],
   },
-  // A transfer between two regular accounts, Nubank -> Poupança (#123),
+  // A transfer between two regular accounts, Conta Teste -> Poupança (#123),
   // dated outside the months the list steps read.
   52: {
     id: 52,
@@ -79,8 +79,8 @@ export const SEEDED_ENTRIES: Record<number, Entry> = {
     dataEfetiva: '2025-06-15',
     status: 'conciliado',
     conciliado: true,
-    conta: 1001,
-    contaT: 1004,
+    conta: 201,
+    contaT: 204,
     categoria: 30,
     tags: [],
     observacoes: '',
@@ -94,16 +94,16 @@ export const SEEDED_ENTRIES: Record<number, Entry> = {
     dataPrevista: '2026-01-12',
     status: 'conciliado',
     conciliado: true,
-    conta: 1001,
+    conta: 201,
     categoria: 10,
     tags: [],
   },
-  // A refund as the server stored one (Finanças 2026-10-27): tipo r with a
+  // A refund as the server stored one (Real use 2026-10-27): tipo r with a
   // negative value and estorno on, which the web app never sends - update -T
   // income has to fix both.
   71: {
     id: 71,
-    descricao: 'Estorno café',
+    descricao: 'Estorno Teste',
     tipo: 'r',
     valor: -1700,
     valorPrevisto: -1700,
@@ -114,7 +114,7 @@ export const SEEDED_ENTRIES: Record<number, Entry> = {
     status: 'conciliado',
     conciliado: true,
     estorno: true,
-    conta: 1004,
+    conta: 204,
     categoria: 20,
     tags: [],
   },
@@ -223,7 +223,7 @@ export function createdEntry(body: Body, id: EntryId | OccurrenceId): CreateEntr
     conciliado: reconciled,
     dataCompetencia: typeof body.dataCompetencia === 'string' ? body.dataCompetencia : null,
     // The real API answers confirmado for a confirmed, unreconciled entry (#70)
-    // and pendente for an unconfirmed one dated today (Finanças 2026-10-19).
+    // and pendente for an unconfirmed one dated today (Real use 2026-10-19).
     status: statusLabel(body) ?? 'pendente',
     tipo: entryType(body.tipo),
     // The server stores one entry per installment; this is the first one.
@@ -260,7 +260,7 @@ interface StoredCardPurchase {
 }
 
 // Card purchases created through POST, as the real API keeps them: the POST
-// answers an occurrence ID ("<series>A<purchase date>", Finanças 2026-10-16)
+// answers an occurrence ID ("<series>A<purchase date>", Real use 2026-10-16)
 // and the entry ID only shows up in the invoice, which lists the purchase
 // with just its basic fields. GET/PUT /v1/lancamentos/:id take the entry ID.
 let nextCardEntryId = 9101;
@@ -283,7 +283,7 @@ export function createCardPurchase(body: Body): CreateEntryResponse {
     dataPrevista: String(body.dataPrevista),
     categoria: numberOrNull(body.categoria),
   });
-  return { ...createdEntry(body, mockOccurrenceId(`46349170A${String(body.dataCompetencia)}`)), status: 'confirmado' };
+  return { ...createdEntry(body, mockOccurrenceId(`1234567A${String(body.dataCompetencia)}`)), status: 'confirmado' };
 }
 
 /** The invoice items of a card's invoice due on dueDate. */
@@ -309,7 +309,7 @@ export function invoiceItems(cardId: number, dueDate: string): CardInvoiceEntry[
           categoria: 30,
           tipo: 'p',
           status: 'conciliado',
-          contaT: 1001,
+          contaT: 201,
         },
       ]
     : dueDate === '2026-11-16'
@@ -317,9 +317,9 @@ export function invoiceItems(cardId: number, dueDate: string): CardInvoiceEntry[
           // Installment 12/18 of a purchase made a year earlier: data is the
           // purchase date, the due date only comes from the invoice.
           {
-            id: 315471241,
-            descricao: 'Mac mini M4',
-            valor: -301.29,
+            id: 123456,
+            descricao: 'Item Parcelado',
+            valor: -123.45,
             data: '2025-11-19',
             categoria: 11,
             parcela: '12/18',

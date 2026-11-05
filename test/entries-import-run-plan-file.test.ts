@@ -6,7 +6,7 @@ import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE } from './fixtures.js';
 import { CONNECTIONS, mockStatement, SINCE } from './import-harness.js';
 
 // The --plan file itself: its keys and types, the flags it combines with, and its prefixes.
-// Fictional ids. 1001 is Nubank (connection account 9001).
+// Fictional ids. 201 is Conta Teste (connection account 301).
 // Categories: 10 Alimentação (d), 20 Salário (r), 30 Transferência (t), 60 Antiga (d, inactive).
 const INACTIVE = { ...CATEGORIES_RESPONSE.items[4], id: 60, nome: 'Antiga', nomeRel: 'Antiga', status: false };
 
@@ -54,7 +54,7 @@ function planFile(content: unknown): string {
 }
 
 function run(args: string[], stdin?: string) {
-  return runCli(['entries', 'import', 'run', '-a', '1001', '--since', SINCE, ...args], { home, api, stdin });
+  return runCli(['entries', 'import', 'run', '-a', '201', '--since', SINCE, ...args], { home, api, stdin });
 }
 
 async function refused(plan: unknown) {
@@ -85,7 +85,7 @@ describe('entries import run --plan file checks', () => {
         transactions: [
           { id: 'aaaa1111', action: 'ignore' },
           { id: 'bbbb2222', action: 'import', category: 10, value: '-12.34' },
-          { id: 'cccc3333', action: 'conciliate', entry: '9001' },
+          { id: 'cccc3333', action: 'conciliate', entry: '301' },
           { id: 'dddd4444', action: 'import' },
           { id: 42, action: 'skip' },
           { id: 'aaaa1111', action: 'conciliate', entry: 0 },
@@ -111,7 +111,7 @@ describe('entries import run --plan file checks', () => {
     const wrongKey = await run(['--plan', planFile({ transactions: [{ id: 'aaaa1111', action: 'skip', memo: 'x' }] }), '--yes']);
     expect(wrongKey.stderr).toContain('transactions[0]: unknown key "memo".');
 
-    const topLevel = await run(['--plan', planFile({ conta: 1001, transactions: [] }), '--yes']);
+    const topLevel = await run(['--plan', planFile({ conta: 201, transactions: [] }), '--yes']);
     expect(topLevel.stderr).toContain('unknown key "conta"');
 
     const broken = await run(['--plan', planFile('{"transactions": ['), '--yes']);
@@ -122,8 +122,8 @@ describe('entries import run --plan file checks', () => {
     const listShape = await run([
       '--plan',
       planFile({
-        account: { id: 1001, name: 'Nubank' },
-        connection: { id: 501, connectionAccount: 9001 },
+        account: { id: 201, name: 'Conta Teste' },
+        connection: { id: 501, connectionAccount: 301 },
         source: 'statement',
         since: SINCE,
         statement: { start: '2026-10-01', end: '2026-10-10', balance: 0 },
@@ -179,13 +179,13 @@ describe('entries import run --plan file checks', () => {
 
   test('a plan whose account differs from -a, or has no id, is refused before any request', async () => {
     const other = await refused({
-      account: { id: 1002, name: 'Cartão Azul' },
+      account: { id: 202, name: 'Cartão Teste' },
       transactions: [{ id: 'aaaa1111', action: 'skip' }],
     });
-    expect(other).toContain('the plan is for account 1002, but the run is for account 1001.');
+    expect(other).toContain('the plan is for account 202, but the run is for account 201.');
     expect(api.requests).toHaveLength(0);
 
-    const malformed = await refused({ account: { name: 'Nubank' }, transactions: [{ id: 'aaaa1111', action: 'skip' }] });
+    const malformed = await refused({ account: { name: 'Conta Teste' }, transactions: [{ id: 'aaaa1111', action: 'skip' }] });
     expect(malformed).toContain('"account" must be an object with a numeric "id".');
     expect(api.requests).toHaveLength(0);
   });

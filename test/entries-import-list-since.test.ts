@@ -31,7 +31,7 @@ beforeEach(() => {
   api = startMockApi();
   api.on('GET /v1/integracao/connections', CONNECTIONS);
   api.on('GET /v1/cadastros/contas', ACCOUNTS_RESPONSE);
-  api.on('GET /v1/integracao/account/9001/transactions', STATEMENT);
+  api.on('GET /v1/integracao/account/301/transactions', STATEMENT);
   api.on('GET /v1/lancamentos/duplicidade', {});
   api.on('GET /v2/lancamentos', { list: [], meta: { total: 0, page: 1, pageSize: 500 } });
   home = createHome(MANUAL_AUTH);
@@ -54,14 +54,14 @@ function startQuery(): string | null {
 describe('entries import list --since', () => {
   test('--since is the start of the statement request and the document since', async () => {
     const earlierDay = localDay(-41);
-    const earlier = await cli(['entries', 'import', 'list', '-a', '1001', '--since', earlierDay, '--json']);
+    const earlier = await cli(['entries', 'import', 'list', '-a', '201', '--since', earlierDay, '--json']);
     expect(earlier.exitCode).toBe(0);
     expect(startQuery()).toBe(earlierDay);
     expect(JSON.parse(earlier.stdout).since).toBe(earlierDay);
 
     api.requests.length = 0;
     const laterDay = localDay(-11);
-    const later = await cli(['entries', 'import', 'list', '-a', '1001', '--since', laterDay, '--json']);
+    const later = await cli(['entries', 'import', 'list', '-a', '201', '--since', laterDay, '--json']);
     expect(later.exitCode).toBe(0);
     expect(startQuery()).toBe(laterDay);
     expect(JSON.parse(later.stdout).since).toBe(laterDay);
@@ -71,12 +71,12 @@ describe('entries import list --since', () => {
     const floor = localDay(-90);
     const today = localDay(0);
 
-    const earliest = await cli(['entries', 'import', 'list', '-a', '1001', '--since', floor, '--json']);
+    const earliest = await cli(['entries', 'import', 'list', '-a', '201', '--since', floor, '--json']);
     expect(earliest.exitCode).toBe(0);
     expect(startQuery()).toBe(floor);
 
     api.requests.length = 0;
-    const current = await cli(['entries', 'import', 'list', '-a', '1001', '--since', today, '--json']);
+    const current = await cli(['entries', 'import', 'list', '-a', '201', '--since', today, '--json']);
     expect(current.exitCode).toBe(0);
     expect(startQuery()).toBe(today);
     expect(JSON.parse(current.stdout).since).toBe(today);
@@ -84,7 +84,7 @@ describe('entries import list --since', () => {
 
   test('rejects --since before the earliest day and does not load transactions', async () => {
     const floor = localDay(-90);
-    const result = await cli(['entries', 'import', 'list', '-a', '1001', '--since', localDay(-91), '--json']);
+    const result = await cli(['entries', 'import', 'list', '-a', '201', '--since', localDay(-91), '--json']);
 
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toBe('');
@@ -98,7 +98,7 @@ describe('entries import list --since', () => {
   test('rejects a future --since and does not load transactions', async () => {
     const today = localDay(0);
     const tomorrow = localDay(1);
-    const result = await cli(['entries', 'import', 'list', '-a', '1001', '--since', tomorrow, '--json']);
+    const result = await cli(['entries', 'import', 'list', '-a', '201', '--since', tomorrow, '--json']);
 
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toBe('');
@@ -112,7 +112,7 @@ describe('entries import list --since', () => {
   test('rejects an invalid --since and does not load transactions', async () => {
     for (const since of ['2026-02-31', '2026-13-01', '22/10/2026', 'not-a-date']) {
       api.requests.length = 0;
-      const result = await cli(['entries', 'import', 'list', '-a', '1001', '--since', since]);
+      const result = await cli(['entries', 'import', 'list', '-a', '201', '--since', since]);
       expect(result.exitCode).toBe(1);
       expect(result.stdout).toBe('');
       expect(result.stderr).toContain(`Invalid date "${since}". Use YYYY-MM-DD (e.g., 2026-10-03).`);
@@ -122,16 +122,16 @@ describe('entries import list --since', () => {
   });
 
   test('an empty statement exits 0, names the start, and keeps since in JSON', async () => {
-    api.on('GET /v1/integracao/account/9001/transactions', EMPTY);
+    api.on('GET /v1/integracao/account/301/transactions', EMPTY);
 
-    const text = await cli(['entries', 'import', 'list', '-a', '1001', '--since', SINCE]);
+    const text = await cli(['entries', 'import', 'list', '-a', '201', '--since', SINCE]);
     expect(text.exitCode).toBe(0);
     expect(text.stderr).toBe('');
     expect(text.stdout).toContain(`No bank transactions since ${SINCE}.`);
     expect(text.stdout).not.toContain('│');
     expect(text.stdout).not.toContain('Prefix');
 
-    const json = await cli(['entries', 'import', 'list', '-a', '1001', '--since', SINCE, '--json']);
+    const json = await cli(['entries', 'import', 'list', '-a', '201', '--since', SINCE, '--json']);
     expect(json.exitCode).toBe(0);
     expect(json.stderr).toBe('');
     expect(json.stdout).not.toContain('No bank transactions');

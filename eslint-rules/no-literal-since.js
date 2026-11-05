@@ -1,5 +1,5 @@
 // A test that passes --since a fixed YYYY-MM-DD fails once that day falls out
-// of the 90-day window the CLI accepts (Jardineiro 2026-10-26). Tests build
+// of the 90-day window the CLI accepts (Maintenance 2026-10-26). Tests build
 // the date relative to today instead.
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
 const INLINE_SINCE = /^--since=\d{4}-\d{2}-\d{2}$/;

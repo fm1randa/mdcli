@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, TAGS_RESPONSE, entriesPage } from './fixtures.js';
 
-// Jardinagem 2026-10-19: values shown without sign in create/update/delete
+// Maintenance 2026-10-19: values shown without sign in create/update/delete
 // (the #72 bug, left outside list), tag resolution copied three times,
 // reportCreate not reading a status object and unknown statuses shown as Pending.
 let api: MockApi;
@@ -17,7 +17,7 @@ const coffee = {
   dataPrevista: '2026-01-12',
   status: 'conciliado',
   conciliado: true,
-  conta: 1001,
+  conta: 201,
   categoria: 10,
   tags: [],
 };
@@ -42,7 +42,7 @@ afterEach(() => {
 
 describe('signed values', () => {
   test('entries create sends an income as positive (payload sign)', async () => {
-    const result = await runCli(['entries', 'create', '-a', '1001', '-d', 'Salário', '-v', '150', '-c', '20', '-T', 'income', '-D', '2026-01-05'], { home, api });
+    const result = await runCli(['entries', 'create', '-a', '201', '-d', 'Salário', '-v', '150', '-c', '20', '-T', 'income', '-D', '2026-01-05'], { home, api });
 
     expect(result.exitCode).toBe(0);
     const [post] = mutations(api);
@@ -50,7 +50,7 @@ describe('signed values', () => {
   });
 
   test('entries create shows an expense as negative', async () => {
-    const result = await runCli(['entries', 'create', '-a', '1001', '-d', 'Feira', '-v', '30', '-c', '10', '-D', '2026-01-05'], { home, api });
+    const result = await runCli(['entries', 'create', '-a', '201', '-d', 'Feira', '-v', '30', '-c', '10', '-D', '2026-01-05'], { home, api });
 
     expect(result.exitCode).toBe(0);
     expect(text(result.stdout)).toContain('Value: -R$ 30,00');
@@ -79,7 +79,7 @@ describe('signed values', () => {
       ])
     );
 
-    const result = await runCli(['entries', 'summary', '-a', '1001', '-f', '2026-01-01', '-t', '2026-01-31'], { home, api });
+    const result = await runCli(['entries', 'summary', '-a', '201', '-f', '2026-01-01', '-t', '2026-01-31'], { home, api });
 
     expect(result.exitCode).toBe(0);
     expect(text(result.stdout)).toMatch(/│ Total +│ 2 +│ R\$ 100,00 +│ R\$ 130,00 +│ -R\$ 30,00 +│/);
@@ -88,9 +88,9 @@ describe('signed values', () => {
 
 describe('unknown tags', () => {
   const cases: Array<[string, string[]]> = [
-    ['entries create', ['entries', 'create', '-a', '1001', '-d', 'X', '-v', '1', '-c', '10', '-g', 'Trabalho,nope']],
+    ['entries create', ['entries', 'create', '-a', '201', '-d', 'X', '-v', '1', '-c', '10', '-g', 'Trabalho,nope']],
     ['entries update', ['entries', 'update', '70', '-g', 'nope']],
-    ['entries list', ['entries', 'list', '-a', '1001', '-g', 'nope']],
+    ['entries list', ['entries', 'list', '-a', '201', '-g', 'nope']],
   ];
   for (const [name, args] of cases) {
     test(`${name} names the tag that matches nothing`, async () => {
@@ -113,7 +113,7 @@ describe('status labels', () => {
       status: { confirmado: true, conciliado: false },
     });
 
-    const result = await runCli(['entries', 'create', '-a', '1001', '-d', 'Feira', '-v', '30', '-c', '10', '-D', '2026-01-05'], { home, api });
+    const result = await runCli(['entries', 'create', '-a', '201', '-d', 'Feira', '-v', '30', '-c', '10', '-D', '2026-01-05'], { home, api });
 
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain('Status: Confirmed');
@@ -122,8 +122,8 @@ describe('status labels', () => {
   test('a status outside the table is unknown, not pending', async () => {
     api.on('GET /v2/lancamentos', entriesPage([{ ...coffee, status: 'estornado' }]));
 
-    const json = await runCli(['entries', 'list', '-a', '1001', '-f', '2026-01-01', '-t', '2026-01-31', '--json'], { home, api });
-    const table = await runCli(['entries', 'list', '-a', '1001', '-f', '2026-01-01', '-t', '2026-01-31'], { home, api });
+    const json = await runCli(['entries', 'list', '-a', '201', '-f', '2026-01-01', '-t', '2026-01-31', '--json'], { home, api });
+    const table = await runCli(['entries', 'list', '-a', '201', '-f', '2026-01-01', '-t', '2026-01-31'], { home, api });
 
     expect(JSON.parse(json.stdout)[0].status).toBe('unknown');
     expect(table.stdout).toContain('Unknown');

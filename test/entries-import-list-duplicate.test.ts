@@ -3,7 +3,7 @@ import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi,
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE } from './fixtures.js';
 import { CONNECTIONS, mockStatement, SINCE } from './import-harness.js';
 
-// Fictional ids. 1001 is Nubank. 9001 is its connection account, not the Account id.
+// Fictional ids. 201 is Conta Teste. 301 is its connection account, not the Account id.
 
 const EXPENSE_ID = 'eeeeeeee-1111-4000-8000-000000000001';
 const DUP_MATCH = 'a1a1a1a1-1111-4000-8000-000000000001';
@@ -50,7 +50,7 @@ describe('entries import list duplicates', () => {
       },
     ]);
 
-    const result = await cli(['entries', 'import', 'list', '-a', '1001', '--since', SINCE, '--json']);
+    const result = await cli(['entries', 'import', 'list', '-a', '201', '--since', SINCE, '--json']);
 
     expect(result.exitCode).toBe(0);
     expect(result.stderr).toBe('');
@@ -72,7 +72,7 @@ describe('entries import list duplicates', () => {
         descricao: 'Padaria do Bairro',
         valor: -12.34,
         data: '2026-10-20',
-        _ca: { c: { d: { categoria: { v: 11 }, conta: { v: 1004 } } } },
+        _ca: { c: { d: { categoria: { v: 11 }, conta: { v: 204 } } } },
       },
       {
         integrationId: DUP_OTHER_VALUE,
@@ -102,13 +102,13 @@ describe('entries import list duplicates', () => {
       '2026-10-21': [{ id: 93, valor: -12.34 }],
     });
 
-    const result = await cli(['entries', 'import', 'list', '-a', '1001', '--since', SINCE, '--json']);
+    const result = await cli(['entries', 'import', 'list', '-a', '201', '--since', SINCE, '--json']);
 
     expect(result.exitCode).toBe(0);
     expect(result.stderr).toBe('');
     const body = JSON.parse(result.stdout);
-    expect(body.account).toEqual({ id: 1001, name: 'Nubank' });
-    expect(body.connection).toEqual({ id: 501, connectionAccount: 9001 });
+    expect(body.account).toEqual({ id: 201, name: 'Conta Teste' });
+    expect(body.connection).toEqual({ id: 501, connectionAccount: 301 });
     expect(body.transactions.map((row: { duplicateOf: number | null; action: string; category: string | null; suggestedCategory: { id: number } | null }) => ({
       duplicateOf: row.duplicateOf,
       defaultAction: row.action === 'import' && row.category === null ? 'needs-category' : row.action,
@@ -123,7 +123,7 @@ describe('entries import list duplicates', () => {
     expect(call?.method).toBe('GET');
     expect(call?.query.get('inicio')).toBe('2026-10-03');
     expect(call?.query.get('fim')).toBe('2026-10-20');
-    expect(call?.query.get('conta')).toBe('1001');
+    expect(call?.query.get('conta')).toBe('201');
     expect([...(call?.query.keys() ?? [])]).toEqual(['inicio', 'fim', 'conta']);
     const paths = api.requests.map((r) => `${r.method} ${r.path}`);
     expect(paths.some((path) => /regras|smartmatch|markImported|importar|conciliacao/.test(path))).toBe(false);
@@ -138,14 +138,14 @@ describe('entries import list duplicates', () => {
       { integrationId: DUP_SAME_VALUE, descricao: 'Mais Antiga', valor: -3, data: '2026-10-04' },
     ]);
 
-    const result = await cli(['entries', 'import', 'list', '-a', '1001', '--since', SINCE, '--json']);
+    const result = await cli(['entries', 'import', 'list', '-a', '201', '--since', SINCE, '--json']);
 
     expect(result.exitCode).toBe(0);
     expect(result.stderr).toBe('');
     const call = api.requests.find((r) => r.path === '/v1/lancamentos/duplicidade');
     expect(call?.query.get('inicio')).toBe('2026-10-04');
     expect(call?.query.get('fim')).toBe('2026-10-20');
-    expect(call?.query.get('conta')).toBe('1001');
+    expect(call?.query.get('conta')).toBe('201');
     expect(api.requests.filter((r) => r.path === '/v1/lancamentos/duplicidade')).toHaveLength(1);
     expect(mutations(api)).toHaveLength(0);
   });
@@ -153,7 +153,7 @@ describe('entries import list duplicates', () => {
   test('does not ask for duplicates or categories when the statement is empty', async () => {
     statement([]);
 
-    const result = await cli(['entries', 'import', 'list', '-a', '1001', '--since', SINCE, '--json']);
+    const result = await cli(['entries', 'import', 'list', '-a', '201', '--since', SINCE, '--json']);
 
     expect(result.exitCode).toBe(0);
     expect(result.stderr).toBe('');
@@ -192,7 +192,7 @@ describe('entries import list duplicates', () => {
       '2026-10-07': [{ id: 77, valor: -12.34 }],
     });
 
-    const result = await cli(['entries', 'import', 'list', '-a', '1001', '--since', SINCE]);
+    const result = await cli(['entries', 'import', 'list', '-a', '201', '--since', SINCE]);
     const stdout = result.stdout.replace(/\u00a0/g, ' ');
 
     expect(result.exitCode).toBe(0);

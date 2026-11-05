@@ -4,10 +4,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { checkProva, parseProva, requiresProva } from '../scripts/prova.js';
 
-const BEFORE = ['### Antes (main)', '', '```sh', '$ mdcli entries import run -a 1001 --dry-run', 'Dry run: 1 entry', '```'].join(
+const BEFORE = ['### Antes (main)', '', '```sh', '$ mdcli entries import run -a 201 --dry-run', 'Dry run: 1 entry', '```'].join(
   '\n',
 );
-const AFTER = ['### Depois (branch)', '', '```sh', '$ mdcli entries import run -a 1001 --dry-run', 'Dry run: 1 entry, 0 changes', '```'].join(
+const AFTER = ['### Depois (branch)', '', '```sh', '$ mdcli entries import run -a 201 --dry-run', 'Dry run: 1 entry, 0 changes', '```'].join(
   '\n',
 );
 const WEB = 'Web: mdb.js 13776-13792 (the sync PUT the web fires on load)';

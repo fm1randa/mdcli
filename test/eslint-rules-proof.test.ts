@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ESLint, Linter } from 'eslint';
 import tseslint from 'typescript-eslint';
@@ -54,12 +55,36 @@ function hasDescribe(rule: string): boolean {
   return sources.some((source) => pattern.test(source));
 }
 
-function git(args: string[]): string {
-  return execFileSync('git', args, { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+function git(args: string[], cwd = ROOT): string {
+  return execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
 }
 
 function normalize(source: string): string {
   return source.split('\n').map((line) => line.trim()).filter((line) => line !== '').join('\n');
+}
+
+function mainRef(cwd: string): string {
+  for (const ref of ['origin/main', 'main']) {
+    try {
+      git(['rev-parse', '--verify', '--quiet', `${ref}^{commit}`], cwd);
+      return ref;
+    } catch {
+      // Try the next ref; a checkout without main history has neither.
+    }
+  }
+  throw new Error('cannot verify fixture origins without origin/main or main; fetch the main history');
+}
+
+// A fixture whose origin survives only on the PR branch passes this checkout
+// but disappears when the squash merge rewrites that branch, leaving main red.
+// Requiring the origin to be in main's history refuses it before the merge.
+function assertReachable(rule: string, origin: string, cwd = ROOT): void {
+  const base = mainRef(cwd);
+  try {
+    git(['merge-base', '--is-ancestor', origin, base], cwd);
+  } catch {
+    throw new Error(`${rule}: fixture origin ${origin} is not reachable from ${base}; the squash merge drops branch-only commits, so anchor the fixture in a commit already on main`);
+  }
 }
 
 // The fixture proves the rule catches real code only when that code is still
@@ -71,6 +96,7 @@ function assertOriginCode(rule: string, fixture: Fixture): void {
   } catch {
     throw new Error(`${rule}: fixture origin ${fixture.origin} is not a commit in this repository`);
   }
+  assertReachable(rule, fixture.origin);
   let blob: string;
   try {
     blob = git(['show', `${fixture.origin}:${fixture.source}`]);
@@ -135,6 +161,28 @@ describe('every local rule is proven against the code that motivated it', () => 
         expect(Object.keys(RULE_AREAS)).toContain(area);
         expect(reason.trim()).not.toBe('');
       }
+    }
+  });
+});
+
+describe('fixture origins survive the squash merge', () => {
+  test('accepts a commit on main and rejects one only on a side branch', () => {
+    const repo = mkdtempSync(join(tmpdir(), 'mdcli-fixture-origin-'));
+    try {
+      const commit = (message: string): string => {
+        git(['-c', 'user.name=test', '-c', 'user.email=test@example.com', 'commit', '-q', '--allow-empty', '-m', message], repo);
+        return git(['rev-parse', 'HEAD'], repo).trim();
+      };
+      git(['init', '-q', '-b', 'main'], repo);
+      const mainCommit = commit('main');
+      git(['update-ref', 'refs/remotes/origin/main', mainCommit], repo);
+      git(['checkout', '-q', '-b', 'feature'], repo);
+      const sideCommit = commit('side');
+
+      expect(() => assertReachable('rule', mainCommit, repo)).not.toThrow();
+      expect(() => assertReachable('rule', sideCommit, repo)).toThrow(/not reachable from origin\/main/);
+    } finally {
+      rmSync(repo, { recursive: true, force: true });
     }
   });
 });

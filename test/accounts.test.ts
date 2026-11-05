@@ -19,7 +19,7 @@ beforeEach(() => {
   api.on('GET /v1/cadastros/contas', ACCOUNTS_RESPONSE);
   home = createHome({
     ...MANUAL_AUTH,
-    nameCache: { accounts: { byName: { nubank: 1001 }, cachedAt: new Date().toISOString() } },
+    nameCache: { accounts: { byName: { conta: 201 }, cachedAt: new Date().toISOString() } },
   });
 });
 
@@ -197,16 +197,16 @@ describe('accounts create', () => {
 
 describe('accounts delete', () => {
   test('deletes after confirmation', async () => {
-    api.on('DELETE /v1/cadastros/contas/1001', null);
+    api.on('DELETE /v1/cadastros/contas/201', null);
 
-    const result = await runCli(['accounts', 'delete', '1001'], { home, api, stdin: 'y\n' });
+    const result = await runCli(['accounts', 'delete', '201'], { home, api, stdin: 'y\n' });
 
     expect(result.exitCode).toBe(0);
-    expect(mutations(api).map((r) => `${r.method} ${r.path}`)).toEqual(['DELETE /v1/cadastros/contas/1001']);
+    expect(mutations(api).map((r) => `${r.method} ${r.path}`)).toEqual(['DELETE /v1/cadastros/contas/201']);
   });
 
   test('does nothing when the confirmation is declined', async () => {
-    const result = await runCli(['accounts', 'delete', '1001'], { home, api, stdin: 'n\n' });
+    const result = await runCli(['accounts', 'delete', '201'], { home, api, stdin: 'n\n' });
 
     expect(result.exitCode).toBe(0);
     expect(result.output).toContain('Deletion cancelled');

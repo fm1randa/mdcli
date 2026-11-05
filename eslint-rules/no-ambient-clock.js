@@ -1,7 +1,7 @@
 // An argument-less new Date() or Date.now() reads the machine's clock, so a
 // test cannot move "today" and a date check turns into a time bomb (tests
 // passing fixed dates broke once the 90-day --since window moved past them,
-// Jardineiro 2026-10-26). Commands read the day through src/lib/dates.ts.
+// Maintenance 2026-10-26). Commands read the day through src/lib/dates.ts.
 export default {
   meta: {
     type: "problem",

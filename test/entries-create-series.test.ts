@@ -11,7 +11,7 @@ beforeEach(() => {
   api.on('GET /v1/cadastros/contas', { ...ACCOUNTS_RESPONSE, items: [...ACCOUNTS_RESPONSE.items, SAVINGS_ACCOUNT] });
   api.on('GET /v1/cadastros/categorias', CATEGORIES_RESPONSE);
   api.on('POST /v1/lancamentos', created);
-  home = createHome({ ...MANUAL_AUTH, aliases: { accounts: [{ id: 1004, name: 'reserva' }], categories: [], tags: [] } });
+  home = createHome({ ...MANUAL_AUTH, aliases: { accounts: [{ id: 204, name: 'reserva' }], categories: [], tags: [] } });
 });
 
 afterEach(() => {
@@ -28,7 +28,7 @@ function sentBody(): Record<string, unknown> {
 describe('entries create -T transfer', () => {
   test('sends one entry from the origin side naming both accounts', async () => {
     const result = await runCli(
-      ['entries', 'create', '-a', '1001', '-T', 'transfer', '--to-account', 'reserva', '-d', 'Reserva', '-v', '500', '-D', '2026-01-05', '--json'],
+      ['entries', 'create', '-a', '201', '-T', 'transfer', '--to-account', 'reserva', '-d', 'Reserva', '-v', '500', '-D', '2026-01-05', '--json'],
       { home, api }
     );
 
@@ -37,8 +37,8 @@ describe('entries create -T transfer', () => {
     expect(body).toMatchObject({
       tipo: 't',
       transferencia: true,
-      contaOrigem: 1001,
-      contaDestino: 1004,
+      contaOrigem: 201,
+      contaDestino: 204,
       valor: -500,
       valorPrevisto: -500,
       valorEfetivo: -500,
@@ -54,7 +54,7 @@ describe('entries create -T transfer', () => {
   });
 
   test('refuses a transfer without --to-account before calling the API', async () => {
-    const result = await runCli(['entries', 'create', '-a', '1001', '-T', 'transfer', '-d', 'X', '-v', '5'], { home, api });
+    const result = await runCli(['entries', 'create', '-a', '201', '-T', 'transfer', '-d', 'X', '-v', '5'], { home, api });
 
     expect(result.exitCode).toBe(1);
     expect(result.output).toContain('--to-account');
@@ -63,7 +63,7 @@ describe('entries create -T transfer', () => {
 
   test('refuses the same account on both sides', async () => {
     const result = await runCli(
-      ['entries', 'create', '-a', '1004', '-T', 'transfer', '--to-account', 'reserva', '-d', 'X', '-v', '5'],
+      ['entries', 'create', '-a', '204', '-T', 'transfer', '--to-account', 'reserva', '-d', 'X', '-v', '5'],
       { home, api }
     );
 
@@ -74,7 +74,7 @@ describe('entries create -T transfer', () => {
 
   test('refuses a transfer to a credit card (invoice payment is not modeled)', async () => {
     const result = await runCli(
-      ['entries', 'create', '-a', '1001', '-T', 'transfer', '--to-account', '1002', '-d', 'Fatura', '-v', '5'],
+      ['entries', 'create', '-a', '201', '-T', 'transfer', '--to-account', '202', '-d', 'Fatura', '-v', '5'],
       { home, api }
     );
 
@@ -85,7 +85,7 @@ describe('entries create -T transfer', () => {
 
   test('refuses --to-account on an expense', async () => {
     const result = await runCli(
-      ['entries', 'create', '-a', '1001', '--to-account', '1004', '-d', 'X', '-v', '5', '-c', '10'],
+      ['entries', 'create', '-a', '201', '--to-account', '204', '-d', 'X', '-v', '5', '-c', '10'],
       { home, api }
     );
 
@@ -98,7 +98,7 @@ describe('entries create -T transfer', () => {
 describe('entries create --installments', () => {
   test('splits the total with the rounding cent on the first installment, months clamped', async () => {
     const result = await runCli(
-      ['entries', 'create', '-a', '1001', '-d', 'Geladeira', '-v', '100', '-c', '10', '-i', '3', '-D', '2026-01-31', '--json'],
+      ['entries', 'create', '-a', '201', '-d', 'Geladeira', '-v', '100', '-c', '10', '-i', '3', '-D', '2026-01-31', '--json'],
       { home, api }
     );
 
@@ -120,11 +120,11 @@ describe('entries create --installments', () => {
   test('sends the series total as the signed sum of the installments', async () => {
     // 0.07 in 10 is 0.07 - 9 * 0.01 = -0.02 on the first installment, the opposite sign of the rest.
     const income = await runCli(
-      ['entries', 'create', '-a', '1001', '-d', 'Centavos', '-v', '0.07', '-c', '20', '-T', 'income', '-i', '10', '-D', '2026-01-10', '--json'],
+      ['entries', 'create', '-a', '201', '-d', 'Centavos', '-v', '0.07', '-c', '20', '-T', 'income', '-i', '10', '-D', '2026-01-10', '--json'],
       { home, api }
     );
     const expense = await runCli(
-      ['entries', 'create', '-a', '1001', '-d', 'Centavos', '-v', '0.07', '-c', '10', '-i', '10', '-D', '2026-01-10', '--json'],
+      ['entries', 'create', '-a', '201', '-d', 'Centavos', '-v', '0.07', '-c', '10', '-i', '10', '-D', '2026-01-10', '--json'],
       { home, api }
     );
 
@@ -138,7 +138,7 @@ describe('entries create --installments', () => {
   test('--per-installment, --frequency and --first-installment', async () => {
     const result = await runCli(
       [
-        'entries', 'create', '-a', '1001', '-d', 'Curso', '-v', '50', '-c', '20', '-T', 'income',
+        'entries', 'create', '-a', '201', '-d', 'Curso', '-v', '50', '-c', '20', '-T', 'income',
         '-i', '4', '--per-installment', '--frequency', '2', '--first-installment', '2', '-D', '2026-01-10',
       ],
       { home, api }
@@ -159,7 +159,7 @@ describe('entries create --installments', () => {
 
   test('describes the split in text output', async () => {
     const result = await runCli(
-      ['entries', 'create', '-a', '1001', '-d', 'Geladeira', '-v', '100', '-c', '10', '-i', '3', '-D', '2026-01-31'],
+      ['entries', 'create', '-a', '201', '-d', 'Geladeira', '-v', '100', '-c', '10', '-i', '3', '-D', '2026-01-31'],
       { home, api }
     );
 
@@ -168,8 +168,8 @@ describe('entries create --installments', () => {
   });
 
   test('refuses --times with --installments and a single installment', async () => {
-    const both = await runCli(['entries', 'create', '-a', '1001', '-d', 'X', '-v', '9', '-c', '10', '-i', '3', '--times', '3'], { home, api });
-    const one = await runCli(['entries', 'create', '-a', '1001', '-d', 'X', '-v', '9', '-c', '10', '-i', '1'], { home, api });
+    const both = await runCli(['entries', 'create', '-a', '201', '-d', 'X', '-v', '9', '-c', '10', '-i', '3', '--times', '3'], { home, api });
+    const one = await runCli(['entries', 'create', '-a', '201', '-d', 'X', '-v', '9', '-c', '10', '-i', '1'], { home, api });
 
     expect(both.exitCode).toBe(1);
     expect(both.output).toContain('--times is for a fixed series');
@@ -182,7 +182,7 @@ describe('entries create --installments', () => {
 describe('entries create --repeat', () => {
   test('accepts --frequency together with --times', async () => {
     const result = await runCli(
-      ['entries', 'create', '-a', '1001', '-d', 'Academia', '-v', '90', '-c', '10', '-r', 'monthly', '--frequency', '2', '--times', '6', '--json'],
+      ['entries', 'create', '-a', '201', '-d', 'Academia', '-v', '90', '-c', '10', '-r', 'monthly', '--frequency', '2', '--times', '6', '--json'],
       { home, api }
     );
 
@@ -200,7 +200,7 @@ describe('entries create --scheduled', () => {
     api.on('POST /v1/lancamentos', { ...created, status: 'agendado' });
 
     const result = await runCli(
-      ['entries', 'create', '-a', '1001', '-d', 'IPVA', '-v', '800', '-c', '10', '-S', '-D', '2026-11-05'],
+      ['entries', 'create', '-a', '201', '-d', 'IPVA', '-v', '800', '-c', '10', '-S', '-D', '2026-11-05'],
       { home, api }
     );
 
@@ -217,7 +217,7 @@ describe('entries create --scheduled', () => {
   });
 
   test('refuses --scheduled with --confirmed before calling the API', async () => {
-    const both = await runCli(['entries', 'create', '-a', '1001', '-d', 'X', '-v', '9', '-c', '10', '-S', '--confirmed'], { home, api });
+    const both = await runCli(['entries', 'create', '-a', '201', '-d', 'X', '-v', '9', '-c', '10', '-S', '--confirmed'], { home, api });
 
     expect(both.exitCode).toBe(1);
     expect(both.output).toContain('either --pending or --confirmed');

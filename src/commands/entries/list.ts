@@ -117,7 +117,7 @@ export async function summaryAction(options: SummaryOptions): Promise<void> {
   const { params, entries: filtered, excludedByCategory } = await loadEntries(options);
   // Transfers stay optional via --include-transfers. Payments (tipo p) and
   // invoice projections are never income/expense: always leave them out of
-  // the summary (dogfood 2026-10-19).
+  // the summary (real use 2026-10-19).
   const skippedTransfers = options.includeTransfers
     ? 0
     : filtered.filter((e) => e.type === 'transfer').length;
