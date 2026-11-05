@@ -1,6 +1,7 @@
 import { cpSync, existsSync, mkdtempSync, rmSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { changesBehavior, parseDiff } from './behavior-change.js';
 
 // Issue #186: a test that passes with the fix reverted proves nothing (#155
 // admitted exactly that). This runs every new or changed test file against the
@@ -32,25 +33,10 @@ export function changedTestFiles(nameStatus: string): string[] {
 }
 
 const PRODUCT_PATH = /^(?:src|bin)(?:\/|$)/;
-// Only an unambiguous whole-line comment: `//` or a block comment that closes
-// on the same line. A trimmed `*` can continue an expression (`* 2;`) or be
-// template text, so it counts as code.
-const COMMENT_LINE = /^(?:\/\/|\/\*.*\*\/$)/;
 
-/** True when the diff changes product code (src/ or bin/), the only case the gate requires. */
-export function changesProduct(nameStatus: string, productDiff: string): boolean {
-  const touchesProduct = nameStatus.split('\n').some((line) => {
-    const fields = line.split('\t');
-    return PRODUCT_PATH.test(fields[fields.length - 1] ?? '');
-  });
-  if (!touchesProduct) return false;
-  return productDiff.split('\n').some((line) => {
-    // Headers carry no content; an empty line and a comment are not behavior.
-    if (!line.startsWith('+') && !line.startsWith('-')) return false;
-    if (line.startsWith('+++ ') || line.startsWith('--- ')) return false;
-    const content = line.slice(1).trim();
-    return content !== '' && !COMMENT_LINE.test(content);
-  });
+/** True when the product diff (src/ or bin/) changes behavior, the only case the gate requires. */
+export function changesProduct(productDiff: string): boolean {
+  return changesBehavior(parseDiff(productDiff), { includes: (path) => PRODUCT_PATH.test(path) });
 }
 
 const INFRASTRUCTURE_ERROR = /# Unhandled error between tests|^[ \t]+[1-9]\d* errors?[ \t]*$/m;
@@ -152,10 +138,10 @@ function main(): void {
     // behavior to prove, and a comment in src/ is not behavior either; the gate
     // only guards PRs that change product code.
     const productDiff = git(
-      ['diff', '-U0', '--no-renames', `${options.base}...HEAD`, '--', 'src', 'bin'],
+      ['diff', '--no-renames', '--no-color', `${options.base}...HEAD`, '--', 'src', 'bin'],
       root
     );
-    if (options.files === undefined && !changesProduct(diff, productDiff)) {
+    if (options.files === undefined && !changesProduct(productDiff)) {
       console.log('fails-on-main: not required (no src/ or bin/ code change)');
       return;
     }

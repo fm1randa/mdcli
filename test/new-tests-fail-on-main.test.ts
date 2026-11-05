@@ -15,33 +15,41 @@ describe('changedTestFiles', () => {
   });
 });
 
+function diffFor(path: string, body: string[], status: 'A' | 'D' | 'M' = 'M'): string {
+  const from = status === 'A' ? '/dev/null' : `a/${path}`;
+  const to = status === 'D' ? '/dev/null' : `b/${path}`;
+  return [`diff --git a/${path} b/${path}`, `--- ${from}`, `+++ ${to}`, '@@ -1 +1 @@', ...body].join('\n');
+}
+
 describe('changesProduct', () => {
   test('requires a src/ or bin/ code change', () => {
-    expect(changesProduct('M\tsrc/program.ts', '+export const value = 1;\n-export const value = 2;')).toBe(true);
-    expect(changesProduct('A\tbin/cli.ts', '--- /dev/null\n+++ b/bin/cli.ts\n+#!/usr/bin/env bun')).toBe(true);
-    expect(changesProduct('D\tsrc/lib/api.ts', '-export function call() {}')).toBe(true);
+    expect(changesProduct(diffFor('src/program.ts', ['-export const value = 2;', '+export const value = 1;']))).toBe(true);
+    expect(changesProduct(diffFor('bin/cli.ts', ['+#!/usr/bin/env bun'], 'A'))).toBe(true);
+    expect(changesProduct(diffFor('src/lib/api.ts', ['-export function call() {}'], 'D'))).toBe(true);
     // An added source line that itself starts with ++ is content, not a header.
-    expect(changesProduct('M\tsrc/program.ts', '+++i;')).toBe(true);
+    expect(changesProduct(diffFor('src/program.ts', ['+++i;']))).toBe(true);
   });
 
   test('does not require a comment-only src/ change', () => {
-    expect(changesProduct('M\tsrc/program.ts', '-// old note\n+// new note')).toBe(false);
-    expect(changesProduct('M\tsrc/lib/api.ts', '-/** old */\n+/** new */')).toBe(false);
+    expect(changesProduct(diffFor('src/program.ts', ['-// old note', '+// new note']))).toBe(false);
+    expect(changesProduct(diffFor('src/lib/api.ts', ['-/** old */', '+/** new */']))).toBe(false);
   });
 
   test('requires the gate for a line that only looks like a comment', () => {
     // `* 2;` continues an expression, and template literals can start a line
     // with any character. Both are behavior, so they fail to the safe side.
-    expect(changesProduct('M\tsrc/program.ts', '+  * 2;')).toBe(true);
-    expect(changesProduct('M\tsrc/program.ts', '+const message = `\n+ * still template text\n+`;')).toBe(true);
-    expect(changesProduct('M\tsrc/program.ts', '+/* incomplete block\n+ * body')).toBe(true);
+    expect(changesProduct(diffFor('src/program.ts', ['+  * 2;']))).toBe(true);
+    expect(
+      changesProduct(diffFor('src/program.ts', ['+const message = `', '+ * still template text', '+`;'])),
+    ).toBe(true);
+    expect(changesProduct(diffFor('src/program.ts', ['+/* incomplete block', '+ * body']))).toBe(true);
   });
 
   test('does not require a test-only, lint or docs change', () => {
-    expect(changesProduct('M\ttest/a.test.ts', '+// note')).toBe(false);
-    expect(changesProduct('M\teslint-rules/no-raw-dash.js', '+const rule = 1;')).toBe(false);
-    expect(changesProduct('M\tAGENTS.md', '+// note')).toBe(false);
-    expect(changesProduct('', '')).toBe(false);
+    expect(changesProduct(diffFor('test/a.test.ts', ['+// note']))).toBe(false);
+    expect(changesProduct(diffFor('eslint-rules/no-raw-dash.js', ['+const rule = 1;']))).toBe(false);
+    expect(changesProduct(diffFor('AGENTS.md', ['+// note']))).toBe(false);
+    expect(changesProduct('')).toBe(false);
   });
 });
 

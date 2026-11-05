@@ -12,6 +12,16 @@ const AFTER = ['### Depois (branch)', '', '```sh', '$ mdcli entries import run -
 );
 const WEB = 'Web: mdb.js 13776-13792 (the sync PUT the web fires on load)';
 
+function diffFor(path: string, removed: string, added: string): string {
+  return [`diff --git a/${path} b/${path}`, `--- a/${path}`, `+++ b/${path}`, '@@ -1 +1 @@', `-${removed}`, `+${added}`].join(
+    '\n',
+  );
+}
+
+const BEHAVIOR = diffFor('src/program.ts', 'const value = 1;', 'const value = 2;');
+const COMMENT_ONLY = diffFor('src/program.ts', '// old note', '// new note');
+const DOCS_ONLY = diffFor('README.md', 'old text', 'new text');
+
 describe('parseProva', () => {
   test('the untouched pull request template is not a filled proof', () => {
     const template = readFileSync(join(import.meta.dir, '..', '.github', 'pull_request_template.md'), 'utf8');
@@ -65,21 +75,26 @@ describe('web evidence', () => {
 });
 
 describe('checkProva', () => {
-  test('requires the proof only when src/ changes', () => {
-    expect(requiresProva(['README.md', 'docs/adr/0003.md'])).toBe(false);
-    expect(requiresProva(['src/commands/entries/list.ts'])).toBe(true);
-    expect(requiresProva(['src'])).toBe(true);
+  test('requires the proof only when src/ changes behavior', () => {
+    expect(requiresProva(DOCS_ONLY)).toBe(false);
+    expect(requiresProva(BEHAVIOR)).toBe(true);
+    expect(requiresProva(diffFor('src/commands/entries/list.ts', 'const a = 1;', 'const a = 2;'))).toBe(true);
+  });
+
+  test('does not require a proof for a comment-only src change', () => {
+    expect(requiresProva(COMMENT_ONLY)).toBe(false);
+    expect(requiresProva(diffFor('src/program.ts', '/** old */', '/** new */'))).toBe(false);
   });
 
   test('fails a src change without a filled proof and passes with one', () => {
-    expect(checkProva('## Problema\n\nnada', ['src/program.ts']).ok).toBe(false);
+    expect(checkProva('## Problema\n\nnada', BEHAVIOR).ok).toBe(false);
     const body = ['## Prova', '', WEB, '', BEFORE, '', AFTER].join('\n');
-    expect(checkProva(body, ['src/program.ts']).ok).toBe(true);
+    expect(checkProva(body, BEHAVIOR).ok).toBe(true);
   });
 
   test('fails before and after blocks that cite no web evidence', () => {
     const body = ['## Prova', '', BEFORE, '', AFTER].join('\n');
-    expect(checkProva(body, ['src/program.ts'])).toEqual({
+    expect(checkProva(body, BEHAVIOR)).toEqual({
       required: true,
       ok: false,
       status: { present: true, web: false, before: true, after: true },
@@ -87,7 +102,7 @@ describe('checkProva', () => {
   });
 
   test('does not require a proof for a docs-only change', () => {
-    expect(checkProva('## Problema\n\nnada', ['README.md'])).toEqual({
+    expect(checkProva('## Problema\n\nnada', DOCS_ONLY)).toEqual({
       required: false,
       ok: true,
       status: { present: false, web: false, before: false, after: false },
@@ -98,12 +113,14 @@ describe('checkProva', () => {
 describe('prova CLI', () => {
   const script = join(import.meta.dir, '..', 'scripts', 'prova.ts');
 
-  function run(body: string, files: string): { code: number; out: string; err: string } {
+  function run(body: string, diff: string): { code: number; out: string; err: string } {
     const dir = mkdtempSync(join(tmpdir(), 'mdcli-prova-'));
     try {
       const bodyFile = join(dir, 'body.md');
+      const diffFile = join(dir, 'change.diff');
       writeFileSync(bodyFile, body);
-      const result = Bun.spawnSync(['bun', script, '--body-file', bodyFile, '--files', files], {
+      writeFileSync(diffFile, diff);
+      const result = Bun.spawnSync(['bun', script, '--body-file', bodyFile, '--diff', diffFile], {
         stdout: 'pipe',
         stderr: 'pipe',
       });
@@ -119,21 +136,25 @@ describe('prova CLI', () => {
 
   test('passes a src change with the Web line and both blocks and fails without them', () => {
     const filled = ['## Prova', '', WEB, '', BEFORE, '', AFTER].join('\n');
-    expect(run(filled, 'src/program.ts').code).toBe(0);
+    expect(run(filled, BEHAVIOR).code).toBe(0);
 
     const noWeb = ['## Prova', '', BEFORE, '', AFTER].join('\n');
-    const missingWeb = run(noWeb, 'src/program.ts');
+    const missingWeb = run(noWeb, BEHAVIOR);
     expect(missingWeb.code).toBe(1);
     expect(missingWeb.err).toContain('Web:');
 
-    const failed = run(BEFORE, 'src/program.ts');
+    const failed = run(BEFORE, BEHAVIOR);
     expect(failed.code).toBe(1);
     expect(failed.err).toContain('### Depois (branch)');
   });
 
-  test('passes a docs-only change without the section', () => {
-    const result = run('## Problema\n\nnada', 'README.md');
-    expect(result.code).toBe(0);
-    expect(result.out).toContain('not required');
+  test('passes a docs-only change and a comment-only src change without the section', () => {
+    const docs = run('## Problema\n\nnada', DOCS_ONLY);
+    expect(docs.code).toBe(0);
+    expect(docs.out).toContain('not required');
+
+    const comment = run('## Problema\n\nnada', COMMENT_ONLY);
+    expect(comment.code).toBe(0);
+    expect(comment.out).toContain('not required');
   });
 });
