@@ -147,10 +147,11 @@ function isContentHash(joined: string, line: string): boolean {
 /**
  * Removed terms the guard does not hash. A single token follows the migration
  * token by token; a phrase catches a name whose words survive separately. A
- * name-like run longer than `MAX_WORDS` fails as one value unless a registered
- * sub-phrase detects it, because the scanner can never match the whole run as
- * a single term. All of them skip code identifiers, dependency metadata and
- * git object ids.
+ * name-like run longer than `MAX_WORDS` fails as one value when none of its
+ * words is guarded, and the words a shorter sub-phrase leaves uncovered still
+ * report on their own, because the scanner can never match the whole run as a
+ * single term. All of them skip code identifiers, dependency metadata and git
+ * object ids.
  */
 export function uncoveredRemovedTerms(
   deleted: readonly DeletedLine[],
@@ -168,16 +169,16 @@ export function uncoveredRemovedTerms(
     for (let start = 0; start < tokens.length; ) {
       if (!phraseToken(tokens[start]!)) { start++; continue; }
       let end = start; while (end < tokens.length && phraseToken(tokens[end]!)) end++;
-      const joined = tokens.slice(start, end).map((token) => token.value).join(' ');
-      if (end - start > MAX_WORDS && !hasPhrase(head, joined)) {
-        let window = tokens.slice(start, start + MAX_WORDS).map((token) => token.value).join(' ');
-        for (let from = start + 1; hasPhrase(head, window) && from + MAX_WORDS <= end; from++) {
-          window = tokens.slice(from, from + MAX_WORDS).map((token) => token.value).join(' ');
-        }
-        if (!hasPhrase(head, window)) {
+      const run = tokens.slice(start, end);
+      const joined = run.map((token) => token.value).join(' ');
+      if (run.length > MAX_WORDS && !hasPhrase(head, joined)) {
+        const anyCovered = run.some((_, offset) => covered[start + offset]);
+        if (!anyCovered) {
+          const window = run.slice(0, MAX_WORDS).map((token) => token.value).join(' ');
           const hash = termHash(window);
-          const detected = terms.has(hash) || allowed.has(hash) || findPrivateTerms(joined, terms, allowed).length > 0;
-          if (!detected && !excused.has(hash) && !excused.has(termHash(joined))) hits.push({ ...entry, hash, overlong: end - start });
+          if (!excused.has(hash) && !excused.has(termHash(joined))) {
+            hits.push({ ...entry, hash, overlong: run.length });
+          }
           for (let index = start; index < end; index++) covered[index] = true;
         }
       }
@@ -335,7 +336,7 @@ function main(): void {
       console.error(`private-terms corpus: ${hit.file}:${hit.line} ${subject} (${hit.hash})`);
     }
     console.error(
-      `The guard matches n-grams up to ${MAX_WORDS} words. Add the shown sub-phrase sha256 to PRIVATE_TERM_HASHES, or prove it is not account data.`
+      `The guard matches n-grams up to ${MAX_WORDS} words; every word of a removed run must fall inside a registered n-gram. Add the shown sha256 to PRIVATE_TERM_HASHES, or prove the value is not account data.`
     );
     process.exitCode = 1;
   } catch (error) {

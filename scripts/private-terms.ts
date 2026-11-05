@@ -123,10 +123,10 @@ export const ALLOWED_PHRASE_HASHES: ReadonlySet<string> = new Set([
 /**
  * The guard stores a term as the hash of a normalized phrase of at most this
  * many words, and `findPrivateTerms` hashes n-grams up to this bound on every
- * scanned line. A real term longer than this is stored as a contiguous
- * sub-phrase of at most this many words, which every occurrence of the longer
- * term still contains. Raising the bound multiplies the work each scanned line
- * costs, so it stays at the smallest bound the corpus needs.
+ * scanned line. A real term longer than this is covered by overlapping
+ * sub-phrases whose windows span every word, so each occurrence still matches
+ * one of them. Raising the bound multiplies the work each scanned line costs,
+ * so it stays at the smallest bound the corpus needs.
  */
 export const MAX_WORDS = 4;
 
