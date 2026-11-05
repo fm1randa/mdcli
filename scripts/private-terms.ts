@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { readFileSync, statSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 /**
@@ -244,50 +244,152 @@ export function scanText(
 
 export interface PrivateTermHit {
   file: string;
-  line: number;
+  /** Absent when the hit is the file's path rather than a line of its content. */
+  line?: number;
 }
 
-/** Versioned files, from `git ls-files`, that currently carry a guarded term. */
-export function scanTrackedFiles(
-  root: string = join(import.meta.dirname, '..'),
-  terms: ReadonlySet<string> = PRIVATE_TERM_HASHES,
-  allowed: ReadonlySet<string> = ALLOWED_PHRASE_HASHES
+/**
+ * A blob above this size is not scanned. The guard fails loudly on it instead
+ * of skipping it: a silent skip is a hole pretending to be a check (#217).
+ */
+const MAX_SCAN_BYTES = 1_000_000;
+
+type TreeEntry = { type: string; object: string; path: string };
+
+function git(root: string, args: string[], stdin?: Uint8Array): Buffer {
+  const result = Bun.spawnSync(['git', ...args], { cwd: root, stdin });
+  if (result.exitCode !== 0) throw new Error(`git ${args.join(' ')} failed in ${root}: ${result.stderr.toString().trim()}`);
+  return result.stdout;
+}
+
+/** Entries of `ref`'s tree, with their raw paths, as `-z` leaves them unquoted. */
+function commitEntries(root: string, ref: string): TreeEntry[] {
+  const listed = git(root, ['ls-tree', '-r', '-z', '--full-tree', ref]).toString();
+  const entries: TreeEntry[] = [];
+  for (const record of listed.split('\0')) {
+    if (record === '') continue;
+    const tab = record.indexOf('\t');
+    const [, type, object] = record.slice(0, tab).split(' ');
+    if (type === undefined || object === undefined) throw new Error(`unexpected git ls-tree record: ${record}`);
+    entries.push({ type, object, path: record.slice(tab + 1) });
+  }
+  return entries;
+}
+
+/** Raw bytes of every blob, one `git cat-file --batch` for the whole tree. */
+function blobContents(root: string, objects: string[]): Map<string, Buffer> {
+  const contents = new Map<string, Buffer>();
+  if (objects.length === 0) return contents;
+  const output = git(root, ['cat-file', '--batch'], Buffer.from(`${objects.join('\n')}\n`));
+  let offset = 0;
+  for (const object of objects) {
+    const newline = output.indexOf(0x0a, offset);
+    if (newline === -1) throw new Error(`git cat-file output ended early at ${object}`);
+    const header = output.subarray(offset, newline).toString();
+    const [hash, type, size] = header.split(' ');
+    if (hash !== object || type !== 'blob' || size === undefined) {
+      throw new Error(`unexpected git cat-file header: ${header}`);
+    }
+    offset = newline + 1;
+    contents.set(object, output.subarray(offset, offset + Number(size)));
+    offset += Number(size) + 1;
+  }
+  return contents;
+}
+
+/** Entries of the index (`git ls-files -s`), which holds the staged content. */
+function indexEntries(root: string): TreeEntry[] {
+  const entries: TreeEntry[] = [];
+  for (const record of git(root, ['ls-files', '-s', '-z']).toString().split('\0')) {
+    if (record === '') continue;
+    const tab = record.indexOf('\t');
+    const [mode, object, stage] = record.slice(0, tab).split(' ');
+    if (mode === undefined || object === undefined || stage === undefined) throw new Error(`unexpected git ls-files record: ${record}`);
+    entries.push({ type: mode === '160000' ? 'commit' : 'blob', object, path: record.slice(tab + 1) });
+  }
+  return entries;
+}
+
+/** Hits from `entries`: their paths and, for blobs not already read, their content. */
+function scanEntries(
+  root: string,
+  entries: TreeEntry[],
+  terms: ReadonlySet<string>,
+  allowed: ReadonlySet<string>,
+  seen: Set<string>
 ): PrivateTermHit[] {
-  const listed = Bun.spawnSync(['git', 'ls-files', '-z'], { cwd: root });
-  if (listed.exitCode !== 0) throw new Error(`git ls-files failed in ${root}`);
-  const files = listed.stdout.toString().split('\0').filter(Boolean);
-  const hits: PrivateTermHit[] = [];
-  for (const file of files) {
-    const path = join(root, file);
-    if (statSync(path).size > 1_000_000) continue;
-    const text = readFileSync(path, 'utf8');
-    if (text.includes('\u0000')) continue;
-    for (const line of scanText(text, terms, allowed)) hits.push({ file, line });
+  const hits: PrivateTermHit[] = entries.flatMap((entry) =>
+    findPrivateTerms(entry.path, terms, allowed).length > 0 ? [{ file: entry.path }] : []
+  );
+  const blobs = entries.filter((e) => e.type === 'blob' && !/^0+$/.test(e.object) && !seen.has(e.object));
+  const objects = [...new Set(blobs.map((blob) => blob.object))];
+  for (const object of objects) seen.add(object);
+  const contents = blobContents(root, objects);
+  for (const blob of blobs) {
+    const content = contents.get(blob.object);
+    if (content === undefined) throw new Error(`missing blob ${blob.object} for ${blob.path}`);
+    if (content.length > MAX_SCAN_BYTES) {
+      throw new Error(`private-terms: ${blob.path} is ${content.length} bytes, above the ${MAX_SCAN_BYTES}-byte scan limit`);
+    }
+    // UTF-8 keeps an accented term intact and turns a binary byte into a
+    // separator, so the ASCII a term normalizes to is still matched.
+    for (const line of scanText(content.toString('utf8'), terms, allowed)) hits.push({ file: blob.path, line });
   }
   return hits;
 }
 
-/** The repository root of `cwd`, so a subdirectory still scans the whole tree. */
-function repoRoot(cwd: string): string {
-  const top = Bun.spawnSync(['git', 'rev-parse', '--show-toplevel'], { cwd });
-  if (top.exitCode !== 0) throw new Error(`git rev-parse --show-toplevel failed in ${cwd}`);
-  return top.stdout.toString().trim();
-}
-
-function main(): void {
-  try {
-    const hits = scanTrackedFiles(repoRoot(process.cwd()));
-    if (hits.length === 0) {
-      console.log('✓ guarda de dados privados: nenhum termo privado nos arquivos versionados');
-      return;
+/**
+ * Hits from the working-tree copy of each tracked path that differs from the
+ * index. A file deleted from disk is skipped because the commit and the index
+ * still carry it.
+ */
+function worktreeHits(
+  root: string,
+  terms: ReadonlySet<string>,
+  allowed: ReadonlySet<string>
+): PrivateTermHit[] {
+  const hits: PrivateTermHit[] = [];
+  for (const path of git(root, ['diff', '--name-only', '-z']).toString().split('\0').filter(Boolean)) {
+    let content: Buffer;
+    try {
+      content = readFileSync(join(root, path));
+    } catch {
+      continue;
     }
-    console.error(`✗ guarda de dados privados: ${hits.length} ocorrência(s) de termo privado`);
-    for (const hit of hits) console.error(`  ${hit.file}:${hit.line}`);
-    process.exitCode = 1;
-  } catch (error) {
-    console.error(`guarda de dados privados: ${error instanceof Error ? error.message : String(error)}`);
-    process.exitCode = 1;
+    if (content.length > MAX_SCAN_BYTES) continue;
+    for (const line of scanText(content.toString('utf8'), terms, allowed)) hits.push({ file: path, line });
   }
+  return hits;
 }
 
-if (import.meta.main) main();
+/** True when `ref` names a commit; an unborn HEAD has no tree to scan. */
+function commitExists(root: string, ref: string): boolean {
+  return Bun.spawnSync(['git', 'rev-parse', '--verify', '--quiet', ref], { cwd: root }).exitCode === 0;
+}
+
+/**
+ * Private terms in the published commit (`ref`, HEAD by default), the index
+ * and the working-tree copy of every tracked path. The commit catches a term
+ * whose file was deleted from disk after being committed; the index catches a
+ * term that is only staged; the working tree catches an edit not staged yet.
+ * A committed blob above the size limit fails the guard instead of being
+ * skipped.
+ */
+export function scanTrackedFiles(
+  root: string = join(import.meta.dirname, '..'),
+  terms: ReadonlySet<string> = PRIVATE_TERM_HASHES,
+  allowed: ReadonlySet<string> = ALLOWED_PHRASE_HASHES,
+  ref = 'HEAD'
+): PrivateTermHit[] {
+  const seen = new Set<string>();
+  const commit = ref === 'HEAD' && !commitExists(root, ref) ? [] : commitEntries(root, ref);
+  const hits = [
+    ...scanEntries(root, commit, terms, allowed, seen),
+    ...scanEntries(root, indexEntries(root), terms, allowed, seen),
+    ...worktreeHits(root, terms, allowed),
+  ];
+  const found = new Map<string, PrivateTermHit>();
+  for (const hit of hits) found.set(`${hit.file}\u0000${hit.line ?? ''}`, hit);
+  return [...found.values()];
+}
+

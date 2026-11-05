@@ -2,10 +2,36 @@ import { expect, test } from 'bun:test';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { findPrivateTerms, scanText, scanTrackedFiles, termHash } from '../scripts/private-terms.js';
+import { findPrivateTerms, scanTrackedFiles, scanText, termHash } from '../scripts/private-terms.js';
 
 const fakeTerm = 'termo-sintetico-proibido';
 const fakeHashes = new Set([termHash(fakeTerm)]);
+
+/** A temporary repository the guard can read a commit from. */
+function withRepo(run: (root: string) => void): void {
+  const root = mkdtempSync(join(tmpdir(), 'mdcli-private-terms-'));
+  try {
+    git(root, ['init', '-q']);
+    git(root, ['config', 'user.email', 'test@example.com']);
+    git(root, ['config', 'user.name', 'Test']);
+    run(root);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+
+function git(root: string, args: string[]): string {
+  const result = Bun.spawnSync(['git', ...args], { cwd: root });
+  if (result.exitCode !== 0) throw new Error(`git ${args.join(' ')} failed: ${result.stderr.toString()}`);
+  return result.stdout.toString();
+}
+
+function commitAll(root: string, message: string): void {
+  git(root, ['add', '-A']);
+  // Keep the temp commit hermetic: a signing or hooks setup in the machine's
+  // global git config must not change the suite's result.
+  git(root, ['-c', 'commit.gpgsign=false', '-c', 'core.hooksPath=/dev/null', 'commit', '-q', '-m', message]);
+}
 
 test('finds a guarded term and passes without it', () => {
   expect(scanText(`linha limpa\n${fakeTerm} aqui\n`, fakeHashes)).toEqual([2]);
@@ -65,20 +91,82 @@ test('matches a hash in the stored normalized form, not one recomputed from the 
   expect(findPrivateTerms('  São JOÃO ', stored)).toHaveLength(1);
 });
 
-test('fails on a versioned file carrying a prohibited term and passes without it', () => {
-  const root = mkdtempSync(join(tmpdir(), 'mdcli-private-terms-'));
-  try {
-    Bun.spawnSync(['git', 'init', '-q'], { cwd: root });
+test('fails on a committed file carrying a prohibited term and passes without it', () => {
+  withRepo((root) => {
     writeFileSync(join(root, 'note.txt'), `linha limpa\n${fakeTerm} aqui\n`);
-    Bun.spawnSync(['git', 'add', 'note.txt'], { cwd: root });
+    commitAll(root, 'add the term');
 
     expect(scanTrackedFiles(root, fakeHashes)).toEqual([{ file: 'note.txt', line: 2 }]);
 
     writeFileSync(join(root, 'note.txt'), 'linha limpa\noutra linha limpa\n');
+    commitAll(root, 'remove the term');
     expect(scanTrackedFiles(root, fakeHashes)).toEqual([]);
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
+  });
+});
+
+test('detects a term that is only in the commit, after the file leaves the worktree', () => {
+  withRepo((root) => {
+    writeFileSync(join(root, 'note.txt'), `linha limpa\n${fakeTerm} aqui\n`);
+    commitAll(root, 'add the term');
+    rmSync(join(root, 'note.txt'));
+    git(root, ['rm', '--cached', '-q', 'note.txt']);
+
+    // The file is invisible to the old working-tree source: `git ls-files`
+    // prints nothing, so only the commit still carries the term.
+    expect(git(root, ['ls-files'])).toBe('');
+    expect(scanTrackedFiles(root, fakeHashes)).toEqual([{ file: 'note.txt', line: 2 }]);
+  });
+});
+
+test('detects a term that is only staged, before it is committed', () => {
+  withRepo((root) => {
+    writeFileSync(join(root, 'clean.txt'), 'linha limpa\n');
+    commitAll(root, 'base');
+    writeFileSync(join(root, 'leak.txt'), `linha limpa\n${fakeTerm} aqui\n`);
+    git(root, ['add', 'leak.txt']);
+
+    // HEAD still lacks the file: only the index carries the staged term.
+    expect(git(root, ['ls-tree', '-r', '--name-only', 'HEAD'])).not.toContain('leak.txt');
+    expect(scanTrackedFiles(root, fakeHashes)).toEqual([{ file: 'leak.txt', line: 2 }]);
+  });
+});
+
+test('detects a term in a tracked file that is not staged yet', () => {
+  withRepo((root) => {
+    writeFileSync(join(root, 'note.txt'), 'linha limpa\n');
+    commitAll(root, 'base');
+    writeFileSync(join(root, 'note.txt'), `linha limpa\n${fakeTerm} aqui\n`);
+
+    expect(git(root, ['status', '--short', 'note.txt'])).toContain(' M note.txt');
+    expect(scanTrackedFiles(root, fakeHashes)).toEqual([{ file: 'note.txt', line: 2 }]);
+  });
+});
+
+test('detects a guarded term in a file path, not only in its content', () => {
+  withRepo((root) => {
+    writeFileSync(join(root, `${fakeTerm}.txt`), 'linha limpa\n');
+    commitAll(root, 'add a clean file with a guarded name');
+
+    expect(scanTrackedFiles(root, fakeHashes)).toEqual([{ file: `${fakeTerm}.txt` }]);
+  });
+});
+
+test('scans a blob with NUL bytes instead of skipping it', () => {
+  withRepo((root) => {
+    writeFileSync(join(root, 'blob.bin'), Buffer.concat([Buffer.from([0, 0]), Buffer.from(fakeTerm)]));
+    commitAll(root, 'add a binary blob');
+
+    expect(scanTrackedFiles(root, fakeHashes)).toEqual([{ file: 'blob.bin', line: 1 }]);
+  });
+});
+
+test('fails loudly instead of skipping a blob above the scan limit', () => {
+  withRepo((root) => {
+    writeFileSync(join(root, 'big.txt'), 'a'.repeat(1_000_001));
+    commitAll(root, 'add a large blob');
+
+    expect(() => scanTrackedFiles(root, fakeHashes)).toThrow(/big\.txt.*above the 1000000-byte scan limit/);
+  });
 });
 
 // A canary whose hash is in the production set. It is base64 here so this
@@ -87,18 +175,19 @@ test('fails on a versioned file carrying a prohibited term and passes without it
 const canaryTerm = Buffer.from('Q0FOw4FSSU8gc2ludMOpdGljbw==', 'base64').toString();
 
 test('detects a canary term from the production set in a temporary repository', () => {
-  const root = mkdtempSync(join(tmpdir(), 'mdcli-private-terms-'));
-  try {
-    Bun.spawnSync(['git', 'init', '-q'], { cwd: root });
+  withRepo((root) => {
     writeFileSync(join(root, 'note.txt'), 'linha limpa\noutra linha limpa\n');
-    Bun.spawnSync(['git', 'add', 'note.txt'], { cwd: root });
+    commitAll(root, 'clean note');
     expect(scanTrackedFiles(root)).toEqual([]);
 
     writeFileSync(join(root, 'note.txt'), `linha limpa\n${canaryTerm} aqui\n`);
+    commitAll(root, 'add the canary');
     expect(scanTrackedFiles(root)).toEqual([{ file: 'note.txt', line: 2 }]);
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
+  });
+});
+
+test('no committed file or path carries a private term', () => {
+  expect(scanTrackedFiles()).toEqual([]);
 });
 
 // The full-tree scan runs as the `private terms` step of scripts/verify.sh,
@@ -107,7 +196,7 @@ test('detects a canary term from the production set in a temporary repository', 
 // and that a subdirectory still scans the whole repository (#233).
 test('the guard script scans the repository root from a subdirectory', () => {
   const root = mkdtempSync(join(tmpdir(), 'mdcli-private-terms-script-'));
-  const script = join(import.meta.dirname, '..', 'scripts', 'private-terms.ts');
+  const script = join(import.meta.dirname, '..', 'scripts', 'private-terms-cli.ts');
   const sub = join(root, 'sub');
   const run = () => Bun.spawnSync([process.execPath, script], { cwd: sub });
   try {
