@@ -105,6 +105,19 @@ review_notes_not_tracked() {
   fi
 }
 step "review notes not tracked" review_notes_not_tracked
+# The private-data guard is derived from the migration: when a PR maintains
+# the guard, every value the diff removes must already have a hash or a reason,
+# so a sweep cannot close one finding at a time. The script skips an ordinary
+# PR; the test replays the #177 range.
+private_terms_corpus() {
+  local base
+  if git rev-parse --verify --quiet origin/main >/dev/null; then base=origin/main
+  elif git rev-parse --verify --quiet main >/dev/null; then base=main
+  else echo "sem origin/main nem main: corpus da guarda ignorado"; return 0
+  fi
+  bun scripts/private-terms-corpus.ts --base "$base"
+}
+step "private-terms corpus" private_terms_corpus
 # A copied eslint-disable is a suppression, not a fix (#187): fail when an
 # added directive has no reason after "--"; a removal elsewhere never excuses
 # it. A shallow checkout without a base ref skips the comparison instead of
