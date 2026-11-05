@@ -1,5 +1,4 @@
 import { createHash } from 'node:crypto';
-import { readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 /**
@@ -223,25 +222,126 @@ export function scanText(
 
 export interface PrivateTermHit {
   file: string;
-  line: number;
+  /** Absent when the hit is the file's path rather than a line of its content. */
+  line?: number;
 }
 
-/** Versioned files, from `git ls-files`, that currently carry a guarded term. */
+/**
+ * A blob above this size is not scanned. The guard fails loudly on it instead
+ * of skipping it: a silent skip is a hole pretending to be a check (#217).
+ */
+const MAX_SCAN_BYTES = 1_000_000;
+
+interface TreeEntry {
+  type: string;
+  object: string;
+  path: string;
+}
+
+function git(root: string, args: string[], stdin?: Uint8Array): Buffer {
+  const result = Bun.spawnSync(['git', ...args], { cwd: root, stdin });
+  if (result.exitCode !== 0) {
+    throw new Error(`git ${args.join(' ')} failed in ${root}: ${result.stderr.toString().trim()}`);
+  }
+  return result.stdout;
+}
+
+/** Entries of `ref`'s tree, with their raw paths, as `-z` leaves them unquoted. */
+function commitEntries(root: string, ref: string): TreeEntry[] {
+  const listed = git(root, ['ls-tree', '-r', '-z', '--full-tree', ref]).toString();
+  const entries: TreeEntry[] = [];
+  for (const record of listed.split('\0')) {
+    if (record === '') continue;
+    const tab = record.indexOf('\t');
+    const [, type, object] = record.slice(0, tab).split(' ');
+    if (type === undefined || object === undefined) {
+      throw new Error(`unexpected git ls-tree record: ${record}`);
+    }
+    entries.push({ type, object, path: record.slice(tab + 1) });
+  }
+  return entries;
+}
+
+function blobSizes(root: string, objects: string[]): Map<string, number> {
+  const sizes = new Map<string, number>();
+  if (objects.length === 0) return sizes;
+  const input = Buffer.from(`${objects.join('\n')}\n`);
+  const checked = git(
+    root,
+    ['cat-file', '--batch-check=%(objectname) %(objecttype) %(objectsize)'],
+    input
+  ).toString();
+  for (const line of checked.split('\n')) {
+    if (line === '') continue;
+    const [object, type, size] = line.split(' ');
+    if (type !== 'blob' || object === undefined || size === undefined) {
+      throw new Error(`unexpected git cat-file output: ${line}`);
+    }
+    sizes.set(object, Number(size));
+  }
+  return sizes;
+}
+
+/** Raw bytes of every blob, one `git cat-file --batch` for the whole tree. */
+function blobContents(root: string, objects: string[]): Map<string, Buffer> {
+  const contents = new Map<string, Buffer>();
+  if (objects.length === 0) return contents;
+  const output = git(root, ['cat-file', '--batch'], Buffer.from(`${objects.join('\n')}\n`));
+  let offset = 0;
+  for (const object of objects) {
+    const newline = output.indexOf(0x0a, offset);
+    if (newline === -1) throw new Error(`git cat-file output ended early at ${object}`);
+    const header = output.subarray(offset, newline).toString();
+    const [hash, type, size] = header.split(' ');
+    if (hash !== object || type !== 'blob' || size === undefined) {
+      throw new Error(`unexpected git cat-file header: ${header}`);
+    }
+    offset = newline + 1;
+    contents.set(object, output.subarray(offset, offset + Number(size)));
+    offset += Number(size) + 1;
+  }
+  return contents;
+}
+
+/**
+ * Private terms in the published commit (`ref`, HEAD by default): its content
+ * and its paths. Reading the commit instead of the working tree catches a term
+ * whose file was committed and later deleted from disk, and no tracked input is
+ * skipped silently: a blob above the size limit fails the guard.
+ */
 export function scanTrackedFiles(
   root: string = join(import.meta.dirname, '..'),
   terms: ReadonlySet<string> = PRIVATE_TERM_HASHES,
-  allowed: ReadonlySet<string> = ALLOWED_PHRASE_HASHES
+  allowed: ReadonlySet<string> = ALLOWED_PHRASE_HASHES,
+  ref = 'HEAD'
 ): PrivateTermHit[] {
-  const listed = Bun.spawnSync(['git', 'ls-files', '-z'], { cwd: root });
-  if (listed.exitCode !== 0) throw new Error(`git ls-files failed in ${root}`);
-  const files = listed.stdout.toString().split('\0').filter(Boolean);
+  const entries = commitEntries(root, ref);
   const hits: PrivateTermHit[] = [];
-  for (const file of files) {
-    const path = join(root, file);
-    if (statSync(path).size > 1_000_000) continue;
-    const text = readFileSync(path, 'utf8');
-    if (text.includes('\u0000')) continue;
-    for (const line of scanText(text, terms, allowed)) hits.push({ file, line });
+  for (const entry of entries) {
+    if (findPrivateTerms(entry.path, terms, allowed).length > 0) hits.push({ file: entry.path });
+  }
+  const blobs = entries.filter((entry) => entry.type === 'blob');
+  const objects = [...new Set(blobs.map((blob) => blob.object))];
+  const sizes = blobSizes(root, objects);
+  for (const blob of blobs) {
+    const size = sizes.get(blob.object);
+    if (size === undefined) throw new Error(`git could not describe blob ${blob.object} at ${ref}`);
+    if (size > MAX_SCAN_BYTES) {
+      throw new Error(
+        `private-terms: ${blob.path} is ${size} bytes, above the ${MAX_SCAN_BYTES}-byte scan limit; ` +
+          'remove it or prove it cannot carry a private term'
+      );
+    }
+  }
+  const contents = blobContents(root, objects);
+  for (const blob of blobs) {
+    const content = contents.get(blob.object);
+    if (content === undefined) throw new Error(`missing blob ${blob.object} for ${blob.path}`);
+    // UTF-8 keeps an accented term intact and turns a binary byte into a
+    // separator, so the ASCII a term normalizes to is still matched.
+    for (const line of scanText(content.toString('utf8'), terms, allowed)) {
+      hits.push({ file: blob.path, line });
+    }
   }
   return hits;
 }
