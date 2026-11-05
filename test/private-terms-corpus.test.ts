@@ -97,6 +97,33 @@ test('ignores the abbreviated base SHA in the README line', () => {
   });
 });
 
+test('fails a removed term longer than the representation limit until a sub-phrase is guarded', () => {
+  const term = 'Conta Alfa Beta Gama Delta';
+  const window = 'Conta Alfa Beta Gama';
+  withRepo(`${term}\n`, 'linha limpa\n', (root, base, head) => {
+    const unguarded = removedRunsBetween(base, head, root, new Set());
+    expect(unguarded).toHaveLength(1);
+    expect(unguarded[0]).toMatchObject({
+      file: 'note.txt',
+      line: 1,
+      hash: termHash(window),
+      overlong: 5,
+    });
+
+    expect(removedRunsBetween(base, head, root, new Set([termHash(window)]))).toEqual([]);
+    expect(removedRunsBetween(base, head, root, new Set([termHash('Alfa Beta Gama Delta')]))).toEqual([]);
+  });
+});
+
+test('does not accept the full hash of a term longer than the representation limit', () => {
+  const term = 'Conta Alfa Beta Gama Delta';
+  withRepo(`${term}\n`, 'linha limpa\n', (root, base, head) => {
+    const fullOnly = removedRunsBetween(base, head, root, new Set([termHash(term)]));
+    expect(fullOnly).toHaveLength(1);
+    expect(fullOnly[0]).toMatchObject({ overlong: 5, hash: termHash('Conta Alfa Beta Gama') });
+  });
+});
+
 test('skips a code identifier rename', () => {
   const base = 'export function oldUniqueName() {\n  return 1;\n}\n';
   const head = 'export function newUniqueName() {\n  return 1;\n}\n';

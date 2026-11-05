@@ -18,6 +18,8 @@ export interface DeletedLine {
 
 export interface RemovedTermHit extends DeletedLine {
   hash: string;
+  /** Word count when the value exceeds the guard's representation limit. */
+  overlong?: number;
 }
 
 /** Files whose contents are dependency metadata, never account data. */
@@ -144,8 +146,11 @@ function isContentHash(joined: string, line: string): boolean {
 
 /**
  * Removed terms the guard does not hash. A single token follows the migration
- * token by token; a phrase catches a name whose words survive separately. Both
- * skip code identifiers, dependency metadata and git object ids.
+ * token by token; a phrase catches a name whose words survive separately. A
+ * name-like run longer than `MAX_WORDS` fails as one value unless a registered
+ * sub-phrase detects it, because the scanner can never match the whole run as
+ * a single term. All of them skip code identifiers, dependency metadata and
+ * git object ids.
  */
 export function uncoveredRemovedTerms(
   deleted: readonly DeletedLine[],
@@ -160,6 +165,24 @@ export function uncoveredRemovedTerms(
     const tokens = tokenize(entry.text);
     if (tokens.length === 0) continue;
     const covered = coveredTokens(tokens, entry.text, terms, allowed);
+    for (let start = 0; start < tokens.length; ) {
+      if (!phraseToken(tokens[start]!)) { start++; continue; }
+      let end = start; while (end < tokens.length && phraseToken(tokens[end]!)) end++;
+      const joined = tokens.slice(start, end).map((token) => token.value).join(' ');
+      if (end - start > MAX_WORDS && !hasPhrase(head, joined)) {
+        let window = tokens.slice(start, start + MAX_WORDS).map((token) => token.value).join(' ');
+        for (let from = start + 1; hasPhrase(head, window) && from + MAX_WORDS <= end; from++) {
+          window = tokens.slice(from, from + MAX_WORDS).map((token) => token.value).join(' ');
+        }
+        if (!hasPhrase(head, window)) {
+          const hash = termHash(window);
+          const detected = terms.has(hash) || allowed.has(hash) || findPrivateTerms(joined, terms, allowed).length > 0;
+          if (!detected && !excused.has(hash) && !excused.has(termHash(joined))) hits.push({ ...entry, hash, overlong: end - start });
+          for (let index = start; index < end; index++) covered[index] = true;
+        }
+      }
+      start = end;
+    }
     const spans: { start: number; end: number; length: number; hash: string }[] = [];
     const push = (start: number, end: number): void => {
       const joined = tokens
@@ -306,9 +329,14 @@ function main(): void {
       return;
     }
     for (const hit of hits) {
-      console.error(`private-terms corpus: ${hit.file}:${hit.line} has an unguarded removed term (${hit.hash})`);
+      const subject = hit.overlong
+        ? `removes a ${hit.overlong}-word term, above the guard's ${MAX_WORDS}-word limit, and no registered sub-phrase detects it`
+        : 'has an unguarded removed term';
+      console.error(`private-terms corpus: ${hit.file}:${hit.line} ${subject} (${hit.hash})`);
     }
-    console.error('Add its normalized sha256 to PRIVATE_TERM_HASHES, or prove it is not account data.');
+    console.error(
+      `The guard matches n-grams up to ${MAX_WORDS} words. Add the shown sub-phrase sha256 to PRIVATE_TERM_HASHES, or prove it is not account data.`
+    );
     process.exitCode = 1;
   } catch (error) {
     console.error(`private-terms corpus: ${error instanceof Error ? error.message : String(error)}`);
