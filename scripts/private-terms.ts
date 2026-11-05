@@ -3,12 +3,22 @@ import { readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 /**
+ * A synthetic term the positive-control test writes into a temporary
+ * repository. Its hash lives in `PRIVATE_TERM_HASHES` so that emptying the set
+ * or breaking `normalizeTerm` fails that test instead of leaving it green. The
+ * term is synthetic and therefore safe to detect.
+ */
+const CANARY_TERM_HASH = '536349c587b9af2ee5fd4f562d394a36d76b6f76cb237986b556afbb8dc82dfc';
+
+/**
  * SHA-256 of the normalized real-account terms this repository must never
  * carry again: account, card and entry names, their aliases and API ids, and
  * the agent that used the real account. The terms themselves are deliberately absent;
- * regenerate a hash from the lowercase, accent-free term with `termHash`.
+ * regenerate a hash from the lowercase, accent-free term with `termHash`. The
+ * canary hash is the one term whose plaintext the test may rebuild.
  */
 export const PRIVATE_TERM_HASHES: ReadonlySet<string> = new Set([
+  CANARY_TERM_HASH,
   '44c2fc7b06e5b214c7e9febbf3c0a2487b83a8ed062c3a8df7f7617748a399db',
   'd8c32b112b983da85ff60a1d38147df5ec44f7aa83adba827139304d4fabd83e',
   '618f8eb517006c3705febc920e770dc31318cf1fe62de0f2d655e81a7d9f4212',
