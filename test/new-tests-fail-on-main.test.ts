@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { join } from 'node:path';
-import { changedTestFiles, changesProduct, evaluate } from '../scripts/new-tests-fail-on-main.js';
+import { changedTestFiles, changesProduct, classify, evaluate } from '../scripts/new-tests-fail-on-main.js';
 
 describe('changedTestFiles', () => {
   test('keeps added and modified test files', () => {
@@ -26,9 +26,15 @@ describe('changesProduct', () => {
 
   test('does not require a comment-only src/ change', () => {
     expect(changesProduct('M\tsrc/program.ts', '-// old note\n+// new note')).toBe(false);
-    expect(
-      changesProduct('M\tsrc/lib/api.ts', '--- a/src/lib/api.ts\n+++ b/src/lib/api.ts\n-/** old */\n+/** new */\n+ * doc line')
-    ).toBe(false);
+    expect(changesProduct('M\tsrc/lib/api.ts', '-/** old */\n+/** new */')).toBe(false);
+  });
+
+  test('requires the gate for a line that only looks like a comment', () => {
+    // `* 2;` continues an expression, and template literals can start a line
+    // with any character. Both are behavior, so they fail to the safe side.
+    expect(changesProduct('M\tsrc/program.ts', '+  * 2;')).toBe(true);
+    expect(changesProduct('M\tsrc/program.ts', '+const message = `\n+ * still template text\n+`;')).toBe(true);
+    expect(changesProduct('M\tsrc/program.ts', '+/* incomplete block\n+ * body')).toBe(true);
   });
 
   test('does not require a test-only, lint or docs change', () => {
@@ -39,17 +45,54 @@ describe('changesProduct', () => {
   });
 });
 
+const FAILED = '1 fail\n1 expect() calls\nRan 1 test across 1 file.';
+const UNHANDLED = '# Unhandled error between tests\n1 fail\n1 error\nRan 1 test across 1 file.';
+
+describe('classify', () => {
+  test('a zero exit passed on main', () => {
+    expect(classify({ file: 'test/a.test.ts', exitCode: 0, output: '1 pass' })).toBe('passed');
+  });
+
+  test('a test assertion failure is proof', () => {
+    expect(classify({ file: 'test/a.test.ts', exitCode: 1, output: FAILED })).toBe('failed');
+    expect(classify({ file: 'test/a.test.ts', exitCode: 1, output: 'Expected: 2\nReceived: 1' })).toBe('failed');
+  });
+
+  test('a compile, import or runner error is not proof', () => {
+    expect(classify({ file: 'test/a.test.ts', exitCode: 1, output: UNHANDLED })).toBe('infrastructure-error');
+    expect(classify({ file: 'test/a.test.ts', exitCode: 1, output: '1 fail\n 2 errors\nRan 2 tests' })).toBe(
+      'infrastructure-error'
+    );
+    expect(classify({ file: 'test/a.test.ts', exitCode: null, output: '' })).toBe('infrastructure-error');
+  });
+});
+
 describe('evaluate', () => {
-  test('passes when every changed test fails on main', () => {
-    expect(evaluate([{ file: 'test/a.test.ts', exitCode: 1 }])).toEqual({ ok: true, passedOnMain: [] });
-    expect(evaluate([])).toEqual({ ok: true, passedOnMain: [] });
+  test('passes when every changed test fails on main by assertion', () => {
+    expect(evaluate([{ file: 'test/a.test.ts', exitCode: 1, output: FAILED }])).toEqual({
+      ok: true,
+      passedOnMain: [],
+      infrastructureErrors: [],
+    });
+    expect(evaluate([])).toEqual({ ok: true, passedOnMain: [], infrastructureErrors: [] });
   });
 
   test('fails and names a test that passes on main', () => {
-    expect(evaluate([{ file: 'test/a.test.ts', exitCode: 0 }, { file: 'test/b.test.ts', exitCode: 1 }])).toEqual({
-      ok: false,
-      passedOnMain: ['test/a.test.ts'],
-    });
+    expect(
+      evaluate([
+        { file: 'test/a.test.ts', exitCode: 0, output: '' },
+        { file: 'test/b.test.ts', exitCode: 1, output: FAILED },
+      ])
+    ).toEqual({ ok: false, passedOnMain: ['test/a.test.ts'], infrastructureErrors: [] });
+  });
+
+  test('fails and names a test that broke against main', () => {
+    expect(
+      evaluate([
+        { file: 'test/a.test.ts', exitCode: 1, output: FAILED },
+        { file: 'test/b.test.ts', exitCode: 1, output: UNHANDLED },
+      ])
+    ).toEqual({ ok: false, passedOnMain: [], infrastructureErrors: ['test/b.test.ts'] });
   });
 });
 

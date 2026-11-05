@@ -10,12 +10,14 @@ const TEST_FILE = /^test\/.*\.test\.ts$/;
 
 export interface RunResult {
   file: string;
-  exitCode: number;
+  exitCode: number | null;
+  output: string;
 }
 
 export interface Verdict {
   ok: boolean;
   passedOnMain: string[];
+  infrastructureErrors: string[];
 }
 
 /** The added or modified test files in `git diff --name-status` output. */
@@ -30,7 +32,10 @@ export function changedTestFiles(nameStatus: string): string[] {
 }
 
 const PRODUCT_PATH = /^(?:src|bin)(?:\/|$)/;
-const COMMENT_LINE = /^(?:\/\/|\/\*|\*)/;
+// Only an unambiguous whole-line comment: `//` or a block comment that closes
+// on the same line. A trimmed `*` can continue an expression (`* 2;`) or be
+// template text, so it counts as code.
+const COMMENT_LINE = /^(?:\/\/|\/\*.*\*\/$)/;
 
 /** True when the diff changes product code (src/ or bin/), the only case the gate requires. */
 export function changesProduct(nameStatus: string, productDiff: string): boolean {
@@ -48,10 +53,30 @@ export function changesProduct(nameStatus: string, productDiff: string): boolean
   });
 }
 
-/** The gate passes only when every changed test file fails against main. */
+const INFRASTRUCTURE_ERROR = /# Unhandled error between tests|^[ \t]+[1-9]\d* errors?[ \t]*$/m;
+
+/**
+ * A non-zero exit only proves the change when a test failed. A file that did
+ * not compile, could not import or crashed the runner left the suite without a
+ * comparable result, so it cannot stand in for a failing assertion.
+ */
+export function classify(result: RunResult): 'passed' | 'failed' | 'infrastructure-error' {
+  if (result.exitCode === 0) return 'passed';
+  if (result.exitCode === null) return 'infrastructure-error';
+  if (INFRASTRUCTURE_ERROR.test(result.output)) return 'infrastructure-error';
+  return 'failed';
+}
+
+/** The gate passes only when every changed test file fails on main by assertion. */
 export function evaluate(results: RunResult[]): Verdict {
-  const passedOnMain = results.filter((result) => result.exitCode === 0).map((result) => result.file);
-  return { ok: passedOnMain.length === 0, passedOnMain };
+  const passedOnMain: string[] = [];
+  const infrastructureErrors: string[] = [];
+  for (const result of results) {
+    const outcome = classify(result);
+    if (outcome === 'passed') passedOnMain.push(result.file);
+    if (outcome === 'infrastructure-error') infrastructureErrors.push(result.file);
+  }
+  return { ok: passedOnMain.length === 0 && infrastructureErrors.length === 0, passedOnMain, infrastructureErrors };
 }
 
 interface Options {
@@ -101,10 +126,13 @@ function runTests(root: string, base: string, files: string[]): RunResult[] {
     return files.map((file) => {
       const result = Bun.spawnSync(['bun', 'test', `./${file}`, '--timeout', '20000'], {
         cwd: worktree,
-        stdout: 'inherit',
-        stderr: 'inherit',
+        stdout: 'pipe',
+        stderr: 'pipe',
       });
-      return { file, exitCode: result.exitCode ?? 1 };
+      const output = `${result.stdout.toString()}\n${result.stderr.toString()}`;
+      process.stdout.write(result.stdout);
+      process.stderr.write(result.stderr);
+      return { file, exitCode: result.exitCode, output };
     });
   } finally {
     try {
@@ -147,6 +175,11 @@ function main(): void {
 
     for (const file of verdict.passedOnMain) {
       console.error(`fails-on-main: ${file} PASSED against ${options.base}; it cannot prove the change.`);
+    }
+    for (const file of verdict.infrastructureErrors) {
+      console.error(
+        `fails-on-main: ${file} did not compile or run against ${options.base}; a broken run is not a failing assertion.`
+      );
     }
     console.error('fails-on-main: add a test that fails on main, or split the test refactor from the fix.');
     process.exitCode = 1;
