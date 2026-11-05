@@ -81,6 +81,26 @@ test('fails on a versioned file carrying a prohibited term and passes without it
   }
 });
 
+// A canary whose hash is in the production set. It is base64 here so this
+// test file does not itself carry a guarded term; the mixed case and accent
+// also prove the guard normalizes the text before hashing.
+const canaryTerm = Buffer.from('Q0FOw4FSSU8gc2ludMOpdGljbw==', 'base64').toString();
+
+test('detects a canary term from the production set in a temporary repository', () => {
+  const root = mkdtempSync(join(tmpdir(), 'mdcli-private-terms-'));
+  try {
+    Bun.spawnSync(['git', 'init', '-q'], { cwd: root });
+    writeFileSync(join(root, 'note.txt'), 'linha limpa\noutra linha limpa\n');
+    Bun.spawnSync(['git', 'add', 'note.txt'], { cwd: root });
+    expect(scanTrackedFiles(root)).toEqual([]);
+
+    writeFileSync(join(root, 'note.txt'), `linha limpa\n${canaryTerm} aqui\n`);
+    expect(scanTrackedFiles(root)).toEqual([{ file: 'note.txt', line: 2 }]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test('no versioned file carries a private term', () => {
   expect(scanTrackedFiles()).toEqual([]);
 });

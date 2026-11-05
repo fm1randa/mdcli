@@ -43,11 +43,11 @@ Each rule below names the check that fails when it breaks. A rule marked *text o
 | A "no hits" assertion is paired with a positive control against the same production constant | *text only* | review |
 | The private-data guard is derived from the whole pre-change corpus, not from the terms a review noticed | *text only* | review |
 | Security surfaces (the private-data guard and its test, `scripts/verify.sh`, `eslint-rules/`) enter the risky set | `security surfaces` tests | `test/risk.test.ts`, `test/risk-label.test.ts` |
-| The CLI follows the web app, and a conflict with Filipe's decision is reported (items 9 and 10) | *text only* | review |
+| The CLI follows the web app, and a conflict with Filipe's decision is reported (items 9 and 10) | `prova` (`scripts/prova.ts`) requires, for a PR that changes `src/`, a `Web:` line with the bundle snippet or `sem equivalente na web`; a conflict with Filipe's decision stays *text only* (review) | `scripts/prova.ts`, `.github/workflows/prova.yml` |
 
 ## Merge by proof
 
-Every PR that changes `src/` fills the **Prova** section of the PR template. It shows the CLI commands run against the mock (`scripts/mock-api.ts`, fake config in `/tmp`), never against a real account, on `main` (before) and on the branch (after), with their outputs, proving the behavior the issue asks for. The `prova` CI check reads the PR body and fails when the section, the before block or the after block is missing; it runs on `opened`, `synchronize`, `reopened` and `edited`.
+Every PR that changes `src/` fills the **Prova** section of the PR template. It shows the CLI commands run against the mock (`scripts/mock-api.ts`, fake config in `/tmp`), never against a real account, on `main` (before) and on the branch (after), with their outputs, proving the behavior the issue asks for. The `prova` CI check reads the PR body and fails when the section, the `Web:` line or one of the two blocks is missing; it runs on `opened`, `synchronize`, `reopened` and `edited`. The `Web:` line carries a snippet from the web bundle (`$HOME/.mdcli-team/ref/mdb.js`) that shows the behavior, or `sem equivalente na web`. Paraphrasing the web inside the proof without that line no longer counts.
 
 `bun scripts/risk.ts` classifies the diff against `origin/main` and prints `{ "risky": bool, "reasons": [...] }`; it exits 2 when the PR touches authentication, session or credentials, data writes (create, update, delete, `entries import run`, or any POST/PUT/DELETE call to the API), or a security surface: `scripts/private-terms.ts`, `test/private-terms.test.ts`, `scripts/verify.sh`, or anything under `eslint-rules/`. A comment-only change in a security surface stays safe. A risky PR:
 
