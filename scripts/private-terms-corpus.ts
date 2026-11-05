@@ -37,6 +37,7 @@ const WORD = /[\p{L}\p{N}]+/gu;
 /** Files that maintain the private-data guard; a change here needs the corpus. */
 const GUARD_FILES = [
   'scripts/private-terms.ts',
+  'scripts/private-terms-cli.ts',
   'scripts/private-terms-excused.ts',
   'scripts/private-terms-corpus.ts',
   'test/private-terms.test.ts',

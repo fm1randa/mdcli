@@ -246,11 +246,7 @@ export interface PrivateTermHit {
  */
 const MAX_SCAN_BYTES = 1_000_000;
 
-interface TreeEntry {
-  type: string;
-  object: string;
-  path: string;
-}
+type TreeEntry = { type: string; object: string; path: string };
 
 function git(root: string, args: string[], stdin?: Uint8Array): Buffer {
   const result = Bun.spawnSync(['git', ...args], { cwd: root, stdin });
@@ -358,6 +354,11 @@ function worktreeHits(
   return hits;
 }
 
+/** True when `ref` names a commit; an unborn HEAD has no tree to scan. */
+function commitExists(root: string, ref: string): boolean {
+  return Bun.spawnSync(['git', 'rev-parse', '--verify', '--quiet', ref], { cwd: root }).exitCode === 0;
+}
+
 /**
  * Private terms in the published commit (`ref`, HEAD by default), the index
  * and the working-tree copy of every tracked path. The commit catches a term
@@ -373,8 +374,9 @@ export function scanTrackedFiles(
   ref = 'HEAD'
 ): PrivateTermHit[] {
   const seen = new Set<string>();
+  const commit = ref === 'HEAD' && !commitExists(root, ref) ? [] : commitEntries(root, ref);
   const hits = [
-    ...scanEntries(root, commitEntries(root, ref), terms, allowed, seen),
+    ...scanEntries(root, commit, terms, allowed, seen),
     ...scanEntries(root, indexEntries(root), terms, allowed, seen),
     ...worktreeHits(root, terms, allowed),
   ];
@@ -382,3 +384,4 @@ export function scanTrackedFiles(
   for (const hit of hits) found.set(`${hit.file}\u0000${hit.line ?? ''}`, hit);
   return [...found.values()];
 }
+

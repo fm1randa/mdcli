@@ -37,6 +37,7 @@ interface SecuritySurface {
 
 const SECURITY_SURFACES: readonly SecuritySurface[] = [
   { path: /^scripts\/private-terms\.ts$/, detail: 'private-data guard changed' },
+  { path: /^scripts\/private-terms-cli\.ts$/, detail: 'private-data guard entry point changed' },
   { path: /^scripts\/private-terms-corpus\.ts$/, detail: 'private-data corpus check changed' },
   { path: /^test\/private-terms\.test\.ts$/, detail: 'private-data guard test changed' },
   { path: /^test\/private-terms-corpus\.test\.ts$/, detail: 'private-data corpus check test changed' },
