@@ -254,9 +254,7 @@ interface TreeEntry {
 
 function git(root: string, args: string[], stdin?: Uint8Array): Buffer {
   const result = Bun.spawnSync(['git', ...args], { cwd: root, stdin });
-  if (result.exitCode !== 0) {
-    throw new Error(`git ${args.join(' ')} failed in ${root}: ${result.stderr.toString().trim()}`);
-  }
+  if (result.exitCode !== 0) throw new Error(`git ${args.join(' ')} failed in ${root}: ${result.stderr.toString().trim()}`);
   return result.stdout;
 }
 
@@ -268,9 +266,7 @@ function commitEntries(root: string, ref: string): TreeEntry[] {
     if (record === '') continue;
     const tab = record.indexOf('\t');
     const [, type, object] = record.slice(0, tab).split(' ');
-    if (type === undefined || object === undefined) {
-      throw new Error(`unexpected git ls-tree record: ${record}`);
-    }
+    if (type === undefined || object === undefined) throw new Error(`unexpected git ls-tree record: ${record}`);
     entries.push({ type, object, path: record.slice(tab + 1) });
   }
   return entries;
@@ -304,9 +300,7 @@ function indexEntries(root: string): TreeEntry[] {
     if (record === '') continue;
     const tab = record.indexOf('\t');
     const [mode, object, stage] = record.slice(0, tab).split(' ');
-    if (mode === undefined || object === undefined || stage === undefined) {
-      throw new Error(`unexpected git ls-files record: ${record}`);
-    }
+    if (mode === undefined || object === undefined || stage === undefined) throw new Error(`unexpected git ls-files record: ${record}`);
     entries.push({ type: mode === '160000' ? 'commit' : 'blob', object, path: record.slice(tab + 1) });
   }
   return entries;
