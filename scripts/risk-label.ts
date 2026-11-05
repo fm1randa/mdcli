@@ -113,12 +113,12 @@ function labelStatus(action: LabelAction, apply: boolean, applied: boolean): str
 function summary(report: RiskReport, action: LabelAction, apply: boolean, applied: boolean): string {
   const lines = ['## Risk', ''];
   if (report.risky) {
-    lines.push('Risky: the diff touches authentication, session, credentials, or data writes.', '');
+    lines.push('Risky: the diff touches authentication, session, credentials, data writes, or a security surface.', '');
     for (const reason of report.reasons) {
       lines.push(`- \`${reason.path}\` (${reason.topic}): ${reason.detail}`);
     }
   } else {
-    lines.push('Safe: no authentication, session, credentials, or data write change.');
+    lines.push('Safe: no authentication, session, credentials, data write, or security surface change.');
   }
   lines.push('', `Label \`${RISK_LABEL}\`: ${labelStatus(action, apply, applied)}.`);
   return lines.join('\n');
