@@ -22,6 +22,11 @@ interface LoginConfigRaw {
   uid?: number | null;
 }
 
+interface MdWindow {
+  loginconfig?: LoginConfigRaw;
+  __captured_loginconfig?: LoginConfigRaw;
+}
+
 interface BrowserSessionOptions {
   browser: 'chrome' | 'firefox' | 'edge';
   timeout?: number;
@@ -70,10 +75,9 @@ export async function extractSessionFromBrowser(
 
       // Capture loginconfig via setter trap - prevents losing it if page redirects to dashboard
       await page.addInitScript(() => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- the page's own global is untyped inside addInitScript
-        const browserWindow = globalThis as any;
+        const browserWindow = globalThis as typeof globalThis & MdWindow;
         Object.defineProperty(browserWindow, 'loginconfig', {
-          set(value: unknown) {
+          set(value: LoginConfigRaw) {
             browserWindow.__captured_loginconfig = value;
             Object.defineProperty(browserWindow, 'loginconfig', { value, writable: true });
           },
@@ -110,8 +114,7 @@ export async function extractSessionFromBrowser(
         // until the deadline instead of failing the whole extraction.
         const hasLoginConfig = await page
           .evaluate(() => {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- the page's own global is untyped inside evaluate
-            const browserWindow = globalThis as any;
+            const browserWindow = globalThis as typeof globalThis & MdWindow;
             return Boolean(browserWindow.__captured_loginconfig || browserWindow.loginconfig);
           })
           .catch(() => false);
@@ -121,8 +124,7 @@ export async function extractSessionFromBrowser(
 
       const loginConfig = await page
         .evaluate((): LoginConfigRaw | null => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- the page's own global is untyped inside evaluate
-          const browserWindow = globalThis as any;
+          const browserWindow = globalThis as typeof globalThis & MdWindow;
           const config = browserWindow.__captured_loginconfig || browserWindow.loginconfig;
           if (!config) return null;
           return {
