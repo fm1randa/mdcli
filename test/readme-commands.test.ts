@@ -27,8 +27,26 @@ function walk(command: Commander, prefix: string[]): Command[] {
   });
 }
 
-const COMMANDS = walk(await buildProgram(), ['mdcli']);
+const PROGRAM = await buildProgram();
+const COMMANDS = walk(PROGRAM, ['mdcli']);
 const PATHS = COMMANDS.map((command) => command.path);
+
+/** Every long option any command declares, hidden ones included. */
+function declaredOptions(command: Commander): string[] {
+  return [
+    ...command.options.flatMap((option) => (typeof option.long === 'string' ? [option.long] : [])),
+    ...command.commands.flatMap(declaredOptions),
+  ];
+}
+
+// Commander answers --help on every command without listing it in `options`.
+const KNOWN_OPTIONS = new Set(['--help', ...declaredOptions(PROGRAM)]);
+
+/** The long options the text mentions that no command accepts (the inverse of #194). */
+function unknownOptions(text: string): string[] {
+  const mentioned = text.match(/(?<![\w-])--[a-z][\w-]*/g) ?? [];
+  return [...new Set(mentioned)].filter((option) => !KNOWN_OPTIONS.has(option));
+}
 
 /** Escape regex metacharacters so a literal command path or option can be matched. */
 function escape(value: string): string {
@@ -58,6 +76,10 @@ describe('README command coverage', () => {
     expect(PATHS).not.toContain('mdcli entries import');
   });
 
+  test('reports a long option no command accepts', () => {
+    expect(unknownOptions('mdcli entries import run --account principal --no-ai --help')).toEqual(['--no-ai']);
+  });
+
   for (const file of ['README.md', 'README.en.md']) {
     test(`${file} shows every command`, () => {
       const missing = undocumented(file);
@@ -75,6 +97,16 @@ describe('README command coverage', () => {
         throw new Error(
           `${file} has no example of: ${missing.join(', ')}. ` +
             'Document every long option in README.md and its translation to README.en.md.',
+        );
+      }
+    });
+
+    test(`${file} mentions only options the CLI accepts`, () => {
+      const unknown = unknownOptions(readFileSync(`${ROOT}/${file}`, 'utf8'));
+      if (unknown.length > 0) {
+        throw new Error(
+          `${file} mentions options no command accepts: ${unknown.join(', ')}. ` +
+            'Remove them from README.md and README.en.md, or add the option to the CLI.',
         );
       }
     });
