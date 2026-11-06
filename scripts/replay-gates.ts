@@ -1,4 +1,5 @@
 import { parseInteger } from '../src/utils/parse.js';
+import { DEFAULT_BASE, git, gitQuiet, repoRoot, revisionExists } from './git.js';
 import { decideGate } from './fails-on-main-exemption.js';
 import { changesProduct } from './new-tests-fail-on-main.js';
 import { checkProva } from './prova.js';
@@ -120,24 +121,12 @@ export function replayGates(commits: readonly CommitInput[], gates: readonly Gat
   return { commits: replayed, fired, skipped: decisions.length - fired };
 }
 
-function git(args: string[], root: string): string {
-  const result = Bun.spawnSync(['git', ...args], { cwd: root, stdout: 'pipe', stderr: 'pipe' });
-  if (result.exitCode !== 0) {
-    throw new Error(`git ${args.join(' ')} failed: ${result.stderr.toString().trim()}`);
-  }
-  return result.stdout.toString();
-}
-
-function gitQuiet(args: string[], root: string): string | undefined {
-  const result = Bun.spawnSync(['git', ...args], { cwd: root, stdout: 'pipe', stderr: 'pipe' });
-  return result.exitCode === 0 ? result.stdout.toString().trim() : undefined;
-}
-
 function defaultRevision(root: string): string {
-  for (const candidate of ['origin/main', 'main', 'HEAD']) {
-    if (gitQuiet(['rev-parse', '--verify', '--quiet', candidate], root) !== undefined) return candidate;
+  const candidates = [DEFAULT_BASE, 'main', 'HEAD'];
+  for (const candidate of candidates) {
+    if (revisionExists(candidate, root)) return candidate;
   }
-  throw new Error('no origin/main, main or HEAD revision found');
+  throw new Error(`no ${candidates.join(', ')} revision found`);
 }
 
 /**
@@ -226,7 +215,7 @@ function format(report: ReplayReport, rev: string): string {
 function main(): void {
   try {
     const options = parseOptions(process.argv.slice(2));
-    const root = git(['rev-parse', '--show-toplevel'], process.cwd()).trim();
+    const root = repoRoot();
     const rev = options.rev ?? defaultRevision(root);
     const report = replayGates(readCommits(rev, options.commits, root), selectGates(options.gates));
     console.log(options.json ? JSON.stringify({ rev, ...report }, null, 2) : format(report, rev));

@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { DEFAULT_BASE, spawnAsync } from './git.js';
 import { KEYED_TERM_HASHES, requirePrivateTermsKey, scanText } from './private-terms.js';
 
 export interface MessageSource {
@@ -27,31 +28,13 @@ export function messageHits(
   return hits;
 }
 
-interface RunResult {
-  stdout: string;
-  stderr: string;
-  code: number | null;
-}
-
-// Bun 1.4.2 can hang a spawnSync call under `bun test --parallel` (oven-sh/bun#34069),
-// so every child here goes through Bun.spawn, which the same reports clear.
-async function run(command: string[], cwd: string, timeout?: number): Promise<RunResult> {
-  const options = { cwd, stdout: 'pipe' as const, stderr: 'pipe' as const, ...(timeout === undefined ? {} : { timeout }) };
-  const proc = Bun.spawn(command, options);
-  const [stdout, stderr, code] = await Promise.all([
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
-    proc.exited,
-  ]);
-  return { stdout, stderr, code };
-}
-
 export async function commitSources(base: string, root: string = join(import.meta.dirname, '..')): Promise<MessageSource[]> {
-  const { stdout, stderr, code } = await run(
+  // Async: this runs inside `bun test --parallel`, where spawnSync can hang (see spawnAsync).
+  const { stdout, stderr, exitCode } = await spawnAsync(
     ['git', '--no-pager', 'log', `${base}..HEAD`, '--format=%H%x00%B%x00'],
-    root
+    { cwd: root }
   );
-  if (code !== 0) throw new Error(`git log ${base}..HEAD failed: ${stderr.trim()}`);
+  if (exitCode !== 0) throw new Error(`git log ${base}..HEAD failed: ${stderr.trim()}`);
   const parts = stdout.split('\0');
   const sources: MessageSource[] = [];
   // git joins records with a newline, so the next record's SHA carries it.
@@ -72,9 +55,9 @@ export async function pullRequestSource(): Promise<MessageSource | undefined> {
   if (body !== undefined) return body.trim() === '' ? undefined : { label: 'PR body', text: body };
   const command = ['gh', 'pr', 'view', '--json', 'body'];
   try {
-    const { stdout, stderr, code } = await run(command, process.cwd(), GH_TIMEOUT_MS);
-    if (code !== 0) {
-      console.error(`private-data: gh pr view failed (${stderr.trim() || `exit ${code ?? 'unknown'}`}); PR body not checked`);
+    const { stdout, stderr, exitCode } = await spawnAsync(command, { timeout: GH_TIMEOUT_MS });
+    if (exitCode !== 0) {
+      console.error(`private-data: gh pr view failed (${stderr.trim() || `exit ${exitCode}`}); PR body not checked`);
       return undefined;
     }
     const parsed = JSON.parse(stdout) as { body?: unknown };
@@ -92,7 +75,7 @@ interface Options {
 }
 
 function parseOptions(argv: string[]): Options {
-  const options: Options = { base: 'origin/main' };
+  const options: Options = { base: DEFAULT_BASE };
   for (let index = 0; index < argv.length; index++) {
     const arg = argv[index];
     if (arg === '--base') options.base = argv[++index] ?? options.base;

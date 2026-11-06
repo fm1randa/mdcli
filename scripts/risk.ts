@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { behaviorIndexes, fileChangesBehavior, parseDiff, type DiffFile } from './behavior-change.js';
+import { DEFAULT_BASE, git } from './git.js';
 
 export type RiskTopic = 'auth' | 'write' | 'security';
 
@@ -39,6 +40,9 @@ const SECURITY_SURFACES: readonly SecuritySurface[] = [
   // The guard parses git output with these helpers (#262), so a change here
   // changes what the guard reads even when no guard file moves.
   { path: /^src\/utils\/parse\.ts$/, detail: 'parse helper the private-data guard imports changed' },
+  // The guard spawns git and parses its diffs through these modules (#260).
+  { path: /^scripts\/git\.ts$/, detail: 'child-process owner the private-data guard imports changed' },
+  { path: /^scripts\/behavior-change\.ts$/, detail: 'diff parser the private-data guard imports changed' },
 ];
 
 const TEST_PATH = /^(?:test\/|.*\.(?:test|spec)\.[cm]?[jt]sx?$)/;
@@ -144,14 +148,7 @@ export function classifyRisk(diff: string): RiskReport {
 }
 
 function gitDiff(base: string): string {
-  const result = Bun.spawnSync(
-    ['git', 'diff', '--no-renames', '--no-color', `${base}...HEAD`],
-    { stdout: 'pipe', stderr: 'pipe' },
-  );
-  if (result.exitCode !== 0) {
-    throw new Error(`git diff against ${base} failed: ${result.stderr.toString().trim()}`);
-  }
-  return result.stdout.toString();
+  return git(['diff', '--no-renames', '--no-color', `${base}...HEAD`]);
 }
 
 interface Options {
@@ -160,7 +157,7 @@ interface Options {
 }
 
 function parseOptions(argv: string[]): Options {
-  const options: Options = { base: 'origin/main' };
+  const options: Options = { base: DEFAULT_BASE };
   for (let index = 0; index < argv.length; index++) {
     const arg = argv[index];
     if (arg === '--base') {

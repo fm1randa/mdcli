@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { changesBehavior, parseDiff } from './behavior-change.js';
+import { DEFAULT_BASE, git } from './git.js';
 
 export interface ProvaStatus {
   present: boolean;
@@ -92,14 +93,7 @@ export function checkProva(body: string, diff: string): ProvaCheck {
 }
 
 function changedDiff(base: string): string {
-  const result = Bun.spawnSync(
-    ['git', 'diff', '--no-renames', '--no-color', `${base}...HEAD`, '--', 'src'],
-    { stdout: 'pipe', stderr: 'pipe' },
-  );
-  if (result.exitCode !== 0) {
-    throw new Error(`git diff against ${base} failed: ${result.stderr.toString().trim()}`);
-  }
-  return result.stdout.toString();
+  return git(['diff', '--no-renames', '--no-color', `${base}...HEAD`, '--', 'src']);
 }
 
 interface Options {
@@ -109,7 +103,7 @@ interface Options {
 }
 
 function parseOptions(argv: string[]): Options {
-  const options: Options = { base: 'origin/main' };
+  const options: Options = { base: DEFAULT_BASE };
   for (let index = 0; index < argv.length; index++) {
     const arg = argv[index];
     if (arg === '--base') {

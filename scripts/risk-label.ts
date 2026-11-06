@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import type { RiskReport } from './risk.js';
+import { spawn } from './git.js';
 
 export const RISK_LABEL = 'risco';
 
@@ -66,7 +67,7 @@ interface CommandResult {
 }
 
 function gh(args: string[]): CommandResult {
-  const result = Bun.spawnSync(['gh', ...args], { stdout: 'pipe', stderr: 'pipe' });
+  const result = spawn(['gh', ...args]);
   const output = `${result.stdout.toString()}${result.stderr.toString()}`.trim();
   return { ok: result.exitCode === 0, output };
 }

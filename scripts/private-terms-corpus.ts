@@ -15,7 +15,8 @@ import {
   termHash,
 } from './private-terms.js';
 
-import { deletedLines, git, headCorpus, type DeletedLine, type HeadCorpus } from './private-terms-history.js';
+import { DEFAULT_BASE, git } from './git.js';
+import { deletedLines, headCorpus, type DeletedLine, type HeadCorpus } from './private-terms-history.js';
 
 export { deletedLines } from './private-terms-history.js';
 
@@ -263,7 +264,7 @@ export function guardChanged(base: string, head: string, root: string): boolean 
 }
 
 function parseOptions(argv: string[]): { base: string; head: string } {
-  const options = { base: 'origin/main', head: 'HEAD' };
+  const options = { base: DEFAULT_BASE, head: 'HEAD' };
   for (let index = 0; index < argv.length; index++) {
     const arg = argv[index];
     if (arg === '--base') options.base = argv[++index] ?? options.base;

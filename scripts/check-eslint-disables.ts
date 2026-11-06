@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import tseslint from 'typescript-eslint';
-import { parseInteger } from '../src/utils/parse.js';
+import { parseDiff } from './behavior-change.js';
+import { DEFAULT_BASE, git, gitResult } from './git.js';
 
 // A copied eslint-disable is how the bare-exit pattern spread (#155, #187).
 // Compare the branch with main and fail on any added directive without a
@@ -11,12 +12,6 @@ import { parseInteger } from '../src/utils/parse.js';
 const DIRECTIVE = /^\s*eslint-disable(?:-next-line|-line)?\b/;
 const REASON = /\s--\s+\S/;
 const LINTED = /\.(?:[cm]?[jt]sx?)$/;
-
-function hunkStart(digits: string, header: string): number {
-  const line = parseInteger(digits);
-  if (line === undefined) throw new Error(`unreadable diff hunk header: ${header}`);
-  return line;
-}
 
 interface AddedDisable {
   path: string;
@@ -41,38 +36,14 @@ interface DiffLine {
 type Side = 'old' | 'new';
 export type ContentReader = (path: string, side: Side) => string | undefined;
 
-function parseDiff(diff: string): { added: DiffLine[]; removed: DiffLine[] } {
+function changedLines(diff: string): { added: DiffLine[]; removed: DiffLine[] } {
   const added: DiffLine[] = [];
   const removed: DiffLine[] = [];
-  let path = '';
-  let oldLine = 0;
-  let newLine = 0;
-  for (const raw of diff.split('\n')) {
-    if (raw.startsWith('diff --git ')) {
-      // `diff --git a/<path> b/<path>`: the b/ side names the file after the change.
-      path = raw.split(' b/', 2)[1] ?? '';
-      continue;
-    }
-    if (raw.startsWith('+++ b/')) {
-      path = raw.slice('+++ b/'.length);
-      continue;
-    }
-    const hunk = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/.exec(raw);
-    if (hunk) {
-      oldLine = hunkStart(hunk[1], raw);
-      newLine = hunkStart(hunk[2], raw);
-      continue;
-    }
-    if (path === '' || !LINTED.test(path)) continue;
-    if (raw.startsWith('+')) {
-      added.push({ path, line: newLine, text: raw.slice(1) });
-      newLine += 1;
-    } else if (raw.startsWith('-')) {
-      removed.push({ path, line: oldLine, text: raw.slice(1) });
-      oldLine += 1;
-    } else if (raw.startsWith(' ')) {
-      oldLine += 1;
-      newLine += 1;
+  for (const file of parseDiff(diff)) {
+    if (!LINTED.test(file.path)) continue;
+    for (const { kind, line, text } of file.hunks.flat()) {
+      if (kind === 'add') added.push({ path: file.path, line, text });
+      else if (kind === 'remove') removed.push({ path: file.path, line, text });
     }
   }
   return { added, removed };
@@ -107,7 +78,7 @@ export function directiveLines(content: string): Set<number> {
 
 /** Counts the directives a diff adds and removes, reading the file at each side. */
 export function countDisables(diff: string, read: ContentReader): DiffCount {
-  const { added, removed } = parseDiff(diff);
+  const { added, removed } = changedLines(diff);
   const cache = new Map<string, Map<number, Directive>>();
   const directiveAt = (path: string, line: number, side: Side): Directive | undefined => {
     const key = `${side}:${path}`;
@@ -131,7 +102,7 @@ export function countDisables(diff: string, read: ContentReader): DiffCount {
 }
 
 function gitShow(ref: string, path: string): string | undefined {
-  const result = Bun.spawnSync(['git', 'show', `${ref}:${path}`], { stdout: 'pipe', stderr: 'pipe' });
+  const result = gitResult(['show', `${ref}:${path}`]);
   return result.exitCode === 0 ? result.stdout.toString() : undefined;
 }
 
@@ -171,19 +142,15 @@ function parseOptions(argv: string[]): Options {
 }
 
 function gitDiff(base: string, head: string | undefined): string {
-  const args = ['git', 'diff', '--unified=0', '--no-renames', '--no-color', base];
+  const args = ['diff', '--unified=0', '--no-renames', '--no-color', base];
   if (head !== undefined) args.push(head);
-  const result = Bun.spawnSync(args, { stdout: 'pipe', stderr: 'pipe' });
-  if (result.exitCode !== 0) {
-    throw new Error(`git diff against ${base}${head ? `..${head}` : ''} failed: ${result.stderr.toString().trim()}`);
-  }
-  return result.stdout.toString();
+  return git(args);
 }
 
 function main(): void {
   try {
     const options = parseOptions(process.argv.slice(2));
-    const base = options.base ?? 'origin/main';
+    const base = options.base ?? DEFAULT_BASE;
     const range = `${base}${options.head ? `..${options.head}` : ''}`;
     const { added, removed, undocumented } = countDisables(gitDiff(base, options.head), reader(base, options.head));
     if (undocumented.length > 0) {

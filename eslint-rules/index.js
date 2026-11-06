@@ -10,6 +10,7 @@ import noDueAnchorFallback from "./no-due-anchor-fallback.js";
 import noLiteralSince from "./no-literal-since.js";
 import noLooseNumber from "./no-loose-number.js";
 import noRawDash from "./no-raw-dash.js";
+import noRawSpawn from "./no-raw-spawn.js";
 import noRawCents from "./no-raw-cents.js";
 import noRawCurrency from "./no-raw-currency.js";
 import noShortOptionEquals from "./no-short-option-equals.js";
@@ -30,6 +31,7 @@ export default {
     "no-raw-cents": noRawCents,
     "no-raw-currency": noRawCurrency,
     "no-raw-dash": noRawDash,
+    "no-raw-spawn": noRawSpawn,
     "no-short-option-equals": noShortOptionEquals,
     "no-tautological-expect": noTautologicalExpect,
   },

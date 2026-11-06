@@ -1,11 +1,5 @@
+import { repoRoot } from './git.js';
 import { KEYED_TERM_HASHES, requirePrivateTermsKey, scanTrackedFiles } from './private-terms.js';
-
-/** The repository root of `cwd`, so a subdirectory still scans the whole tree. */
-function repoRoot(cwd: string): string {
-  const top = Bun.spawnSync(['git', 'rev-parse', '--show-toplevel'], { cwd });
-  if (top.exitCode !== 0) throw new Error(`git rev-parse --show-toplevel failed in ${cwd}`);
-  return top.stdout.toString().trim();
-}
 
 function main(): void {
   try {
@@ -15,7 +9,7 @@ function main(): void {
         'guarda de dados privados: aviso: MDCLI_PRIVATE_TERMS_KEY ausente; termos numéricos de baixa entropia não foram verificados'
       );
     }
-    const hits = scanTrackedFiles(repoRoot(process.cwd()));
+    const hits = scanTrackedFiles(repoRoot());
     if (hits.length === 0) {
       console.log('✓ guarda de dados privados: nenhum termo privado nos arquivos versionados');
       return;

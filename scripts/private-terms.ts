@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { parseInteger } from '../src/utils/parse.js';
+import { gitBytes, revisionExists } from './git.js';
 import { ALLOWED_PHRASE_HASHES, KEYED_TERM_HASHES, PRIVATE_TERM_HASHES } from './private-terms-hashes.js';
 
 export { ALLOWED_PHRASE_HASHES, KEYED_TERM_HASHES, PRIVATE_TERM_HASHES } from './private-terms-hashes.js';
@@ -213,15 +214,9 @@ const MAX_SCAN_BYTES = 1_000_000;
 
 type TreeEntry = { type: string; object: string; path: string };
 
-function git(root: string, args: string[], stdin?: Uint8Array): Buffer {
-  const result = Bun.spawnSync(['git', ...args], { cwd: root, stdin });
-  if (result.exitCode !== 0) throw new Error(`git ${args.join(' ')} failed in ${root}: ${result.stderr.toString().trim()}`);
-  return result.stdout;
-}
-
 /** Entries of `ref`'s tree, with their raw paths, as `-z` leaves them unquoted. */
 function commitEntries(root: string, ref: string): TreeEntry[] {
-  const listed = git(root, ['ls-tree', '-r', '-z', '--full-tree', ref]).toString();
+  const listed = gitBytes(['ls-tree', '-r', '-z', '--full-tree', ref], root).toString();
   const entries: TreeEntry[] = [];
   for (const record of listed.split('\0')) {
     if (record === '') continue;
@@ -237,7 +232,7 @@ function commitEntries(root: string, ref: string): TreeEntry[] {
 function blobContents(root: string, objects: string[]): Map<string, Buffer> {
   const contents = new Map<string, Buffer>();
   if (objects.length === 0) return contents;
-  const output = git(root, ['cat-file', '--batch'], Buffer.from(`${objects.join('\n')}\n`));
+  const output = gitBytes(['cat-file', '--batch'], root, Buffer.from(`${objects.join('\n')}\n`));
   let offset = 0;
   for (const object of objects) {
     const newline = output.indexOf(0x0a, offset);
@@ -258,7 +253,7 @@ function blobContents(root: string, objects: string[]): Map<string, Buffer> {
 /** Entries of the index (`git ls-files -s`), which holds the staged content. */
 function indexEntries(root: string): TreeEntry[] {
   const entries: TreeEntry[] = [];
-  for (const record of git(root, ['ls-files', '-s', '-z']).toString().split('\0')) {
+  for (const record of gitBytes(['ls-files', '-s', '-z'], root).toString().split('\0')) {
     if (record === '') continue;
     const tab = record.indexOf('\t');
     const [mode, object, stage] = record.slice(0, tab).split(' ');
@@ -311,7 +306,7 @@ function worktreeHits(
   key: string | undefined
 ): PrivateTermHit[] {
   const hits: PrivateTermHit[] = [];
-  for (const path of git(root, ['diff', '--name-only', '-z']).toString().split('\0').filter(Boolean)) {
+  for (const path of gitBytes(['diff', '--name-only', '-z'], root).toString().split('\0').filter(Boolean)) {
     let content: Buffer;
     try {
       content = readFileSync(join(root, path));
@@ -322,11 +317,6 @@ function worktreeHits(
     for (const line of scanText(content.toString('utf8'), terms, allowed, keyed, key)) hits.push({ file: path, line });
   }
   return hits;
-}
-
-/** True when `ref` names a commit; an unborn HEAD has no tree to scan. */
-function commitExists(root: string, ref: string): boolean {
-  return Bun.spawnSync(['git', 'rev-parse', '--verify', '--quiet', ref], { cwd: root }).exitCode === 0;
 }
 
 /**
@@ -346,7 +336,7 @@ export function scanTrackedFiles(
   key: string | undefined = privateTermsKey()
 ): PrivateTermHit[] {
   const seen = new Set<string>();
-  const commit = ref === 'HEAD' && !commitExists(root, ref) ? [] : commitEntries(root, ref);
+  const commit = ref === 'HEAD' && !revisionExists(ref, root) ? [] : commitEntries(root, ref);
   const hits = [
     ...scanEntries(root, commit, terms, allowed, keyed, key, seen),
     ...scanEntries(root, indexEntries(root), terms, allowed, keyed, key, seen),

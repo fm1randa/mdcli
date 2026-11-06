@@ -22,23 +22,51 @@ describe('parseDiff', () => {
       {
         path: 'src/a.ts',
         hunks: [[
-          { kind: 'context', text: 'const a = 1;' },
-          { kind: 'remove', text: 'const b = 2;' },
-          { kind: 'add', text: 'const b = 3;' },
+          { kind: 'context', text: 'const a = 1;', line: 1 },
+          { kind: 'remove', text: 'const b = 2;', line: 2 },
+          { kind: 'add', text: 'const b = 3;', line: 2 },
         ]],
       },
       {
         path: 'src/b.ts',
         hunks: [[
-          { kind: 'remove', text: '// old' },
-          { kind: 'add', text: '// new' },
+          { kind: 'remove', text: '// old', line: 1 },
+          { kind: 'add', text: '// new', line: 1 },
         ]],
       },
     ]);
   });
 
   test('keeps an added line whose content starts with ++', () => {
-    expect(parseDiff(file('src/a.ts', ['+++i;']))[0]?.hunks[0]).toEqual([{ kind: 'add', text: '++i;' }]);
+    expect(parseDiff(file('src/a.ts', ['+++i;']))[0]?.hunks[0]).toEqual([{ kind: 'add', text: '++i;', line: 1 }]);
+  });
+
+  test('numbers each line on its own side across hunks', () => {
+    const diff = ['diff --git a/src/a.ts b/src/a.ts', '@@ -10,2 +20,3 @@', ' keep', '-gone', '+one', '+two', '@@ -40 +51 @@', '-old', '+new'].join('\n');
+    expect(parseDiff(diff)[0]?.hunks).toEqual([
+      [
+        { kind: 'context', text: 'keep', line: 20 },
+        { kind: 'remove', text: 'gone', line: 11 },
+        { kind: 'add', text: 'one', line: 21 },
+        { kind: 'add', text: 'two', line: 22 },
+      ],
+      [
+        { kind: 'remove', text: 'old', line: 40 },
+        { kind: 'add', text: 'new', line: 51 },
+      ],
+    ]);
+  });
+
+  // A path with a quote or a tab makes git quote the header; dropping that
+  // file would hide its lines from risk and the private-terms corpus.
+  test('keeps the lines of a file whose header git quotes', () => {
+    const diff = ['diff --git "a/src/a\\tb.ts" "b/src/a\\tb.ts"', '@@ -1 +1 @@', '-old', '+new'].join('\n');
+    expect(parseDiff(diff)).toEqual([
+      {
+        path: '"a/src/a\\tb.ts" "b/src/a\\tb.ts"',
+        hunks: [[{ kind: 'remove', text: 'old', line: 1 }, { kind: 'add', text: 'new', line: 1 }]],
+      },
+    ]);
   });
 });
 
