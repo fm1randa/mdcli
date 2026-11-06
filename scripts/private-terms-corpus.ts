@@ -19,7 +19,6 @@ import { DEFAULT_BASE, git } from './git.js';
 import { deletedLines, headCorpus, type DeletedLine, type HeadCorpus } from './private-terms-history.js';
 
 export { deletedLines } from './private-terms-history.js';
-export type { DeletedLine, HeadCorpus } from './private-terms-history.js';
 
 export interface RemovedTermHit extends DeletedLine {
   hash: string;
@@ -134,7 +133,7 @@ function coveredTokens(
 }
 
 /** True when the full phrase still occurs on one line of `head`. */
-export function hasPhrase(head: HeadCorpus, joined: string): boolean {
+function hasPhrase(head: HeadCorpus, joined: string): boolean {
   const parts = joined.split(' ');
   const first = parts[0]!;
   if (parts.length === 1) return head.tokens.has(first);
@@ -161,7 +160,7 @@ function isContentHash(joined: string, line: string): boolean {
  * single term. All of them skip code identifiers, dependency metadata and git
  * object ids.
  */
-export function uncoveredRemovedTerms(
+function uncoveredRemovedTerms(
   deleted: readonly DeletedLine[],
   head: HeadCorpus,
   terms: ReadonlySet<string> = PRIVATE_TERM_HASHES,

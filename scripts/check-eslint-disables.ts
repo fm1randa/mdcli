@@ -13,7 +13,7 @@ const DIRECTIVE = /^\s*eslint-disable(?:-next-line|-line)?\b/;
 const REASON = /\s--\s+\S/;
 const LINTED = /\.(?:[cm]?[jt]sx?)$/;
 
-export interface AddedDisable {
+interface AddedDisable {
   path: string;
   line: number;
   text: string;
@@ -33,7 +33,7 @@ interface DiffLine {
   text: string;
 }
 
-export type Side = 'old' | 'new';
+type Side = 'old' | 'new';
 export type ContentReader = (path: string, side: Side) => string | undefined;
 
 function changedLines(diff: string): { added: DiffLine[]; removed: DiffLine[] } {

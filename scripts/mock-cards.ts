@@ -2,15 +2,16 @@
 // and the first invoice date.
 import type { CardFutureResponse, CardInvoiceResponse } from '../src/types/index.js';
 import { cardInvoice } from '../test/fixtures.js';
+import { roundToCents } from '../src/utils/currency.js';
+import { parseId } from '../src/utils/parse.js';
 import { invoiceItems } from './mock-entries.js';
 
-const sum = (items: ReadonlyArray<{ valor: unknown }>): number =>
-  Math.round(items.reduce((total, e) => total + Number(e.valor), 0) * 100) / 100;
+const sum = (items: ReadonlyArray<{ valor: number }>): number => roundToCents(items.reduce((total, e) => total + e.valor, 0));
 
 /** Closing date ~8 days before due, matching the unit-test fixtures. */
 function closingFor(dueDate: string): string {
-  const [y, m, d] = dueDate.split('-').map(Number);
-  const closing = new Date(y, m - 1, d - 8);
+  const closing = new Date(`${dueDate}T12:00:00`);
+  closing.setDate(closing.getDate() - 8);
   const yy = closing.getFullYear();
   const mm = String(closing.getMonth() + 1).padStart(2, '0');
   const dd = String(closing.getDate()).padStart(2, '0');
@@ -24,7 +25,7 @@ function closingFor(dueDate: string): string {
  * payments listed in an invoice paid the previous one.
  */
 function invoiceTotals(
-  lancamentos: ReadonlyArray<{ valor: unknown; tipo?: string; status?: string }>,
+  lancamentos: ReadonlyArray<{ valor: number; tipo?: string; status?: string }>,
   vencimento: string,
   fechamento: string,
   limite: number | undefined
@@ -44,9 +45,9 @@ function invoiceTotals(
       totalPagar: totalFatura,
       conciliado: sum(purchases.filter((e) => e.status === 'conciliado')),
       nconciliado: sum(purchases.filter((e) => e.status !== 'conciliado')),
-      receitas: sum(purchases.filter((e) => Number(e.valor) > 0)),
-      despesas: sum(purchases.filter((e) => Number(e.valor) < 0)),
-      ...(limite === undefined ? {} : { disponivel: Math.round((limite + totalFatura) * 100) / 100 }),
+      receitas: sum(purchases.filter((e) => e.valor > 0)),
+      despesas: sum(purchases.filter((e) => e.valor < 0)),
+      ...(limite === undefined ? {} : { disponivel: roundToCents(limite + totalFatura) }),
     },
   };
 }
@@ -55,23 +56,23 @@ function invoiceTotals(
 export function cardsRoute(
   req: Request,
   path: string,
-  isCreditCard: (id: number) => boolean,
+  isCreditCard: (id: unknown) => boolean,
   limitOf: (id: number) => number | undefined
 ): Response | null {
   if (req.method !== 'GET') return null;
 
   const first = path.match(/^\/api\/v1\/cartoes\/(\d+)\/primeiraFatura$/);
   if (first) {
-    if (!isCreditCard(Number(first[1]))) return Response.json({ message: 'not found' }, { status: 404 });
+    if (!isCreditCard(first[1])) return Response.json({ message: 'not found' }, { status: 404 });
     // ISO date string (what fetchFirstInvoiceDate expects).
     return Response.json('2026-01-16');
   }
 
   const invoice = path.match(/^\/api\/v1\/cartoes\/(\d+)\/fatura\/(\d{4}-\d{2}-\d{2})$/);
   if (invoice) {
-    const id = Number(invoice[1]);
+    const id = parseId(invoice[1]);
     const due = invoice[2];
-    if (!isCreditCard(id)) return Response.json({ message: 'not found' }, { status: 404 });
+    if (id === undefined || !isCreditCard(id)) return Response.json({ message: 'not found' }, { status: 404 });
     const lancamentos = invoiceItems(id, due);
     const invoiceBody: CardInvoiceResponse = {
       ...cardInvoice(due, closingFor(due)),
@@ -83,7 +84,7 @@ export function cardsRoute(
 
   const future = path.match(/^\/api\/v1\/cartoes\/(\d+)\/parcelasFuturas$/);
   if (future) {
-    if (!isCreditCard(Number(future[1]))) return Response.json({ message: 'not found' }, { status: 404 });
+    if (!isCreditCard(future[1])) return Response.json({ message: 'not found' }, { status: 404 });
     // Real API: bare array (no { parcelas } wrapper, no parcelasRestantes).
     const installments: CardFutureResponse = [
       {

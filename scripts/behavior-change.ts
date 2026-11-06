@@ -4,7 +4,9 @@
 // terms corpus read the numbered lines. The diff parsing, the comment lexer and
 // the type-only detection live here so a false positive is fixed once.
 
-export type LineKind = 'add' | 'remove' | 'context';
+import { parseInteger } from '../src/utils/parse.js';
+
+type LineKind = 'add' | 'remove' | 'context';
 
 export interface DiffLine {
   kind: LineKind;
@@ -18,7 +20,7 @@ export interface DiffFile {
   hunks: DiffLine[][];
 }
 
-export type CommentStyle = 'js' | 'shell';
+type CommentStyle = 'js' | 'shell';
 
 export interface BehaviorOptions {
   /** A declaration that only changes types is not behavior (risk's slice). */
@@ -33,6 +35,12 @@ export interface BehaviorScope extends BehaviorOptions {
 
 const TYPE_DECLARATION = /^\s*(?:export\s+)?(?:declare\s+)?(?:interface\s+\w|type\s+\w+\s*[=<]|import\s+type\b)/;
 const TYPE_OPEN = /^\s*(?:export\s+)?(?:declare\s+)?(?:interface|type)\s+\w+/;
+
+function hunkStart(digits: string, header: string): number {
+  const line = parseInteger(digits);
+  if (line === undefined) throw new Error(`unreadable diff hunk header: ${header}`);
+  return line;
+}
 
 /**
  * The unified diff split into files and hunks, as the question needs it. A
@@ -58,8 +66,8 @@ export function parseDiff(text: string): DiffFile[] {
     if (start) {
       hunk = [];
       file.hunks.push(hunk);
-      oldLine = Number(start[1]);
-      newLine = Number(start[2]);
+      oldLine = hunkStart(start[1], raw);
+      newLine = hunkStart(start[2], raw);
       continue;
     }
     if (!hunk) continue;

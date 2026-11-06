@@ -42,19 +42,19 @@ export default tseslint.config(
   },
   {
     // Money is formatted and counted in cents in one place, signed by default.
-    files: ["src/**/*.ts", "test/**/*.ts"],
+    files: ["src/**/*.ts", "test/**/*.ts", "scripts/**/*.ts"],
     ignores: ["src/utils/currency.ts"],
     rules: { "local/no-raw-currency": "error", "local/no-raw-cents": "error" },
   },
   {
     // Strings become numbers only through the strict parse helpers.
-    files: ["src/**/*.ts", "test/**/*.ts"],
+    files: ["src/**/*.ts", "test/**/*.ts", "scripts/**/*.ts"],
     ignores: ["src/utils/parse.ts"],
     rules: { "local/no-loose-number": "error" },
   },
   {
     // User input payloads match their types instead of being cast.
-    files: ["src/**/*.ts", "test/**/*.ts"],
+    files: ["src/**/*.ts", "test/**/*.ts", "scripts/**/*.ts"],
     rules: { "local/no-double-cast": "error" },
   },
   {
