@@ -3,7 +3,8 @@
 import type { Account, AccountsResponse, CategoriesResponse, CreateEntryResponse, EntriesResponse, Entry } from '../src/types/index.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, CREDIT_CARD_ACCOUNT, SAVINGS_ACCOUNT, TAGS_RESPONSE } from '../test/fixtures.js';
 import { plasticsRoute } from './mock-plastics.js';
-import { SEEDED_ENTRIES, checkCreatePayload, checkUpdateAccounts, createCardPurchase, createdEntry, entryType, mockEntryId, numberOrNull, statusLabel } from './mock-entries.js';
+import { SEEDED_ENTRIES, checkCreatePayload, checkUpdateAccounts, createCardPurchase, createdEntry, entryType, idOf, mockEntryId, numberOrNull, requiredId, requiredNumber, statusLabel } from './mock-entries.js';
+import { parseId, parseInteger } from '../src/utils/parse.js';
 import { connectionsRoute, recordMockRequest } from './mock-connections.js';
 import { IMPORT_CANDIDATES, importRoute, withRecentStatement } from './mock-import.js';
 import { balancesRoute } from './mock-balances.js';
@@ -83,14 +84,17 @@ async function readJsonBody(req: Request): Promise<Record<string, unknown> | Res
   }
 }
 
-function typeName(tipoNovo: unknown): string | undefined {
-  return MOCK_ACCOUNTS.meta.tipos.find((t) => t.id === tipoNovo)?.nome;
+function accountType(tipoNovo: unknown) {
+  return MOCK_ACCOUNTS.meta.tipos.find((t) => t.id === tipoNovo);
+}
+
+function accountOf(conta: unknown): Account | undefined {
+  const id = idOf(conta);
+  return MOCK_ACCOUNTS.items.find((a) => a.id === id);
 }
 
 function isCreditCardId(conta: unknown): boolean {
-  const id = Number(conta);
-  const account = MOCK_ACCOUNTS.items.find((a) => a.id === id);
-  return account?.tipo === 'CARTAOCREDITO';
+  return accountOf(conta)?.tipo === 'CARTAOCREDITO';
 }
 
 async function accountsRoute(req: Request, path: string): Promise<Response> {
@@ -100,23 +104,24 @@ async function accountsRoute(req: Request, path: string): Promise<Response> {
       const body = await readJsonBody(req);
       if (body instanceof Response) return body;
       const nome = body.nome;
-      const tipo = typeName(body.tipoNovo);
+      const type = accountType(body.tipoNovo);
       if (typeof nome !== 'string' || !nome) return badRequest('nome is required');
-      if (!tipo) return badRequest(`unknown tipoNovo ${String(body.tipoNovo)}`);
+      if (!type) return badRequest(`unknown tipoNovo ${String(body.tipoNovo)}`);
+      const tipo = type.nome;
       const created: Account = {
         id: NEW_ACCOUNT_ID,
         nome,
         tipo,
-        tipoNovo: Number(body.tipoNovo),
+        tipoNovo: type.id,
         status: true,
         encerrada: false,
         exibirBP: body.exibirBP !== false,
         apenasTransferencia: false,
-        saldoInicial: Number(body.saldoInicial ?? 0),
-        moeda: Number(body.moeda ?? 1),
+        saldoInicial: requiredNumber(body.saldoInicial ?? 0, 'saldoInicial'),
+        moeda: requiredNumber(body.moeda ?? 1, 'moeda'),
         dataSaldoInicial: typeof body.dataSaldoInicial === 'string' ? body.dataSaldoInicial : undefined,
         considerarCarteiraInvestimentos: 1,
-        liquidez: Number(body.liquidez ?? 1),
+        liquidez: requiredNumber(body.liquidez ?? 1, 'liquidez'),
         permissoes: { visivel: true, acoes: { editar: true, excluir: true } },
         ...(typeof body.banco === 'string' && { banco: { id: body.banco, nome: body.banco, img: '', tipo: [tipo] } }),
       };
@@ -126,14 +131,14 @@ async function accountsRoute(req: Request, path: string): Promise<Response> {
   }
 
   const match = path.match(/^\/api\/v1\/cadastros\/contas\/(\d+)$/);
-  const existing = match && MOCK_ACCOUNTS.items.find((a) => a.id === Number(match[1]));
+  const existing = match && accountOf(match[1]);
   if (!existing) return notFound();
 
   if (req.method === 'PUT') {
     const body = await readJsonBody(req);
     if (body instanceof Response) return body;
     const { banco: _banco, ...changes } = body;
-    const updated: Account = { ...existing, ...changes, id: existing.id, tipo: typeName(changes.tipoNovo) ?? existing.tipo };
+    const updated: Account = { ...existing, ...changes, id: existing.id, tipo: accountType(changes.tipoNovo)?.nome ?? existing.tipo };
     return Response.json(updated);
   }
   if (req.method === 'DELETE') {
@@ -153,13 +158,14 @@ function entriesListRoute(url: URL): Response {
   const ids = (JSON.parse(url.searchParams.get('contas') ?? '{}') as { ids?: number[] }).ids ?? [];
   const from = url.searchParams.get('inicio') ?? '';
   const to = url.searchParams.get('fim') ?? '';
-  const repetition = Number(url.searchParams.get('tipoRepeticao') ?? 7);
+  const repetition = parseInteger(url.searchParams.get('tipoRepeticao') ?? '7');
+  if (repetition === undefined) return badRequest('tipoRepeticao must be a whole number');
   const candidates = url.searchParams.get('finalidade') === '3' ? IMPORT_CANDIDATES : [];
   const list = [...Object.values(SEEDED_ENTRIES), ...candidates].filter((e) => {
     const date = String(e.dataPrevista);
     // Like the real statement list (finalidade 1), card purchases are left out:
     // they only show up in the card's invoices.
-    return ids.includes(Number(e.conta)) && !isCreditCardId(e.conta) && date >= from && date <= to && (repetitionBit(e) & repetition) !== 0;
+    return ids.includes(e.conta) && !isCreditCardId(e.conta) && date >= from && date <= to && (repetitionBit(e) & repetition) !== 0;
   });
   const response: EntriesResponse = { list, meta: { total: list.length, page: 1, pageSize: 200 } };
   return Response.json(response);
@@ -198,7 +204,8 @@ async function entriesRoute(req: Request, path: string): Promise<Response> {
 
   const match = path.match(/^\/api\/v1\/lancamentos\/(\d+)$/);
   if (!match) return notFound();
-  const id = Number(match[1]);
+  const id = parseId(match[1]);
+  if (id === undefined) return notFound();
   const existing = SEEDED_ENTRIES[id];
   if (!existing) return notFound();
 
@@ -211,7 +218,7 @@ async function entriesRoute(req: Request, path: string): Promise<Response> {
     if (body.todos !== undefined && (typeof body.todos !== 'boolean' || !inSeries)) {
       return badRequest('todos only applies to an occurrence of a series, as a boolean');
     }
-    const invalidAccounts = checkUpdateAccounts(body, (conta) => MOCK_ACCOUNTS.items.find((a) => a.id === Number(conta))?.tipo);
+    const invalidAccounts = checkUpdateAccounts(body, (conta) => accountOf(conta)?.tipo);
     if (invalidAccounts) return badRequest(invalidAccounts);
     const transfer = body.transferencia === true;
     const merged: Record<string, unknown> = { ...existing, ...body, id };
@@ -227,8 +234,8 @@ async function entriesRoute(req: Request, path: string): Promise<Response> {
       agendaId: keepsSeries ? existing.agendaId : null,
       parcela: keepsSeries ? existing.parcela : null,
       tipo: entryType(merged.tipo),
-      valor: Number(merged.valor),
-      valorPrevisto: Number(merged.valor),
+      valor: requiredNumber(merged.valor, 'valor'),
+      valorPrevisto: requiredNumber(merged.valor, 'valor'),
       valorEfetivo: numberOrNull(merged.valorEfetivo),
       estorno: merged.estorno === true,
       data: String(merged.data ?? existing.data),
@@ -237,9 +244,9 @@ async function entriesRoute(req: Request, path: string): Promise<Response> {
       dataCriacao: new Date().toISOString(),
       exibirCp: true,
       exibirCr: true,
-      conta: transfer ? Number(body.contaOrigem) : Number(merged.conta ?? existing.conta),
+      conta: transfer ? requiredId(body.contaOrigem, 'contaOrigem') : requiredId(merged.conta ?? existing.conta, 'conta'),
       plastico: numberOrNull(merged.plastico),
-      ...(transfer && { contaT: Number(body.contaDestino) }),
+      ...(transfer && { contaT: requiredId(body.contaDestino, 'contaDestino') }),
     };
     return Response.json(updated);
   }

@@ -1,3 +1,4 @@
+import { parseInteger } from '../src/utils/parse.js';
 import { normalizeTerm } from './private-terms.js';
 
 export interface DeletedLine {
@@ -36,7 +37,7 @@ export function deletedLines(base: string, head: string, root: string): DeletedL
     } else if (raw.startsWith('@@ ')) {
       inHunk = true;
       const match = /^@@ -(\d+)(?:,\d+)? /.exec(raw);
-      line = match ? Number(match[1]) : 0;
+      line = match ? parseInteger(match[1]) ?? 0 : 0;
     } else if (inHunk) {
       if (!raw.startsWith('-')) continue;
       lines.push({ file, line, text: raw.slice(1) });

@@ -2,6 +2,7 @@ import { createHash, createHmac } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { parseInteger } from '../src/utils/parse.js';
 import { ALLOWED_PHRASE_HASHES, KEYED_TERM_HASHES, PRIVATE_TERM_HASHES } from './private-terms-hashes.js';
 
 export { ALLOWED_PHRASE_HASHES, KEYED_TERM_HASHES, PRIVATE_TERM_HASHES } from './private-terms-hashes.js';
@@ -242,13 +243,14 @@ function blobContents(root: string, objects: string[]): Map<string, Buffer> {
     const newline = output.indexOf(0x0a, offset);
     if (newline === -1) throw new Error(`git cat-file output ended early at ${object}`);
     const header = output.subarray(offset, newline).toString();
-    const [hash, type, size] = header.split(' ');
+    const [hash, type, sizeText] = header.split(' ');
+    const size = parseInteger(sizeText ?? '');
     if (hash !== object || type !== 'blob' || size === undefined) {
       throw new Error(`unexpected git cat-file header: ${header}`);
     }
     offset = newline + 1;
-    contents.set(object, output.subarray(offset, offset + Number(size)));
-    offset += Number(size) + 1;
+    contents.set(object, output.subarray(offset, offset + size));
+    offset += size + 1;
   }
   return contents;
 }

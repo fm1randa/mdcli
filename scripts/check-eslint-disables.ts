@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import tseslint from 'typescript-eslint';
+import { parseInteger } from '../src/utils/parse.js';
 
 // A copied eslint-disable is how the bare-exit pattern spread (#155, #187).
 // Compare the branch with main and fail on any added directive without a
@@ -11,7 +12,13 @@ const DIRECTIVE = /^\s*eslint-disable(?:-next-line|-line)?\b/;
 const REASON = /\s--\s+\S/;
 const LINTED = /\.(?:[cm]?[jt]sx?)$/;
 
-export interface AddedDisable {
+function hunkStart(digits: string, header: string): number {
+  const line = parseInteger(digits);
+  if (line === undefined) throw new Error(`unreadable diff hunk header: ${header}`);
+  return line;
+}
+
+interface AddedDisable {
   path: string;
   line: number;
   text: string;
@@ -31,7 +38,7 @@ interface DiffLine {
   text: string;
 }
 
-export type Side = 'old' | 'new';
+type Side = 'old' | 'new';
 export type ContentReader = (path: string, side: Side) => string | undefined;
 
 function parseDiff(diff: string): { added: DiffLine[]; removed: DiffLine[] } {
@@ -52,8 +59,8 @@ function parseDiff(diff: string): { added: DiffLine[]; removed: DiffLine[] } {
     }
     const hunk = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/.exec(raw);
     if (hunk) {
-      oldLine = Number(hunk[1]);
-      newLine = Number(hunk[2]);
+      oldLine = hunkStart(hunk[1], raw);
+      newLine = hunkStart(hunk[2], raw);
       continue;
     }
     if (path === '' || !LINTED.test(path)) continue;

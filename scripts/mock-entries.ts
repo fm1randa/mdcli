@@ -1,5 +1,7 @@
 import type { CardInvoiceEntry, CreateEntryResponse, Entry, EntryId, OccurrenceId } from '../src/types/index.js';
 import { localDay } from '../test/helpers.js';
+import { roundToCents } from '../src/utils/currency.js';
+import { isPositiveSafeInteger, parseId } from '../src/utils/parse.js';
 
 // Seeded entries for GET/PUT/DELETE /v1/lancamentos/:id (parity with unit fixtures).
 export const SEEDED_ENTRIES: Record<number, Entry> = {
@@ -171,8 +173,8 @@ export function checkCreatePayload(body: Body): string | null {
     if (!Array.isArray(parcelas) || parcelas.length !== agenda.quantidade) {
       return 'an installment series needs one parcela per installment';
     }
-    const sum = parcelas.reduce((acc, p) => acc + Math.round(p.valor * 100), 0);
-    if (sum !== Math.round(Number(body.valor) * 100)) return 'valor must be the sum of the parcelas';
+    const sum = parcelas.reduce((acc, p) => acc + p.valor, 0);
+    if (roundToCents(sum) !== roundToCents(requiredNumber(body.valor, 'valor'))) return 'valor must be the sum of the parcelas';
   }
   return null;
 }
@@ -202,6 +204,26 @@ export function numberOrNull(value: unknown): number | null {
   return typeof value === 'number' ? value : null;
 }
 
+// The routes check a payload before they build an answer from it, so a field
+// that is still not a number here is a CLI regression: fail the request loudly
+// instead of coercing it the way Number() would.
+export function requiredNumber(value: unknown, field: string): number {
+  if (typeof value !== 'number') throw new Error(`mock: ${field} must be a number, got ${JSON.stringify(value)}`);
+  return value;
+}
+
+/** An account ID as the CLI sends it: a JSON number, or a digit string in a create payload's conta. */
+export function idOf(value: unknown): number | undefined {
+  if (typeof value === 'string') return parseId(value);
+  return isPositiveSafeInteger(value) ? value : undefined;
+}
+
+export function requiredId(value: unknown, field: string): number {
+  const id = idOf(value);
+  if (id === undefined) throw new Error(`mock: ${field} must be an ID, got ${JSON.stringify(value)}`);
+  return id;
+}
+
 function numberArray(value: unknown): number[] {
   return Array.isArray(value) ? value.filter((item): item is number => typeof item === 'number') : [];
 }
@@ -210,7 +232,7 @@ function numberArray(value: unknown): number[] {
 export const mockEntryId = (id: number): EntryId => id as EntryId;
 
 /** An occurrence ID ("<series>A<date>") from the mock. */
-export const mockOccurrenceId = (id: string): OccurrenceId => id as OccurrenceId;
+const mockOccurrenceId = (id: string): OccurrenceId => id as OccurrenceId;
 
 /** The API's answer to POST /v1/lancamentos for a payload that passed checkCreatePayload. */
 export function createdEntry(body: Body, id: EntryId | OccurrenceId): CreateEntryResponse {
@@ -227,8 +249,8 @@ export function createdEntry(body: Body, id: EntryId | OccurrenceId): CreateEntr
     status: statusLabel(body) ?? 'pendente',
     tipo: entryType(body.tipo),
     // The server stores one entry per installment; this is the first one.
-    valor: parcelas ? parcelas[0].valor : Number(body.valor),
-    valorPrevisto: parcelas ? parcelas[0].valor : Number(body.valorPrevisto ?? body.valor),
+    valor: parcelas ? parcelas[0].valor : requiredNumber(body.valor, 'valor'),
+    valorPrevisto: parcelas ? parcelas[0].valor : requiredNumber(body.valorPrevisto ?? body.valor, 'valorPrevisto'),
     valorEfetivo: numberOrNull(body.valorEfetivo),
     data: String(body.data ?? new Date().toISOString()),
     dataPrevista: String(body.dataPrevista ?? ''),
@@ -238,13 +260,13 @@ export function createdEntry(body: Body, id: EntryId | OccurrenceId): CreateEntr
     exibirCr: true,
     permissoes: { visivel: true, acoes: { conciliar: true, confirmar: true, editar: true, excluir: true, clonar: true } },
     estorno: false,
-    conta: Number(body.conta ?? body.contaOrigem),
+    conta: requiredId(body.conta ?? body.contaOrigem, 'conta'),
     categoria: numberOrNull(body.categoria),
     tags: numberArray(body.tags),
     observacoes: String(body.observacoes ?? ''),
     lembrete: '0',
     automatico: body.automatico === true,
-    ...(body.transferencia === true && { contaT: Number(body.contaDestino), valorT: Number(body.valorT) }),
+    ...(body.transferencia === true && { contaT: requiredId(body.contaDestino, 'contaDestino'), valorT: requiredNumber(body.valorT, 'valorT') }),
     ...(parcelas && { parcela: `${agenda?.inicial ?? 1}/${agenda?.quantidade}` }),
   };
 }
@@ -270,13 +292,13 @@ const cardPurchases: StoredCardPurchase[] = [];
 export function createCardPurchase(body: Body): CreateEntryResponse {
   const id = nextCardEntryId++;
   const parcelas = body.parcelas as { valor: number }[] | undefined;
-  const valor = parcelas ? parcelas[0].valor : Number(body.valor);
+  const valor = parcelas ? parcelas[0].valor : requiredNumber(body.valor, 'valor');
   // A purchase has no effective date but is not pending: it sits on the invoice.
   const purchase: CreateEntryResponse = { ...createdEntry(body, mockEntryId(id)), status: 'confirmado' };
   SEEDED_ENTRIES[id] = { ...purchase, status: 'confirmado', valor, lembrete: 0, tags: numberArray(body.tags), observacoes: String(body.observacoes ?? '') };
   cardPurchases.push({
     id,
-    conta: Number(body.conta),
+    conta: requiredId(body.conta, 'conta'),
     descricao: String(body.descricao),
     valor,
     data: String(body.dataCompetencia),
