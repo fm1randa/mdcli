@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
+import { createHome, localDay, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE } from './fixtures.js';
 import { CONNECTIONS, mockStatement, SINCE } from './import-harness.js';
 
@@ -42,8 +42,15 @@ function entries(list: unknown[]) {
   api.on('GET /v2/lancamentos', { list, meta: { total: list.length, page: 1, pageSize: 500 } });
 }
 
-function run(args: string[], stdin?: string) {
-  return runCli(['entries', 'import', 'run', '-a', '201', '--since', SINCE, ...args], { home, api, stdin });
+function run(args: string[], stdin?: string, extraEnv?: Record<string, string>) {
+  return runCli(['entries', 'import', 'run', '-a', '201', '--since', SINCE, ...args], { home, api, stdin, extraEnv });
+}
+
+function localDayOf(epochMs: number): string {
+  const date = new Date(epochMs);
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${date.getFullYear()}-${month}-${day}`;
 }
 
 function routes(): string[] {
@@ -116,6 +123,22 @@ describe('entries import run --yes', () => {
     expect(document.imported.map((row: { integrationId: string }) => row.integrationId)).toEqual([TX1]);
     expect(document.rejected).toEqual([{ integrationId: TX2, prefix: 'bbbb2222' }]);
     expect(document.markImportedError).toBeNull();
+  });
+});
+
+describe('entries import run importId clock', () => {
+  test('stamps importId from the pinned clock, so MDCLI_TODAY moves it to that day', async () => {
+    statement([bank(TX1, { _ca: { c: { d: { descricao: { v: 'Padaria' } } } } })]);
+    const pinned = localDay(1);
+
+    const result = await run(['--ids', 'aaaa1111', '-c', '10', '--yes', '--json'], undefined, { MDCLI_TODAY: pinned });
+
+    expect(result.stderr).toBe('');
+    expect(result.exitCode).toBe(0);
+    const importing = mutations(api).find((request) => request.path === '/v1/lancamentos/importar');
+    const { importId } = importing?.body as { importId: number };
+    expect(Number.isInteger(importId)).toBe(true);
+    expect(localDayOf(importId)).toBe(pinned);
   });
 });
 

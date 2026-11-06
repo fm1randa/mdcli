@@ -25,6 +25,11 @@ export function now(): Date {
   return current;
 }
 
+/** The current moment from now() in epoch milliseconds, as the web stamps an import. */
+export function nowMs(): number {
+  return now().getTime();
+}
+
 /** Today's local calendar day (YYYY-MM-DD), from now(). */
 export function today(): string {
   return toLocalDateString(now());
