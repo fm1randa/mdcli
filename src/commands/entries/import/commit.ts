@@ -3,7 +3,7 @@ import {
   importBankTransactions,
   markBankTransactionsImported,
 } from '../../../lib/api.js';
-import { addInterval, compareDates } from '../../../lib/dates.js';
+import { addInterval, compareDates, nowMs } from '../../../lib/dates.js';
 import { t } from '../../../lib/i18n/index.js';
 import type { ImportDocument } from './document.js';
 import type { RunDocument } from './plan.js';
@@ -106,8 +106,7 @@ export async function commitRun(input: CommitInput): Promise<void> {
         connectionAccount: run.connectionAccount,
         maxDate,
         fonte: SOURCE,
-        // eslint-disable-next-line local/no-ambient-clock -- unique id in ms, as the web stamps it, not a calendar day
-        importId: Date.now(),
+        importId: nowMs(),
       });
     } catch (error) {
       throw new Error(
