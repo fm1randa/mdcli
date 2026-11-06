@@ -3,7 +3,7 @@
 // slice; the diff parsing, the comment lexer and the type-only detection live
 // here so a false positive is fixed once instead of in three copies.
 
-export type LineKind = 'add' | 'remove' | 'context';
+type LineKind = 'add' | 'remove' | 'context';
 
 export interface DiffLine {
   kind: LineKind;
@@ -15,7 +15,7 @@ export interface DiffFile {
   hunks: DiffLine[][];
 }
 
-export type CommentStyle = 'js' | 'shell';
+type CommentStyle = 'js' | 'shell';
 
 export interface BehaviorOptions {
   /** A declaration that only changes types is not behavior (risk's slice). */

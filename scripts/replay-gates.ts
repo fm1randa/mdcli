@@ -12,7 +12,7 @@ export interface CommitInput {
   nameStatus: string;
 }
 
-export interface GateDecision {
+interface GateDecision {
   gate: string;
   fired: boolean;
   detail: string;
@@ -23,7 +23,7 @@ export interface Gate {
   decide(commit: CommitInput): GateDecision;
 }
 
-export interface CommitReplay {
+interface CommitReplay {
   sha: string;
   subject: string;
   decisions: GateDecision[];
@@ -107,7 +107,7 @@ const PROVA_GATE: Gate = {
 };
 
 /** The registry a new gate joins, with its own decide() over a commit. */
-export const GATES: readonly Gate[] = [RISK_GATE, FAILS_ON_MAIN_GATE, PROVA_GATE];
+const GATES: readonly Gate[] = [RISK_GATE, FAILS_ON_MAIN_GATE, PROVA_GATE];
 
 export function replayGates(commits: readonly CommitInput[], gates: readonly Gate[] = GATES): ReplayReport {
   const replayed = commits.map((commit) => ({
@@ -133,7 +133,7 @@ function gitQuiet(args: string[], root: string): string | undefined {
   return result.exitCode === 0 ? result.stdout.toString().trim() : undefined;
 }
 
-export function defaultRevision(root: string): string {
+function defaultRevision(root: string): string {
   for (const candidate of ['origin/main', 'main', 'HEAD']) {
     if (gitQuiet(['rev-parse', '--verify', '--quiet', candidate], root) !== undefined) return candidate;
   }

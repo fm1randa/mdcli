@@ -36,6 +36,9 @@ const SECURITY_SURFACES: readonly SecuritySurface[] = [
   { path: /^test\/check-private-messages\.test\.ts$/, detail: 'private-data message guard test changed' },
   { path: /^scripts\/verify\.sh$/, detail: 'verification script changed' },
   { path: /^eslint-rules\//, detail: 'local ESLint rule changed' },
+  // The guard parses git output with these helpers (#262), so a change here
+  // changes what the guard reads even when no guard file moves.
+  { path: /^src\/utils\/parse\.ts$/, detail: 'parse helper the private-data guard imports changed' },
 ];
 
 const TEST_PATH = /^(?:test\/|.*\.(?:test|spec)\.[cm]?[jt]sx?$)/;
@@ -99,7 +102,7 @@ function addReason(reasons: RiskReason[], seen: Set<string>, reason: RiskReason)
   reasons.push(reason);
 }
 
-function securityDetail(path: string): string | undefined {
+export function securityDetail(path: string): string | undefined {
   return SECURITY_SURFACES.find((surface) => surface.path.test(path))?.detail;
 }
 

@@ -13,7 +13,7 @@ const UPDATE_PATH = /^\/api\/v1\/integracao\/connection\/update\/(\d+)$/;
 // Fast enough for verify.sh, positive as the real statusCheckWindow.
 const MOCK_STATUS_CHECK_WINDOW_SECONDS = 0.05;
 
-export const MOCK_CONNECTIONS: ConnectionsResponse = [
+const MOCK_CONNECTIONS: ConnectionsResponse = [
   {
     id: 501,
     status: 'UPDATED',
