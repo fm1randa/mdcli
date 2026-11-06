@@ -424,7 +424,8 @@ mdcli entries import run --account principal --ids 1a2b3c4d --category food --ov
 mdcli entries import run --account principal --plan plan.json --yes
 # A saída de "entries import list --json" já é um plano válido: edite action,
 # category, value, description ou entry e passe o arquivo para --plan.
-# Uma linha sem categoria (IA indisponível ou --no-ai) faz o plano inteiro ser recusado.
+# Uma linha import sem categoria (nem a regra nem a IA sugeriram uma) faz o plano
+# inteiro ser recusado.
 
 # Ou no $EDITOR, no estilo do git rebase -i: uma linha por transação
 # (<comando> <prefixo> <data> <valor> <categoria> | <descrição>). Um erro reabre
