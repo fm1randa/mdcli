@@ -11,7 +11,10 @@ import { t } from './i18n/index.js';
 
 export { normalizeCategories, normalizeAccounts, normalizeCards, normalizeTags, normalizeEntries, normalizeCardEntries, normalizeCardInstallments } from './normalize.js';
 
-const BASE_URL = process.env.MDCLI_API_URL ?? 'https://app.meudinheiroweb.com.br/api';
+/** Read at call time, so a test or caller that sets MDCLI_API_URL after import still reaches it. */
+function apiBaseUrl(): string {
+  return process.env.MDCLI_API_URL ?? 'https://app.meudinheiroweb.com.br/api';
+}
 
 let refreshPromise: Promise<AuthConfig> | null = null;
 
@@ -111,7 +114,7 @@ async function request<T>(method: HttpMethod, endpoint: string, body?: unknown):
     throw new Error(t('errorNotAuthenticated'));
   }
 
-  const url = `${BASE_URL}${endpoint}`;
+  const url = `${apiBaseUrl()}${endpoint}`;
   const headersFor = (a: AuthConfig): Record<string, string> =>
     method === 'GET'
       ? buildHeaders(a)

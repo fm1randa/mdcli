@@ -1,5 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, test } from 'bun:test';
+import type { Command as Commander } from 'commander';
+import { buildProgram } from '../src/program.js';
 
 const ROOT = `${import.meta.dir}/..`;
 
@@ -8,35 +10,24 @@ const ROOT = `${import.meta.dir}/..`;
 // Hidden options are skipped on purpose: `--scheduled` is a hidden deprecated
 // alias of `--pending`. Walks the real commander tree, so a new command or
 // option fails here until it is documented (entries import and sync shipped
-// without one). The walk runs in its own process: importing the commands here
-// would load src/lib/api.ts, which reads MDCLI_API_URL once, before other test
-// files set it.
-const WALK = `
-  import { buildProgram } from './src/program.ts';
-  const program = await buildProgram();
-  const walk = (command, prefix) => command.commands.flatMap((sub) => {
+// without one).
+type Command = { path: string; options: string[] };
+
+function walk(command: Commander, prefix: string[]): Command[] {
+  return command.commands.flatMap((sub) => {
     const path = [...prefix, sub.name()];
     return sub.commands.length === 0
       ? [{
           path: path.join(' '),
-          options: sub.options
-            .filter((option) => !option.hidden && typeof option.long === 'string')
-            .map((option) => option.long),
+          options: sub.options.flatMap((option) =>
+            !option.hidden && typeof option.long === 'string' ? [option.long] : []
+          ),
         }]
       : walk(sub, path);
   });
-  console.log(JSON.stringify(walk(program, ['mdcli'])));
-`;
-
-type Command = { path: string; options: string[] };
-
-function commands(): Command[] {
-  const walked = Bun.spawnSync(['bun', '-e', WALK], { cwd: ROOT });
-  if (walked.exitCode !== 0) throw new Error(walked.stderr.toString());
-  return JSON.parse(walked.stdout.toString()) as Command[];
 }
 
-const COMMANDS = commands();
+const COMMANDS = walk(await buildProgram(), ['mdcli']);
 const PATHS = COMMANDS.map((command) => command.path);
 
 /** Escape regex metacharacters so a literal command path or option can be matched. */
