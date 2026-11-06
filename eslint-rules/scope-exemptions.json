@@ -12,6 +12,10 @@
   "no-literal-since": {
     "src/**": "The rule guards fixed dates written in tests; commands read the --since value the user passed."
   },
+  "no-raw-spawn": {
+    "src/**": "The rule guards the gate infrastructure in scripts/; the CLI's own children (self-update, browser login, the import editor) belong to src/.",
+    "test/**": "Tests drive the scripts as a user does (bun scripts/x.ts) and build throwaway git repositories; scripts/git.ts owns only the gates' children."
+  },
   "no-short-option-equals": {
     "src/**": "preprocessShortOptions runs only in bin/cli.ts, before commander parses argv.",
     "test/**": "Tests exercise the preprocessing through the real CLI (test/cli-short-option-equals.test.ts), not by importing it."

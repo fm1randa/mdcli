@@ -118,6 +118,13 @@ export default tseslint.config(
     rules: { "local/no-bare-process-exit": "error" },
   },
   {
+    // scripts/ spawns git, gh and bun only through scripts/git.ts (#260).
+    // src/** and test/** are exempt in eslint-rules/scope-exemptions.json.
+    files: ["scripts/**/*.ts"],
+    ignores: ["scripts/git.ts"],
+    rules: { "local/no-raw-spawn": "error" },
+  },
+  {
     ignores: ["node_modules", "dist"],
   }
 );

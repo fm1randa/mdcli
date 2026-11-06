@@ -1,13 +1,16 @@
-// Single owner for "does this diff change behavior?" (#236). prova, the
-// fails-on-main gate and risk each ask that question with their own path
-// slice; the diff parsing, the comment lexer and the type-only detection live
-// here so a false positive is fixed once instead of in three copies.
+// Single owner for "does this diff change behavior?" (#236) and for parsing a
+// unified diff (#260). prova, the fails-on-main gate and risk each ask that
+// question with their own path slice; check-eslint-disables and the private
+// terms corpus read the numbered lines. The diff parsing, the comment lexer and
+// the type-only detection live here so a false positive is fixed once.
 
 export type LineKind = 'add' | 'remove' | 'context';
 
 export interface DiffLine {
   kind: LineKind;
   text: string;
+  /** The line number on the side that holds it: old for a removal, new otherwise. */
+  line: number;
 }
 
 export interface DiffFile {
@@ -31,29 +34,43 @@ export interface BehaviorScope extends BehaviorOptions {
 const TYPE_DECLARATION = /^\s*(?:export\s+)?(?:declare\s+)?(?:interface\s+\w|type\s+\w+\s*[=<]|import\s+type\b)/;
 const TYPE_OPEN = /^\s*(?:export\s+)?(?:declare\s+)?(?:interface|type)\s+\w+/;
 
-/** The unified diff split into files and hunks, as the question needs it. */
+/**
+ * The unified diff split into files and hunks, as the question needs it. A
+ * header git quotes (a path with a tab or a quote) still opens a file, so its
+ * lines are never dropped: the raw header stands in for the path.
+ */
 export function parseDiff(text: string): DiffFile[] {
   const files: DiffFile[] = [];
   let file: DiffFile | undefined;
   let hunk: DiffLine[] | undefined;
+  let oldLine = 0;
+  let newLine = 0;
   for (const raw of text.split('\n')) {
-    const header = /^diff --git a\/(.+) b\/(.+)$/.exec(raw);
-    if (header) {
-      file = { path: header[2] === '/dev/null' ? header[1] : header[2], hunks: [] };
+    if (raw.startsWith('diff --git ')) {
+      const header = /^diff --git a\/(.+) b\/(.+)$/.exec(raw);
+      file = { path: header ? header[2] : raw.slice('diff --git '.length), hunks: [] };
       files.push(file);
       hunk = undefined;
       continue;
     }
     if (!file) continue;
-    if (raw.startsWith('@@')) {
+    const start = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/.exec(raw);
+    if (start) {
       hunk = [];
       file.hunks.push(hunk);
+      oldLine = Number(start[1]);
+      newLine = Number(start[2]);
       continue;
     }
     if (!hunk) continue;
-    if (raw.startsWith('+')) hunk.push({ kind: 'add', text: raw.slice(1) });
-    else if (raw.startsWith('-')) hunk.push({ kind: 'remove', text: raw.slice(1) });
-    else if (raw.startsWith(' ')) hunk.push({ kind: 'context', text: raw.slice(1) });
+    if (raw.startsWith('+')) {
+      hunk.push({ kind: 'add', text: raw.slice(1), line: newLine++ });
+    } else if (raw.startsWith('-')) {
+      hunk.push({ kind: 'remove', text: raw.slice(1), line: oldLine++ });
+    } else if (raw.startsWith(' ')) {
+      hunk.push({ kind: 'context', text: raw.slice(1), line: newLine++ });
+      oldLine++;
+    }
   }
   return files;
 }

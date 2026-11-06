@@ -1,0 +1,7 @@
+{
+  "rule": "no-raw-spawn",
+  "origin": "1045a83",
+  "source": "scripts/replay-gates.ts",
+  "note": "Each gate in scripts/ spawned git through its own Bun.spawnSync wrapper; replay-gates had two copies of it (#260).",
+  "code": "const result = Bun.spawnSync(['git', ...args], { cwd: root, stdout: 'pipe', stderr: 'pipe' });"
+}

@@ -35,6 +35,7 @@ Each rule below names the check that fails when it breaks. A rule marked *text o
 | The suite gives the same result on any terminal | environment normalization, guard test, and a hostile `TERM` in CI | `test/setup.ts`, `test/terminal-env.test.ts`, `.github/workflows/ci.yml` |
 | Tests pass a relative `--since` and read a pinned clock | `no-literal-since`, `no-ambient-clock`, restricted date imports; `TZ` and `MDCLI_TODAY` pinned | `eslint-rules/`, `eslint.config.js`, `test/setup.ts` |
 | Strings become numbers only through the strict helpers | `no-loose-number` | `eslint-rules/no-loose-number.js` |
+| `scripts/` spawns git, gh and bun only through `scripts/git.ts`, which also owns the `--base` default; diffs are parsed only by `scripts/behavior-change.ts` | `no-raw-spawn` | `eslint-rules/no-raw-spawn.js`, `scripts/git.ts` |
 | A category name resolves through its single owner (active wins, ambiguous and inactive refused) | `no-category-name-resolution` | `eslint-rules/no-category-name-resolution.js` |
 | Review notes never reach a commit (item 19) | `git ls-files 'REVIEW-*.md'` must be empty | `scripts/verify.sh`, `.gitignore` |
 | The private-data guard covers commit messages and the PR body, not only the tracked tree | `private messages` step (CI `verify`, rerun on a PR body edit) | `scripts/check-private-messages.ts`, `scripts/verify.sh`, `.github/workflows/ci.yml` |

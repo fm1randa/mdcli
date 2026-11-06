@@ -2,6 +2,7 @@ import { appendFileSync, cpSync, existsSync, mkdtempSync, rmSync, symlinkSync } 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { changesBehavior, parseDiff } from './behavior-change.js';
+import { DEFAULT_BASE, git, repoRoot, spawn } from './git.js';
 import { parseInteger } from '../src/utils/parse.js';
 import { decideGate, exemptionSummary, invalidExemptionSummary } from './fails-on-main-exemption.js';
 
@@ -74,7 +75,7 @@ interface Options {
 }
 
 function parseOptions(argv: string[]): Options {
-  const options: Options = { base: 'origin/main', repeat: DEFAULT_REPEAT };
+  const options: Options = { base: DEFAULT_BASE, repeat: DEFAULT_REPEAT };
   for (let index = 0; index < argv.length; index++) {
     const arg = argv[index];
     if (arg === '--base') {
@@ -90,18 +91,6 @@ function parseOptions(argv: string[]): Options {
     }
   }
   return options;
-}
-
-function git(args: string[], cwd: string): string {
-  const result = Bun.spawnSync(['git', ...args], { cwd, stdout: 'pipe', stderr: 'pipe' });
-  if (result.exitCode !== 0) {
-    throw new Error(`git ${args.join(' ')} failed: ${result.stderr.toString().trim()}`);
-  }
-  return result.stdout.toString();
-}
-
-function repoRoot(): string {
-  return git(['rev-parse', '--show-toplevel'], process.cwd()).trim();
 }
 
 function runTests(root: string, base: string, files: string[], repeat: number): RunResult[] {
@@ -120,11 +109,7 @@ function runTests(root: string, base: string, files: string[], repeat: number): 
     for (const file of files) {
       for (let run = 1; run <= repeat; run++) {
         console.log(`fails-on-main: ${file} run ${run} of ${repeat}`);
-        const result = Bun.spawnSync(['bun', 'test', `./${file}`, '--timeout', '20000'], {
-          cwd: worktree,
-          stdout: 'pipe',
-          stderr: 'pipe',
-        });
+        const result = spawn(['bun', 'test', `./${file}`, '--timeout', '20000'], { cwd: worktree });
         const output = `${result.stdout.toString()}\n${result.stderr.toString()}`;
         process.stdout.write(result.stdout);
         process.stderr.write(result.stderr);
