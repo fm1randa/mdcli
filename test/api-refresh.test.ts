@@ -1,7 +1,7 @@
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterAll, beforeAll, beforeEach, describe, expect, mock, test } from 'bun:test';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, mock, test } from 'bun:test';
 import { startMockApi, type MockApi } from './helpers.js';
 
 let api: MockApi;
@@ -20,19 +20,15 @@ function writeStaleConfig(): void {
   );
 }
 
-// One server for the whole file: src/lib/api.ts reads MDCLI_API_URL once at
-// import time, so per-test servers would leave later tests pointing at a
-// stopped port. Each test re-registers its routes and resets the config.
+// Each test gets its own server on a new port: src/lib/api.ts reads
+// MDCLI_API_URL on every request, so a test never reaches an earlier, stopped one.
 beforeAll(async () => {
-  api = startMockApi();
-
   savedConfigDir = process.env.MDCLI_CONFIG_DIR;
   savedApiUrl = process.env.MDCLI_API_URL;
   // The refresh path saves through src/lib/config.ts in this process, so the
   // config dir must be a temp one or the fresh credentials land in the real file.
   configDir = mkdtempSync(join(tmpdir(), 'mdcli-refresh-test-'));
   process.env.MDCLI_CONFIG_DIR = configDir;
-  process.env.MDCLI_API_URL = api.url;
 
   // mock.module replaces the module for every test file in the run, so keep the
   // real exports (e.g. parseFirefoxInstallDefaults) and override only what we need.
@@ -49,12 +45,17 @@ beforeAll(async () => {
 });
 
 beforeEach(() => {
+  api = startMockApi();
+  process.env.MDCLI_API_URL = api.url;
   writeStaleConfig();
   refreshes = 0;
 });
 
-afterAll(() => {
+afterEach(() => {
   api.stop();
+});
+
+afterAll(() => {
   rmSync(configDir, { recursive: true, force: true });
   mock.restore();
   if (savedConfigDir === undefined) {
