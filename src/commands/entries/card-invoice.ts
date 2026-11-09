@@ -1,4 +1,4 @@
-import { fetchCardInvoice, fetchFirstInvoiceDate } from '../../lib/api.js';
+import { fetchCardInvoice, fetchFirstInvoice } from '../../lib/api.js';
 import { t } from '../../lib/i18n/index.js';
 import { addInterval, calendarDay, dueDateInMonth, parseInvoiceMonth, shiftDueDate } from '../../lib/dates.js';
 import { parseInteger } from '../../utils/parse.js';
@@ -20,9 +20,16 @@ const MAX_INVOICE_STEPS = 24;
  * - displayDueDate (cards list) shows the field as the API sends it. Display
  *   only, never an invoice anchor.
  * test/eslint-local-rules.test.ts pins these three as the only readers.
+ * primeiraFatura answers an object, like the web reads it
+ * (`carregarPrimeiraFatura(id).then(k => k.vencimento)`), not a date string
+ * (issue #266).
  */
 export async function cardDueAnchor(account: Account): Promise<string> {
-  return (account.proximoVencimento ?? (await fetchFirstInvoiceDate(account.id))).slice(0, 10);
+  const own = account.proximoVencimento;
+  if (own !== undefined && own !== null) return own.slice(0, 10);
+  const dueDate = calendarDay((await fetchFirstInvoice(account.id))?.vencimento);
+  if (!dueDate) throw new Error(t('errorFirstInvoiceNoDueDate', account.id));
+  return dueDate;
 }
 
 /**
