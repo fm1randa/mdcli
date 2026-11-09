@@ -20,7 +20,8 @@ describe('local/no-raw-spawn', () => {
   test('fires on Bun.spawnSync and Bun.spawn in a gate, as the old wrappers wrote them', async () => {
     // The shape every gate copied before #260 (replay-gates, risk, prova, private-terms).
     const wrapper = "export function git(args: string[], root: string): string {\n  const result = Bun.spawnSync(['git', ...args], { cwd: root, stdout: 'pipe', stderr: 'pipe' });\n  return result.stdout.toString();\n}";
-    expect(await localRules(wrapper, GATE)).toEqual([RULE]);
+    // A raw git spawn is also a git copy (#268), so both owners' rules report it.
+    expect(await localRules(wrapper, GATE)).toEqual([RULE, 'local/no-git-copy']);
     expect(await localRules("export const proc = Bun.spawn(['gh', 'pr', 'view']);", GATE)).toEqual([RULE]);
     expect(await localRules("export const run = Bun['spawnSync'];", GATE)).toEqual([RULE]);
   });

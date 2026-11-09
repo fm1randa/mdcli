@@ -4,6 +4,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { countDisables, directiveLines } from '../scripts/check-eslint-disables.js';
 import type { ContentReader } from '../scripts/check-eslint-disables.js';
+import { git } from '../scripts/git.js';
+import { commitAll } from './git-repo.js';
 
 const HEADER = `diff --git a/src/lib/x.ts b/src/lib/x.ts
 index 1111111..2222222 100644
@@ -128,27 +130,18 @@ describe('check-eslint-disables step', () => {
   test('fails when the diff deletes one disable and copies another without a reason', () => {
     const repo = mkdtempSync(join(tmpdir(), 'mdcli-disables-'));
     const script = join(import.meta.dir, '..', 'scripts', 'check-eslint-disables.ts');
-    const git = (...args: string[]) => {
-      const result = Bun.spawnSync(
-        ['git', '-c', 'user.name=test', '-c', 'user.email=test@example.com', ...args],
-        { cwd: repo, stdout: 'pipe', stderr: 'pipe' }
-      );
-      if (result.exitCode !== 0) throw new Error(result.stderr.toString());
-    };
     try {
       mkdirSync(join(repo, 'src'), { recursive: true });
       writeFileSync(
         join(repo, 'src', 'a.ts'),
         'const a = 1;\n// eslint-disable-next-line local/no-raw-dash -- legacy\n'
       );
-      git('init', '-q');
-      git('add', '-A');
-      git('commit', '-qm', 'base');
+      git(['init', '-q'], repo);
+      commitAll(repo, 'base');
 
       writeFileSync(join(repo, 'src', 'a.ts'), 'const a = 1;\n');
       writeFileSync(join(repo, 'src', 'b.ts'), '// eslint-disable-next-line local/no-raw-dash\nexport const b = 1;\n');
-      git('add', '-A');
-      git('commit', '-qm', 'delete one, copy another');
+      commitAll(repo, 'delete one, copy another');
 
       const result = Bun.spawnSync(['bun', script, '--base', 'HEAD~1', '--head', 'HEAD'], {
         cwd: repo,

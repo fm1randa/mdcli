@@ -3,6 +3,8 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { decideGate, exemptTitle, parseBodyExemption } from '../scripts/fails-on-main-exemption.js';
+import { git } from '../scripts/git.js';
+import { commitAll } from './git-repo.js';
 
 const SCRIPT = join(import.meta.dir, '..', 'scripts', 'new-tests-fail-on-main.ts');
 
@@ -80,25 +82,10 @@ describe('decideGate', () => {
   });
 });
 
-function gitIn(root: string, ...args: string[]): void {
-  const result = Bun.spawnSync(
-    ['git', '-c', 'user.name=test', '-c', 'user.email=test@example.com', ...args],
-    { cwd: root, stdout: 'pipe', stderr: 'pipe' }
-  );
-  if (result.exitCode !== 0) throw new Error(result.stderr.toString());
-}
-
-function commit(root: string, message: string): void {
-  gitIn(root, 'add', '-A');
-  // Keep the temp commit hermetic: a signing or hooks setup in the machine's
-  // global git config must not change the suite's result.
-  gitIn(root, '-c', 'commit.gpgsign=false', '-c', 'core.hooksPath=/dev/null', 'commit', '-qm', message);
-}
-
 /** A temp repo whose head changes src/, with an optional test file that passes on both trees. */
 function tempRepo(withTest: boolean): string {
   const root = mkdtempSync(join(tmpdir(), 'mdcli-fails-on-main-exemption-'));
-  gitIn(root, 'init', '-q');
+  git(['init', '-q'], root);
   mkdirSync(join(root, 'src'), { recursive: true });
   mkdirSync(join(root, 'node_modules'), { recursive: true });
   writeFileSync(join(root, 'bunfig.toml'), '');
@@ -107,7 +94,7 @@ function tempRepo(withTest: boolean): string {
     mkdirSync(join(root, 'test'), { recursive: true });
     writeFileSync(join(root, 'test', 'a.test.ts'), "import { test } from 'bun:test';\ntest('base', () => {});\n");
   }
-  commit(root, 'base');
+  commitAll(root, 'base');
 
   writeFileSync(join(root, 'src', 'program.ts'), 'export const value = 2;\n');
   if (withTest) {
@@ -116,7 +103,7 @@ function tempRepo(withTest: boolean): string {
       "import { expect, test } from 'bun:test';\ntest('passes', () => { expect(1).toBe(1); });\n"
     );
   }
-  commit(root, 'head');
+  commitAll(root, 'head');
   return root;
 }
 

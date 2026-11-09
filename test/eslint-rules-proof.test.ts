@@ -1,11 +1,12 @@
 import { describe, expect, test } from 'bun:test';
-import { execFileSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ESLint, Linter } from 'eslint';
 import tseslint from 'typescript-eslint';
 import local from '../eslint-rules/index.js';
+import { git, revisionExists } from '../scripts/git.js';
+import { commitAll } from './git-repo.js';
 
 // Every local rule must prove two things in CI: it catches the code that
 // motivated it (a `before` fixture from that commit), and the config enables
@@ -55,23 +56,13 @@ function hasDescribe(rule: string): boolean {
   return sources.some((source) => pattern.test(source));
 }
 
-function git(args: string[], cwd = ROOT): string {
-  return execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
-}
-
 function normalize(source: string): string {
   return source.split('\n').map((line) => line.trim()).filter((line) => line !== '').join('\n');
 }
 
 function mainRef(cwd: string): string {
-  for (const ref of ['origin/main', 'main']) {
-    try {
-      git(['rev-parse', '--verify', '--quiet', `${ref}^{commit}`], cwd);
-      return ref;
-    } catch {
-      // Try the next ref; a checkout without main history has neither.
-    }
-  }
+  const ref = ['origin/main', 'main'].find((candidate) => revisionExists(`${candidate}^{commit}`, cwd));
+  if (ref !== undefined) return ref;
   throw new Error('cannot verify fixture origins without origin/main or main; fetch the main history');
 }
 
@@ -91,15 +82,13 @@ function assertReachable(rule: string, origin: string, cwd = ROOT): void {
 // in the commit that motivated the rule. A hand-written approximation lets a
 // narrow selector pass while missing the shape it was built for.
 function assertOriginCode(rule: string, fixture: Fixture): void {
-  try {
-    git(['cat-file', '-e', `${fixture.origin}^{commit}`]);
-  } catch {
+  if (!revisionExists(`${fixture.origin}^{commit}`, ROOT)) {
     throw new Error(`${rule}: fixture origin ${fixture.origin} is not a commit in this repository`);
   }
   assertReachable(rule, fixture.origin);
   let blob: string;
   try {
-    blob = git(['show', `${fixture.origin}:${fixture.source}`]);
+    blob = git(['show', `${fixture.origin}:${fixture.source}`], ROOT);
   } catch {
     throw new Error(`${rule}: ${fixture.source} does not exist at ${fixture.origin}`);
   }
@@ -169,10 +158,7 @@ describe('fixture origins survive the squash merge', () => {
   test('accepts a commit on main and rejects one only on a side branch', () => {
     const repo = mkdtempSync(join(tmpdir(), 'mdcli-fixture-origin-'));
     try {
-      const commit = (message: string): string => {
-        git(['-c', 'user.name=test', '-c', 'user.email=test@example.com', 'commit', '-q', '--allow-empty', '-m', message], repo);
-        return git(['rev-parse', 'HEAD'], repo).trim();
-      };
+      const commit = (message: string): string => commitAll(repo, message, '--allow-empty');
       git(['init', '-q', '-b', 'main'], repo);
       const mainCommit = commit('main');
       git(['update-ref', 'refs/remotes/origin/main', mainCommit], repo);

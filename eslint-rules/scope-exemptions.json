@@ -9,6 +9,9 @@
   "no-due-anchor-fallback": {
     "test/**": "Tests build card fixtures that name proximoVencimento to prove the missing-date behavior; production reads go through card-invoice.ts."
   },
+  "no-git-copy": {
+    "src/**": "The rule guards the gates in scripts/ and their tests; the CLI in src/ never parses --base or diffs a branch."
+  },
   "no-literal-since": {
     "src/**": "The rule guards fixed dates written in tests; commands read the --since value the user passed."
   },

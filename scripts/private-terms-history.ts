@@ -1,5 +1,5 @@
 import { parseDiff } from './behavior-change.js';
-import { git, gitResult } from './git.js';
+import { diffAgainst, gitResult } from './git.js';
 import { normalizeTerm } from './private-terms.js';
 
 export interface DeletedLine {
@@ -16,10 +16,7 @@ export interface HeadCorpus {
 
 /** The old side of every changed line, with its path and line number. */
 export function deletedLines(base: string, head: string, root: string): DeletedLine[] {
-  const diff = git(
-    ['diff', '--unified=0', '--no-color', '--no-ext-diff', '--no-renames', `${base}...${head}`],
-    root
-  );
+  const diff = diffAgainst(base, { head, flags: ['--unified=0', '--no-ext-diff'], cwd: root });
   return parseDiff(diff).flatMap((file) =>
     file.hunks.flat().flatMap(({ kind, line, text }) => (kind === 'remove' ? [{ file: file.path, line, text }] : []))
   );

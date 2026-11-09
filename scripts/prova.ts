@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { changesBehavior, parseDiff } from './behavior-change.js';
-import { DEFAULT_BASE, git } from './git.js';
+import { diffAgainst, parseBase } from './git.js';
 
 export interface ProvaStatus {
   present: boolean;
@@ -92,10 +92,6 @@ export function checkProva(body: string, diff: string): ProvaCheck {
   return { required, ok: !required || (status.web && status.before && status.after), status };
 }
 
-function changedDiff(base: string): string {
-  return git(['diff', '--no-renames', '--no-color', `${base}...HEAD`, '--', 'src']);
-}
-
 interface Options {
   base: string;
   diff?: string;
@@ -103,16 +99,15 @@ interface Options {
 }
 
 function parseOptions(argv: string[]): Options {
-  const options: Options = { base: DEFAULT_BASE };
-  for (let index = 0; index < argv.length; index++) {
-    const arg = argv[index];
-    if (arg === '--base') {
-      options.base = argv[++index] ?? options.base;
-    } else if (arg === '--diff') {
-      options.diff = argv[++index];
+  const { base, rest } = parseBase(argv);
+  const options: Options = { base };
+  for (let index = 0; index < rest.length; index++) {
+    const arg = rest[index];
+    if (arg === '--diff') {
+      options.diff = rest[++index];
       if (!options.diff) throw new Error('--diff needs a file');
     } else if (arg === '--body-file') {
-      options.bodyFile = argv[++index];
+      options.bodyFile = rest[++index];
     } else {
       throw new Error(`unknown argument: ${arg}`);
     }
@@ -124,7 +119,7 @@ function main(): void {
   try {
     const options = parseOptions(process.argv.slice(2));
     const body = options.bodyFile ? readFileSync(options.bodyFile, 'utf8') : (process.env.PR_BODY ?? '');
-    const diff = options.diff ? readFileSync(options.diff, 'utf8') : changedDiff(options.base);
+    const diff = options.diff ? readFileSync(options.diff, 'utf8') : diffAgainst(options.base, { paths: ['src'] });
     const check = checkProva(body, diff);
 
     if (!check.required) {

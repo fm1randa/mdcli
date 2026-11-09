@@ -125,6 +125,13 @@ export default tseslint.config(
     rules: { "local/no-raw-spawn": "error" },
   },
   {
+    // scripts/git.ts also owns --base, the base...head diff and the git calls
+    // of the gates' tests (#268). src/** is exempt in scope-exemptions.json.
+    files: ["scripts/**/*.ts", "test/**/*.ts"],
+    ignores: ["scripts/git.ts"],
+    rules: { "local/no-git-copy": "error" },
+  },
+  {
     ignores: ["node_modules", "dist"],
   }
 );

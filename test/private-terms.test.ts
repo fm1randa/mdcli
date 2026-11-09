@@ -13,6 +13,8 @@ import {
   scanText,
   termHash,
 } from '../scripts/private-terms.js';
+import { git } from '../scripts/git.js';
+import { commitAll } from './git-repo.js';
 
 const fakeTerm = 'termo-sintetico-proibido';
 const fakeHashes = new Set([termHash(fakeTerm)]);
@@ -21,26 +23,11 @@ const fakeHashes = new Set([termHash(fakeTerm)]);
 function withRepo(run: (root: string) => void): void {
   const root = mkdtempSync(join(tmpdir(), 'mdcli-private-terms-'));
   try {
-    git(root, ['init', '-q']);
-    git(root, ['config', 'user.email', 'test@example.com']);
-    git(root, ['config', 'user.name', 'Test']);
+    git(['init', '-q'], root);
     run(root);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
-}
-
-function git(root: string, args: string[]): string {
-  const result = Bun.spawnSync(['git', ...args], { cwd: root });
-  if (result.exitCode !== 0) throw new Error(`git ${args.join(' ')} failed: ${result.stderr.toString()}`);
-  return result.stdout.toString();
-}
-
-function commitAll(root: string, message: string): void {
-  git(root, ['add', '-A']);
-  // Keep the temp commit hermetic: a signing or hooks setup in the machine's
-  // global git config must not change the suite's result.
-  git(root, ['-c', 'commit.gpgsign=false', '-c', 'core.hooksPath=/dev/null', 'commit', '-q', '-m', message]);
 }
 
 test('finds a guarded term and passes without it', () => {
@@ -181,11 +168,11 @@ test('detects a term that is only in the commit, after the file leaves the workt
     writeFileSync(join(root, 'note.txt'), `linha limpa\n${fakeTerm} aqui\n`);
     commitAll(root, 'add the term');
     rmSync(join(root, 'note.txt'));
-    git(root, ['rm', '--cached', '-q', 'note.txt']);
+    git(['rm', '--cached', '-q', 'note.txt'], root);
 
     // The file is invisible to the old working-tree source: `git ls-files`
     // prints nothing, so only the commit still carries the term.
-    expect(git(root, ['ls-files'])).toBe('');
+    expect(git(['ls-files'], root)).toBe('');
     expect(scanTrackedFiles(root, fakeHashes)).toEqual([{ file: 'note.txt', line: 2 }]);
   });
 });
@@ -195,10 +182,10 @@ test('detects a term that is only staged, before it is committed', () => {
     writeFileSync(join(root, 'clean.txt'), 'linha limpa\n');
     commitAll(root, 'base');
     writeFileSync(join(root, 'leak.txt'), `linha limpa\n${fakeTerm} aqui\n`);
-    git(root, ['add', 'leak.txt']);
+    git(['add', 'leak.txt'], root);
 
     // HEAD still lacks the file: only the index carries the staged term.
-    expect(git(root, ['ls-tree', '-r', '--name-only', 'HEAD'])).not.toContain('leak.txt');
+    expect(git(['ls-tree', '-r', '--name-only', 'HEAD'], root)).not.toContain('leak.txt');
     expect(scanTrackedFiles(root, fakeHashes)).toEqual([{ file: 'leak.txt', line: 2 }]);
   });
 });
@@ -209,7 +196,7 @@ test('detects a term in a tracked file that is not staged yet', () => {
     commitAll(root, 'base');
     writeFileSync(join(root, 'note.txt'), `linha limpa\n${fakeTerm} aqui\n`);
 
-    expect(git(root, ['status', '--short', 'note.txt'])).toContain(' M note.txt');
+    expect(git(['status', '--short', 'note.txt'], root)).toContain(' M note.txt');
     expect(scanTrackedFiles(root, fakeHashes)).toEqual([{ file: 'note.txt', line: 2 }]);
   });
 });
@@ -272,15 +259,15 @@ test('the guard script scans the repository root from a subdirectory', () => {
   const sub = join(root, 'sub');
   const run = () => Bun.spawnSync([process.execPath, script], { cwd: sub });
   try {
-    Bun.spawnSync(['git', 'init', '-q'], { cwd: root });
+    git(['init', '-q'], root);
     mkdirSync(sub);
     writeFileSync(join(sub, 'note.txt'), 'linha limpa\noutra linha limpa\n');
-    Bun.spawnSync(['git', 'add', '.'], { cwd: root });
+    git(['add', '.'], root);
 
     expect(run().exitCode).toBe(0);
 
     writeFileSync(join(root, 'canary.txt'), `linha limpa\n${canaryTerm} aqui\n`);
-    Bun.spawnSync(['git', 'add', 'canary.txt'], { cwd: root });
+    git(['add', 'canary.txt'], root);
     const hit = run();
     expect(hit.exitCode).toBe(1);
     expect(hit.stderr.toString()).toContain('canary.txt:2');
@@ -299,9 +286,9 @@ test('the guard script fails when the environment requires the key and it is uns
   env.MDCLI_REQUIRE_PRIVATE_TERMS_KEY = '1';
   delete env.MDCLI_PRIVATE_TERMS_KEY;
   try {
-    Bun.spawnSync(['git', 'init', '-q'], { cwd: root });
+    git(['init', '-q'], root);
     writeFileSync(join(root, 'note.txt'), 'linha limpa\n');
-    Bun.spawnSync(['git', 'add', '.'], { cwd: root });
+    git(['add', '.'], root);
 
     const missing = Bun.spawnSync([process.execPath, script], { cwd: root, env });
     expect(missing.exitCode).toBe(1);

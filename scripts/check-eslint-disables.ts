@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import tseslint from 'typescript-eslint';
 import { parseDiff } from './behavior-change.js';
-import { DEFAULT_BASE, git, gitResult } from './git.js';
+import { git, gitResult, parseBase } from './git.js';
 
 // A copied eslint-disable is how the bare-exit pattern spread (#155, #187).
 // Compare the branch with main and fail on any added directive without a
@@ -122,18 +122,18 @@ function reader(base: string, head: string | undefined): ContentReader {
 }
 
 interface Options {
-  base?: string;
+  base: string;
   head?: string;
 }
 
 function parseOptions(argv: string[]): Options {
-  const options: Options = {};
-  for (let index = 0; index < argv.length; index++) {
-    const arg = argv[index];
-    if (arg === '--base') {
-      options.base = argv[++index];
-    } else if (arg === '--head') {
-      options.head = argv[++index];
+  const { base, rest } = parseBase(argv);
+  const options: Options = { base };
+  for (let index = 0; index < rest.length; index++) {
+    const arg = rest[index];
+    if (arg === '--head') {
+      options.head = rest[++index];
+      if (options.head === undefined) throw new Error('--head needs a revision');
     } else {
       throw new Error(`unknown argument: ${arg}`);
     }
@@ -150,7 +150,7 @@ function gitDiff(base: string, head: string | undefined): string {
 function main(): void {
   try {
     const options = parseOptions(process.argv.slice(2));
-    const base = options.base ?? DEFAULT_BASE;
+    const { base } = options;
     const range = `${base}${options.head ? `..${options.head}` : ''}`;
     const { added, removed, undocumented } = countDisables(gitDiff(base, options.head), reader(base, options.head));
     if (undocumented.length > 0) {

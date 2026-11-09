@@ -36,6 +36,7 @@ Each rule below names the check that fails when it breaks. A rule marked *text o
 | Tests pass a relative `--since` and read a pinned clock | `no-literal-since`, `no-ambient-clock`, restricted date imports; `TZ` and `MDCLI_TODAY` pinned | `eslint-rules/`, `eslint.config.js`, `test/setup.ts` |
 | Strings become numbers only through the strict helpers | `no-loose-number` | `eslint-rules/no-loose-number.js` |
 | `scripts/` spawns git, gh and bun only through `scripts/git.ts`, which also owns the `--base` default; diffs are parsed only by `scripts/behavior-change.ts` | `no-raw-spawn` | `eslint-rules/no-raw-spawn.js`, `scripts/git.ts` |
+| `scripts/git.ts` also parses `--base` (a missing value fails), builds the `base...head` diff, and runs the git calls of `scripts/` and `test/` | `no-git-copy`, proven against every copy `main` carried at `abcef7d` | `eslint-rules/no-git-copy.js`, `test/eslint-no-git-copy.test.ts`, `test/git-repo.ts` |
 | A category name resolves through its single owner (active wins, ambiguous and inactive refused) | `no-category-name-resolution` | `eslint-rules/no-category-name-resolution.js` |
 | Review notes never reach a commit (item 19) | `git ls-files 'REVIEW-*.md'` must be empty | `scripts/verify.sh`, `.gitignore` |
 | The private-data guard covers commit messages and the PR body, not only the tracked tree | `private messages` step (CI `verify`, rerun on a PR body edit) | `scripts/check-private-messages.ts`, `scripts/verify.sh`, `.github/workflows/ci.yml` |
