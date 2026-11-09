@@ -22,7 +22,7 @@ function session({ config, mdwebMoeda }: SessionPreferences): object {
     branch: 'app',
     payload: {
       ngInit: {
-        mdUid: '42',
+        mdUid: 42,
         usuario: {
           conta: { config },
           config: { mdweb: mdwebMoeda === undefined ? {} : { moeda: { m: mdwebMoeda } } },
