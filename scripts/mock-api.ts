@@ -218,6 +218,8 @@ async function entriesRoute(req: Request, path: string): Promise<Response> {
     if (body.todos !== undefined && (typeof body.todos !== 'boolean' || !inSeries)) {
       return badRequest('todos only applies to an occurrence of a series, as a boolean');
     }
+    // The GET's transferencia is a number; the web app's save always sends a boolean.
+    if (typeof body.transferencia !== 'boolean') return badRequest('transferencia must be a boolean');
     const invalidAccounts = checkUpdateAccounts(body, (conta) => accountOf(conta)?.tipo);
     if (invalidAccounts) return badRequest(invalidAccounts);
     const transfer = body.transferencia === true;

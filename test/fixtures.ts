@@ -93,7 +93,7 @@ export interface SessionResponse {
   branch: string;
   payload: {
     ngInit: {
-      mdUid?: number;
+      mdUid?: string;
       usuario: {
         conta?: { config?: { pendentesPresente?: boolean; metasRD?: boolean; moeda?: number } };
         config?: { mdweb?: { moeda?: { m?: number }; [key: string]: unknown } };
@@ -108,7 +108,7 @@ export const SESSION_RESPONSE: SessionResponse = {
   branch: 'app',
   payload: {
     ngInit: {
-      mdUid: 42,
+      mdUid: '42',
       usuario: {
         conta: { config: { pendentesPresente: true, metasRD: false, moeda: 1 } },
         config: { mdweb: { moeda: { m: 1 } } },

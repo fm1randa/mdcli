@@ -84,8 +84,8 @@ export interface Entry {
   valorEfetivoT?: number;
   plasticoT?: number;
   contaT?: number;
-  /** The GET sends a number; the web app's PUT sends a boolean. */
-  transferencia?: number | boolean;
+  /** The ID of a transfer's other side; a number on any entry (real use 2026-11-09). */
+  transferencia?: number;
   metaEconomiaDestino?: number;
   projecaoFatura?: number;
   /** A card purchase on a closed invoice (the web's "ff" filter); its account is locked. */
@@ -272,8 +272,8 @@ interface UpdateEntryFields {
 export interface UpdateEntryPayload extends Omit<Entry, keyof UpdateEntryFields | 'transferencia' | 'plastico'>, UpdateEntryFields {
   /** null: moved to a card without a holder plastic (update --account). */
   plastico?: number | null;
-  /** The GET sends a number; the web app's PUT, false for a non-transfer. */
-  transferencia: number | boolean;
+  /** A boolean, unlike the GET's number: the web app's save sends true for tipo t or p, else false. */
+  transferencia: boolean;
   estorno: boolean;
   metaEconomia: null;
   agenda?: EntryAgenda;

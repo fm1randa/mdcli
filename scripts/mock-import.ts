@@ -59,7 +59,6 @@ export const IMPORT_CANDIDATES: Entry[] = [
     valor: -20,
     data: '2026-10-08',
     dataPrevista: '2026-10-08',
-    dataEfetiva: '2026-10-08',
     status: 'nconciliado',
     conciliado: false,
     conta: 201,
