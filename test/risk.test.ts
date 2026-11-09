@@ -126,6 +126,14 @@ describe('security surfaces', () => {
     expect(report.reasons.every((reason) => reason.detail.length > 0)).toBe(true);
   });
 
+  test('flags a scope change in eslint.config.js, which decides where the local rules run', () => {
+    // Dropping scripts/** from a block silenced the rule there without touching eslint-rules/ (#272).
+    expect(classifyRisk(diff('eslint-config-surface'))).toEqual({
+      risky: true,
+      reasons: [{ topic: 'security', path: 'eslint.config.js', detail: 'ESLint config that scopes the local rules changed' }],
+    });
+  });
+
   test('passes comment-only changes in a security surface', () => {
     expect(classifyRisk(diff('security-comments'))).toEqual({ risky: false, reasons: [] });
   });

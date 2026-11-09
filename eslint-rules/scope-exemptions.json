@@ -1,19 +1,29 @@
 {
   "no-ambient-clock": {
     "src/**": "Only command behavior is pinned by the test preload; src/lib owns the real clock and reads it directly (dates.ts, name-cache, self-update).",
-    "test/**": "Tests build fixtures and timeouts from the real clock; the pinned day comes from localDay() in test/helpers.ts."
+    "test/**": "Tests build fixtures and timeouts from the real clock; the pinned day comes from localDay() in test/helpers.ts.",
+    "scripts/**": "The gates and the mock run on the real clock: the mock stamps created entries with now and no gate output depends on a pinned day."
+  },
+  "no-bare-process-exit": {
+    "scripts/**": "exitAfterFlush() lives in the CLI's src/utils/action.ts; the gates are short Bun scripts that print and exit with their own status (risk.ts exits 2)."
   },
   "no-category-name-resolution": {
-    "test/**": "Tests drive category resolution through the CLI or the single owner; fixtures name categories but do not reimplement the lookup."
+    "test/**": "Tests drive category resolution through the CLI or the single owner; fixtures name categories but do not reimplement the lookup.",
+    "scripts/**": "scripts/ never resolves a category the user named; the mock answers category requests by id."
   },
   "no-due-anchor-fallback": {
-    "test/**": "Tests build card fixtures that name proximoVencimento to prove the missing-date behavior; production reads go through card-invoice.ts."
+    "test/**": "Tests build card fixtures that name proximoVencimento to prove the missing-date behavior; production reads go through card-invoice.ts.",
+    "scripts/**": "The mock builds card payloads that name proximoVencimento as the API does; only the CLI's card reads go through card-invoice.ts."
   },
   "no-git-copy": {
     "src/**": "The rule guards the gates in scripts/ and their tests; the CLI in src/ never parses --base or diffs a branch."
   },
   "no-literal-since": {
-    "src/**": "The rule guards fixed dates written in tests; commands read the --since value the user passed."
+    "src/**": "The rule guards fixed dates written in tests; commands read the --since value the user passed.",
+    "scripts/**": "The rule guards fixed --since dates written in tests; scripts/ passes no --since."
+  },
+  "no-raw-dash": {
+    "scripts/**": "cell() writes the CLI's table cells; scripts/ prints JSON and plain gate reports, not CLI tables."
   },
   "no-raw-spawn": {
     "src/**": "The rule guards the gate infrastructure in scripts/; the CLI's own children (self-update, browser login, the import editor) belong to src/.",
@@ -21,10 +31,15 @@
   },
   "no-short-option-equals": {
     "src/**": "preprocessShortOptions runs only in bin/cli.ts, before commander parses argv.",
-    "test/**": "Tests exercise the preprocessing through the real CLI (test/cli-short-option-equals.test.ts), not by importing it."
+    "test/**": "Tests exercise the preprocessing through the real CLI (test/cli-short-option-equals.test.ts), not by importing it.",
+    "scripts/**": "preprocessShortOptions runs only in bin/cli.ts; scripts/ parses its own long flags."
   },
   "no-tautological-expect": {
     "src/**": "The rule guards test assertions; src/ has no expect() calls.",
-    "test/**": "Only test/**/*.test.ts is linted; helpers and fixtures hold no assertions."
+    "test/**": "Only test/**/*.test.ts is linted; helpers and fixtures hold no assertions.",
+    "scripts/**": "The rule guards test assertions; scripts/ has no expect() calls."
+  },
+  "no-type-sign-ternary": {
+    "scripts/**": "The mock stores entry values as the request sends them; the sign by type is CLI logic owned by src/commands/entries/type.ts."
   }
 }

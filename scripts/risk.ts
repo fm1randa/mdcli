@@ -37,6 +37,9 @@ const SECURITY_SURFACES: readonly SecuritySurface[] = [
   { path: /^test\/check-private-messages\.test\.ts$/, detail: 'private-data message guard test changed' },
   { path: /^scripts\/verify\.sh$/, detail: 'verification script changed' },
   { path: /^eslint-rules\//, detail: 'local ESLint rule changed' },
+  // The config decides where each local rule runs: dropping scripts/** from a
+  // block silences the rule there as surely as editing the rule (#272).
+  { path: /^eslint\.config\.js$/, detail: 'ESLint config that scopes the local rules changed' },
   // The guard parses git output with these helpers (#262), so a change here
   // changes what the guard reads even when no guard file moves.
   { path: /^src\/utils\/parse\.ts$/, detail: 'parse helper the private-data guard imports changed' },

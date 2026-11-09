@@ -10,12 +10,15 @@ import { commitAll } from './git-repo.js';
 
 // Every local rule must prove two things in CI: it catches the code that
 // motivated it (a `before` fixture from that commit), and the config enables
-// it on the default src/** + test/** scope unless a named exemption says no.
+// it on the default src/** + test/** + scripts/** scope unless a named
+// exemption says no. Each area is probed through one file no block ignores, so
+// dropping an area from a block's `files` leaves a gap this test reports (#272).
 const ROOT = join(import.meta.dir, '..');
 const FIXTURES = join(import.meta.dir, 'fixtures/lint-rules');
 const RULE_AREAS = {
   'src/**': 'src/lib/api.ts',
   'test/**': 'test/helpers.ts',
+  'scripts/**': 'scripts/risk.ts',
 } as const;
 
 const eslint = new ESLint({ cwd: ROOT });
