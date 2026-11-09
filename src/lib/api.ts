@@ -1,4 +1,4 @@
-import type { AuthConfig, AuthMethod, CategoriesResponse, Category, CreateCategoryPayload, UpdateCategoryPayload, AccountsResponse, AccountBalanceSum, TagsResponse, EntriesResponse, EntriesParams, CreateEntryPayload, CreateEntryResponse, UpdateEntryPayload, UpdateTransferPayload, Entry, CardInvoiceResponse, CardFutureResponse, CardPlastic, Account, CreateAccountPayload, UpdateAccountPayload, CreateTagPayload, CreateTagResponse, ConnectionsResponse, BankStatementResponse, SyncRequestResponse } from '../types/index.js';
+import type { AuthConfig, AuthMethod, CategoriesResponse, Category, CreateCategoryPayload, UpdateCategoryPayload, AccountsResponse, AccountBalanceSum, TagsResponse, EntriesResponse, EntriesParams, CreateEntryPayload, CreateEntryResponse, UpdateEntryPayload, UpdateTransferPayload, Entry, CardInvoiceResponse, CardFutureResponse, FirstInvoiceResponse, CardPlastic, Account, CreateAccountPayload, UpdateAccountPayload, CreateTagPayload, CreateTagResponse, ConnectionsResponse, BankStatementResponse, SyncRequestResponse } from '../types/index.js';
 import { getAuth, getAuthMethod, setAuth, getOpItem, invalidateNameCache } from './config.js';
 import { popStaleNameCacheUse } from './cache-invalidation.js';
 import { captureAuthHeadless } from './browser-auth.js';
@@ -274,8 +274,9 @@ export async function deleteTag(id: number): Promise<void> {
   return request<void>('DELETE', `/v1/cadastros/tags/${id}`);
 }
 
-export async function fetchFirstInvoiceDate(cardId: number): Promise<string> {
-  return request<string>('GET', `/v1/cartoes/${cardId}/primeiraFatura?id=${cardId}`);
+/** The card's first invoice: an object (issue #266), whose vencimento anchors its invoices. */
+export async function fetchFirstInvoice(cardId: number): Promise<FirstInvoiceResponse | null> {
+  return request<FirstInvoiceResponse | null>('GET', `/v1/cartoes/${cardId}/primeiraFatura?id=${cardId}`);
 }
 
 export async function fetchCardInvoice(cardId: number, dueDate: string): Promise<CardInvoiceResponse> {
