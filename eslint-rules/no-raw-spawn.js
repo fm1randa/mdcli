@@ -4,13 +4,13 @@
 // owns child processes; the rest of scripts/ goes through it.
 //
 // A list of spellings always misses the next one (#272), so the rule follows
-// the Bun object itself. Every expression that yields it (the `Bun` global,
-// `globalThis.Bun` and the other global objects, a default or namespace import
-// of "bun", `await import("bun")`, `require("bun")`), seen through TypeScript
-// casts and aliases, may only be read by a static non-spawner key. A spawner key
-// fails; any other use (a computed key, a rest element, passing it on) fails
-// too, because the rule can no longer see which key is read. A computed key or a
-// hand-off of a global object fails for the same reason.
+// the Bun object from the sources its tests prove (the `Bun` global,
+// `globalThis.Bun`, `global.Bun`, `self.Bun`, imports of "bun", `await
+// import("bun")`, `require("bun")` with a string literal), through casts,
+// `const` aliases and destructuring; it may only be read by a static
+// non-spawner key. A computed key, a rest element or a hand-off fails, because
+// the rule can no longer see which key is read. AGENTS.md (Rule coverage) lists
+// the forms it does not see, which stay with review.
 const SPAWNERS = new Set(["spawn", "spawnSync", "$"]);
 const CHILD_PROCESS = new Set(["child_process", "node:child_process"]);
 const GLOBAL_OBJECTS = ["globalThis", "global", "self", "window"];
