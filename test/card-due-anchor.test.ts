@@ -1,10 +1,12 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createHome, MANUAL_AUTH, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
-import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, CREDIT_CARD_ACCOUNT, EMPTY_ENTRIES_RESPONSE, cardInvoice } from './fixtures.js';
+import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, CREDIT_CARD_ACCOUNT, EMPTY_ENTRIES_RESPONSE, cardInvoice, firstInvoice } from './fixtures.js';
 
 // Maintenance 2026-10-21: for a card without proximoVencimento, cards invoice
 // --month assumed day 10, cards invoice and entries list asked primeiraFatura
 // and entries create refused. All of them now take primeiraFatura's day.
+// primeiraFatura answers an object, not a date string (issue #266): before
+// the fix, reading it as a string threw a TypeError on every command here.
 let api: MockApi;
 let home: TestHome;
 
@@ -19,7 +21,7 @@ beforeEach(() => {
     items: [{ ...CREDIT_CARD_ACCOUNT, proximoVencimento: undefined, proximoFechamento: undefined }],
   });
   api.on('GET /v1/cadastros/categorias', CATEGORIES_RESPONSE);
-  api.on('GET /v1/cartoes/202/primeiraFatura', () => '2026-02-21');
+  api.on('GET /v1/cartoes/202/primeiraFatura', firstInvoice(202, '2026-02-21T00:00:00', '2026-02-11T00:00:00'));
   home = createHome(MANUAL_AUTH);
 });
 
@@ -96,5 +98,18 @@ describe('card without a next due date', () => {
     test('a purchase after the March closing (03-11) goes on the invoice due 04-21', async () => {
       expect(await createPurchase('2026-03-15')).toMatchObject({ dataCompetencia: '2026-03-15', dataPrevista: '2026-04-21' });
     });
+  });
+
+  test('a primeiraFatura without vencimento fails with a clear error and loads no invoice', async () => {
+    const { vencimento: _omit, ...withoutDue } = firstInvoice(202, '2026-02-21T00:00:00', '2026-02-11T00:00:00');
+    api.on('GET /v1/cartoes/202/primeiraFatura', withoutDue);
+
+    const result = await runCli(['cards', 'invoice', '-a', '202', '--json'], { home, api });
+
+    expect(result.exitCode).toBe(1);
+    expect(JSON.parse(result.stderr).error).toBe(
+      "The API did not send the due date of card 202's first invoice (primeiraFatura without vencimento)."
+    );
+    expect(cardPaths()).toEqual(['/v1/cartoes/202/primeiraFatura']);
   });
 });

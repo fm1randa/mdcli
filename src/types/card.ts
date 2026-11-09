@@ -72,6 +72,26 @@ export interface CardInvoiceResponse {
   id?: number;
 }
 
+/**
+ * GET /v1/cartoes/:id/primeiraFatura: the card's first invoice as an object
+ * (real use 2026-11-09), not a date string. The web app reads only
+ * `vencimento` (md.js, `carregarPrimeiraFatura(...).then(k => k.vencimento)`)
+ * and `valor` (the previous bill on the account form); the other fields were
+ * seen in that real response and are typed loosely, since nothing reads them.
+ */
+export interface FirstInvoiceResponse {
+  /** Due date of the first invoice (YYYY-MM-DD, possibly with a time). */
+  vencimento: string;
+  fechamento?: string;
+  valor?: number;
+  conta?: number;
+  pagamentos?: number;
+  pagamentosAgendados?: number;
+  conciliado?: number;
+  nconciliado?: number;
+  id?: number | null;
+}
+
 /** One future installment. The real API returns these as a bare array from
  * GET /v1/cartoes/:id/parcelasFuturas (same shape as invoice items); it does
  * not wrap them in { parcelas } and has no parcelasRestantes. */
