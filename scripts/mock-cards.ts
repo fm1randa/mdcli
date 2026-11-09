@@ -1,7 +1,7 @@
 // GET /v1/cartoes/:id/... for scripts/mock-api.ts: invoice, future installments
 // and the first invoice date.
-import type { CardFutureResponse, CardInvoiceResponse } from '../src/types/index.js';
-import { cardInvoice } from '../test/fixtures.js';
+import type { CardFutureResponse, CardInvoiceResponse, FirstInvoiceResponse } from '../src/types/index.js';
+import { cardInvoice, firstInvoice } from '../test/fixtures.js';
 import { roundToCents } from '../src/utils/currency.js';
 import { parseId } from '../src/utils/parse.js';
 import { invoiceItems } from './mock-entries.js';
@@ -63,9 +63,11 @@ export function cardsRoute(
 
   const first = path.match(/^\/api\/v1\/cartoes\/(\d+)\/primeiraFatura$/);
   if (first) {
-    if (!isCreditCard(first[1])) return Response.json({ message: 'not found' }, { status: 404 });
-    // ISO date string (what fetchFirstInvoiceDate expects).
-    return Response.json('2026-01-16');
+    const id = parseId(first[1]);
+    if (id === undefined || !isCreditCard(id)) return Response.json({ message: 'not found' }, { status: 404 });
+    // An object, like the real API (issue #266), not a date string.
+    const body: FirstInvoiceResponse = firstInvoice(id, '2026-01-16', closingFor('2026-01-16'));
+    return Response.json(body);
   }
 
   const invoice = path.match(/^\/api\/v1\/cartoes\/(\d+)\/fatura\/(\d{4}-\d{2}-\d{2})$/);

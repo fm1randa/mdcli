@@ -1,4 +1,4 @@
-import type { Account, AccountsResponse, CardInvoiceResponse, CategoriesResponse, Category, EntriesResponse, Entry, TagsResponse } from '../src/types/index.js';
+import type { Account, AccountsResponse, CardInvoiceResponse, CategoriesResponse, FirstInvoiceResponse, Category, EntriesResponse, Entry, TagsResponse } from '../src/types/index.js';
 
 const editable = { visivel: true, acoes: { editar: true, excluir: true } };
 const locked = { visivel: true, acoes: { editar: false, excluir: false } };
@@ -144,6 +144,22 @@ export function cardInvoice(vencimento: string, fechamento: string, totalFatura 
     fechamento,
     valor: totalFatura,
     resumo: { totalFatura, totalPagar: totalFatura },
+  };
+}
+
+/** The card's first invoice as GET /v1/cartoes/:id/primeiraFatura returns it:
+ * an object (real use 2026-11-09), not a date string. Synthetic values. */
+export function firstInvoice(conta: number, vencimento: string, fechamento: string): FirstInvoiceResponse {
+  return {
+    vencimento,
+    fechamento,
+    valor: 0,
+    conta,
+    pagamentos: 0,
+    pagamentosAgendados: 0,
+    conciliado: 0,
+    nconciliado: 0,
+    id: 1,
   };
 }
 

@@ -10,6 +10,8 @@ export const ptBRInternals = {
     `A requisição à API falhou (${context}): ${status} ${statusText} - ${body}`,
   errorApiInvalidJson: (context: string, reason: string) =>
     `A API retornou um JSON inválido (${context}): ${reason}`,
+  errorFirstInvoiceNoDueDate: (cardId: number) =>
+    `A API não informou o vencimento da primeira fatura do cartão ${cardId} (primeiraFatura sem vencimento).`,
   errorNotAuthenticated: () => 'Não autenticado. Execute "mdcli auth login" primeiro.',
   contextAfterRefresh: (context: string) => `${context}, após renovar as credenciais`,
   captchaNoApiKey: () => '⚠ reCAPTCHA detectado, mas nenhuma chave de API do 2captcha está configurada.',
