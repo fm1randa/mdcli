@@ -160,8 +160,10 @@ export interface CardPlastic {
   conta: number;
   tipo: string;
   nome: string;
-  titular?: boolean;
   status?: boolean;
-  /** visivel false: hidden from the user, so the web app does not list it. */
+  /**
+   * Not sent by GET /v1/cadastros/plasticos (real use 2026-11-09); the web
+   * app's select skips any record whose permissoes hide it.
+   */
   permissoes?: { visivel: boolean };
 }

@@ -3,7 +3,9 @@ import { localDay } from '../test/helpers.js';
 import { roundToCents } from '../src/utils/currency.js';
 import { isPositiveSafeInteger, parseId } from '../src/utils/parse.js';
 
-// Seeded entries for GET/PUT/DELETE /v1/lancamentos/:id (parity with unit fixtures).
+// Seeded entries for GET/PUT/DELETE /v1/lancamentos/:id (parity with unit fixtures),
+// shaped like the real GET (real use 2026-11-09): no dataEfetiva, and
+// transferencia is a number, the other side's ID on a transfer.
 export const SEEDED_ENTRIES: Record<number, Entry> = {
   50: {
     id: 50,
@@ -13,11 +15,12 @@ export const SEEDED_ENTRIES: Record<number, Entry> = {
     valorT: 1000,
     data: '2026-01-15',
     dataPrevista: '2026-01-15',
-    dataEfetiva: '2026-01-15',
     status: 'conciliado',
     conciliado: true,
     conta: 201,
     contaT: 203,
+    transferencia: 51,
+    regime: 'ca',
     categoria: 30,
     tags: [],
     observacoes: '',
@@ -29,7 +32,6 @@ export const SEEDED_ENTRIES: Record<number, Entry> = {
     valor: -250,
     data: '2026-01-10',
     dataPrevista: '2026-01-10',
-    dataEfetiva: '2026-01-10',
     dataCompetencia: '2026-01-10',
     status: 'conciliado',
     conciliado: true,
@@ -38,6 +40,8 @@ export const SEEDED_ENTRIES: Record<number, Entry> = {
     categoriaPai: 0,
     parcela: '2/6',
     agendaId: 99,
+    agenda: { frequencia: 1, intervalo: 'M', quantidade: 6, primeiraData: '2025-12-10' },
+    regime: 'ca',
     plastico: 62,
     tags: [501],
     observacoes: 'parcelado',
@@ -47,7 +51,7 @@ export const SEEDED_ENTRIES: Record<number, Entry> = {
     exibirCp: true,
     exibirCr: true,
     estorno: false,
-    transferencia: false,
+    transferencia: 0,
   },
   // A future occurrence of a fixed monthly series (#65): scheduled, so no
   // effective date or value yet.
@@ -78,11 +82,11 @@ export const SEEDED_ENTRIES: Record<number, Entry> = {
     valorT: 300,
     data: '2025-06-15',
     dataPrevista: '2025-06-15',
-    dataEfetiva: '2025-06-15',
     status: 'conciliado',
     conciliado: true,
     conta: 201,
     contaT: 204,
+    transferencia: 53,
     categoria: 30,
     tags: [],
     observacoes: '',
@@ -112,7 +116,7 @@ export const SEEDED_ENTRIES: Record<number, Entry> = {
     valorEfetivo: -1700,
     data: '2026-01-12',
     dataPrevista: '2026-01-12',
-    dataEfetiva: '2026-01-12',
+    dataReconhecimento: '2026-01-12',
     status: 'conciliado',
     conciliado: true,
     estorno: true,
@@ -294,7 +298,7 @@ export function createCardPurchase(body: Body): CreateEntryResponse {
   const parcelas = body.parcelas as { valor: number }[] | undefined;
   const valor = parcelas ? parcelas[0].valor : requiredNumber(body.valor, 'valor');
   // A purchase has no effective date but is not pending: it sits on the invoice.
-  const purchase: CreateEntryResponse = { ...createdEntry(body, mockEntryId(id)), status: 'confirmado' };
+  const { dataEfetiva: _effective, ...purchase } = createdEntry(body, mockEntryId(id));
   SEEDED_ENTRIES[id] = { ...purchase, status: 'confirmado', valor, lembrete: 0, tags: numberArray(body.tags), observacoes: String(body.observacoes ?? '') };
   cardPurchases.push({
     id,
