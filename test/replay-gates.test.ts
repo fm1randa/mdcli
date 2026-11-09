@@ -2,15 +2,11 @@ import { describe, expect, test } from 'bun:test';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { git } from '../scripts/git.js';
 import { readCommits, replayGates, type Gate } from '../scripts/replay-gates.js';
+import { commitAll } from './git-repo.js';
 
 const script = join(import.meta.dir, '..', 'scripts', 'replay-gates.ts');
-
-function git(cwd: string, args: string[]): string {
-  const result = Bun.spawnSync(['git', ...args], { cwd, stdout: 'pipe', stderr: 'pipe' });
-  if (result.exitCode !== 0) throw new Error(result.stderr.toString());
-  return result.stdout.toString();
-}
 
 function commit(root: string, message: string, files: Record<string, string>): string {
   for (const [path, content] of Object.entries(files)) {
@@ -18,9 +14,7 @@ function commit(root: string, message: string, files: Record<string, string>): s
     mkdirSync(dirname(target), { recursive: true });
     writeFileSync(target, content);
   }
-  git(root, ['add', '-A']);
-  git(root, ['-c', 'user.name=test', '-c', 'user.email=test@example.com', 'commit', '-q', '-m', message]);
-  return git(root, ['rev-parse', 'HEAD']).trim();
+  return commitAll(root, message);
 }
 
 interface Commits {
@@ -32,7 +26,7 @@ interface Commits {
 function withRepo(callback: (root: string, commits: Commits) => void): void {
   const root = mkdtempSync(join(tmpdir(), 'mdcli-replay-gates-'));
   try {
-    git(root, ['init', '-q']);
+    git(['init', '-q'], root);
     commit(root, 'base', { 'src/lib/api.ts': 'export const value = 1;\n', 'AGENTS.md': 'base\n' });
     const risky = commit(root, 'feat(entries): change a write', {
       'src/lib/api.ts': 'export const value = 1;\ncreateEntry(payload);\n',
@@ -90,7 +84,7 @@ describe('replayGates', () => {
 describe('replay-gates CLI', () => {
   test('lists firings and skips for the chosen gate without writing to the repository', () => {
     withRepo((root, shas) => {
-      const before = git(root, ['status', '--porcelain']);
+      const before = git(['status', '--porcelain'], root);
       const result = Bun.spawnSync(['bun', script, '--rev', 'HEAD', '--commits', '3', '--gate', 'risk'], {
         cwd: root,
         stdout: 'pipe',
@@ -105,7 +99,7 @@ describe('replay-gates CLI', () => {
       expect(output).toContain('risk: skipped (safe:');
       expect(output).not.toContain('fails-on-main:');
       expect(output).toContain('replay-gates: 1 fired, 2 skipped');
-      expect(git(root, ['status', '--porcelain'])).toBe(before);
+      expect(git(['status', '--porcelain'], root)).toBe(before);
     });
   });
 

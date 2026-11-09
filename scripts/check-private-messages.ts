@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { DEFAULT_BASE, spawnAsync } from './git.js';
+import { gitAsync, parseBase, spawnAsync } from './git.js';
 import { KEYED_TERM_HASHES, requirePrivateTermsKey, scanText } from './private-terms.js';
 
 export interface MessageSource {
@@ -30,11 +30,7 @@ export function messageHits(
 
 export async function commitSources(base: string, root: string = join(import.meta.dirname, '..')): Promise<MessageSource[]> {
   // Async: this runs inside `bun test --parallel`, where spawnSync can hang (see spawnAsync).
-  const { stdout, stderr, exitCode } = await spawnAsync(
-    ['git', '--no-pager', 'log', `${base}..HEAD`, '--format=%H%x00%B%x00'],
-    { cwd: root }
-  );
-  if (exitCode !== 0) throw new Error(`git log ${base}..HEAD failed: ${stderr.trim()}`);
+  const stdout = await gitAsync(['log', `${base}..HEAD`, '--format=%H%x00%B%x00'], root);
   const parts = stdout.split('\0');
   const sources: MessageSource[] = [];
   // git joins records with a newline, so the next record's SHA carries it.
@@ -75,11 +71,11 @@ interface Options {
 }
 
 function parseOptions(argv: string[]): Options {
-  const options: Options = { base: DEFAULT_BASE };
-  for (let index = 0; index < argv.length; index++) {
-    const arg = argv[index];
-    if (arg === '--base') options.base = argv[++index] ?? options.base;
-    else if (arg === '--body-file') options.bodyFile = argv[++index];
+  const { base, rest } = parseBase(argv);
+  const options: Options = { base };
+  for (let index = 0; index < rest.length; index++) {
+    const arg = rest[index];
+    if (arg === '--body-file') options.bodyFile = rest[++index];
     else throw new Error(`unknown argument: ${arg}`);
   }
   return options;

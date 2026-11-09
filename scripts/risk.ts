@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { behaviorIndexes, fileChangesBehavior, parseDiff, type DiffFile } from './behavior-change.js';
-import { DEFAULT_BASE, git } from './git.js';
+import { diffAgainst, parseBase } from './git.js';
 
 export type RiskTopic = 'auth' | 'write' | 'security';
 
@@ -147,23 +147,18 @@ export function classifyRisk(diff: string): RiskReport {
   return { risky: reasons.length > 0, reasons };
 }
 
-function gitDiff(base: string): string {
-  return git(['diff', '--no-renames', '--no-color', `${base}...HEAD`]);
-}
-
 interface Options {
   base: string;
   diff?: string;
 }
 
 function parseOptions(argv: string[]): Options {
-  const options: Options = { base: DEFAULT_BASE };
-  for (let index = 0; index < argv.length; index++) {
-    const arg = argv[index];
-    if (arg === '--base') {
-      options.base = argv[++index] ?? options.base;
-    } else if (arg === '--diff') {
-      options.diff = argv[++index];
+  const { base, rest } = parseBase(argv);
+  const options: Options = { base };
+  for (let index = 0; index < rest.length; index++) {
+    const arg = rest[index];
+    if (arg === '--diff') {
+      options.diff = rest[++index];
       if (!options.diff) throw new Error('--diff needs a file');
     } else {
       throw new Error(`unknown argument: ${arg}`);
@@ -175,7 +170,7 @@ function parseOptions(argv: string[]): Options {
 function main(): void {
   try {
     const options = parseOptions(process.argv.slice(2));
-    const diff = options.diff ? readFileSync(options.diff, 'utf8') : gitDiff(options.base);
+    const diff = options.diff ? readFileSync(options.diff, 'utf8') : diffAgainst(options.base);
     const report = classifyRisk(diff);
     console.log(JSON.stringify(report, null, 2));
     if (report.risky) process.exitCode = 2;

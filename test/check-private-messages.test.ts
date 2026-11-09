@@ -3,7 +3,9 @@ import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { commitSources, messageHits, pullRequestSource } from '../scripts/check-private-messages.js';
+import { gitAsync } from '../scripts/git.js';
 import { keyedTermHash, termHash } from '../scripts/private-terms.js';
+import { commitAllAsync } from './git-repo.js';
 
 const fakeTerm = 'termo-sintetico-proibido';
 const fakeHashes = new Set([termHash(fakeTerm)]);
@@ -36,31 +38,15 @@ async function runScript(ghDir: string): Promise<{ stdout: string; stderr: strin
   return { stdout, stderr, code };
 }
 
-async function git(root: string, ...args: string[]): Promise<string> {
-  const proc = Bun.spawn(
-    ['git', '--no-pager', '-c', 'user.name=test', '-c', 'user.email=test@example.com', ...args],
-    { cwd: root, stdout: 'pipe', stderr: 'pipe' }
-  );
-  const [stdout, stderr, code] = await Promise.all([
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
-    proc.exited,
-  ]);
-  if (code !== 0) throw new Error(`git ${args.join(' ')} failed: ${stderr.trim()}`);
-  return stdout.trim();
-}
-
 async function tempRepo(): Promise<string> {
   const root = mkdtempSync(join(tmpdir(), 'mdcli-private-messages-'));
-  await git(root, 'init', '-q');
+  await gitAsync(['init', '-q'], root);
   return root;
 }
 
 async function commit(root: string, message: string): Promise<string> {
   writeFileSync(join(root, 'note.txt'), `${message}\n`);
-  await git(root, 'add', 'note.txt');
-  await git(root, 'commit', '-q', '-m', message);
-  return git(root, 'rev-parse', 'HEAD');
+  return commitAllAsync(root, message);
 }
 
 test('reports a commit message carrying a term and passes on a clean range', async () => {

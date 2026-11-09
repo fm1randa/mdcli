@@ -11,25 +11,15 @@ import {
   normalizeTerm,
   termHash,
 } from '../scripts/private-terms.js';
+import { git, revisionExists } from '../scripts/git.js';
 import { EXCUSED_REMOVED_TERMS } from '../scripts/private-terms-excused.js';
 import { deletedLines, guardChanged, removedRunsBetween } from '../scripts/private-terms-corpus.js';
+import { commitAll } from './git-repo.js';
 
 const TERM = 'Conta Removida';
 
-function git(cwd: string, args: string[]): string {
-  const result = Bun.spawnSync(['git', ...args], { cwd, stdout: 'pipe', stderr: 'pipe' });
-  if (result.exitCode !== 0) throw new Error(result.stderr.toString());
-  return result.stdout.toString();
-}
-
-function commit(cwd: string, message: string): string {
-  git(cwd, ['add', '-A']);
-  git(cwd, ['-c', 'user.name=test', '-c', 'user.email=test@example.com', 'commit', '-q', '-m', message]);
-  return git(cwd, ['rev-parse', 'HEAD']).trim();
-}
-
 function initRepo(root: string): void {
-  git(root, ['init', '-q']);
+  git(['init', '-q'], root);
 }
 
 function withRepo(base: string, head: string, callback: (root: string, base: string, head: string) => void): void {
@@ -37,9 +27,9 @@ function withRepo(base: string, head: string, callback: (root: string, base: str
   try {
     initRepo(root);
     writeFileSync(join(root, 'note.txt'), base);
-    const baseCommit = commit(root, 'base');
+    const baseCommit = commitAll(root, 'base');
     writeFileSync(join(root, 'note.txt'), head);
-    const headCommit = commit(root, 'head');
+    const headCommit = commitAll(root, 'head');
     callback(root, baseCommit, headCommit);
   } finally {
     rmSync(root, { recursive: true, force: true });
@@ -48,9 +38,7 @@ function withRepo(base: string, head: string, callback: (root: string, base: str
 
 /** A shallow clone cannot replay the #177 migration; skip instead of failing. */
 function hasHistory(): boolean {
-  return ['0cf33e5', '73dc226'].every(
-    (rev) => Bun.spawnSync(['git', 'cat-file', '-e', `${rev}^{commit}`], { cwd: process.cwd() }).exitCode === 0
-  );
+  return ['0cf33e5', '73dc226'].every((rev) => revisionExists(`${rev}^{commit}`));
 }
 
 const replay = hasHistory() ? test : test.skip;
@@ -250,17 +238,17 @@ test('requires the corpus when the guard or its history helper changes', () => {
     writeFileSync(join(root, 'scripts/private-terms.ts'), 'export const guard = 1;\n');
     writeFileSync(join(root, 'scripts/private-terms-history.ts'), 'export const history = 1;\n');
     writeFileSync(join(root, 'note.txt'), 'one\n');
-    const base = commit(root, 'base');
+    const base = commitAll(root, 'base');
     writeFileSync(join(root, 'note.txt'), 'two\n');
-    const head = commit(root, 'head');
+    const head = commitAll(root, 'head');
     expect(guardChanged(base, head, root)).toBe(false);
 
     writeFileSync(join(root, 'scripts/private-terms-history.ts'), 'export const history = 2;\n');
-    const historyHead = commit(root, 'history');
+    const historyHead = commitAll(root, 'history');
     expect(guardChanged(head, historyHead, root)).toBe(true);
 
     writeFileSync(join(root, 'scripts/private-terms.ts'), 'export const guard = 2;\n');
-    const guardHead = commit(root, 'guard');
+    const guardHead = commitAll(root, 'guard');
     expect(guardChanged(historyHead, guardHead, root)).toBe(true);
   } finally {
     rmSync(root, { recursive: true, force: true });

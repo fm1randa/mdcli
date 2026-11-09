@@ -7,6 +7,7 @@ import noCategoryNameResolution from "./no-category-name-resolution.js";
 import noTypeSignTernary from "./no-type-sign-ternary.js";
 import noDoubleCast from "./no-double-cast.js";
 import noDueAnchorFallback from "./no-due-anchor-fallback.js";
+import noGitCopy from "./no-git-copy.js";
 import noLiteralSince from "./no-literal-since.js";
 import noLooseNumber from "./no-loose-number.js";
 import noRawDash from "./no-raw-dash.js";
@@ -26,6 +27,7 @@ export default {
     "no-type-sign-ternary": noTypeSignTernary,
     "no-double-cast": noDoubleCast,
     "no-due-anchor-fallback": noDueAnchorFallback,
+    "no-git-copy": noGitCopy,
     "no-literal-since": noLiteralSince,
     "no-loose-number": noLooseNumber,
     "no-raw-cents": noRawCents,

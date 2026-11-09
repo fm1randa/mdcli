@@ -15,7 +15,7 @@ import {
   termHash,
 } from './private-terms.js';
 
-import { DEFAULT_BASE, git } from './git.js';
+import { diffAgainst, parseBase } from './git.js';
 import { deletedLines, headCorpus, type DeletedLine, type HeadCorpus } from './private-terms-history.js';
 
 export { deletedLines } from './private-terms-history.js';
@@ -259,17 +259,22 @@ export function removedRunsBetween(
 
 /** A PR that does not maintain the private-data guard has no corpus to check. */
 export function guardChanged(base: string, head: string, root: string): boolean {
-  const changed = git(['diff', '--name-only', `${base}...${head}`, '--', ...GUARD_FILES], root);
+  const changed = diffAgainst(base, { head, flags: ['--name-only'], paths: GUARD_FILES, cwd: root });
   return changed.trim() !== '';
 }
 
 function parseOptions(argv: string[]): { base: string; head: string } {
-  const options = { base: DEFAULT_BASE, head: 'HEAD' };
-  for (let index = 0; index < argv.length; index++) {
-    const arg = argv[index];
-    if (arg === '--base') options.base = argv[++index] ?? options.base;
-    else if (arg === '--head') options.head = argv[++index] ?? options.head;
-    else throw new Error(`unknown argument: ${arg}`);
+  const { base, rest } = parseBase(argv);
+  const options = { base, head: 'HEAD' };
+  for (let index = 0; index < rest.length; index++) {
+    const arg = rest[index];
+    if (arg === '--head') {
+      const head = rest[++index];
+      if (head === undefined) throw new Error('--head needs a revision');
+      options.head = head;
+    } else {
+      throw new Error(`unknown argument: ${arg}`);
+    }
   }
   return options;
 }

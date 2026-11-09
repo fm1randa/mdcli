@@ -2,7 +2,7 @@ import { appendFileSync, cpSync, existsSync, mkdtempSync, rmSync, symlinkSync } 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { changesBehavior, parseDiff } from './behavior-change.js';
-import { DEFAULT_BASE, git, repoRoot, spawn } from './git.js';
+import { diffAgainst, git, parseBase, repoRoot, spawn } from './git.js';
 import { parseInteger } from '../src/utils/parse.js';
 import { decideGate, exemptionSummary, invalidExemptionSummary } from './fails-on-main-exemption.js';
 
@@ -75,15 +75,14 @@ interface Options {
 }
 
 function parseOptions(argv: string[]): Options {
-  const options: Options = { base: DEFAULT_BASE, repeat: DEFAULT_REPEAT };
-  for (let index = 0; index < argv.length; index++) {
-    const arg = argv[index];
-    if (arg === '--base') {
-      options.base = argv[++index] ?? options.base;
-    } else if (arg === '--files') {
-      options.files = (argv[++index] ?? '').split(',').filter((file) => file !== '');
+  const { base, rest } = parseBase(argv);
+  const options: Options = { base, repeat: DEFAULT_REPEAT };
+  for (let index = 0; index < rest.length; index++) {
+    const arg = rest[index];
+    if (arg === '--files') {
+      options.files = (rest[++index] ?? '').split(',').filter((file) => file !== '');
     } else if (arg === '--repeat') {
-      const repeat = parseInteger(argv[++index] ?? '', 1);
+      const repeat = parseInteger(rest[++index] ?? '', 1);
       if (repeat === undefined) throw new Error('--repeat needs a whole number of at least 1');
       options.repeat = repeat;
     } else {
@@ -140,14 +139,11 @@ function main(): void {
   try {
     const options = parseOptions(process.argv.slice(2));
     const root = repoRoot();
-    const diff = git(['diff', '--name-status', '--no-renames', `${options.base}...HEAD`], root);
+    const diff = diffAgainst(options.base, { flags: ['--name-status'], cwd: root });
     // A test-only PR (like this gate's own fix to a flawed guard) has no new
     // behavior to prove, and a comment in src/ is not behavior either; the gate
     // only guards PRs that change product code.
-    const productDiff = git(
-      ['diff', '--no-renames', '--no-color', `${options.base}...HEAD`, '--', 'src', 'bin'],
-      root
-    );
+    const productDiff = diffAgainst(options.base, { paths: ['src', 'bin'], cwd: root });
     // A `--files` run is the manual proof from the PR: it always runs, so an
     // exemption never hides a proof the author asked for.
     if (options.files === undefined) {

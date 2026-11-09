@@ -7,6 +7,27 @@
 /** The revision every gate compares the branch against unless `--base` says otherwise. */
 export const DEFAULT_BASE = 'origin/main';
 
+/**
+ * Takes `--base <rev>` out of a gate's argv and leaves the rest to the gate.
+ * A `--base` without a value fails: falling back to the default would run the
+ * gate against a revision nobody asked for (#268).
+ */
+export function parseBase(argv: readonly string[]): { base: string; rest: string[] } {
+  let base = DEFAULT_BASE;
+  const rest: string[] = [];
+  for (let index = 0; index < argv.length; index++) {
+    const arg = argv[index]!;
+    if (arg !== '--base') {
+      rest.push(arg);
+      continue;
+    }
+    const value = argv[++index];
+    if (value === undefined || value.startsWith('-')) throw new Error('--base needs a revision');
+    base = value;
+  }
+  return { base, rest };
+}
+
 export interface SpawnResult {
   exitCode: number;
   stdout: Buffer;
@@ -66,21 +87,46 @@ export function gitResult(args: readonly string[], cwd?: string, stdin?: Uint8Ar
   return spawn([...GIT, ...args], { cwd, stdin });
 }
 
-function failure(args: readonly string[], cwd: string | undefined, result: SpawnResult): Error {
+function failure(args: readonly string[], cwd: string | undefined, stderr: string): Error {
   const where = cwd === undefined ? '' : ` in ${cwd}`;
-  return new Error(`git ${args.join(' ')} failed${where}: ${result.stderr.toString().trim()}`);
+  return new Error(`git ${args.join(' ')} failed${where}: ${stderr.trim()}`);
 }
 
 /** git's raw stdout; throws with git's stderr when it exits non-zero. */
 export function gitBytes(args: readonly string[], cwd?: string, stdin?: Uint8Array): Buffer {
   const result = gitResult(args, cwd, stdin);
-  if (result.exitCode !== 0) throw failure(args, cwd, result);
+  if (result.exitCode !== 0) throw failure(args, cwd, result.stderr.toString());
   return result.stdout;
 }
 
 /** git's stdout as text; throws with git's stderr when it exits non-zero. */
 export function git(args: readonly string[], cwd?: string): string {
   return gitBytes(args, cwd).toString();
+}
+
+/** git's stdout as text off the spawnSync path (see spawnAsync); throws with git's stderr on a non-zero exit. */
+export async function gitAsync(args: readonly string[], cwd?: string): Promise<string> {
+  const result = await spawnAsync([...GIT, ...args], { cwd });
+  if (result.exitCode !== 0) throw failure(args, cwd, result.stderr);
+  return result.stdout;
+}
+
+export interface DiffOptions {
+  head?: string;
+  /** Extra `git diff` flags, such as `--name-status` or `--unified=0`. */
+  flags?: readonly string[];
+  paths?: readonly string[];
+  cwd?: string;
+}
+
+/**
+ * What the branch changed since it left `base`: `git diff base...head` (head
+ * defaults to HEAD), without rename detection so a moved file shows as a delete
+ * plus an add that every gate's parser reads the same way.
+ */
+export function diffAgainst(base: string, options: DiffOptions = {}): string {
+  const { head = 'HEAD', flags = [], paths = [], cwd } = options;
+  return git(['diff', '--no-renames', '--no-color', ...flags, `${base}...${head}`, '--', ...paths], cwd);
 }
 
 /** git's trimmed stdout, or undefined when it exits non-zero. */
