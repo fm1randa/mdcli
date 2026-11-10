@@ -1,12 +1,12 @@
 // Local HTTP server that mimics the Meu Dinheiro API for scripts/verify.sh.
 // Uses the same fixtures as the unit tests; never touches the real API.
-import type { Account, AccountsResponse, CategoriesResponse, CreateEntryResponse, EntriesResponse, Entry } from '../src/types/index.js';
+import type { Account, AccountsResponse, CategoriesResponse } from '../src/types/index.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, CREDIT_CARD_ACCOUNT, SAVINGS_ACCOUNT, TAGS_RESPONSE } from '../test/fixtures.js';
 import { plasticsRoute } from './mock-plastics.js';
-import { SEEDED_ENTRIES, checkCreatePayload, checkUpdateAccounts, createCardPurchase, createdEntry, entryType, idOf, mockEntryId, numberOrNull, requiredId, requiredNumber, statusLabel } from './mock-entries.js';
-import { parseId, parseInteger } from '../src/utils/parse.js';
+import { ENTRIES_PATH, entriesListRoute, entriesRoute } from './mock-entries.js';
+import { badRequest, idOf, notFound, readJsonBody, requiredNumber } from './mock-http.js';
 import { connectionsRoute, recordMockRequest } from './mock-connections.js';
-import { IMPORT_CANDIDATES, importRoute, withRecentStatement } from './mock-import.js';
+import { importRoute, withRecentStatement } from './mock-import.js';
 import { balancesRoute } from './mock-balances.js';
 import { cardsRoute } from './mock-cards.js';
 import { sessionRoute } from './mock-session.js';
@@ -18,9 +18,7 @@ const LATEST_RELEASE_PATH = '/github/repos/fm1randa/mdcli/releases/latest';
 const ACCOUNTS_PATH = '/api/v1/cadastros/contas';
 const CATEGORIES_PATH = '/api/v1/cadastros/categorias';
 const TAGS_PATH = '/api/v1/cadastros/tags';
-const ENTRIES_PATH = '/api/v1/lancamentos';
 const NEW_ACCOUNT_ID = 2001;
-const NEW_ENTRY_ID = 401;
 
 // Extra card without proximoVencimento so cards invoice (no --month) hits
 // GET .../primeiraFatura (CREDIT_CARD_ACCOUNT alone always has a due date).
@@ -65,25 +63,6 @@ const MOCK_ACCOUNTS: AccountsResponse = {
   items: [...ACCOUNTS_RESPONSE.items.map(withRecentStatement), CARD_NO_DUE, SAVINGS_ACCOUNT, CARD_DATE_ONLY],
 };
 
-function notFound(): Response {
-  return Response.json({ message: 'not found' }, { status: 404 });
-}
-
-function badRequest(message: string): Response {
-  return Response.json({ message }, { status: 400 });
-}
-
-async function readJsonBody(req: Request): Promise<Record<string, unknown> | Response> {
-  if (!req.headers.get('Content-Type')?.startsWith('application/json')) {
-    return Response.json({ message: 'expected a JSON body' }, { status: 415 });
-  }
-  try {
-    return (await req.json()) as Record<string, unknown>;
-  } catch {
-    return badRequest('invalid JSON body');
-  }
-}
-
 function accountType(tipoNovo: unknown) {
   return MOCK_ACCOUNTS.meta.tipos.find((t) => t.id === tipoNovo);
 }
@@ -93,8 +72,12 @@ function accountOf(conta: unknown): Account | undefined {
   return MOCK_ACCOUNTS.items.find((a) => a.id === id);
 }
 
+function accountTipo(conta: unknown): string | undefined {
+  return accountOf(conta)?.tipo;
+}
+
 function isCreditCardId(conta: unknown): boolean {
-  return accountOf(conta)?.tipo === 'CARTAOCREDITO';
+  return accountTipo(conta) === 'CARTAOCREDITO';
 }
 
 async function accountsRoute(req: Request, path: string): Promise<Response> {
@@ -147,126 +130,6 @@ async function accountsRoute(req: Request, path: string): Promise<Response> {
   return notFound();
 }
 
-// tipoRepeticao bits, as the web app's Repetição filter sends them.
-function repetitionBit(entry: { parcela?: string | null }): number {
-  if (!entry.parcela) return 1;
-  return entry.parcela === 'fixa' ? 4 : 2;
-}
-
-/** GET /v2/lancamentos: the seeded entries of the requested accounts, dates and repetition. */
-function entriesListRoute(url: URL): Response {
-  const ids = (JSON.parse(url.searchParams.get('contas') ?? '{}') as { ids?: number[] }).ids ?? [];
-  const from = url.searchParams.get('inicio') ?? '';
-  const to = url.searchParams.get('fim') ?? '';
-  const repetition = parseInteger(url.searchParams.get('tipoRepeticao') ?? '7');
-  if (repetition === undefined) return badRequest('tipoRepeticao must be a whole number');
-  const candidates = url.searchParams.get('finalidade') === '3' ? IMPORT_CANDIDATES : [];
-  const list = [...Object.values(SEEDED_ENTRIES), ...candidates].filter((e) => {
-    const date = String(e.dataPrevista);
-    // Like the real statement list (finalidade 1), card purchases are left out:
-    // they only show up in the card's invoices.
-    return ids.includes(e.conta) && !isCreditCardId(e.conta) && date >= from && date <= to && (repetitionBit(e) & repetition) !== 0;
-  });
-  const response: EntriesResponse = { list, meta: { total: list.length, page: 1, pageSize: 200 } };
-  return Response.json(response);
-}
-
-async function entriesRoute(req: Request, path: string): Promise<Response> {
-  if (path === ENTRIES_PATH) {
-    if (req.method !== 'POST') return notFound();
-    const body = await readJsonBody(req);
-    if (body instanceof Response) return body;
-    if (typeof body.descricao !== 'string' || !body.descricao) return badRequest('descricao is required');
-    if (typeof body.valor !== 'number') return badRequest('valor is required');
-
-    // Card purchases (#12/#17): must carry dataCompetencia, invoice due as
-    // dataPrevista, and stay unreconciled. Reject otherwise so verify catches
-    // regressions through the real CLI path.
-    if (isCreditCardId(body.conta)) {
-      if (typeof body.dataCompetencia !== 'string' || !body.dataCompetencia) {
-        return badRequest('dataCompetencia is required for credit card entries');
-      }
-      if (typeof body.dataPrevista !== 'string' || !body.dataPrevista) {
-        return badRequest('dataPrevista is required for credit card entries');
-      }
-      if (body.conciliado === true || (body.status as { conciliado?: boolean } | undefined)?.conciliado === true) {
-        return badRequest('credit card entries must not be reconciled');
-      }
-    }
-
-    const invalid = checkCreatePayload(body);
-    if (invalid) return badRequest(invalid);
-    const created: CreateEntryResponse = isCreditCardId(body.conta)
-      ? createCardPurchase(body)
-      : createdEntry(body, mockEntryId(NEW_ENTRY_ID));
-    return Response.json(created, { status: 201 });
-  }
-
-  const match = path.match(/^\/api\/v1\/lancamentos\/(\d+)$/);
-  if (!match) return notFound();
-  const id = parseId(match[1]);
-  if (id === undefined) return notFound();
-  const existing = SEEDED_ENTRIES[id];
-  if (!existing) return notFound();
-
-  if (req.method === 'GET') return Response.json(existing);
-
-  if (req.method === 'PUT') {
-    const body = await readJsonBody(req);
-    if (body instanceof Response) return body;
-    const inSeries = Boolean(existing.agendaId) && Boolean(existing.parcela);
-    if (body.todos !== undefined && (typeof body.todos !== 'boolean' || !inSeries)) {
-      return badRequest('todos only applies to an occurrence of a series, as a boolean');
-    }
-    // The GET's transferencia is a number; the web app's save always sends a boolean.
-    if (typeof body.transferencia !== 'boolean') return badRequest('transferencia must be a boolean');
-    const invalidAccounts = checkUpdateAccounts(body, (conta) => accountOf(conta)?.tipo);
-    if (invalidAccounts) return badRequest(invalidAccounts);
-    const transfer = body.transferencia === true;
-    const merged: Record<string, unknown> = { ...existing, ...body, id };
-    // Like the real API: without todos: true the occurrence leaves its series.
-    const keepsSeries = inSeries && body.todos === true;
-    const updated: Omit<Entry, 'plastico'> & { plastico: number | null } = {
-      ...existing,
-      id,
-      descricao: String(merged.descricao ?? existing.descricao),
-      conciliado: merged.conciliado === true,
-      dataCompetencia: typeof merged.dataCompetencia === 'string' ? merged.dataCompetencia : null,
-      status: statusLabel(body, merged) ?? existing.status,
-      agendaId: keepsSeries ? existing.agendaId : null,
-      parcela: keepsSeries ? existing.parcela : null,
-      tipo: entryType(merged.tipo),
-      valor: requiredNumber(merged.valor, 'valor'),
-      valorPrevisto: requiredNumber(merged.valor, 'valor'),
-      valorEfetivo: numberOrNull(merged.valorEfetivo),
-      estorno: merged.estorno === true,
-      data: String(merged.data ?? existing.data),
-      dataPrevista: String(merged.dataPrevista ?? existing.dataPrevista),
-      dataEfetiva: typeof merged.dataEfetiva === 'string' ? merged.dataEfetiva : null,
-      dataCriacao: new Date().toISOString(),
-      exibirCp: true,
-      exibirCr: true,
-      conta: transfer ? requiredId(body.contaOrigem, 'contaOrigem') : requiredId(merged.conta ?? existing.conta, 'conta'),
-      plastico: numberOrNull(merged.plastico),
-      ...(transfer && { contaT: requiredId(body.contaDestino, 'contaDestino') }),
-    };
-    return Response.json(updated);
-  }
-
-  if (req.method === 'DELETE') {
-    // The web app sends the scope as ?todos=true|false; it only means
-    // something for an occurrence of a series.
-    const todos = new URL(req.url).searchParams.get('todos');
-    const inSeries = Boolean(existing.agendaId) && Boolean(existing.parcela);
-    if (todos !== null && (!['true', 'false'].includes(todos) || !inSeries)) {
-      return badRequest('todos only applies to an occurrence of a series, as true or false');
-    }
-    return new Response(null, { status: 204 });
-  }
-
-  return notFound();
-}
-
 const server = Bun.serve({
   port: 0,
   fetch(req) {
@@ -290,13 +153,13 @@ const server = Bun.serve({
       if (card) return card;
     }
     if (url.pathname === '/api/v2/lancamentos' && req.method === 'GET') {
-      return url.searchParams.get('type') === 'sum' ? balancesRoute(url, isCreditCardId) : entriesListRoute(url);
+      return url.searchParams.get('type') === 'sum' ? balancesRoute(url, isCreditCardId) : entriesListRoute(url, accountTipo);
     }
     // duplicidade lives under /lancamentos, so it has to be claimed before that prefix.
     const imported = importRoute(req.method, url);
     if (imported) return imported;
     if (url.pathname === ENTRIES_PATH || url.pathname.startsWith(`${ENTRIES_PATH}/`)) {
-      return entriesRoute(req, url.pathname);
+      return entriesRoute(req, url.pathname, accountTipo);
     }
     return connectionsRoute(req.method, url.pathname) ?? plasticsRoute(req.method, url.pathname) ?? sessionRoute(req.method, url.pathname) ?? notFound();
   },
