@@ -2,6 +2,7 @@
 // files/ignores (no-restricted-syntax blocks replaced each other's options).
 import noAmbientClock from "./no-ambient-clock.js";
 import noBareProcessExit from "./no-bare-process-exit.js";
+import noBrandCast from "./no-brand-cast.js";
 import disableDirectiveDescription from "./disable-directive-description.js";
 import noCategoryNameResolution from "./no-category-name-resolution.js";
 import noTypeSignTernary from "./no-type-sign-ternary.js";
@@ -22,6 +23,7 @@ export default {
   rules: {
     "no-ambient-clock": noAmbientClock,
     "no-bare-process-exit": noBareProcessExit,
+    "no-brand-cast": noBrandCast,
     "disable-directive-description": disableDirectiveDescription,
     "no-category-name-resolution": noCategoryNameResolution,
     "no-type-sign-ternary": noTypeSignTernary,

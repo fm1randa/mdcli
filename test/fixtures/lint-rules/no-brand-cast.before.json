@@ -1,0 +1,7 @@
+{
+  "rule": "no-brand-cast",
+  "origin": "110719d",
+  "source": "src/commands/entries/entry-id.ts",
+  "note": "asEntryId branded the API's number with a loose cast; the constructors moved to src/lib/entry-id-brands.ts and the rule came in #277.",
+  "code": "  if (typeof id === 'number') return Number.isInteger(id) ? (id as EntryId) : undefined;"
+}
