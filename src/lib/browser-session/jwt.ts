@@ -1,4 +1,6 @@
-const SESSION_URL = 'https://app.meudinheiroweb.com.br/api/v1/frontend/sessao';
+import { DEFAULT_API_URL } from '../meu-dinheiro-host.js';
+
+const SESSION_URL = `${DEFAULT_API_URL}/v1/frontend/sessao`;
 
 /** The frontend's public API key, served to logged-out visitors too. */
 export async function fetchPublicApiKey(): Promise<string | undefined> {

@@ -18,6 +18,9 @@
   "no-git-copy": {
     "src/**": "The rule guards the gates in scripts/ and their tests; the CLI in src/ never parses --base or diffs a branch."
   },
+  "no-host-literal": {
+    "test/**": "Tests pin the host as a literal to prove the owner's URLs, headers and cookie domain; deriving the expected value from the owner would hide a host change."
+  },
   "no-literal-since": {
     "src/**": "The rule guards fixed dates written in tests; commands read the --since value the user passed.",
     "scripts/**": "The rule guards fixed --since dates written in tests; scripts/ passes no --since."

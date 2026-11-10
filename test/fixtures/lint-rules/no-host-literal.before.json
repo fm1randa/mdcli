@@ -1,0 +1,7 @@
+{
+  "rule": "no-host-literal",
+  "origin": "f41a669",
+  "source": "src/lib/browser-auth.ts",
+  "note": "browser-auth.ts carried its own copy of the host next to api.ts and browser-session/; the host moved to src/lib/meu-dinheiro-host.ts and the rule came in #279.",
+  "code": "const LOGIN_URL = 'https://app.meudinheiroweb.com.br/';\nconst API_URL_PATTERN = 'app.meudinheiroweb.com.br/api/';"
+}

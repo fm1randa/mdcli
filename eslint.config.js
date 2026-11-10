@@ -138,6 +138,14 @@ export default tseslint.config(
     rules: { "local/no-git-copy": "error" },
   },
   {
+    // The Meu Dinheiro host lives only in src/lib/meu-dinheiro-host.ts (#279).
+    // Help texts in the i18n catalogs name the site to the user, not a URL the
+    // CLI calls. test/** is exempt in eslint-rules/scope-exemptions.json.
+    files: ["src/**/*.ts", "scripts/**/*.ts", "bin/**/*.ts"],
+    ignores: ["src/lib/meu-dinheiro-host.ts", "src/lib/i18n/catalog/**"],
+    rules: { "local/no-host-literal": "error" },
+  },
+  {
     ignores: ["node_modules", "dist"],
   }
 );

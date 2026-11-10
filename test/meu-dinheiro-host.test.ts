@@ -66,3 +66,18 @@ describe('Meu Dinheiro host', () => {
     expect(sent.map((s) => s.url)).toEqual(['https://app.meudinheiroweb.com.br/api/v1/frontend/sessao']);
   });
 });
+
+// The browser login and the session extraction need a real browser profile, so
+// their URLs are pinned through the owner they import.
+describe('Meu Dinheiro host owner', () => {
+  test('the browser opens, filters and reads cookies on the production host', async () => {
+    const host = await import('../src/lib/meu-dinheiro-host.js');
+    expect({ ...host }).toEqual({
+      WEB_ORIGIN: 'https://app.meudinheiroweb.com.br',
+      WEB_URL: 'https://app.meudinheiroweb.com.br/',
+      DEFAULT_API_URL: 'https://app.meudinheiroweb.com.br/api',
+      API_URL_PATTERN: 'app.meudinheiroweb.com.br/api/',
+      COOKIE_DOMAIN: '.meudinheiroweb.com.br',
+    });
+  });
+});
