@@ -26,6 +26,8 @@ export interface CardInvoiceEntry {
   plastico?: number;
   /** Present on closed invoices. */
   fatura?: number;
+  /** The Bank Transaction an imported item came from: the import sends it (commit.ts). Not read by the web. */
+  integrationId?: string;
 }
 
 /**
