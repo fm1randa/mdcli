@@ -21,6 +21,8 @@ const MOCK_CONNECTIONS: ConnectionsResponse = [
       { id: 301, type: 'CONTA CORRENTE', conta: 201 },
       { id: 302, type: 'CARTAOCREDITO', conta: 202 },
       { id: 303, type: 'CARTAOCREDITO' },
+      // Cartão Teste Fechado (mock-closed-invoice.ts).
+      { id: 304, type: 'CARTAOCREDITO', conta: 206 },
     ],
   },
 ];

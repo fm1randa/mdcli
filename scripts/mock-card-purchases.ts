@@ -4,6 +4,7 @@ import type { CardInvoiceEntry, CreateEntryResponse } from '../src/types/index.j
 import { type Body, numberArray, numberOrNull, requiredId, requiredNumber } from './mock-http.js';
 import { createdEntry, mockEntryId, mockOccurrenceId } from './mock-entry-payload.js';
 import { SEEDED_ENTRIES } from './mock-entry-seed.js';
+import { closedInvoiceItems } from './mock-closed-invoice.js';
 
 interface StoredCardPurchase {
   id: number;
@@ -44,6 +45,8 @@ export function createCardPurchase(body: Body): CreateEntryResponse {
 
 /** The invoice items of a card's invoice due on dueDate. */
 export function invoiceItems(cardId: number, dueDate: string): CardInvoiceEntry[] {
+  const closed = closedInvoiceItems(cardId, dueDate);
+  if (closed !== null) return closed;
   // January 2026 invoice: one purchase and the previous invoice's payment
   // (tipo p). Bill total is -87.5; summing the items would yield +12.5.
   const seeded: CardInvoiceEntry[] = dueDate.startsWith('2026-01-')
