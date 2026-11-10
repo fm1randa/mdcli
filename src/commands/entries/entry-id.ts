@@ -1,41 +1,17 @@
 import { exitWithError } from '../../utils/action.js';
 import { t } from '../../lib/i18n/index.js';
-import { parseId, parseInteger } from '../../utils/parse.js';
+import { parseId } from '../../utils/parse.js';
+import { answeredOccurrenceId, asEntryId, asEntryIdText, asOccurrenceId } from '../../lib/entry-id-brands.js';
 import { fetchAllEntries } from '../../lib/api.js';
 import { toCents } from '../../utils/currency.js';
 import { shiftDueDate } from '../../lib/dates.js';
 import type { CreateEntryResponse, EntryId, EntryIdText, OccurrenceId } from '../../types/index.js';
 
-/**
- * What POST /v1/lancamentos answered for a card purchase (Real use,
- * 2026-10-16): "<series>A<date>", e.g. "1234567A2026-10-20". It is not an
- * entry ID: GET/PUT/DELETE /v1/lancamentos/:id need the numeric one.
- */
-const OCCURRENCE_ID = /^\d+A\d{4}-\d{2}-\d{2}$/;
-
-/** The numeric entry ID in a value the API answered, if it is one. */
-export function asEntryId(id: unknown): EntryId | undefined {
-  if (typeof id === 'number') return Number.isInteger(id) ? (id as EntryId) : undefined;
-  if (typeof id !== 'string') return undefined;
-  const entryId = parseInteger(id);
-  return entryId === undefined ? undefined : (entryId as EntryId);
-}
-
-/** True when the API already answered an entry ID, as a number or a decimal string. */
-function isEntryId(id: unknown): boolean {
-  return (typeof id === 'number' && Number.isInteger(id)) || (typeof id === 'string' && /^\d+$/.test(id));
-}
-
-/** True for the occurrence ID the API answers for a card purchase or a future pending entry. */
-function isOccurrenceId(id: unknown): id is OccurrenceId {
-  return typeof id === 'string' && OCCURRENCE_ID.test(id);
-}
-
 /** The numeric entry ID from a CLI argument, or exit with a hint. */
 export function parseEntryId(id: string): number {
   const entryId = parseId(id);
   if (entryId !== undefined) return entryId;
-  if (OCCURRENCE_ID.test(id)) {
+  if (asOccurrenceId(id) !== undefined) {
     exitWithError(t('errorSeriesOccurrenceId', id));
   }
   exitWithError(t('errorInvalidEntryId'));
@@ -81,16 +57,18 @@ export async function resolveCreatedEntryId(
   lookup: CreatedEntryLookup
 ): Promise<ResolvedCreateEntry> {
   const rawId: unknown = response.id;
-  if (isEntryId(rawId)) return { ...response, id: rawId as EntryId | EntryIdText };
-  if (isOccurrenceId(rawId) || lookup.looksUpAnyId) {
+  const entryId = typeof rawId === 'number' ? asEntryId(rawId) : asEntryIdText(rawId);
+  if (entryId !== undefined) return { ...response, id: entryId };
+  const occurrenceId = answeredOccurrenceId(rawId);
+  if (asOccurrenceId(rawId) !== undefined || lookup.looksUpAnyId) {
     const ids = await lookup.find();
     if (ids.length === 0) {
       console.error(lookup.notFound(String(rawId)));
-      return { ...response, id: rawId as OccurrenceId };
+      return { ...response, id: occurrenceId };
     }
-    return { ...response, id: Math.max(...ids) as EntryId, occurrenceId: rawId as OccurrenceId };
+    return { ...response, id: ids.reduce((max, id) => (id > max ? id : max)), occurrenceId };
   }
-  return { ...response, id: rawId as OccurrenceId };
+  return { ...response, id: occurrenceId };
 }
 
 /**

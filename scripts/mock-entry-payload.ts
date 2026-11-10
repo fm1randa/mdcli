@@ -2,6 +2,7 @@
 import type { CreateEntryResponse, Entry, EntryId, OccurrenceId } from '../src/types/index.js';
 import { localDay } from '../test/helpers.js';
 import { roundToCents } from '../src/utils/currency.js';
+import { asEntryId, asOccurrenceId } from '../src/lib/entry-id-brands.js';
 import { type Body, numberArray, numberOrNull, requiredId, requiredNumber } from './mock-http.js';
 
 /**
@@ -81,10 +82,18 @@ export function entryType(tipo: unknown): CreateEntryResponse['tipo'] {
 }
 
 /** A numeric entry ID from the mock. */
-export const mockEntryId = (id: number): EntryId => id as EntryId;
+export function mockEntryId(id: number): EntryId {
+  const entryId = asEntryId(id);
+  if (entryId === undefined) throw new Error(`mock entry ID ${id} is not an integer`);
+  return entryId;
+}
 
 /** An occurrence ID ("<series>A<date>") from the mock. */
-export const mockOccurrenceId = (id: string): OccurrenceId => id as OccurrenceId;
+export function mockOccurrenceId(id: string): OccurrenceId {
+  const occurrenceId = asOccurrenceId(id);
+  if (occurrenceId === undefined) throw new Error(`mock occurrence ID ${id} is not <series>A<date>`);
+  return occurrenceId;
+}
 
 /** The API's answer to POST /v1/lancamentos for a payload that passed checkCreatePayload. */
 export function createdEntry(body: Body, id: EntryId | OccurrenceId): CreateEntryResponse {

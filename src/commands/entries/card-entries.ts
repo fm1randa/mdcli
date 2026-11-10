@@ -2,7 +2,8 @@ import { fetchAccounts, fetchAllEntries, fetchCardInvoice, isCreditCard } from '
 import { t } from '../../lib/i18n/index.js';
 import { shiftDueDate } from '../../lib/dates.js';
 import type { Account, CardInvoiceEntry, EntriesParams, Entry } from '../../types/index.js';
-import { asEntryId, type CreatedEntryLookup } from './entry-id.js';
+import { asEntryId } from '../../lib/entry-id-brands.js';
+import type { CreatedEntryLookup } from './entry-id.js';
 import { cardDueAnchor } from './card-invoice.js';
 import { statusBit, typeBit } from './filters.js';
 import { toCents } from '../../utils/currency.js';

@@ -58,6 +58,12 @@ export default tseslint.config(
     rules: { "local/no-double-cast": "error" },
   },
   {
+    // Entry and occurrence IDs are branded only by their constructors (#277).
+    files: ["src/**/*.ts", "test/**/*.ts", "scripts/**/*.ts"],
+    ignores: ["src/lib/entry-id-brands.ts"],
+    rules: { "local/no-brand-cast": "error" },
+  },
+  {
     // An empty table cell is written by cell() alone.
     files: ["src/**/*.ts", "test/**/*.ts"],
     ignores: ["src/utils/text.ts"],
