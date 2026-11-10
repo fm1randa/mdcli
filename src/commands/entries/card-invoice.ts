@@ -34,9 +34,10 @@ export async function cardDueAnchor(account: Account): Promise<string> {
 
 /**
  * The card's own proximoVencimento (YYYY-MM-DD), or null when it has no valid
- * one. No primeiraFatura fallback: the Import reconciles against the current
- * invoice only, like the web (carregarFatura(id, proximoVencimento)), so a
- * card without one fails the Import (decision of 2026-10-23, PR #115).
+ * one. No primeiraFatura fallback: the Import starts from the current invoice,
+ * like the web (carregarFatura(id, proximoVencimento)), so a card without one
+ * fails the Import (decision of 2026-10-23, PR #115). From there it also walks
+ * back to the closed invoices the purchases fall in (issue #281).
  */
 export function ownDueDate(account: Account): string | null {
   return calendarDay(account.proximoVencimento);

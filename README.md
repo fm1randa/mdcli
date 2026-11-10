@@ -398,7 +398,9 @@ mdcli entries import list --account principal --since 2026-10-01 --json
 
 # Amplia a busca de lançamentos para conciliar (o "Alterar busca" da web; o
 # padrão é o período do extrato ±2 dias). Num cartão, os candidatos são a fatura
-# inteira do próximo vencimento; um cartão sem próximo vencimento não importa
+# inteira do próximo vencimento e as faturas já fechadas em que caem as compras
+# do extrato, então uma compra já conciliada numa fatura fechada não volta como
+# nova; um cartão sem próximo vencimento não importa
 mdcli entries import list --account principal --search-from 2026-10-01 --search-to 2026-10-20
 
 # Importa transações escolhidas pelo prefixo, todas na mesma categoria;
