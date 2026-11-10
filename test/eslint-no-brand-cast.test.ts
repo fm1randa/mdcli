@@ -30,7 +30,12 @@ const FORMS: Record<string, string> = {
   'qualified name': "import type * as T from '../src/types/index.js';\nexport const v = 1 as T.EntryId;",
   'renamed import': "import type { EntryId as Id } from '../src/types/index.js';\nexport const v = 1 as Id;",
   'type predicate': 'export const isId = (v: number): v is EntryId => v > 0;',
+  'local type alias': 'type Id = EntryId;\ntype Ids = Id[];\nexport const v = [1] as Ids;',
+  'local interface': 'interface Created { id: OccurrenceId }\nexport const v = { id: 1 } as Created;',
+  'type declared after the cast': 'export const v = 1 as Later;\ntype Later = EntryIdText | null;',
 };
+
+const CAST_LINE: Record<string, number> = { 'type declared after the cast': 2 };
 
 // main when #277 was filed: the casts the issue lists, by line, plus the
 // `id is OccurrenceId` predicate at entry-id.ts:30 that branded the same way.
@@ -44,7 +49,7 @@ describe('local/no-brand-cast', () => {
   for (const [form, code] of Object.entries(FORMS)) {
     test(`fires on ${form} in src, test and scripts`, async () => {
       const source = code.startsWith('import') ? code : `${TYPES}${code}`;
-      const line = source.split('\n').length;
+      const line = CAST_LINE[form] ?? source.split('\n').length;
       for (const area of AREAS) expect(await hits(source, area)).toEqual([line]);
     });
   }
@@ -54,6 +59,7 @@ describe('local/no-brand-cast', () => {
     expect(await hits(`${TYPES}${FORMS['type predicate']}`, OWNER)).toEqual([]);
     expect(await hits("type EntryIdRead = { entry: number };\nexport const v = {} as EntryIdRead;", AREAS[0])).toEqual([]);
     expect(await hits('export const v = 1 as number;', AREAS[0])).toEqual([]);
+    expect(await hits('type Plain = { id: number };\nexport const v = {} as Plain;', AREAS[0])).toEqual([]);
   });
 
   test(`catches every cast main carried at ${BEFORE}, and the branch carries none`, async () => {

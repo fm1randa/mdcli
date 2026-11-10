@@ -35,25 +35,46 @@ export default {
       brandCast:
         "Casting to {{brand}} skips the check that makes a value one. Build it with asEntryId, asEntryIdText, asOccurrenceId or answeredOccurrenceId from " +
         OWNER +
-        " (this covers `as {{brand}}`, `<{{brand}}>x`, the brand inside a union, array or object type, a renamed import and an `x is {{brand}}` predicate).",
+        " (this covers `as {{brand}}`, `<{{brand}}>x`, the brand inside a union, array or object type, a renamed import, a type alias or interface of this file that carries it, and an `x is {{brand}}` predicate).",
     },
     schema: [],
   },
   create(context) {
     const keys = context.sourceCode.visitorKeys;
     const aliases = new Map();
-    const check = (node, type) => {
-      const brand = findBrand(type, aliases, keys);
-      if (brand !== undefined) context.report({ node, messageId: "brandCast", data: { brand } });
-    };
+    const declarations = [];
+    const casts = [];
+    const collect = (node) => casts.push(node);
     return {
       ImportSpecifier(node) {
         const imported = node.imported.type === "Identifier" ? node.imported.name : node.imported.value;
         if (BRANDS.has(imported) && node.local.name !== imported) aliases.set(node.local.name, imported);
       },
-      TSAsExpression: (node) => check(node, node.typeAnnotation),
-      TSTypeAssertion: (node) => check(node, node.typeAnnotation),
-      TSTypePredicate: (node) => check(node, node.typeAnnotation),
+      TSTypeAliasDeclaration: (node) => declarations.push([node.id.name, node.typeAnnotation]),
+      TSInterfaceDeclaration: (node) => declarations.push([node.id.name, node.body]),
+      TSAsExpression: collect,
+      TSTypeAssertion: collect,
+      TSTypePredicate: collect,
+      "Program:exit"() {
+        // A local type that carries a brand brands like the brand itself,
+        // wherever it is declared; resolve aliases of aliases to a fixed point.
+        let grew = true;
+        while (grew) {
+          grew = false;
+          for (const [name, type] of declarations) {
+            if (aliases.has(name)) continue;
+            const brand = findBrand(type, aliases, keys);
+            if (brand !== undefined) {
+              aliases.set(name, brand);
+              grew = true;
+            }
+          }
+        }
+        for (const node of casts) {
+          const brand = findBrand(node.typeAnnotation, aliases, keys);
+          if (brand !== undefined) context.report({ node, messageId: "brandCast", data: { brand } });
+        }
+      },
     };
   },
 };
