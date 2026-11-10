@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createHome, localDay, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type RecordedRequest, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, cardInvoice, entriesPage } from './fixtures.js';
-import { statusLabel } from '../scripts/mock-entries.js';
+import { statusLabel } from '../scripts/mock-entry-payload.js';
 
 // Real use 2026-10-19: `entries create -p` on checking account 201 (date
 // today) came back as id 481, "Status: Confirmed". In the web app

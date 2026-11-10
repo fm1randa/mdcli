@@ -4,7 +4,7 @@ import type { CardFutureResponse, CardInvoiceResponse, FirstInvoiceResponse } fr
 import { cardInvoice, firstInvoice } from '../test/fixtures.js';
 import { roundToCents } from '../src/utils/currency.js';
 import { parseId } from '../src/utils/parse.js';
-import { invoiceItems } from './mock-entries.js';
+import { invoiceItems } from './mock-card-purchases.js';
 
 const sum = (items: ReadonlyArray<{ valor: number }>): number => roundToCents(items.reduce((total, e) => total + e.valor, 0));
 

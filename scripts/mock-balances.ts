@@ -1,7 +1,7 @@
 // GET /v2/lancamentos type=sum for scripts/mock-api.ts (the web's account balances, #67).
 import type { AccountBalancesResponse, AccountBalanceSum } from '../src/types/index.js';
 import { roundToCents } from '../src/utils/currency.js';
-import { SEEDED_ENTRIES } from './mock-entries.js';
+import { SEEDED_ENTRIES } from './mock-entry-seed.js';
 
 const sum = (items: ReadonlyArray<{ valor: number }>): number => roundToCents(items.reduce((total, e) => total + e.valor, 0));
 
