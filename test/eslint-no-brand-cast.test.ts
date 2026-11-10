@@ -9,6 +9,10 @@ const RULE = 'local/no-brand-cast';
 const OWNER = 'src/lib/entry-id-brands.ts';
 const AREAS = ['src/lib/normalize.ts', 'test/import-harness.ts', 'scripts/risk.ts'];
 
+// Typed linting builds each area's program on its first lintText call; under
+// the parallel run that took 24 s inside the first test (#279). Build them first.
+for (const area of AREAS) await eslint.lintText('export const answer = 42;\n', { filePath: area });
+
 async function hits(code: string, filePath: string): Promise<number[]> {
   const [result] = await eslint.lintText(`${code}\n`, { filePath });
   const fatal = result.messages.find((m) => m.fatal);
