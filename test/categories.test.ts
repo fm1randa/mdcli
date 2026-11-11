@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
-import { CATEGORIES_RESPONSE } from './fixtures.js';
+import { CATEGORIES_RESPONSE, category } from './fixtures.js';
 
 const activeMoradia = { ...CATEGORIES_RESPONSE.items[4], id: 42, nome: 'Moradia', nomeRel: 'Moradia', _ordenacao: 'MORADIA' };
 
@@ -37,7 +37,7 @@ describe('categories list', () => {
 
 describe('categories create', () => {
   test('a top-level category is sent with pai 0', async () => {
-    api.on('POST /v1/cadastros/categorias', { id: 50, nome: 'Pets', nomeRel: 'Pets', tipo: 'd', status: true });
+    api.on('POST /v1/cadastros/categorias', category(50, 'Pets', 'd'));
 
     const result = await runCli(['categories', 'create', '--name', 'Pets', '--type', 'expense'], { home, api });
 
@@ -46,7 +46,7 @@ describe('categories create', () => {
   });
 
   test('a subcategory resolves --parent by name and inherits its type', async () => {
-    api.on('POST /v1/cadastros/categorias', { id: 51, nome: 'Salário/Bônus', nomeRel: 'Bônus', tipo: 'r', status: true });
+    api.on('POST /v1/cadastros/categorias', category(51, 'Salário/Bônus', 'r', { pai: 20 }));
 
     const result = await runCli(['categories', 'create', '--name', 'Bônus', '--parent', 'salário'], { home, api });
 
@@ -93,7 +93,7 @@ describe('categories create', () => {
 
 describe('categories update', () => {
   test('sends the leaf name for a subcategory, not the "Parent/Child" path', async () => {
-    api.on('PUT /v1/cadastros/categorias/11', { id: 11, nome: 'Alimentação/Mercado', nomeRel: 'Mercado', status: false });
+    api.on('PUT /v1/cadastros/categorias/11', category(11, 'Alimentação/Mercado', 'd', { pai: 10, status: false }));
 
     const result = await runCli(['categories', 'update', '11', '--inactive'], { home, api });
 
@@ -102,7 +102,7 @@ describe('categories update', () => {
   });
 
   test('a rename of a top-level category keeps pai at 0', async () => {
-    api.on('PUT /v1/cadastros/categorias/10', { id: 10, nome: 'Comida', nomeRel: 'Comida', status: true });
+    api.on('PUT /v1/cadastros/categorias/10', category(10, 'Comida', 'd'));
 
     const result = await runCli(['categories', 'update', '10', '--name', 'Comida'], { home, api });
 
@@ -253,7 +253,7 @@ describe('categories with an obsolete name cache', () => {
   });
 
   test('--parent sends the active category of the name', async () => {
-    api.on('POST /v1/cadastros/categorias', { id: 60, nome: 'Filha', nomeRel: 'Filha', tipo: 'd', status: true });
+    api.on('POST /v1/cadastros/categorias', category(60, 'Filha', 'd'));
 
     const result = await runCli(['categories', 'create', '--name', 'Filha', '--parent', 'moradia'], { home, api });
 

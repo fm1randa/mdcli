@@ -119,7 +119,7 @@ describe('sync run all', () => {
       { id: 504, status: 'UPDATED', accounts: [{ id: 9007, type: 'CONTA CORRENTE', conta: 204 }] },
     ];
     connections(three, three);
-    api.on('PUT /v1/integracao/connection/update/502', { message: 'limit' }, 500);
+    api.fail('PUT /v1/integracao/connection/update/502', 500, { message: 'limit' });
 
     const text = await runCli(['sync', 'run', 'all', '--yes'], { home, api });
 
@@ -137,7 +137,7 @@ describe('sync run all', () => {
 
     api.requests.length = 0;
     connections(three, three);
-    api.on('PUT /v1/integracao/connection/update/501', { message: 'limit' }, 500);
+    api.fail('PUT /v1/integracao/connection/update/501', 500, { message: 'limit' });
     const json = await runCli(['sync', 'run', 'all', '--yes', '--json'], { home, api });
     expect(json.exitCode).toBe(1);
     expect(json.stdout).toBe('');
@@ -152,7 +152,7 @@ describe('sync run all', () => {
 
   test('a single connection that fails still says nothing was updated', async () => {
     connections(ONE_CONNECTION, ONE_CONNECTION);
-    api.on('PUT /v1/integracao/connection/update/501', { message: 'limit' }, 500);
+    api.fail('PUT /v1/integracao/connection/update/501', 500, { message: 'limit' });
 
     const result = await runCli(['sync', 'run', 'all', '--yes', '--json'], { home, api });
 

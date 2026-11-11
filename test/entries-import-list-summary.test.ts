@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createHome, localDay, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE } from './fixtures.js';
 import { SINCE } from './import-harness.js';
+import type { Account, BankStatementResponse, ConnectionsResponse } from '../src/types/index.js';
 
 // Fictional ids. 201 is Conta Teste in the account fixture; 301 is its connection account.
 // Without --since the new Bank Transactions come from accounts[].summary of GET /integracao/connections,
@@ -17,9 +18,9 @@ const SUMMARY = {
   fim: '2026-10-22',
   saldo: 99.5,
   lancamentos: [{ integrationId: NEW_ID, descricao: 'Rendimento Ficticio', valor: 0.31, data: '2026-10-22', moeda: 1 }],
-};
+} satisfies BankStatementResponse;
 
-const STATEMENT = {
+const STATEMENT: BankStatementResponse = {
   inicio: '2026-10-01',
   fim: '2026-10-22',
   saldo: 99.5,
@@ -29,9 +30,8 @@ const STATEMENT = {
   ],
 };
 
-function connections(summary: unknown) {
-  const account: Record<string, unknown> = { id: 301, type: 'CONTA CORRENTE', conta: 201 };
-  if (summary !== undefined) account.summary = summary;
+function connections(summary: unknown): ConnectionsResponse {
+  const account = { id: 301, type: 'CONTA CORRENTE', conta: 201, ...(summary === undefined ? {} : { summary }) };
   return [{ id: 501, status: 'UPDATED', accounts: [account] }];
 }
 
@@ -63,7 +63,7 @@ function startQueries(): (string | null)[] {
 }
 
 /** The account fixture with some fields replaced; undefined removes the field. */
-function accountsWith(extra: Record<string, unknown>): void {
+function accountsWith(extra: Partial<Account>): void {
   const items = ACCOUNTS_RESPONSE.items.map((item) => (item.id === 201 ? { ...item, ...extra } : item));
   api.on('GET /v1/cadastros/contas', { ...ACCOUNTS_RESPONSE, items });
 }
@@ -162,7 +162,7 @@ describe('entries import list without --since: the new bank transactions', () =>
 
   test('an empty statement from 90 days ago does not suggest looking further back', async () => {
     api.on('GET /v1/integracao/connections', connections(undefined));
-    api.on('GET /v1/integracao/account/301/transactions', { inicio: null, fim: null, saldo: 1, lancamentos: [] });
+    api.on('GET /v1/integracao/account/301/transactions', { saldo: 1, lancamentos: [] });
 
     const text = await cli(['entries', 'import', 'list', '-a', '201']);
 
@@ -173,7 +173,7 @@ describe('entries import list without --since: the new bank transactions', () =>
 
   test('import run with nothing new exits 0 without writing', async () => {
     api.on('GET /v1/integracao/connections', connections(undefined));
-    api.on('GET /v1/integracao/account/301/transactions', { inicio: null, fim: null, saldo: 1, lancamentos: [] });
+    api.on('GET /v1/integracao/account/301/transactions', { saldo: 1, lancamentos: [] });
 
     const json = await cli(['entries', 'import', 'run', '-a', '201', '--edit', '--dry-run', '--json']);
     expect(json.exitCode).toBe(0);

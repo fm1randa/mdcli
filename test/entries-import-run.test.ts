@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE } from './fixtures.js';
-import { CONNECTIONS, mockStatement, SINCE } from './import-harness.js';
+import { CONNECTIONS, mockStatement, SINCE, type BankTransaction } from './import-harness.js';
 
 // Fictional ids. 201 is Conta Teste, 301 its connection account. Category 10 is Alimentação (d), 20 Salário (r).
 
@@ -26,11 +26,11 @@ afterEach(() => {
   home.cleanup();
 });
 
-function bank(integrationId: string, extra: Record<string, unknown> = {}) {
+function bank(integrationId: string, extra: Partial<BankTransaction> = {}) {
   return { integrationId, descricao: 'Padaria Ficticia', valor: -12.34, data: '2026-10-07', moeda: 1, ...extra };
 }
 
-function statement(rows: unknown[]) {
+function statement(rows: BankTransaction[]) {
   mockStatement(api, rows, { saldo: 250.5 });
 }
 
@@ -77,8 +77,8 @@ describe('entries import run --dry-run', () => {
 
   test('does not ask the AI for a category: --category already gives it', async () => {
     statement([
-      bank(TX1, { _ca: { ait: { d: ['d', 'padaria ficticia'] } } }),
-      bank(TX2, { valor: -5, _ca: { ait: { d: ['d', 'mercado'] } } }),
+      bank(TX1, { _ca: { ait: { d: 'tok-padaria' } } }),
+      bank(TX2, { valor: -5, _ca: { ait: { d: 'tok-mercado' } } }),
     ]);
     api.on('POST /v1/smartmatch/ai', [10, 10]);
 

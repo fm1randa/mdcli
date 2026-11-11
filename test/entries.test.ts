@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, EMPTY_ENTRIES_RESPONSE, SAMPLE_ENTRIES, cardInvoice, entriesPage } from './fixtures.js';
+import { entryAnswer, serveCreate } from './entry-routes.js';
+import type { InvoiceProjection } from './api-routes.js';
+import type { Entry } from '../src/types/index.js';
 
 let api: MockApi;
 let home: TestHome;
@@ -94,7 +97,7 @@ describe('entries list', () => {
   });
 
   test('marks invoice projections as type invoice', async () => {
-    const projection = {
+    const projection: InvoiceProjection = {
       descricao: 'Fatura Cartão Teste',
       valor: -450.0,
       data: '2026-01-16',
@@ -125,10 +128,10 @@ describe('entries list', () => {
 });
 
 describe('entries create', () => {
-  const created = { id: 9, descricao: 'x', valor: -10, data: '2026-01-05', status: 'conciliado' };
+  const created = { descricao: 'x', valor: -10, data: '2026-01-05', status: 'conciliado' };
 
   test('sends expenses as negative values and omits dataCompetencia on a regular account', async () => {
-    api.on('POST /v1/lancamentos', created);
+    serveCreate(api, 9, created);
 
     const result = await runCli(
       ['entries', 'create', '-a', '201', '-d', 'Mercado', '-v', '10', '-c', '10', '-D', '2026-01-05', '--json'],
@@ -142,7 +145,7 @@ describe('entries create', () => {
   });
 
   test('puts a credit card purchase on the open invoice', async () => {
-    api.on('POST /v1/lancamentos', created);
+    serveCreate(api, 9, created);
     api.on('GET /v1/cartoes/202/fatura/2026-01-16', cardInvoice('2026-01-16', '2026-01-08'));
     api.on('GET /v1/cartoes/202/fatura/2025-12-16', cardInvoice('2025-12-16', '2025-12-08'));
 
@@ -162,7 +165,7 @@ describe('entries create', () => {
 
   test('shows a confirmed, unreconciled entry (--confirmed) as Confirmed, the way list does', async () => {
     // Real API answer for a confirmed, unreconciled entry on 2026-10-16: status "confirmado".
-    api.on('POST /v1/lancamentos', { ...created, status: 'confirmado', conciliado: false, dataEfetiva: '2026-11-05' });
+    serveCreate(api, 9, { ...created, status: 'confirmado', conciliado: false, dataEfetiva: '2026-11-05' });
 
     const result = await runCli(
       ['entries', 'create', '-a', '201', '-d', 'Mercado', '-v', '1', '-c', '10', '-D', '2026-11-05', '--confirmed'],
@@ -185,7 +188,6 @@ describe('entries create', () => {
 
 describe('entries update', () => {
   const updated = {
-    id: 50,
     descricao: 'Atualizado',
     valor: -80,
     data: '2026-01-20',
@@ -209,9 +211,9 @@ describe('entries update', () => {
       categoria: 30,
       tags: [],
       observacoes: '',
-    };
+    } satisfies Entry;
     api.on('GET /v1/lancamentos/50', transferOrigin);
-    api.on('PUT /v1/lancamentos/50', { ...updated, id: 50, descricao: 'Poupança mensal', valor: -1200 });
+    api.on('PUT /v1/lancamentos/50', entryAnswer(50, { ...updated, descricao: 'Poupança mensal', valor: -1200 }));
 
     const result = await runCli(
       ['entries', 'update', '50', '-d', 'Poupança mensal', '-v', '1200', '--json'],
@@ -248,9 +250,9 @@ describe('entries update', () => {
       contaT: 201,
       categoria: 30,
       tags: [],
-    };
+    } satisfies Entry;
     api.on('GET /v1/lancamentos/51', transferDestination);
-    api.on('PUT /v1/lancamentos/51', { ...updated, id: 51, valor: -1000 });
+    api.on('PUT /v1/lancamentos/51', entryAnswer(51, { ...updated, valor: -1000 }));
 
     const result = await runCli(
       ['entries', 'update', '51', '-n', 'via CLI', '--json'],
@@ -297,10 +299,10 @@ describe('entries update', () => {
       exibirCp: true,
       exibirCr: true,
       estorno: false,
-      transferencia: false,
-    };
+      transferencia: 0,
+    } satisfies Entry;
     api.on('GET /v1/lancamentos/60', installment);
-    api.on('PUT /v1/lancamentos/60', { ...updated, id: 60, descricao: 'Notebook (2/6)' });
+    api.on('PUT /v1/lancamentos/60', entryAnswer(60, { ...updated, descricao: 'Notebook (2/6)' }));
 
     const result = await runCli(
       ['entries', 'update', '60', '-d', 'Notebook (2/6)', '--json'],

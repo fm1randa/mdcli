@@ -1,9 +1,9 @@
 // POST /v1/lancamentos, GET/PUT/DELETE /v1/lancamentos/:id and GET
 // /v2/lancamentos (the statement list) for scripts/mock-api.ts.
-import type { CreateEntryResponse, EntriesResponse, Entry } from '../src/types/index.js';
+import type { CreateEntryResponse, EntriesResponse } from '../src/types/index.js';
 import { parseId, parseInteger } from '../src/utils/parse.js';
-import { badRequest, notFound, numberOrNull, readJsonBody, requiredId, requiredNumber } from './mock-http.js';
-import { checkCreatePayload, checkUpdateAccounts, createdEntry, entryType, mockEntryId, statusLabel } from './mock-entry-payload.js';
+import { badRequest, json, notFound, readJsonBody } from './mock-http.js';
+import { checkCreatePayload, checkUpdateAccounts, createdEntry, mockEntryId, updatedEntry } from './mock-entry-payload.js';
 import { createCardPurchase } from './mock-card-purchases.js';
 import { IMPORT_CANDIDATES } from './mock-import.js';
 import { SEEDED_ENTRIES } from './mock-entry-seed.js';
@@ -37,7 +37,7 @@ export function entriesListRoute(url: URL, accountTipo: AccountTipo): Response {
     return ids.includes(e.conta) && !isCard(accountTipo, e.conta) && date >= from && date <= to && (repetitionBit(e) & repetition) !== 0;
   });
   const response: EntriesResponse = { list, meta: { total: list.length, page: 1, pageSize: 200 } };
-  return Response.json(response);
+  return json<'GET /v2/lancamentos'>(response);
 }
 
 export async function entriesRoute(req: Request, path: string, accountTipo: AccountTipo): Promise<Response> {
@@ -68,7 +68,7 @@ export async function entriesRoute(req: Request, path: string, accountTipo: Acco
     const created: CreateEntryResponse = isCard(accountTipo, body.conta)
       ? createCardPurchase(body)
       : createdEntry(body, mockEntryId(NEW_ENTRY_ID));
-    return Response.json(created, { status: 201 });
+    return json<'POST /v1/lancamentos'>(created, 201);
   }
 
   const match = path.match(/^\/api\/v1\/lancamentos\/(\d+)$/);
@@ -78,7 +78,7 @@ export async function entriesRoute(req: Request, path: string, accountTipo: Acco
   const existing = SEEDED_ENTRIES[id];
   if (!existing) return notFound();
 
-  if (req.method === 'GET') return Response.json(existing);
+  if (req.method === 'GET') return json<`GET /v1/lancamentos/${number}`>(existing);
 
   if (req.method === 'PUT') {
     const body = await readJsonBody(req);
@@ -91,35 +91,7 @@ export async function entriesRoute(req: Request, path: string, accountTipo: Acco
     if (typeof body.transferencia !== 'boolean') return badRequest('transferencia must be a boolean');
     const invalidAccounts = checkUpdateAccounts(body, accountTipo);
     if (invalidAccounts) return badRequest(invalidAccounts);
-    const transfer = body.transferencia === true;
-    const merged: Record<string, unknown> = { ...existing, ...body, id };
-    // Like the real API: without todos: true the occurrence leaves its series.
-    const keepsSeries = inSeries && body.todos === true;
-    const updated: Omit<Entry, 'plastico'> & { plastico: number | null } = {
-      ...existing,
-      id,
-      descricao: String(merged.descricao ?? existing.descricao),
-      conciliado: merged.conciliado === true,
-      dataCompetencia: typeof merged.dataCompetencia === 'string' ? merged.dataCompetencia : null,
-      status: statusLabel(body, merged) ?? existing.status,
-      agendaId: keepsSeries ? existing.agendaId : null,
-      parcela: keepsSeries ? existing.parcela : null,
-      tipo: entryType(merged.tipo),
-      valor: requiredNumber(merged.valor, 'valor'),
-      valorPrevisto: requiredNumber(merged.valor, 'valor'),
-      valorEfetivo: numberOrNull(merged.valorEfetivo),
-      estorno: merged.estorno === true,
-      data: String(merged.data ?? existing.data),
-      dataPrevista: String(merged.dataPrevista ?? existing.dataPrevista),
-      dataEfetiva: typeof merged.dataEfetiva === 'string' ? merged.dataEfetiva : null,
-      dataCriacao: new Date().toISOString(),
-      exibirCp: true,
-      exibirCr: true,
-      conta: transfer ? requiredId(body.contaOrigem, 'contaOrigem') : requiredId(merged.conta ?? existing.conta, 'conta'),
-      plastico: numberOrNull(merged.plastico),
-      ...(transfer && { contaT: requiredId(body.contaDestino, 'contaDestino') }),
-    };
-    return Response.json(updated);
+    return json<`PUT /v1/lancamentos/${number}`>(updatedEntry(existing, body, mockEntryId(id)));
   }
 
   if (req.method === 'DELETE') {

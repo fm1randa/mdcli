@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
+import { entryAnswer } from './entry-routes.js';
+import type { Entry } from '../src/types/index.js';
 
 let api: MockApi;
 let home: TestHome;
@@ -29,12 +31,12 @@ const confirmedExpense = {
   conta: 201,
   categoria: 10,
   tags: [],
-};
+} satisfies Entry;
 
 describe('entries update --pending (and its old name --scheduled)', () => {
   test('turns a reconciled entry back into an unconfirmed one (pending: its date is past)', async () => {
     api.on('GET /v1/lancamentos/70', confirmedExpense);
-    api.on('PUT /v1/lancamentos/70', { ...confirmedExpense, status: 'pendente' });
+    api.on('PUT /v1/lancamentos/70', entryAnswer(70, { ...confirmedExpense, status: 'pendente' }));
 
     const result = await runCli(['entries', 'update', '70', '--pending'], { home, api });
 
@@ -60,9 +62,9 @@ describe('entries update --pending (and its old name --scheduled)', () => {
       conta: 201,
       contaT: 204,
       categoria: 30,
-    };
+    } satisfies Entry;
     api.on('GET /v1/lancamentos/50', transfer);
-    api.on('PUT /v1/lancamentos/50', { ...transfer, status: 'agendado' });
+    api.on('PUT /v1/lancamentos/50', entryAnswer(50, { ...transfer, status: 'agendado' }));
 
     const result = await runCli(['entries', 'update', '50', '-S', '--json'], { home, api });
 

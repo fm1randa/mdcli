@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE } from './fixtures.js';
-import { CONNECTIONS, mockStatement, SINCE } from './import-harness.js';
+import { candidate, CONNECTIONS, mockStatement, SINCE, type BankTransaction, type CandidateEntry } from './import-harness.js';
 
 // Fictional ids. 201 is Conta Teste. 301 is its connection account, not the Account id.
 // Statement 2026-10-01..2026-10-10, so the search window is 2026-09-29..2026-10-12.
@@ -33,7 +33,7 @@ afterEach(() => {
   home.cleanup();
 });
 
-function statement(rows: unknown[]) {
+function statement(rows: BankTransaction[]) {
   mockStatement(api, rows);
 }
 
@@ -41,7 +41,7 @@ function bank(integrationId: string, valor: number, descricao: string, ca: Recor
   return { integrationId, descricao, valor, data, moeda: 1, _ca: ca };
 }
 
-function entries(list: unknown[]) {
+function entries(list: CandidateEntry[]) {
   api.on('GET /v2/lancamentos', { list, meta: { total: list.length, page: 1, pageSize: 500 } });
 }
 
@@ -84,9 +84,9 @@ describe('entries import list AI category', () => {
       bank(SALARY, 900, 'Credito Empresa', { ait: { d: ['d', 'nao usar'], r: ['r', 'credito empresa'] } }),
     ]);
     entries([
-      { id: 7001, dataPrevista: '2026-10-08', valor: -40 },
+      candidate({ id: 7001, dataPrevista: '2026-10-08', valor: -40, descricao: 'Boleto' }),
       // Four days off: a candidate, but not linked automatically.
-      { id: 7002, dataPrevista: '2026-10-03', valor: -50 },
+      candidate({ id: 7002, dataPrevista: '2026-10-03', valor: -50, descricao: 'Boleto' }),
     ]);
     api.on('POST /v1/smartmatch/ai', [11, null, 10, 20]);
 
@@ -121,7 +121,7 @@ describe('entries import list AI category', () => {
         bank(RULE, -5, 'Padaria Regra', { c: { d: { categoria: { v: 11 } } }, ait: { d: ['d', 'padaria regra'] } }),
         bank(UNKNOWN, -30, 'Loja Desconhecida', { ait: { d: ['d', 'loja desconhecida'] } }),
       ]);
-      api.on('POST /v1/smartmatch/ai', { message: 'plano' }, status);
+      api.fail('POST /v1/smartmatch/ai', status, { message: 'plano' });
 
       const result = await list();
 
@@ -154,7 +154,7 @@ describe('entries import list AI category', () => {
       bank(RULE, -5, 'Padaria Regra', { c: { d: { categoria: { v: 11 } } }, ait: { d: ['d', 'padaria regra'] } }),
       bank(ONE_MATCH, -40, 'Boleto Casado', { ait: { d: ['d', 'boleto casado'] } }),
     ]);
-    entries([{ id: 7001, dataPrevista: '2026-10-08', valor: -40 }]);
+    entries([candidate({ id: 7001, dataPrevista: '2026-10-08', valor: -40, descricao: 'Boleto' })]);
 
     const result = await list();
 
@@ -265,7 +265,7 @@ describe('entries import list AI category', () => {
     expect(ok.stdout).toContain('Alimentação/Mercado (AI)');
     expect(ok.stdout).not.toContain('unavailable');
 
-    api.on('POST /v1/smartmatch/ai', { message: 'plano' }, 500);
+    api.fail('POST /v1/smartmatch/ai', 500, { message: 'plano' });
     const down = await list(false);
 
     expect(down.exitCode).toBe(0);

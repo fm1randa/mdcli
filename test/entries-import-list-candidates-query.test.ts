@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type RecordedRequest, type TestHome } from './helpers.js';
+import {
+  createHome, MANUAL_AUTH, mutations, offContract, runCli, startMockApi, type MockApi, type RecordedRequest, type TestHome,
+} from './helpers.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE } from './fixtures.js';
-import { CONNECTIONS, SINCE } from './import-harness.js';
+import { candidate, CONNECTIONS, SINCE } from './import-harness.js';
 
 const TX = '12121212-1111-4000-8000-000000000001';
 const FORBIDDEN = [
@@ -69,7 +71,10 @@ describe('entries import list candidate query', () => {
     api.on('GET /v2/lancamentos', (req) => {
       const page = JSON.parse(req.query.get('list') ?? '{}').page as number;
       const value = page === 25 ? -12.34 : -99;
-      return { list: [{ id: 7000 + page, dataPrevista: '2026-10-07', valor: value }], meta: { total: 25 } };
+      return {
+        list: [candidate({ id: 7000 + page, dataPrevista: '2026-10-07', valor: value, descricao: 'Pagina' })],
+        meta: { total: 25, page, pageSize: 500 },
+      };
     });
 
     const result = await list();
@@ -85,7 +90,10 @@ describe('entries import list candidate query', () => {
   test('a candidate search that never ends fails instead of listing a truncated result', async () => {
     api.on('GET /v2/lancamentos', (req) => {
       const page = JSON.parse(req.query.get('list') ?? '{}').page as number;
-      return { list: [{ id: 7000 + page, dataPrevista: '2026-10-07', valor: -99 }], meta: { total: 1_000_000 } };
+      return {
+        list: [candidate({ id: 7000 + page, dataPrevista: '2026-10-07', valor: -99, descricao: 'Pagina' })],
+        meta: { total: 1_000_000, page, pageSize: 500 },
+      };
     });
 
     const result = await list();
@@ -104,12 +112,12 @@ describe('entries import list candidate query', () => {
       const page = JSON.parse(req.query.get('list') ?? '{}').page as number;
       if (page === 1) {
         return {
-          list: [{ id: 7101, dataPrevista: '2026-10-07', valor: -12.34, descricao: 'Pagina 1', categoria: 10 }],
+          list: [candidate({ id: 7101, dataPrevista: '2026-10-07', valor: -12.34, descricao: 'Pagina 1', categoria: 10 })],
           meta: { total: 2, page: 1, pageSize: 500 },
         };
       }
       return {
-        list: [{ id: 7102, dataPrevista: '2026-10-08', valor: -12.34, descricao: 'Pagina 2', categoria: 11 }],
+        list: [candidate({ id: 7102, dataPrevista: '2026-10-08', valor: -12.34, descricao: 'Pagina 2', categoria: 11 })],
         meta: { total: 2, page: 2, pageSize: 500 },
       };
     });
@@ -134,7 +142,7 @@ describe('entries import list candidate query', () => {
 
   test('drops an entry that is within two days but outside the search window', async () => {
     api.on('GET /v2/lancamentos', {
-      list: [{ id: 4246, dataPrevista: '2026-10-05', valor: -12.34, descricao: 'Fora', categoria: 10 }],
+      list: [candidate({ id: 4246, dataPrevista: '2026-10-05', valor: -12.34, descricao: 'Fora', categoria: 10 })],
       meta: { total: 1, page: 1, pageSize: 500 },
     });
 
@@ -172,10 +180,10 @@ describe('entries import list candidate query', () => {
         integrationId: TX, descricao: 'Pagamento Ficticio', valor: -12.34, data: '2026-10-07', moeda: 1,
       }],
     });
-    api.on('GET /v2/lancamentos', {
-      list: [{ id: 4242, dataPrevista: '2026-10-07', valor: -12.34 }],
+    api.on('GET /v2/lancamentos', offContract({
+      list: [{ id: 4242, status: 'nconciliado', dataPrevista: '2026-10-07', data: '2026-10-07', valor: -12.34, conta: 201 }],
       meta: { total: 1, page: 1, pageSize: 500 },
-    });
+    }));
 
     const bare = await list();
     expect(bare.exitCode).toBe(0);
@@ -236,8 +244,8 @@ describe('entries import list candidate query', () => {
     });
     api.on('GET /v2/lancamentos', {
       list: [
-        { id: 4305, dataPrevista: '2026-10-05', valor: -12.34, descricao: 'Mercado', categoria: 11 },
-        { id: 4309, dataPrevista: '2026-10-09', valor: -12.34, descricao: 'Padaria', categoria: 10 },
+        candidate({ id: 4305, dataPrevista: '2026-10-05', valor: -12.34, descricao: 'Mercado', categoria: 11 }),
+        candidate({ id: 4309, dataPrevista: '2026-10-09', valor: -12.34, descricao: 'Padaria', categoria: 10 }),
       ],
       meta: { total: 2, page: 1, pageSize: 500 },
     });
@@ -260,7 +268,7 @@ describe('entries import list candidate query', () => {
       { id: 501, accounts: [{ id: 301, type: 'CARTAOCREDITO', conta: 201 }] },
     ]);
     api.on('GET /v2/lancamentos', {
-      list: [{ id: 4309, dataPrevista: '2026-10-09', valor: -12.34, descricao: 'Padaria', categoria: 10 }],
+      list: [candidate({ id: 4309, dataPrevista: '2026-10-09', valor: -12.34, descricao: 'Padaria', categoria: 10 })],
       meta: { total: 1, page: 1, pageSize: 500 },
     });
 

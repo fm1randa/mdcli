@@ -1,3 +1,4 @@
+import type { EntriesPage } from './api-routes.js';
 import type { Account, AccountsResponse, CardInvoiceResponse, CategoriesResponse, FirstInvoiceResponse, Category, EntriesResponse, Entry, TagsResponse } from '../src/types/index.js';
 
 const editable = { visivel: true, acoes: { editar: true, excluir: true } };
@@ -58,7 +59,7 @@ export const ACCOUNTS_RESPONSE: AccountsResponse = {
   items: [CHECKING_ACCOUNT, CREDIT_CARD_ACCOUNT],
 };
 
-function category(id: number, nome: string, tipo: 'd' | 'r' | 't', extra: Record<string, unknown> = {}): Category {
+export function category(id: number, nome: string, tipo: 'd' | 'r' | 't', extra: Record<string, unknown> = {}): Category {
   const nomeRel = nome.split('/').at(-1) ?? nome;
   return {
     id,
@@ -130,7 +131,7 @@ export const SAMPLE_ENTRIES: Entry[] = [
   entry(6, 201, undefined, 'd', -10, '2026-02-01', 'Café, "especial"'),
 ];
 
-export function entriesPage(list: unknown[], total = list.length) {
+export function entriesPage(list: EntriesPage['list'], total = list.length): EntriesPage {
   return { list, meta: { total, page: 1, pageSize: 200 } };
 }
 

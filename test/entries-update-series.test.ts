@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createHome, MANUAL_AUTH, mutations, runCli, type MockApi, startMockApi, type TestHome } from './helpers.js';
+import { entryAnswer } from './entry-routes.js';
+import type { Entry } from '../src/types/index.js';
 
 let api: MockApi;
 let home: TestHome;
@@ -22,7 +24,7 @@ const SCHEDULED_OCCURRENCE = {
   agendaId: 77,
   agenda: { frequencia: 1, intervalo: 'M', quantidade: -1, primeiraData: '2026-11-10' },
   tags: [],
-};
+} satisfies Entry;
 
 // Confirmed, not reconciled: it has an effective date.
 const CONFIRMED_ENTRY = {
@@ -38,7 +40,7 @@ const CONFIRMED_ENTRY = {
   conta: 201,
   categoria: 10,
   tags: [],
-};
+} satisfies Entry;
 
 beforeEach(() => {
   api = startMockApi();
@@ -60,7 +62,7 @@ function putBody(): Record<string, unknown> {
 
 describe('entries update on a recurring series', () => {
   test('keeps a scheduled occurrence scheduled and warns that only it changes', async () => {
-    api.on('PUT /v1/lancamentos/80', { id: 80, descricao: 'Assinatura Teste', valor: -45, data: '2027-01-25', status: 'agendado' });
+    api.on('PUT /v1/lancamentos/80', entryAnswer(80, { descricao: 'Assinatura Teste', valor: -45, data: '2027-01-25', status: 'agendado' }));
 
     const result = await runCli(['entries', 'update', '80', '-D', '2027-01-25', '--json'], { home, api });
 
@@ -83,7 +85,7 @@ describe('entries update on a recurring series', () => {
   });
 
   test('--scope following sends todos: true and prints the status the API answered', async () => {
-    api.on('PUT /v1/lancamentos/80', { id: 80, descricao: 'Assinatura Teste', valor: -45, data: '2027-01-25', status: 'agendado' });
+    api.on('PUT /v1/lancamentos/80', entryAnswer(80, { descricao: 'Assinatura Teste', valor: -45, data: '2027-01-25', status: 'agendado' }));
 
     const result = await runCli(['entries', 'update', '80', '-D', '2027-01-25', '--scope', 'following'], { home, api });
 
@@ -96,7 +98,7 @@ describe('entries update on a recurring series', () => {
   });
 
   test('--scope following --json includes scope alongside the API response', async () => {
-    api.on('PUT /v1/lancamentos/80', { id: 80, descricao: 'Assinatura Teste', valor: -45, data: '2027-01-25', status: 'agendado' });
+    api.on('PUT /v1/lancamentos/80', entryAnswer(80, { descricao: 'Assinatura Teste', valor: -45, data: '2027-01-25', status: 'agendado' }));
 
     const result = await runCli(
       ['entries', 'update', '80', '-D', '2027-01-25', '--scope', 'following', '--json'],
@@ -108,7 +110,7 @@ describe('entries update on a recurring series', () => {
   });
 
   test('an entry outside a series --json has no scope field', async () => {
-    api.on('PUT /v1/lancamentos/70', { ...CONFIRMED_ENTRY, descricao: 'Café X' });
+    api.on('PUT /v1/lancamentos/70', entryAnswer(70, { ...CONFIRMED_ENTRY, descricao: 'Café X' }));
 
     const result = await runCli(['entries', 'update', '70', '-d', 'Café X', '--json'], { home, api });
 
@@ -117,7 +119,7 @@ describe('entries update on a recurring series', () => {
   });
 
   test('--scope this is explicit, so no warning', async () => {
-    api.on('PUT /v1/lancamentos/80', { id: 80, descricao: 'Assinatura Teste', valor: -45, data: '2027-01-10', status: 'agendado' });
+    api.on('PUT /v1/lancamentos/80', entryAnswer(80, { descricao: 'Assinatura Teste', valor: -45, data: '2027-01-10', status: 'agendado' }));
 
     const result = await runCli(['entries', 'update', '80', '--value=-50', '--scope', 'this'], { home, api });
 
@@ -128,13 +130,7 @@ describe('entries update on a recurring series', () => {
   });
 
   test('--confirmed confirms a scheduled occurrence with its effective date and value', async () => {
-    api.on('PUT /v1/lancamentos/80', {
-      id: 80,
-      descricao: 'Assinatura Teste',
-      valor: -45,
-      data: '2027-01-10',
-      status: { confirmado: true, conciliado: false },
-    });
+    api.on('PUT /v1/lancamentos/80', entryAnswer(80, { descricao: 'Assinatura Teste', valor: -45, data: '2027-01-10', status: 'confirmado' }));
 
     const result = await runCli(['entries', 'update', '80', '--confirmed', '--scope', 'this'], { home, api });
 
@@ -166,7 +162,7 @@ describe('entries update on a recurring series', () => {
       agendaId: 78,
       tags: [],
     });
-    api.on('PUT /v1/lancamentos/81', { id: 81, descricao: 'Reserva', valor: -350, data: '2027-02-05', status: 'agendado' });
+    api.on('PUT /v1/lancamentos/81', entryAnswer(81, { descricao: 'Reserva', valor: -350, data: '2027-02-05', status: 'agendado' }));
 
     const result = await runCli(['entries', 'update', '81', '-v', '350', '--scope', 'following'], { home, api });
 
@@ -186,7 +182,7 @@ describe('entries update on a recurring series', () => {
   });
 
   test('an entry outside a series gets no todos flag and refuses --scope following', async () => {
-    api.on('PUT /v1/lancamentos/70', { ...CONFIRMED_ENTRY, descricao: 'Café da tarde' });
+    api.on('PUT /v1/lancamentos/70', entryAnswer(70, { ...CONFIRMED_ENTRY, descricao: 'Café da tarde' }));
 
     const plain = await runCli(['entries', 'update', '70', '-d', 'Café da tarde'], { home, api });
     expect(plain.exitCode).toBe(0);
