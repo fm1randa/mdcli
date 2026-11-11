@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
+import type { Entry } from '../src/types/index.js';
 
 let api: MockApi;
 let home: TestHome;
@@ -18,9 +19,9 @@ const SERIES_OCCURRENCE = {
   parcela: 'fixa',
   agendaId: 77,
   tags: [],
-};
+} satisfies Entry;
 
-const SINGLE_ENTRY = { ...SERIES_OCCURRENCE, id: 70, descricao: 'Café', parcela: undefined, agendaId: undefined };
+const SINGLE_ENTRY = { ...SERIES_OCCURRENCE, id: 70, descricao: 'Café', parcela: undefined, agendaId: undefined } satisfies Entry;
 
 // The API returns an occurrence the server no longer links to the rule (the
 // first one, or one already confirmed or reconciled) with `parcela` but no
@@ -33,7 +34,7 @@ const DETACHED_OCCURRENCE = {
   status: 'conciliado',
   conciliado: true,
   agendaId: undefined,
-};
+} satisfies Entry;
 
 beforeEach(() => {
   api = startMockApi();

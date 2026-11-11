@@ -1,4 +1,5 @@
 import type { BankStatementResponse, Entry } from '../src/types/index.js';
+import { json, notFound } from './mock-http.js';
 import { localDay } from '../test/helpers.js';
 import { CLOSED_INVOICE_CONNECTION_ACCOUNT, CLOSED_INVOICE_STATEMENT } from './mock-closed-invoice.js';
 
@@ -84,11 +85,11 @@ export function withRecentStatement<T extends { id: number }>(account: T): T {
  * The Import commit has no route here: verify.sh never writes, and the test suite asserts the commit bodies.
  */
 export function importRoute(method: string, url: URL): Response | null {
-  if (method === 'GET' && url.pathname === DUPLICATES) return Response.json(DUPLICATE_ENTRIES);
-  if (method === 'POST' && url.pathname === AI) return Response.json([10]);
+  if (method === 'GET' && url.pathname === DUPLICATES) return json<'GET /v1/lancamentos/duplicidade'>(DUPLICATE_ENTRIES);
+  if (method === 'POST' && url.pathname === AI) return json<'POST /v1/smartmatch/ai'>([10]);
   const match = TRANSACTIONS.exec(url.pathname);
   if (!match || method !== 'GET') return null;
-  if (match[1] === String(CLOSED_INVOICE_CONNECTION_ACCOUNT)) return Response.json(CLOSED_INVOICE_STATEMENT);
-  if (match[1] !== '301') return Response.json({ message: 'not found' }, { status: 404 });
-  return Response.json(STATEMENT);
+  if (match[1] === String(CLOSED_INVOICE_CONNECTION_ACCOUNT)) return json<`GET /v1/integracao/account/${number}/transactions`>(CLOSED_INVOICE_STATEMENT);
+  if (match[1] !== '301') return notFound();
+  return json<`GET /v1/integracao/account/${number}/transactions`>(STATEMENT);
 }

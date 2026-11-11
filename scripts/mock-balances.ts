@@ -2,6 +2,7 @@
 import type { AccountBalancesResponse, AccountBalanceSum } from '../src/types/index.js';
 import { roundToCents } from '../src/utils/currency.js';
 import { SEEDED_ENTRIES } from './mock-entry-seed.js';
+import { json } from './mock-http.js';
 
 const sum = (items: ReadonlyArray<{ valor: number }>): number => roundToCents(items.reduce((total, e) => total + e.valor, 0));
 
@@ -25,5 +26,5 @@ export function balancesRoute(url: URL, isCreditCardId: (conta: unknown) => bool
     };
   });
   const response: AccountBalancesResponse = { sum: sumRows };
-  return Response.json(response);
+  return json<'GET /v2/lancamentos'>(response);
 }

@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { createHome, localDay, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type RecordedRequest, type TestHome } from './helpers.js';
+import { createHome, localDay, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, cardInvoice, entriesPage } from './fixtures.js';
-import { statusLabel } from '../scripts/mock-entry-payload.js';
+import { serveCreate, serveEntry } from './entry-routes.js';
+import type { Entry } from '../src/types/index.js';
 
 // Real use 2026-10-19: `entries create -p` on checking account 201 (date
 // today) came back as id 481, "Status: Confirmed". In the web app
@@ -15,17 +16,12 @@ let home: TestHome;
 
 const today = localDay(0);
 
-/** Answers the POST/PUT the way the real API labels the payload it got. */
-function answer(req: RecordedRequest): Record<string, unknown> {
-  const body = req.body as Record<string, unknown>;
-  return { id: 481, descricao: body.descricao, valor: body.valor, data: body.dataPrevista, dataPrevista: body.dataPrevista, status: statusLabel(body) };
-}
 
 beforeEach(() => {
   api = startMockApi();
   api.on('GET /v1/cadastros/contas', ACCOUNTS_RESPONSE);
   api.on('GET /v1/cadastros/categorias', CATEGORIES_RESPONSE);
-  api.on('POST /v1/lancamentos', answer);
+  serveCreate(api, 481);
   home = createHome(MANUAL_AUTH);
 });
 
@@ -104,7 +100,7 @@ describe('entries create status flags', () => {
   });
 
   test('-p on a credit card keeps the unreconciled purchase payload and warns on stderr only', async () => {
-    api.on('POST /v1/lancamentos', { id: 9, descricao: 'Voo', valor: -10, data: '2026-01-05', status: 'nconciliado', conciliado: false });
+    serveCreate(api, 9, { descricao: 'Voo', valor: -10, data: '2026-01-05', status: 'nconciliado', conciliado: false });
     api.on('GET /v1/cartoes/202/fatura/2026-01-16', cardInvoice('2026-01-16', '2026-01-08'));
     api.on('GET /v1/cartoes/202/fatura/2025-12-16', cardInvoice('2025-12-16', '2025-12-08'));
 
@@ -146,16 +142,14 @@ const reported = {
   conta: 201,
   categoria: 10,
   tags: [],
-};
+} satisfies Entry;
 
-const pending = { ...reported, id: 482, dataEfetiva: null, valorEfetivo: null, status: 'pendente' };
+const pending = { ...reported, id: 482, dataEfetiva: null, valorEfetivo: null, status: 'pendente' } satisfies Entry;
 
 describe('entries update status flags', () => {
   beforeEach(() => {
-    api.on('GET /v1/lancamentos/481', reported);
-    api.on('PUT /v1/lancamentos/481', answer);
-    api.on('GET /v1/lancamentos/482', pending);
-    api.on('PUT /v1/lancamentos/482', answer);
+    serveEntry(api, reported);
+    serveEntry(api, pending);
   });
 
   test('-p turns a confirmed entry back to pending', async () => {
@@ -212,16 +206,9 @@ describe('entries create resolves the numeric id of a future pending entry', () 
   const OCCURRENCE_ID = '123456A2031-01-20';
 
   beforeEach(() => {
-    api.on('POST /v1/lancamentos', {
-      id: OCCURRENCE_ID,
-      descricao: 'IPVA',
-      valor: -800,
-      data: '2031-01-20',
-      dataPrevista: '2031-01-20',
-      status: 'agendado',
-    });
+    serveCreate(api, OCCURRENCE_ID, { descricao: 'IPVA', valor: -800, data: '2031-01-20', dataPrevista: '2031-01-20', status: 'agendado' });
     api.on('GET /v2/lancamentos', entriesPage([
-      { id: 999, descricao: 'IPVA', valor: -800, conta: 201, dataPrevista: '2031-01-20', status: 'agendado' },
+      { id: 999, descricao: 'IPVA', valor: -800, conta: 201, data: '2031-01-20', dataPrevista: '2031-01-20', status: 'agendado' },
     ]));
   });
 
@@ -236,7 +223,7 @@ describe('entries create resolves the numeric id of a future pending entry', () 
   });
 
   test('a numeric id from the API is kept and the list is not read again', async () => {
-    api.on('POST /v1/lancamentos', { id: 555, descricao: 'IPVA', valor: -800, data: '2031-01-20', dataPrevista: '2031-01-20', status: 'agendado' });
+    serveCreate(api, 555, { descricao: 'IPVA', valor: -800, data: '2031-01-20', dataPrevista: '2031-01-20', status: 'agendado' });
 
     const result = await runCli(
       ['entries', 'create', '-a', '201', '-d', 'IPVA', '-v', '800', '-c', '10', '-p', '-D', '2031-01-20', '--json'],

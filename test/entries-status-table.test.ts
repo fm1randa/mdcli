@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, SAVINGS_ACCOUNT } from './fixtures.js';
+import type { Entry } from '../src/types/index.js';
+import { serveCreate, serveEntry } from './entry-routes.js';
 
 // Flag -> payload table for the entry status (Maintenance 2026-10-19: the rule
 // was written by hand in create, update and update-transfer). Semantics from
@@ -35,8 +37,8 @@ const base = {
   conta: 201,
   categoria: 10,
   tags: [],
-};
-const ENTRIES: Record<number, object> = {
+} satisfies Omit<Entry, 'id' | 'status'>;
+const ENTRIES: Record<number, Entry & { id: number }> = {
   71: { ...base, id: 71, status: 'conciliado', conciliado: true, dataEfetiva: '2026-01-12', valorEfetivo: -12.5 },
   72: { ...base, id: 72, status: 'confirmado', conciliado: false, dataEfetiva: '2026-01-12', valorEfetivo: -12.5 },
   73: { ...base, id: 73, status: 'agendado', conciliado: false, data: '2027-01-25', dataPrevista: '2027-01-25' },
@@ -59,10 +61,9 @@ beforeEach(() => {
   api = startMockApi();
   api.on('GET /v1/cadastros/contas', { ...ACCOUNTS_RESPONSE, items: [...ACCOUNTS_RESPONSE.items, SAVINGS_ACCOUNT] });
   api.on('GET /v1/cadastros/categorias', CATEGORIES_RESPONSE);
-  api.on('POST /v1/lancamentos', (req) => ({ id: 9, ...(req.body as object) }));
-  for (const [id, entry] of Object.entries(ENTRIES)) {
-    api.on(`GET /v1/lancamentos/${id}`, entry);
-    api.on(`PUT /v1/lancamentos/${id}`, (req) => ({ ...entry, ...(req.body as object) }));
+  serveCreate(api);
+  for (const entry of Object.values(ENTRIES)) {
+    serveEntry(api, entry);
   }
   home = createHome(MANUAL_AUTH);
 });

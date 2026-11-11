@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createHome, MANUAL_AUTH, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CREDIT_CARD_ACCOUNT } from './fixtures.js';
+import type { CardInvoiceEntry } from '../src/types/index.js';
 
 // Real use 2026-10-19: the web shows an invoice summary (closing, due date,
 // previous invoice, payments, to pay, reconciled × unreconciled, limit) that
@@ -9,7 +10,7 @@ import { ACCOUNTS_RESPONSE, CREDIT_CARD_ACCOUNT } from './fixtures.js';
 let api: MockApi;
 let home: TestHome;
 
-const ITEMS = [
+const ITEMS: CardInvoiceEntry[] = [
   { id: 123456, descricao: 'Item Parcelado', valor: -123.45, data: '2025-11-19', dataPrevista: '2026-11-16', parcela: '12/18', categoria: 11, tipo: 'd', status: 'nconciliado' },
   { id: 9, descricao: 'Pagamento cartão', valor: 1500, data: '2026-10-16', categoria: 30, tipo: 'p', status: 'conciliado' },
 ];

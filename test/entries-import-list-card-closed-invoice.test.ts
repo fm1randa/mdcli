@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, CHECKING_ACCOUNT, CREDIT_CARD_ACCOUNT } from './fixtures.js';
-import { SINCE } from './import-harness.js';
+import { SINCE, type BankTransaction } from './import-harness.js';
 
 // Issue #281, synthetic dates. Invoice A (due 2026-02-16) closed on 2026-02-05, so the card's
 // proximoVencimento already moved to invoice B (due 2026-03-16). The purchases below fall in A.
@@ -58,7 +58,7 @@ afterEach(() => {
   home.cleanup();
 });
 
-function statement(rows: unknown[]) {
+function statement(rows: BankTransaction[]) {
   api.on('GET /v1/integracao/account/302/transactions', {
     inicio: '2026-01-25', fim: '2026-02-10', saldo: 0, lancamentos: rows,
   });

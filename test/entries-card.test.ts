@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createHome, MANUAL_AUTH, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, EMPTY_ENTRIES_RESPONSE, SAMPLE_ENTRIES, cardInvoice, entriesPage } from './fixtures.js';
+import type { CardInvoiceEntry } from '../src/types/index.js';
+import { serveCreate } from './entry-routes.js';
+import type { InvoiceProjection } from './api-routes.js';
 
 let api: MockApi;
 let home: TestHome;
@@ -10,7 +13,7 @@ let home: TestHome;
 const OCCURRENCE_ID = '1234567A2026-01-05';
 const posted = { descricao: 'Voo', valor: -10, data: '2026-01-05', status: 'confirmado', conta: 202 };
 
-function invoice(due: string, lancamentos: unknown[]) {
+function invoice(due: string, lancamentos: CardInvoiceEntry[]) {
   return { ...cardInvoice(due, `${due.slice(0, 8)}08`), lancamentos };
 }
 
@@ -45,7 +48,7 @@ describe('entries create on a card', () => {
   });
 
   test('answers with the entry ID from the invoice, not the occurrence ID', async () => {
-    api.on('POST /v1/lancamentos', { ...posted, id: OCCURRENCE_ID });
+    serveCreate(api, OCCURRENCE_ID, posted);
 
     const result = await runCli([...CREATE, '--json'], { home, api });
 
@@ -54,7 +57,7 @@ describe('entries create on a card', () => {
   });
 
   test('the text output shows the entry ID too', async () => {
-    api.on('POST /v1/lancamentos', { ...posted, id: OCCURRENCE_ID });
+    serveCreate(api, OCCURRENCE_ID, posted);
 
     const result = await runCli(CREATE, { home, api });
 
@@ -64,7 +67,7 @@ describe('entries create on a card', () => {
   });
 
   test('a numeric ID from the API is kept and the invoice is not read again', async () => {
-    api.on('POST /v1/lancamentos', { ...posted, id: 555 });
+    serveCreate(api, 555, posted);
 
     const result = await runCli([...CREATE, '--json'], { home, api });
 
@@ -75,7 +78,7 @@ describe('entries create on a card', () => {
   });
 
   test('warns on stderr and keeps stdout JSON when the purchase is not in the invoice', async () => {
-    api.on('POST /v1/lancamentos', { ...posted, descricao: 'Hotel', id: OCCURRENCE_ID });
+    serveCreate(api, OCCURRENCE_ID, { ...posted, descricao: 'Hotel' });
 
     const result = await runCli(['entries', 'create', '-a', '202', '-d', 'Hotel', '-v', '10', '-c', '10', '-D', '2026-01-05', '--json'], { home, api });
 
@@ -232,7 +235,7 @@ describe('invoice payment (tipo p) and invoice projection dedupe', () => {
   });
 
   test('drops projecaoFatura for a card that is also in -a (no double bill)', async () => {
-    const projection = {
+    const projection: InvoiceProjection = {
       descricao: 'Fatura Cartão Teste',
       valor: -2500,
       data: '2026-01-16',
@@ -262,7 +265,7 @@ describe('invoice payment (tipo p) and invoice projection dedupe', () => {
   });
 
   test('keyword filter excludes projections that do not match', async () => {
-    const projection = {
+    const projection: InvoiceProjection = {
       descricao: 'Fatura Cartão Teste',
       valor: -2500,
       data: '2026-01-16',
@@ -281,7 +284,7 @@ describe('invoice payment (tipo p) and invoice projection dedupe', () => {
   });
 
   test('summary still leaves invoice projections out when the card is not in -a', async () => {
-    const projection = {
+    const projection: InvoiceProjection = {
       descricao: 'Fatura Cartão Teste',
       valor: -2500,
       data: '2026-01-16',

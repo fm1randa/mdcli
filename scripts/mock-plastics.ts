@@ -1,4 +1,5 @@
 import type { CardPlastic } from '../src/types/index.js';
+import { json } from './mock-http.js';
 
 // GET /v1/cadastros/plasticos: every plastic of every card, as a bare array.
 // The web app loads it through cadastrosDatasource "plasticos" (mdb.js: the
@@ -17,5 +18,5 @@ const MOCK_PLASTICS: CardPlastic[] = [
 
 export function plasticsRoute(method: string, pathname: string): Response | undefined {
   if (method !== 'GET' || pathname !== PLASTICS_PATH) return undefined;
-  return Response.json(MOCK_PLASTICS);
+  return json<'GET /v1/cadastros/plasticos'>(MOCK_PLASTICS);
 }

@@ -1,10 +1,29 @@
 // Responses and payload readers shared by the scripts/mock-api.ts routes.
 import { isPositiveSafeInteger, parseId } from '../src/utils/parse.js';
+import type { ApiResponses, ApiRoute } from '../test/api-routes.js';
 
 export type Body = Record<string, unknown>;
 
+/**
+ * The JSON answer of `R` ("METHOD /path", test/api-routes.ts), typed by the
+ * response the CLI reads. `R` has no default route, so a call without it
+ * accepts no body: `json<'GET /v1/cadastros/contas'>(accounts)`.
+ */
+export function json<R extends ApiRoute = never>(body: ApiResponses[R], status = 200): Response {
+  return Response.json(body, { status });
+}
+
 export function notFound(): Response {
   return Response.json({ message: 'not found' }, { status: 404 });
+}
+
+export function unauthorized(): Response {
+  return Response.json({ message: 'unauthorized' }, { status: 401 });
+}
+
+/** GitHub's latest release, the one the self-updater reads; not a Meu Dinheiro route. */
+export function latestRelease(tag: string): Response {
+  return Response.json({ tag_name: tag });
 }
 
 export function badRequest(message: string): Response {

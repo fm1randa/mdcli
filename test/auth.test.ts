@@ -59,7 +59,7 @@ describe('request headers', () => {
 describe('401 handling', () => {
   test('after a manual login it asks to log in again instead of launching a browser', async () => {
     home = createHome(MANUAL_AUTH);
-    api.on('GET /v1/cadastros/contas', { error: 'unauthorized' }, 401);
+    api.fail('GET /v1/cadastros/contas', 401, { error: 'unauthorized' });
 
     const result = await runCli(['accounts', 'list'], { home, api });
 
