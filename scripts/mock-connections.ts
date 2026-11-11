@@ -6,7 +6,7 @@
 import { appendFileSync } from 'node:fs';
 import type { ConnectionsResponse, SyncRequestResponse } from '../src/types/index.js';
 import { parseInteger } from '../src/utils/parse.js';
-import { badRequest, notFound } from './mock-http.js';
+import { badRequest, json, notFound } from './mock-http.js';
 
 const CONNECTIONS_PATH = '/api/v1/integracao/connections';
 const UPDATE_PATH = /^\/api\/v1\/integracao\/connection\/update\/(\d+)$/;
@@ -22,6 +22,8 @@ const MOCK_CONNECTIONS: ConnectionsResponse = [
       { id: 301, type: 'CONTA CORRENTE', conta: 201 },
       { id: 302, type: 'CARTAOCREDITO', conta: 202 },
       { id: 303, type: 'CARTAOCREDITO' },
+      // Cartão Teste Fechado (mock-closed-invoice.ts).
+      { id: 304, type: 'CARTAOCREDITO', conta: 206 },
     ],
   },
 ];
@@ -48,7 +50,7 @@ function syncResponse(id: number): Response {
     status: connection.status,
     statusCheckWindow: MOCK_STATUS_CHECK_WINDOW_SECONDS,
   };
-  return Response.json(body);
+  return json<`PUT /v1/integracao/connection/update/${number}`>(body);
 }
 
 /** The connections list or the Sync PUT answer, or null when this request is neither. */
@@ -67,5 +69,5 @@ export function connectionsRoute(method: string, pathname: string): Response | n
       if (connection.status === 'UPDATING') connection.status = 'UPDATED';
     }
   }
-  return Response.json(MOCK_CONNECTIONS);
+  return json<'GET /v1/integracao/connections'>(MOCK_CONNECTIONS);
 }

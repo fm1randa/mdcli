@@ -216,6 +216,8 @@ export const enImport: typeof SectionType = {
   errorPrefixInBoth: (prefix) => `${prefix} is in both --ids and --reject.`,
   errorSelectedByBoth: (prefix) =>
     `${prefix} is selected by both --ids and --reject.`,
+  errorRowAlreadyPlaced: (label) =>
+    `${label} is already in this import. A bank transaction can only be imported, linked, rejected, or skipped.`,
   errorPrefixNeedsOne: (flag) => `${flag} needs at least one prefix.`,
   errorEntryIdNotEntry: (input) =>
     `entry ${input} is not an Entry id (a whole number from 1 to ${Number.MAX_SAFE_INTEGER}).`,

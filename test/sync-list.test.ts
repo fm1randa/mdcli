@@ -148,7 +148,7 @@ describe('sync list', () => {
   });
 
   test('an API error names the method and path and prints nothing else on stdout', async () => {
-    api.on('GET /v1/integracao/connections', { message: 'boom' }, 500);
+    api.fail('GET /v1/integracao/connections', 500, { message: 'boom' });
 
     const json = await runCli(['sync', 'list', '--json'], { home, api });
     expect(json.exitCode).toBe(1);

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { mutations, runCli, type MockApi, type TestHome } from './helpers.js';
 import { CONFIRMED_ENTRY, FIXED_OCCURRENCE, TRANSFER_DESTINATION_HALF, putBody as sentPut, startUpdateAccountApi } from './update-account-harness.js';
+import { serveEntry } from './entry-routes.js';
 
 let api: MockApi;
 let home: TestHome;
@@ -70,8 +71,7 @@ describe('entries update --account', () => {
 
 describe('entries update --account between regular accounts, as the web edit form saves', () => {
   test('the competence date becomes the recognition date', async () => {
-    api.on('GET /v1/lancamentos/71', { ...CONFIRMED_ENTRY, id: 71, dataCompetencia: '2026-01-01', dataReconhecimento: '2026-01-03' });
-    api.on('PUT /v1/lancamentos/71', (req) => req.body as object);
+    serveEntry(api, { ...CONFIRMED_ENTRY, id: 71, dataCompetencia: '2026-01-01', dataReconhecimento: '2026-01-03' });
 
     const result = await runCli(['entries', 'update', '71', '-a', '204'], { home, api });
 
@@ -80,8 +80,7 @@ describe('entries update --account between regular accounts, as the web edit for
   });
 
   test('the competence date is sent as a calendar day', async () => {
-    api.on('GET /v1/lancamentos/71', { ...CONFIRMED_ENTRY, id: 71, dataReconhecimento: '2026-01-03T00:00:00' });
-    api.on('PUT /v1/lancamentos/71', (req) => req.body as object);
+    serveEntry(api, { ...CONFIRMED_ENTRY, id: 71, dataReconhecimento: '2026-01-03T00:00:00' });
 
     const result = await runCli(['entries', 'update', '71', '-a', '204'], { home, api });
 
@@ -90,7 +89,7 @@ describe('entries update --account between regular accounts, as the web edit for
   });
 
   test('a pending entry dated up to today no longer confirms itself automatically', async () => {
-    api.on('GET /v1/lancamentos/72', {
+    serveEntry(api, {
       ...CONFIRMED_ENTRY,
       id: 72,
       status: 'pendente',
@@ -98,7 +97,6 @@ describe('entries update --account between regular accounts, as the web edit for
       valorEfetivo: null,
       automatico: true,
     });
-    api.on('PUT /v1/lancamentos/72', (req) => req.body as object);
 
     const result = await runCli(['entries', 'update', '72', '-a', '204'], { home, api });
 

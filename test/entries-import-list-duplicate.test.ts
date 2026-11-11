@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE } from './fixtures.js';
-import { CONNECTIONS, mockStatement, SINCE } from './import-harness.js';
+import { CONNECTIONS, mockStatement, SINCE, type BankTransaction } from './import-harness.js';
 
 // Fictional ids. 201 is Conta Teste. 301 is its connection account, not the Account id.
 
@@ -34,7 +34,7 @@ function cli(args: string[]) {
   return runCli(args, { home, api });
 }
 
-function statement(rows: unknown[]) {
+function statement(rows: BankTransaction[]) {
   mockStatement(api, rows, { inicio: '2026-09-01', fim: '2026-10-31', saldo: 10 });
 }
 

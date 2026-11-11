@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createHome, MANUAL_AUTH, runCli, startMockApi } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, TAGS_RESPONSE, entriesPage } from './fixtures.js';
+import type { Entry } from '../src/types/index.js';
 
 // Issue #148: stdout truncated when piped. The CLI writes one large JSON with
 // console.log and then exits; without flushStdout the process exits while the
@@ -54,7 +55,7 @@ describe('stdout flush guard', () => {
     api.on('GET /v1/cadastros/contas', ACCOUNTS_RESPONSE);
     api.on('GET /v1/cadastros/categorias', CATEGORIES_RESPONSE);
     api.on('GET /v1/cadastros/tags', TAGS_RESPONSE);
-    const largeEntries = Array.from({ length: 20000 }, (_, i) => ({
+    const largeEntries = Array.from({ length: 20000 }, (_, i): Entry => ({
       id: i + 1,
       descricao: `Large entry ${i + 1} with enough text to make the JSON exceed 64KB easily`,
       conta: 201,

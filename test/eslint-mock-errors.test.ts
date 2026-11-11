@@ -29,7 +29,7 @@ describe('a mock route answering a 4xx by hand', () => {
     });
   }
 
-  test('passes in the owner and on a 2xx or 5xx answer', async () => {
+  test('passes in the owner and on a 2xx or 5xx answer, and fails a 4xx through json()', async () => {
     const owner = git(['show', `${BEFORE}:scripts/mock-http.ts`], ROOT);
     expect(owner).toContain("Response.json({ message: 'not found' }, { status: 404 })");
     expect(await hits(owner, 'scripts/mock-http.ts')).toEqual([]);
@@ -37,7 +37,10 @@ describe('a mock route answering a 4xx by hand', () => {
       'export const created = Response.json({ id: 1 }, { status: 201 });',
       "export const broken = new Response('boom', { status: 500 });",
       "export const gone = new Response('gone', { status: 410 });",
+      "import { json } from './mock-http.js';",
+      'export const typedOk = json({ id: 1 }, 201);',
+      "export const typedMissing = json({ message: 'not found' }, 404);",
     ].join('\n');
-    expect(await hits(route, 'scripts/mock-cards.ts')).toEqual([3]);
+    expect(await hits(route, 'scripts/mock-cards.ts')).toEqual([3, 6]);
   });
 });

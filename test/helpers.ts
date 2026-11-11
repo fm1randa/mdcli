@@ -2,6 +2,7 @@ import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { MdcliConfig } from '../src/types/index.js';
+import type { ApiResponses, ApiRoute } from './api-routes.js';
 import { SESSION_RESPONSE } from './fixtures.js';
 
 const REPO_ROOT = join(import.meta.dir, '..');
@@ -34,18 +35,30 @@ export interface RecordedRequest {
   body: unknown;
 }
 
-type Handler = (req: RecordedRequest) => unknown;
+/** A route's answer per call: its body, or a full Response to control the status (e.g. 401 then success). */
+type Handler<T> = (req: RecordedRequest) => T | Response | Promise<T | Response>;
+
+/**
+ * Answers with `body` although it is outside the route's type in
+ * test/api-routes.ts: only for a test of how the CLI copes with an answer the
+ * API is not known to send.
+ */
+export function offContract(body: unknown): () => Response {
+  return () => Response.json(body);
+}
 
 export interface MockApi {
   url: string;
   requests: RecordedRequest[];
-  /** Register a JSON response for "METHOD /path" (path without the /api prefix or query string). */
-  on(route: string, handler: Handler | object | null, status?: number): void;
+  /** Register the JSON body `route` ("METHOD /path", no /api prefix or query string) answers, typed by test/api-routes.ts. */
+  on<R extends ApiRoute>(route: R, handler: ApiResponses[R] | Handler<ApiResponses[R]>, status?: number): void;
+  /** Make `route` fail with `status` and an error body, which the CLI only quotes. */
+  fail(route: ApiRoute, status: number, body?: unknown): void;
   stop(): void;
 }
 
 export function startMockApi(): MockApi {
-  const routes = new Map<string, { handler: Handler | object | null; status: number }>();
+  const routes = new Map<string, { handler: unknown; status: number }>();
   const requests: RecordedRequest[] = [];
   // Every entries list or sum first reads the user's preferences (GET /frontend/sessao).
   routes.set('GET /v1/frontend/sessao', { handler: SESSION_RESPONSE, status: 200 });
@@ -88,6 +101,9 @@ export function startMockApi(): MockApi {
     requests,
     on(route, handler, status = 200) {
       routes.set(route, { handler, status });
+    },
+    fail(route, status, body = { message: 'error' }) {
+      routes.set(route, { handler: body, status });
     },
     stop() {
       server.stop(true);

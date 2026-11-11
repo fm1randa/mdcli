@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
+import { createHome, MANUAL_AUTH, mutations, offContract, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE } from './fixtures.js';
-import { CONNECTIONS, mockStatement, SINCE } from './import-harness.js';
+import { candidate, CONNECTIONS, mockStatement, SINCE, type BankTransaction, type CandidateEntry } from './import-harness.js';
 
 // Fictional ids. 201 is Conta Teste. 301 is its connection account, not the Account id.
 // Spec window for inicio 2026-10-01 and fim 2026-10-10 is 2026-09-29 through 2026-10-12.
@@ -30,7 +30,7 @@ function cli(args: string[]) {
   return runCli(args, { home, api });
 }
 
-function bank(extra: Record<string, unknown> = {}) {
+function bank(extra: Partial<BankTransaction> = {}): BankTransaction {
   return {
     integrationId: TX,
     descricao: 'Pagamento Ficticio',
@@ -42,11 +42,11 @@ function bank(extra: Record<string, unknown> = {}) {
   };
 }
 
-function statement(rows: unknown[], extra: Record<string, unknown> = {}) {
-  mockStatement(api, rows, { extra });
+function statement(rows: BankTransaction[]) {
+  mockStatement(api, rows);
 }
 
-function entries(list: unknown[]) {
+function entries(list: CandidateEntry[]) {
   api.on('GET /v2/lancamentos', { list, meta: { total: list.length, page: 1, pageSize: 500 } });
 }
 
@@ -66,7 +66,7 @@ function rowOf(stdout: string) {
 describe('entries import list candidates', () => {
   test('leaves entry 4242 on 2026-10-20 out of the default window', async () => {
     statement([bank()]);
-    entries([{ id: 4242, dataPrevista: '2026-10-20', valor: -12.34 }]);
+    entries([candidate({ id: 4242, dataPrevista: '2026-10-20', valor: -12.34, descricao: 'Padaria' })]);
 
     const result = await list();
 
@@ -85,7 +85,10 @@ describe('entries import list candidates', () => {
 
   test('includes 4242 when --search-to is 2026-10-20 and does not conciliate it', async () => {
     statement([bank()]);
-    entries([{ id: 4242, dataPrevista: '2026-10-20', valor: -12.34 }]);
+    api.on('GET /v2/lancamentos', offContract({
+      list: [{ id: 4242, status: 'nconciliado', dataPrevista: '2026-10-20', data: '2026-10-20', valor: -12.34, conta: 201 }],
+      meta: { total: 1, page: 1, pageSize: 500 },
+    }));
 
     const result = await list(['--search-to', '2026-10-20']);
 
@@ -105,7 +108,7 @@ describe('entries import list candidates', () => {
 
   test('--search-from replaces only the start', async () => {
     statement([bank()]);
-    entries([{ id: 4244, dataPrevista: '2026-09-20', valor: -12.34, descricao: 'Antes', categoria: 10 }]);
+    entries([candidate({ id: 4244, dataPrevista: '2026-09-20', valor: -12.34, descricao: 'Antes', categoria: 10 })]);
 
     const absent = await list();
     expect(JSON.parse(absent.stdout).search).toEqual({ from: '2026-09-29', to: '2026-10-12' });
@@ -126,7 +129,7 @@ describe('entries import list candidates', () => {
 
   test('conciliates an entry on 2026-10-09 even when duplicateOf is set', async () => {
     statement([bank()]);
-    entries([{ id: 4309, dataPrevista: '2026-10-09', valor: -12.34, descricao: 'Padaria', categoria: 10 }]);
+    entries([candidate({ id: 4309, dataPrevista: '2026-10-09', valor: -12.34, descricao: 'Padaria', categoria: 10 })]);
     api.on('GET /v1/lancamentos/duplicidade', { '2026-10-07': [{ id: 77, valor: -12.34 }] });
 
     const result = await list();
@@ -143,7 +146,7 @@ describe('entries import list candidates', () => {
 
   test('conciliates an entry on 2026-10-05', async () => {
     statement([bank()]);
-    entries([{ id: 4305, dataPrevista: '2026-10-05', valor: -12.34, descricao: 'Mercado', categoria: 11 }]);
+    entries([candidate({ id: 4305, dataPrevista: '2026-10-05', valor: -12.34, descricao: 'Mercado', categoria: 11 })]);
 
     const result = await list();
 
@@ -157,7 +160,7 @@ describe('entries import list candidates', () => {
 
   test('lists an entry on 2026-10-04 inside the window without conciliating', async () => {
     statement([bank()]);
-    entries([{ id: 4304, dataPrevista: '2026-10-04', valor: -12.34, descricao: 'Feira', categoria: 10 }]);
+    entries([candidate({ id: 4304, dataPrevista: '2026-10-04', valor: -12.34, descricao: 'Feira', categoria: 10 })]);
 
     const result = await list();
 
@@ -173,8 +176,8 @@ describe('entries import list candidates', () => {
   test('of two entries within two days, links the one on the bank date and lists both by date', async () => {
     statement([bank()]);
     entries([
-      { id: 5101, dataPrevista: '2026-10-07', valor: -12.34, descricao: 'Um', categoria: 10 },
-      { id: 5102, dataPrevista: '2026-10-06', valor: -12.34, descricao: 'Dois', categoria: 11 },
+      candidate({ id: 5101, dataPrevista: '2026-10-07', valor: -12.34, descricao: 'Um', categoria: 10 }),
+      candidate({ id: 5102, dataPrevista: '2026-10-06', valor: -12.34, descricao: 'Dois', categoria: 11 }),
     ]);
     api.on('GET /v1/lancamentos/duplicidade', { '2026-10-07': [{ id: 77, valor: -12.34 }] });
 
@@ -198,7 +201,7 @@ describe('entries import list candidates', () => {
 
   test('does not treat the opposite sign as a candidate', async () => {
     statement([bank()]);
-    entries([{ id: 4901, dataPrevista: '2026-10-07', valor: 12.34, descricao: 'Estorno', categoria: 20 }]);
+    entries([candidate({ id: 4901, dataPrevista: '2026-10-07', valor: 12.34, descricao: 'Estorno', categoria: 20 })]);
 
     const result = await list();
 
@@ -209,9 +212,7 @@ describe('entries import list candidates', () => {
 
   test('a document number never drops an entry: the web only prefers the same number when linking', async () => {
     for (const [bankDoc, entryDoc] of [['ABC', 'XYZ'], ['abc', 'ABC'], ['ABC', undefined], ['ABC', ''], ['ABC', 'ABC']]) {
-      const entry: Record<string, unknown> = {
-        id: 4600, dataPrevista: '2026-10-07', valor: -12.34, descricao: 'Doc', categoria: 10,
-      };
+      const entry = candidate({ id: 4600, dataPrevista: '2026-10-07', valor: -12.34, descricao: 'Doc', categoria: 10 });
       if (entryDoc !== undefined) entry.ndocumento = entryDoc;
       statement([bank({ ndocumento: bankDoc })]);
       entries([entry]);
@@ -229,8 +230,8 @@ describe('entries import list candidates', () => {
   test('reads entry dates that carry a time as their calendar day', async () => {
     statement([bank()]);
     entries([
-      { id: 6200, dataEfetiva: '2026-10-08T00:00:00', dataPrevista: '2026-10-01T00:00:00', valor: -12.34, descricao: 'Com hora' },
-      { id: 6201, dataEfetiva: null, dataPrevista: '2026-10-11T00:00:00', valor: -12.34, descricao: 'Prevista', categoria: 10 },
+      candidate({ id: 6200, dataEfetiva: '2026-10-08T00:00:00', dataPrevista: '2026-10-01T00:00:00', valor: -12.34, descricao: 'Com hora' }),
+      candidate({ id: 6201, dataEfetiva: null, dataPrevista: '2026-10-11T00:00:00', valor: -12.34, descricao: 'Prevista', categoria: 10 }),
     ]);
 
     const result = await list();
@@ -246,7 +247,7 @@ describe('entries import list candidates', () => {
 
   test('uses dataEfetiva 2026-10-07 rather than dataPrevista 2026-10-01', async () => {
     statement([bank()]);
-    entries([{
+    entries([candidate({
       id: 6100,
       dataEfetiva: '2026-10-07',
       dataPrevista: '2026-10-01',
@@ -254,7 +255,7 @@ describe('entries import list candidates', () => {
       valor: -12.34,
       descricao: 'Efetiva',
       categoria: 10,
-    }]);
+    })]);
 
     const result = await list();
 

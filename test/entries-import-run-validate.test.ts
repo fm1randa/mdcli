@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
-import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE } from './fixtures.js';
-import { mockStatement, SINCE } from './import-harness.js';
+import { ACCOUNTS_RESPONSE, cardInvoice, CATEGORIES_RESPONSE } from './fixtures.js';
+import { candidate, mockStatement, SINCE, type BankTransaction, type CandidateEntry } from './import-harness.js';
 
 // Fictional ids. 201 is Conta Teste (301), 202 is Cartão Teste (302, due 2026-01-16).
 // Categories: 10 Alimentação (d), 20 Salário (r), 30 Transferência (t), 60 Antiga (d, inactive).
@@ -38,15 +38,15 @@ afterEach(() => {
   home.cleanup();
 });
 
-function bank(integrationId: string, extra: Record<string, unknown> = {}) {
+function bank(integrationId: string, extra: Partial<BankTransaction> = {}) {
   return { integrationId, descricao: 'Padaria Ficticia', valor: -12.34, data: '2026-10-07', moeda: 1, ...extra };
 }
 
-function statement(rows: unknown[], connectionAccount = 301) {
+function statement(rows: BankTransaction[], connectionAccount = 301) {
   mockStatement(api, rows, { connectionAccount });
 }
 
-function entries(list: unknown[]) {
+function entries(list: CandidateEntry[]) {
   api.on('GET /v2/lancamentos', { list, meta: { total: list.length, page: 1, pageSize: 500 } });
 }
 
@@ -73,7 +73,7 @@ async function refused(args: string[]) {
 describe('entries import run category checks', () => {
   test('an inactive category is refused like entries create, even when every id would only be linked', async () => {
     statement([bank(TX1)]);
-    entries([{ id: 4242, dataPrevista: '2026-10-08', valor: -12.34, descricao: 'Padaria' }]);
+    entries([candidate({ id: 4242, dataPrevista: '2026-10-08', valor: -12.34, descricao: 'Padaria' })]);
 
     const stderr = await refused(['--ids', 'aaaa', '-c', '60']);
 
@@ -102,7 +102,7 @@ describe('entries import run category checks', () => {
 describe('entries import run actions', () => {
   test('the automatically linked Entry is conciliated, keeping its value and description', async () => {
     statement([bank(TX1, { _ca: { c: { d: { descricao: { v: 'Sugerida' } } } } })]);
-    entries([{ id: 4242, dataPrevista: '2026-10-09', valor: -12.34, descricao: 'Padaria do bairro', categoria: 40 }]);
+    entries([candidate({ id: 4242, dataPrevista: '2026-10-09', valor: -12.34, descricao: 'Padaria do bairro', categoria: 40 })]);
 
     const body = await plan(['--ids', 'aaaa', '-c', '10']);
 
@@ -120,7 +120,7 @@ describe('entries import run actions', () => {
 
   test('the table shows the linked Entry before and after', async () => {
     statement([bank(TX1)]);
-    entries([{ id: 4242, dataPrevista: '2026-10-09', valor: -12.34, descricao: 'Padaria do bairro' }]);
+    entries([candidate({ id: 4242, dataPrevista: '2026-10-09', valor: -12.34, descricao: 'Padaria do bairro' })]);
 
     const result = await run(['--ids', 'aaaa', '-c', '10']);
 
@@ -135,8 +135,8 @@ describe('entries import run actions', () => {
   test('of two entries within two days, --ids links the one the web picks: the day before comes first', async () => {
     statement([bank(TX1)]);
     entries([
-      { id: 4242, dataPrevista: '2026-10-08', valor: -12.34 },
-      { id: 4243, dataPrevista: '2026-10-06', valor: -12.34 },
+      candidate({ id: 4242, dataPrevista: '2026-10-08', valor: -12.34, descricao: 'Lancamento' }),
+      candidate({ id: 4243, dataPrevista: '2026-10-06', valor: -12.34, descricao: 'Lancamento' }),
     ]);
 
     const body = await plan(['--ids', 'aaaa', '-c', '10']);
@@ -147,7 +147,7 @@ describe('entries import run actions', () => {
 
   test('a candidate outside the 2 days is not linked, and --ids imports beside it', async () => {
     statement([bank(TX1)]);
-    entries([{ id: 4244, dataPrevista: '2026-10-20', valor: -12.34 }]);
+    entries([candidate({ id: 4244, dataPrevista: '2026-10-20', valor: -12.34, descricao: 'Lancamento' })]);
 
     const body = await plan(['--ids', 'aaaa', '-c', '10', '--search-to', '2026-10-20']);
 
@@ -174,7 +174,7 @@ describe('entries import run actions', () => {
   test('--include-duplicates still links a duplicate that has a candidate', async () => {
     statement([bank(TX1)]);
     api.on('GET /v1/lancamentos/duplicidade', { '2026-10-07': [{ id: 77, valor: -12.34 }] });
-    entries([{ id: 77, dataEfetiva: '2026-10-07', valor: -12.34, descricao: 'Ja gravado' }]);
+    entries([candidate({ id: 77, dataPrevista: '2026-10-07', dataEfetiva: '2026-10-07', valor: -12.34, descricao: 'Ja gravado' })]);
 
     const body = await plan(['--ids', 'aaaa', '-c', '10', '--include-duplicates']);
 
@@ -194,7 +194,7 @@ describe('entries import run status', () => {
 
   test('a past card purchase is Reconciled too, and --search-to on a card fails', async () => {
     statement([bank(TX1)], 302);
-    api.on('GET /v1/cartoes/202/fatura/2026-01-16', { lancamentos: [], vencimento: '2026-01-16' });
+    api.on('GET /v1/cartoes/202/fatura/2026-01-16', cardInvoice('2026-01-16', '2026-01-08'));
 
     const body = await plan(['--ids', 'aaaa', '-c', '10'], '202');
     expect(body.imported.map((item: { status: string }) => item.status)).toEqual(['reconciled']);

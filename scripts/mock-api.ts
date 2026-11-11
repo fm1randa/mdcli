@@ -4,12 +4,13 @@ import type { Account, AccountsResponse, CategoriesResponse } from '../src/types
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, CREDIT_CARD_ACCOUNT, SAVINGS_ACCOUNT, TAGS_RESPONSE } from '../test/fixtures.js';
 import { plasticsRoute } from './mock-plastics.js';
 import { ENTRIES_PATH, entriesListRoute, entriesRoute } from './mock-entries.js';
-import { badRequest, idOf, notFound, readJsonBody, requiredNumber, unauthorized } from './mock-http.js';
+import { badRequest, idOf, json, latestRelease, notFound, readJsonBody, requiredNumber, unauthorized } from './mock-http.js';
 import { connectionsRoute, recordMockRequest } from './mock-connections.js';
 import { importRoute, withRecentStatement } from './mock-import.js';
 import { balancesRoute } from './mock-balances.js';
 import { cardsRoute } from './mock-cards.js';
 import { sessionRoute } from './mock-session.js';
+import { CLOSED_INVOICE_CARD } from './mock-closed-invoice.js';
 
 // GitHub "latest release" endpoint used by the self-updater (no auth).
 const MOCK_LATEST_TAG = 'v2099.1.1';
@@ -60,7 +61,7 @@ const MOCK_CATEGORIES: CategoriesResponse = {
 
 const MOCK_ACCOUNTS: AccountsResponse = {
   ...ACCOUNTS_RESPONSE,
-  items: [...ACCOUNTS_RESPONSE.items.map(withRecentStatement), CARD_NO_DUE, SAVINGS_ACCOUNT, CARD_DATE_ONLY],
+  items: [...ACCOUNTS_RESPONSE.items.map(withRecentStatement), CARD_NO_DUE, SAVINGS_ACCOUNT, CARD_DATE_ONLY, CLOSED_INVOICE_CARD],
 };
 
 function accountType(tipoNovo: unknown) {
@@ -82,7 +83,7 @@ function isCreditCardId(conta: unknown): boolean {
 
 async function accountsRoute(req: Request, path: string): Promise<Response> {
   if (path === ACCOUNTS_PATH) {
-    if (req.method === 'GET') return Response.json(MOCK_ACCOUNTS);
+    if (req.method === 'GET') return json<'GET /v1/cadastros/contas'>(MOCK_ACCOUNTS);
     if (req.method === 'POST') {
       const body = await readJsonBody(req);
       if (body instanceof Response) return body;
@@ -108,7 +109,7 @@ async function accountsRoute(req: Request, path: string): Promise<Response> {
         permissoes: { visivel: true, acoes: { editar: true, excluir: true } },
         ...(typeof body.banco === 'string' && { banco: { id: body.banco, nome: body.banco, img: '', tipo: [tipo] } }),
       };
-      return Response.json(created, { status: 201 });
+      return json<'POST /v1/cadastros/contas'>(created, 201);
     }
     return notFound();
   }
@@ -122,7 +123,7 @@ async function accountsRoute(req: Request, path: string): Promise<Response> {
     if (body instanceof Response) return body;
     const { banco: _banco, ...changes } = body;
     const updated: Account = { ...existing, ...changes, id: existing.id, tipo: accountType(changes.tipoNovo)?.nome ?? existing.tipo };
-    return Response.json(updated);
+    return json<`PUT /v1/cadastros/contas/${number}`>(updated);
   }
   if (req.method === 'DELETE') {
     return new Response(null, { status: 204 });
@@ -135,7 +136,7 @@ const server = Bun.serve({
   fetch(req) {
     const url = new URL(req.url);
     recordMockRequest(req.method, url.pathname, url.search);
-    if (url.pathname === LATEST_RELEASE_PATH) return Response.json({ tag_name: MOCK_LATEST_TAG });
+    if (url.pathname === LATEST_RELEASE_PATH) return latestRelease(MOCK_LATEST_TAG);
     if (req.headers.get('Mdapikey') !== 'verify-key') {
       return unauthorized();
     }
@@ -143,10 +144,10 @@ const server = Bun.serve({
       return accountsRoute(req, url.pathname);
     }
     if (url.pathname === CATEGORIES_PATH && req.method === 'GET') {
-      return Response.json(MOCK_CATEGORIES);
+      return json<'GET /v1/cadastros/categorias'>(MOCK_CATEGORIES);
     }
     if (url.pathname === TAGS_PATH && req.method === 'GET') {
-      return Response.json(TAGS_RESPONSE);
+      return json<'GET /v1/cadastros/tags'>(TAGS_RESPONSE);
     }
     if (url.pathname.startsWith('/api/v1/cartoes/')) {
       const card = cardsRoute(req, url.pathname, isCreditCardId, (id) => MOCK_ACCOUNTS.items.find((a) => a.id === id)?.limite);

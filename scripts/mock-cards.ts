@@ -5,7 +5,7 @@ import { cardInvoice, firstInvoice } from '../test/fixtures.js';
 import { roundToCents } from '../src/utils/currency.js';
 import { parseId } from '../src/utils/parse.js';
 import { invoiceItems } from './mock-card-purchases.js';
-import { notFound } from './mock-http.js';
+import { json, notFound } from './mock-http.js';
 
 const sum = (items: ReadonlyArray<{ valor: number }>): number => roundToCents(items.reduce((total, e) => total + e.valor, 0));
 
@@ -68,7 +68,7 @@ export function cardsRoute(
     if (id === undefined || !isCreditCard(id)) return notFound();
     // An object, like the real API (issue #266), not a date string.
     const body: FirstInvoiceResponse = firstInvoice(id, '2026-01-16', closingFor('2026-01-16'));
-    return Response.json(body);
+    return json<`GET /v1/cartoes/${number}/primeiraFatura`>(body);
   }
 
   const invoice = path.match(/^\/api\/v1\/cartoes\/(\d+)\/fatura\/(\d{4}-\d{2}-\d{2})$/);
@@ -82,7 +82,7 @@ export function cardsRoute(
       ...invoiceTotals(lancamentos, due, closingFor(due), limitOf(id)),
       lancamentos,
     };
-    return Response.json(invoiceBody);
+    return json<`GET /v1/cartoes/${number}/fatura/${string}`>(invoiceBody);
   }
 
   const future = path.match(/^\/api\/v1\/cartoes\/(\d+)\/parcelasFuturas$/);
@@ -101,7 +101,7 @@ export function cardsRoute(
         status: 'nconciliado',
       },
     ];
-    return Response.json(installments);
+    return json<`GET /v1/cartoes/${number}/parcelasFuturas`>(installments);
   }
 
   return null;

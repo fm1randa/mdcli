@@ -1,15 +1,29 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type TestHome, type RecordedRequest } from './helpers.js';
+import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, SAVINGS_ACCOUNT } from './fixtures.js';
+import type { Entry } from '../src/types/index.js';
+import { serveCreate, serveEntry } from './entry-routes.js';
 
 let api: MockApi;
 let home: TestHome;
+
+const CAFE: Entry & { id: number } = {
+  id: 70,
+  descricao: 'Café',
+  valor: -12.5,
+  data: '2026-01-05',
+  dataPrevista: '2026-01-05',
+  status: 'conciliado',
+  conta: 201,
+  categoria: 10,
+  tipo: 'd',
+};
 
 beforeEach(() => {
   api = startMockApi();
   api.on('GET /v1/cadastros/contas', { ...ACCOUNTS_RESPONSE, items: [...ACCOUNTS_RESPONSE.items, SAVINGS_ACCOUNT] });
   api.on('GET /v1/cadastros/categorias', CATEGORIES_RESPONSE);
-  api.on('POST /v1/lancamentos', (req: RecordedRequest) => req.body);
+  serveCreate(api);
   home = createHome({ ...MANUAL_AUTH, aliases: { accounts: [], categories: [], tags: [] } });
 });
 
@@ -36,8 +50,7 @@ describe('cli -v=-46.33 (short option equals value)', () => {
   });
 
   test('update sends negative value -46.33 in payload', async () => {
-    api.on('GET /v1/lancamentos/70', { id: 70, descricao: 'Café', valor: -12.5, conta: 201, categoria: 10, tipo: 'd' });
-    api.on('PUT /v1/lancamentos/70', (req: RecordedRequest) => ({ ...(req.body as Record<string, unknown>), id: 70 }));
+    serveEntry(api, CAFE);
     const result = await runCli(
       ['entries', 'update', '70', '-v=-46.33', '--json'],
       { home, api }
@@ -98,8 +111,7 @@ describe('cli -v=-46.33 (short option equals value)', () => {
   });
 
   test('boolean short option before -v= does not hide the short option (update -r)', async () => {
-    api.on('GET /v1/lancamentos/70', { id: 70, descricao: 'Café', valor: -12.5, conta: 201, categoria: 10, tipo: 'd' });
-    api.on('PUT /v1/lancamentos/70', (req: RecordedRequest) => ({ ...(req.body as Record<string, unknown>), id: 70 }));
+    serveEntry(api, CAFE);
     const result = await runCli(
       ['entries', 'update', '70', '-r', '-v=-46.33', '--json'],
       { home, api }
