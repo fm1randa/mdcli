@@ -47,7 +47,7 @@ const REQUEST_FLAGS = ['pending', 'confirmed', 'reconciled'] as const;
  * The one request the flags name. Pending, confirmed, and reconciled cannot
  * be combined: the first match used to win and drop the others.
  */
-function statusRequest(flags: EntryStatusFlags): StatusRequest {
+export function statusRequest(flags: EntryStatusFlags): StatusRequest {
   const chosen = REQUEST_FLAGS.filter((name) => flags[name] === true);
   if (chosen.length > 1) {
     throw new Error('Use only one of pending, confirmed and reconciled.');
@@ -86,6 +86,15 @@ function transitionEntryPhase(
   }
 }
 
+/**
+ * A purchase moved onto a card has only Conciliado. Confirmado is the same bit:
+ * unreconciled is both false, reconciled is both true.
+ */
+export function cardMoveFlags(conciliado: boolean): { confirmado: boolean; conciliado: boolean } {
+  const on = conciliado === true;
+  return { confirmado: on, conciliado: on };
+}
+
 /** The wire fields for a phase. Unconfirmed is never reconciled, and never sets an effective date. */
 function choiceForPhase(phase: EntryPhase): EntryStatusChoice {
   switch (phase.phase) {
@@ -119,8 +128,8 @@ export function buildEntryStatus(
 ): EntryStatusChoice {
   const { existing } = context;
   if (!existing && context.isCard) {
-    const explicit = Boolean(flags.pending || flags.confirmed || flags.reconciled);
-    return choiceForPhase({ phase: 'card-unreconciled', explicit });
+    const request = statusRequest(flags);
+    return choiceForPhase({ phase: 'card-unreconciled', explicit: explicitRequest(request) });
   }
   return choiceForPhase(transitionEntryPhase(statusRequest(flags), existing));
 }
