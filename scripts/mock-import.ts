@@ -1,6 +1,7 @@
 import type { BankStatementResponse, Entry } from '../src/types/index.js';
 import { json, notFound } from './mock-http.js';
 import { localDay } from '../test/helpers.js';
+import { CLOSED_INVOICE_CONNECTION_ACCOUNT, CLOSED_INVOICE_STATEMENT } from './mock-closed-invoice.js';
 
 // GET /v1/integracao/account/:connectionAccount/transactions for scripts/verify.sh, and the AI
 // category suggestion it triggers. Fictional ids only. 301 is
@@ -80,7 +81,7 @@ export function withRecentStatement<T extends { id: number }>(account: T): T {
 }
 
 /**
- * The fictional statement for connection account 301 and the AI answer, or null for any other request.
+ * The fictional statements for connection accounts 301 and 304 and the AI answer, or null for any other request.
  * The Import commit has no route here: verify.sh never writes, and the test suite asserts the commit bodies.
  */
 export function importRoute(method: string, url: URL): Response | null {
@@ -88,6 +89,7 @@ export function importRoute(method: string, url: URL): Response | null {
   if (method === 'POST' && url.pathname === AI) return json<'POST /v1/smartmatch/ai'>([10]);
   const match = TRANSACTIONS.exec(url.pathname);
   if (!match || method !== 'GET') return null;
+  if (match[1] === String(CLOSED_INVOICE_CONNECTION_ACCOUNT)) return json<`GET /v1/integracao/account/${number}/transactions`>(CLOSED_INVOICE_STATEMENT);
   if (match[1] !== '301') return notFound();
   return json<`GET /v1/integracao/account/${number}/transactions`>(STATEMENT);
 }

@@ -10,6 +10,7 @@ import { importRoute, withRecentStatement } from './mock-import.js';
 import { balancesRoute } from './mock-balances.js';
 import { cardsRoute } from './mock-cards.js';
 import { sessionRoute } from './mock-session.js';
+import { CLOSED_INVOICE_CARD } from './mock-closed-invoice.js';
 
 // GitHub "latest release" endpoint used by the self-updater (no auth).
 const MOCK_LATEST_TAG = 'v2099.1.1';
@@ -60,7 +61,7 @@ const MOCK_CATEGORIES: CategoriesResponse = {
 
 const MOCK_ACCOUNTS: AccountsResponse = {
   ...ACCOUNTS_RESPONSE,
-  items: [...ACCOUNTS_RESPONSE.items.map(withRecentStatement), CARD_NO_DUE, SAVINGS_ACCOUNT, CARD_DATE_ONLY],
+  items: [...ACCOUNTS_RESPONSE.items.map(withRecentStatement), CARD_NO_DUE, SAVINGS_ACCOUNT, CARD_DATE_ONLY, CLOSED_INVOICE_CARD],
 };
 
 function accountType(tipoNovo: unknown) {
