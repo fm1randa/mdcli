@@ -101,6 +101,36 @@ export const SEEDED_ENTRIES: Record<number, Entry> = {
     categoria: 10,
     tags: [],
   },
+  // A service paid in April for work done in March: entries summary --regime
+  // splits the cash month (dataPrevista) from the accrual month (dataCompetencia).
+  73: {
+    id: 73,
+    descricao: 'Serviço Teste',
+    tipo: 'd',
+    valor: -80,
+    data: '2026-04-05',
+    dataPrevista: '2026-04-05',
+    dataCompetencia: '2026-03-28',
+    status: 'conciliado',
+    conciliado: true,
+    conta: 204,
+    categoria: 10,
+    tags: [],
+  },
+  74: {
+    id: 74,
+    descricao: 'Mercado Teste',
+    tipo: 'd',
+    valor: -20,
+    data: '2026-03-10',
+    dataPrevista: '2026-03-10',
+    dataCompetencia: '2026-03-10',
+    status: 'conciliado',
+    conciliado: true,
+    conta: 204,
+    categoria: 11,
+    tags: [],
+  },
   // A refund as the server stored one (Real use 2026-10-27): tipo r with a
   // negative value and estorno on, which the web app never sends - update -T
   // income has to fix both.

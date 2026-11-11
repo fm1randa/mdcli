@@ -303,6 +303,10 @@ mdcli entries summary --account principal,conta --by account --include-transfers
 # pela conta corrente, que contaria em dobro as compras já lançadas no cartão
 mdcli entries summary --account principal,conta --exclude-category "Pagamento de cartão"
 
+# Visão de caixa ou da competência, como nos relatórios da web; accrual exige a
+# visão da competência ligada na conta, e no --by month agrupa pela data de competência
+mdcli entries summary --account principal --by month --regime accrual
+
 # Cria um lançamento. O tipo (-T, despesa por padrão) e a categoria têm de
 # combinar: a web só lista categorias do tipo do lançamento, então uma
 # categoria de outro tipo é recusada antes de chamar a API

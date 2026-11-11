@@ -57,6 +57,9 @@ export const ptBREntriesUpdateDelete = {
     `Valor inválido "${value}". Use um número como 10, 10.50 ou 10,50.`,
   errorJsonOrCsv: () => 'Use --json ou --csv, mas não os dois.',
   entriesListHeader: (count: number, total: string) => `Lançamentos (${count}) | Total: ${total}`,
+  errorInvalidRegime: (value: string) => `--regime inválido "${value}". Use cash ou accrual.`,
+  errorAccrualViewOff: () =>
+    'A visão da competência está desligada nesta conta. Ative-a nas configurações da web ou use --regime cash.',
   errorInvalidBy: (value: string) => `--by inválido "${value}". Use category, month ou account.`,
   labelNoCategory: () => '(sem categoria)',
 };

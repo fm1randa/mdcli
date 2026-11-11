@@ -116,7 +116,11 @@ export interface EntriesParams {
   entryType?: number;
   /** tipoRepeticao bitmask: 1 single, 2 installment, 4 fixed. */
   repetition?: number;
+  /** The web reports' regime: ca (cash) or co (accrual); undefined = not sent. */
+  regime?: ApiRegime;
 }
+
+export type ApiRegime = 'ca' | 'co';
 
 /** unknown: a label the CLI does not know (see entries show --raw). */
 export type EntryStatus = 'reconciled' | 'confirmed' | 'pending' | 'scheduled' | 'unknown';

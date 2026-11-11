@@ -6,7 +6,8 @@ const { ngInit } = SESSION_RESPONSE.payload;
 const mdweb = ngInit.usuario.config?.mdweb ?? {};
 
 // The test fixture's preferences plus the overwrite preference import run reads
-// (payload.ngInit.usuario.config.mdweb.conciliacao). The real state also carries credentials.
+// (payload.ngInit.usuario.config.mdweb.conciliacao) and the accrual view entries summary --regime needs.
+// The real state also carries credentials.
 const SESSION_STATE: SessionResponse = {
   ...SESSION_RESPONSE,
   payload: {
@@ -14,6 +15,7 @@ const SESSION_STATE: SessionResponse = {
       ...ngInit,
       usuario: {
         ...ngInit.usuario,
+        conta: { config: { ...ngInit.usuario.conta?.config, visaoCompetencia: true } },
         config: { mdweb: { ...mdweb, conciliacao: { o: 'd', s: false, sd: true } } },
       },
     },

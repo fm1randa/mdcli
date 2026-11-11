@@ -3,7 +3,7 @@ import type { WebConfig } from './web-session.js';
 
 /** The user as window.mdconfig.usuario has it. */
 interface SessionUser {
-  conta?: { config?: { pendentesPresente?: boolean; metasRD?: boolean; moeda?: number } };
+  conta?: { config?: { pendentesPresente?: boolean; metasRD?: boolean; moeda?: number; visaoCompetencia?: boolean } };
   config?: { mdweb?: { moeda?: { m?: number } } };
 }
 
@@ -52,4 +52,13 @@ export function setEntriesPreferences(query: URLSearchParams, preferences: Entri
   for (const [key, value] of Object.entries(preferences)) {
     if (value !== undefined) query.set(key, String(value));
   }
+}
+
+/**
+ * Whether the user may pick the accrual regime: the web shows the cash/accrual toggle only under
+ * c.utilizacao.visaoCompetencia and otherwise sends regime "ca" (relatoriosDatasource G, mdb.js 44178).
+ */
+export async function competenceViewEnabled(config: Promise<WebConfig | null>): Promise<boolean> {
+  const user = ((await config)?.usuario ?? {}) as SessionUser;
+  return user.conta?.config?.visaoCompetencia === true;
 }
