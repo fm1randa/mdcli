@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE } from './fixtures.js';
+import type { Entry } from '../src/types/index.js';
+import { serveCreate, serveEntry } from './entry-routes.js';
 
 // Real use (2026-10-27): `entries create -T income -c <expense category>`
 // reached the API and came back as an expense refund, and `entries update -T
@@ -30,15 +32,14 @@ const refund = {
   conta: 201,
   categoria: 20,
   tags: [],
-};
+} satisfies Entry;
 
 beforeEach(() => {
   api = startMockApi();
   api.on('GET /v1/cadastros/contas', ACCOUNTS_RESPONSE);
   api.on('GET /v1/cadastros/categorias', CATEGORIES_RESPONSE);
-  api.on('POST /v1/lancamentos', (req) => ({ ...(req.body as object), id: 9 }));
-  api.on('GET /v1/lancamentos/70', refund);
-  api.on('PUT /v1/lancamentos/70', (req) => ({ ...refund, ...(req.body as object) }));
+  serveCreate(api);
+  serveEntry(api, refund);
   home = createHome(MANUAL_AUTH);
 });
 
@@ -125,7 +126,7 @@ describe('entries update sets the sign and estorno from the type', () => {
   });
 
   test('an expense keeps its negative sign whatever sign -v has', async () => {
-    const expense = { ...refund, tipo: 'd', estorno: false, categoria: 10, valor: -30, valorPrevisto: -30, valorEfetivo: -30 };
+    const expense = { ...refund, tipo: 'd', estorno: false, categoria: 10, valor: -30, valorPrevisto: -30, valorEfetivo: -30 } satisfies Entry;
     api.on('GET /v1/lancamentos/70', expense);
 
     const result = await runCli(['entries', 'update', '70', '-v', '1700'], { home, api });
@@ -187,7 +188,7 @@ describe('entries refuse a type it does not know', () => {
 
 describe('entries update keeps invoice payments transfer-like', () => {
   test('a category cannot turn an invoice payment into an expense', async () => {
-    const payment = { ...refund, tipo: 'p' as const, categoria: 30, contaT: 202, transferencia: 9 };
+    const payment = { ...refund, tipo: 'p' as const, categoria: 30, contaT: 202, transferencia: 9 } satisfies Entry;
     api.on('GET /v1/lancamentos/70', payment);
 
     const result = await runCli(['entries', 'update', '70', '-c', '10'], { home, api });

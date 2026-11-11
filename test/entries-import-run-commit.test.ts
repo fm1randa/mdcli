@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createHome, localDay, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE } from './fixtures.js';
-import { CONNECTIONS, mockStatement, SINCE } from './import-harness.js';
+import { candidate, CONNECTIONS, mockStatement, SINCE, type BankTransaction, type CandidateEntry } from './import-harness.js';
 
 // Fictional ids. 201 is Conta Teste (connection account 301). Category 10 is Alimentação (d).
 const FONTE = 'Importado via Integração bancária automática';
@@ -30,15 +30,15 @@ afterEach(() => {
   home.cleanup();
 });
 
-function bank(integrationId: string, extra: Record<string, unknown> = {}) {
+function bank(integrationId: string, extra: Partial<BankTransaction> = {}) {
   return { integrationId, descricao: 'Padaria Ficticia', valor: -12.34, data: '2026-10-07', moeda: 1, ...extra };
 }
 
-function statement(rows: unknown[]) {
+function statement(rows: BankTransaction[]) {
   mockStatement(api, rows, { saldo: 250.5 });
 }
 
-function entries(list: unknown[]) {
+function entries(list: CandidateEntry[]) {
   api.on('GET /v2/lancamentos', { list, meta: { total: list.length, page: 1, pageSize: 500 } });
 }
 
@@ -198,7 +198,7 @@ describe('entries import run linking and status', () => {
   test('a linked Bank Transaction sends its own fields like the web, marks its row, and imports nothing', async () => {
     statement([bank(TX1, { ndocumento: 'NSU 998', centro: null })]);
     entries([
-      {
+      candidate({
         id: 4242,
         dataPrevista: '2026-10-08',
         valor: -12.34,
@@ -208,7 +208,7 @@ describe('entries import run linking and status', () => {
         contato: 5,
         centro: null,
         observacoes: 'not repeated',
-      },
+      }),
     ]);
 
     const result = await run(['--ids', 'aaaa1111', '-c', '10', '--yes', '--json']);
@@ -268,7 +268,7 @@ describe('entries import run pages and failures', () => {
 
   test('a failed markImported is reported and the commit goes on', async () => {
     statement([bank(TX1)]);
-    api.on('POST /v1/integracao/transactions/markImported', { message: 'busy' }, 500);
+    api.fail('POST /v1/integracao/transactions/markImported', 500, { message: 'busy' });
 
     const result = await run(['--ids', 'aaaa1111', '-c', '10', '--yes', '--json']);
 
@@ -282,7 +282,7 @@ describe('entries import run pages and failures', () => {
 
   test('a failed conciliacao stops before importar and says how many pages were written', async () => {
     statement([bank(TX1)]);
-    api.on('POST /v1/lancamentos/conciliacao', { message: 'no' }, 500);
+    api.fail('POST /v1/lancamentos/conciliacao', 500, { message: 'no' });
 
     const result = await run(['--ids', 'aaaa1111', '-c', '10', '--yes', '--json']);
 

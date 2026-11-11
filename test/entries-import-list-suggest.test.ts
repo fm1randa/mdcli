@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
+import { createHome, MANUAL_AUTH, mutations, offContract, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE } from './fixtures.js';
-import { CONNECTIONS, mockStatement, SINCE } from './import-harness.js';
+import { CONNECTIONS, mockStatement, SINCE, type BankTransaction } from './import-harness.js';
 
 // Fictional ids. 201 is Conta Teste. 301 is its connection account, not the Account id.
 
@@ -40,7 +40,7 @@ function cli(args: string[]) {
   return runCli(args, { home, api });
 }
 
-function statement(rows: unknown[]) {
+function statement(rows: BankTransaction[]) {
   mockStatement(api, rows, { inicio: '2026-09-01', fim: '2026-10-31', saldo: 10 });
 }
 
@@ -56,7 +56,7 @@ describe('entries import list suggestions', () => {
         _ca: {
           st: false,
           c: {
-            d: { categoria: { v: 11, k: [{ k: 'padaria', v: 'padaria' }] } },
+            d: { categoria: { v: 11 } },
             r: { categoria: { v: 20 } },
             t: { categoria: { v: 30 } },
           },
@@ -205,38 +205,43 @@ describe('entries import list suggestions', () => {
   });
 
   test('suggests descricao from the learned field, then _ca.d, and never the bank text', async () => {
-    statement([
-      {
-        integrationId: RULE_TEXT_ID,
-        descricao: 'Texto do Banco',
-        valor: -3,
-        data: '2026-10-11',
-        _ca: {
-          d: 'Fallback D',
-          c: {
-            d: { descricao: { v: 'Descricao da Regra' } },
-            r: { descricao: { v: 'Descricao de Receita' } },
+    api.on('GET /v1/integracao/account/301/transactions', offContract({
+      inicio: '2026-09-01',
+      fim: '2026-10-31',
+      saldo: 10,
+      lancamentos: [
+        {
+          integrationId: RULE_TEXT_ID,
+          descricao: 'Texto do Banco',
+          valor: -3,
+          data: '2026-10-11',
+          _ca: {
+            d: 'Fallback D',
+            c: {
+              d: { descricao: { v: 'Descricao da Regra' } },
+              r: { descricao: { v: 'Descricao de Receita' } },
+            },
           },
         },
-      },
-      {
-        integrationId: FALLBACK_TEXT_ID,
-        descricao: 'Outro Texto do Banco',
-        valor: -4,
-        data: '2026-10-12',
-        _ca: {
-          d: 'Somente Ca D',
-          c: { r: { descricao: { v: 'Nao Essa' } } },
+        {
+          integrationId: FALLBACK_TEXT_ID,
+          descricao: 'Outro Texto do Banco',
+          valor: -4,
+          data: '2026-10-12',
+          _ca: {
+            d: 'Somente Ca D',
+            c: { r: { descricao: { v: 'Nao Essa' } } },
+          },
         },
-      },
-      {
-        integrationId: BANK_TEXT_ID,
-        descricao: 'Fica no Banco',
-        valor: -5,
-        data: '2026-10-13',
-        _ca: { d: 12, c: { d: { descricao: { v: 99 } } } },
-      },
-    ]);
+        {
+          integrationId: BANK_TEXT_ID,
+          descricao: 'Fica no Banco',
+          valor: -5,
+          data: '2026-10-13',
+          _ca: { d: 12, c: { d: { descricao: { v: 99 } } } },
+        },
+      ],
+    }));
 
     const result = await cli(['entries', 'import', 'list', '-a', '201', '--since', SINCE, '--json']);
 

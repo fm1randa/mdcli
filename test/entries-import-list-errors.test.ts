@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
+import { createHome, MANUAL_AUTH, mutations, offContract, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE } from './fixtures.js';
 import { SINCE } from './import-harness.js';
+import type { ConnectionsResponse } from '../src/types/index.js';
 
 const ONE_LINK = [
   {
@@ -80,15 +81,15 @@ describe('entries import list errors', () => {
   });
 
   // Each connection answer the CLI cannot place the account in fails before reading the statement.
-  const unplaceable: [string, object, string][] = [
+  const unplaceable: [string, ConnectionsResponse | (() => Response), string][] = [
     [
       'a connections answer that is not a list',
-      { items: ONE_LINK },
+      offContract({ items: ONE_LINK }),
       'GET /v1/integracao/connections did not return a list of connections',
     ],
     [
       'a connection without an id',
-      [{ status: 'UPDATED', accounts: [{ id: 301, conta: 201 }] }],
+      offContract([{ status: 'UPDATED', accounts: [{ id: 301, conta: 201 }] }]),
       'Account 201 is linked to a connection that did not include its id.',
     ],
     [
@@ -98,7 +99,7 @@ describe('entries import list errors', () => {
     ],
     [
       'a link without the connection account id',
-      [{ id: 501, accounts: [{ type: 'CONTA CORRENTE', conta: 201 }] }],
+      offContract([{ id: 501, accounts: [{ type: 'CONTA CORRENTE', conta: 201 }] }]),
       'Account 201 is linked to connection 501, which did not include its connection account id.',
     ],
   ];
@@ -152,7 +153,7 @@ describe('entries import list errors', () => {
   });
 
   test('an API error names the method and path and does not write', async () => {
-    api.on('GET /v1/integracao/account/301/transactions', { message: 'boom' }, 500);
+    api.fail('GET /v1/integracao/account/301/transactions', 500, { message: 'boom' });
 
     const result = await cli(['entries', 'import', 'list', '-a', '201', '--since', SINCE, '--json']);
     expect(result.exitCode).toBe(1);

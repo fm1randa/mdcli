@@ -320,7 +320,7 @@ describe('sync run', () => {
 
   test('a failed PUT reports the API message and does not read status again', async () => {
     connections(ONE_CONNECTION, AFTER_SYNC);
-    api.on('PUT /v1/integracao/connection/update/501', { message: 'limit' }, 500);
+    api.fail('PUT /v1/integracao/connection/update/501', 500, { message: 'limit' });
 
     const result = await runCli(['sync', 'run', '201', '--yes', '--json'], { home, api });
 

@@ -1,16 +1,17 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, SAVINGS_ACCOUNT } from './fixtures.js';
+import { serveCreate } from './entry-routes.js';
 
 let api: MockApi;
 let home: TestHome;
-const created = { id: 9, descricao: 'x', valor: -10, data: '2026-01-05', status: 'confirmado' };
+const created = { descricao: 'x', valor: -10, data: '2026-01-05', status: 'confirmado' };
 
 beforeEach(() => {
   api = startMockApi();
   api.on('GET /v1/cadastros/contas', { ...ACCOUNTS_RESPONSE, items: [...ACCOUNTS_RESPONSE.items, SAVINGS_ACCOUNT] });
   api.on('GET /v1/cadastros/categorias', CATEGORIES_RESPONSE);
-  api.on('POST /v1/lancamentos', created);
+  serveCreate(api, 9, created);
   home = createHome({ ...MANUAL_AUTH, aliases: { accounts: [{ id: 204, name: 'reserva' }], categories: [], tags: [] } });
 });
 
@@ -197,7 +198,7 @@ describe('entries create --repeat', () => {
 
 describe('entries create --scheduled', () => {
   test('sends confirmado and conciliado off with no effective date or value', async () => {
-    api.on('POST /v1/lancamentos', { ...created, status: 'agendado' });
+    serveCreate(api, 9, { ...created, status: 'agendado' });
 
     const result = await runCli(
       ['entries', 'create', '-a', '201', '-d', 'IPVA', '-v', '800', '-c', '10', '-S', '-D', '2026-11-05'],

@@ -1,5 +1,6 @@
 import { createHome, MANUAL_AUTH, startMockApi, type MockApi, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CHECKING_ACCOUNT } from './fixtures.js';
+import type { ConnectionsResponse } from '../src/types/index.js';
 
 // Fictional ids. 201 and 202 are Conta Teste and Cartão Teste in the account fixture.
 export const ONE_CONNECTION = [
@@ -81,7 +82,7 @@ export interface SyncRun {
   api: MockApi;
   home: TestHome;
   /** First read, then the reads that follow the PUT in order; the last one repeats. */
-  connections: (before: unknown, ...after: unknown[]) => void;
+  connections: (before: ConnectionsResponse, ...after: ConnectionsResponse[]) => void;
 }
 
 export function openSyncRun(): SyncRun {

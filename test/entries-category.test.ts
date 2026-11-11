@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, EMPTY_ENTRIES_RESPONSE } from './fixtures.js';
+import type { Entry } from '../src/types/index.js';
+import { serveCreate, serveEntry } from './entry-routes.js';
 
 let api: MockApi;
 let home: TestHome;
@@ -24,7 +26,7 @@ const existing = {
   conta: 201,
   categoria: 10,
   tags: [],
-};
+} satisfies Entry;
 
 beforeEach(() => {
   api = startMockApi();
@@ -34,9 +36,8 @@ beforeEach(() => {
     items: [...CATEGORIES_RESPONSE.items, activeMoradia, inactiveMoradia, inactiveOnly],
   });
   api.on('GET /v2/lancamentos', EMPTY_ENTRIES_RESPONSE);
-  api.on('POST /v1/lancamentos', { id: 9, descricao: 'Aluguel', valor: -10, data: '2026-01-05', status: 'conciliado' });
-  api.on('GET /v1/lancamentos/70', existing);
-  api.on('PUT /v1/lancamentos/70', (req) => ({ ...existing, ...(req.body as object) }));
+  serveCreate(api);
+  serveEntry(api, existing);
   home = createHome({
     ...MANUAL_AUTH,
     aliases: { accounts: [], categories: [{ id: 50, name: 'casa' }], tags: [] },
