@@ -56,7 +56,7 @@ export async function resolveCreatedEntryId(
   response: CreateEntryResponse,
   lookup: CreatedEntryLookup
 ): Promise<ResolvedCreateEntry> {
-  const rawId: unknown = response.id;
+  const rawId = response.id;
   const entryId = typeof rawId === 'number' ? asEntryId(rawId) : asEntryIdText(rawId);
   if (entryId !== undefined) return { ...response, id: entryId };
   const occurrenceId = answeredOccurrenceId(rawId);

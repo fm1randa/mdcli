@@ -1,7 +1,6 @@
 import type { CreateEntryResponse, Entry } from '../src/types/index.js';
 import type { Body } from '../scripts/mock-http.js';
 import { createdEntry, mockEntryId, updatedEntry } from '../scripts/mock-entry-payload.js';
-import { answeredOccurrenceId } from '../src/lib/entry-id-brands.js';
 import type { MockApi } from './helpers.js';
 
 /** Answers the GET of `entry` and its PUT with the payload saved over it, as the API does. */
@@ -17,7 +16,7 @@ export function serveEntry(api: MockApi, entry: Entry & { id: number }): void {
  * the answer would derive from the payload.
  */
 export function serveCreate(api: MockApi, id: number | string = 9, fields: Partial<Omit<CreateEntryResponse, 'id'>> = {}): void {
-  const answered = typeof id === 'number' ? mockEntryId(id) : answeredOccurrenceId(id);
+  const answered = typeof id === 'number' ? mockEntryId(id) : id;
   api.on('POST /v1/lancamentos', (req) => ({ ...createdEntry(req.body as Body, answered), ...fields }));
 }
 
