@@ -1,5 +1,6 @@
 import type { BankStatementResponse, Entry } from '../src/types/index.js';
 import { localDay } from '../test/helpers.js';
+import { notFound } from './mock-http.js';
 
 // GET /v1/integracao/account/:connectionAccount/transactions for scripts/verify.sh, and the AI
 // category suggestion it triggers. Fictional ids only. 301 is
@@ -87,6 +88,6 @@ export function importRoute(method: string, url: URL): Response | null {
   if (method === 'POST' && url.pathname === AI) return Response.json([10]);
   const match = TRANSACTIONS.exec(url.pathname);
   if (!match || method !== 'GET') return null;
-  if (match[1] !== '301') return Response.json({ message: 'not found' }, { status: 404 });
+  if (match[1] !== '301') return notFound();
   return Response.json(STATEMENT);
 }

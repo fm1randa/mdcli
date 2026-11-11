@@ -4,7 +4,7 @@ import type { Account, AccountsResponse, CategoriesResponse } from '../src/types
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, CREDIT_CARD_ACCOUNT, SAVINGS_ACCOUNT, TAGS_RESPONSE } from '../test/fixtures.js';
 import { plasticsRoute } from './mock-plastics.js';
 import { ENTRIES_PATH, entriesListRoute, entriesRoute } from './mock-entries.js';
-import { badRequest, idOf, notFound, readJsonBody, requiredNumber } from './mock-http.js';
+import { badRequest, idOf, notFound, readJsonBody, requiredNumber, unauthorized } from './mock-http.js';
 import { connectionsRoute, recordMockRequest } from './mock-connections.js';
 import { importRoute, withRecentStatement } from './mock-import.js';
 import { balancesRoute } from './mock-balances.js';
@@ -137,7 +137,7 @@ const server = Bun.serve({
     recordMockRequest(req.method, url.pathname, url.search);
     if (url.pathname === LATEST_RELEASE_PATH) return Response.json({ tag_name: MOCK_LATEST_TAG });
     if (req.headers.get('Mdapikey') !== 'verify-key') {
-      return Response.json({ message: 'unauthorized' }, { status: 401 });
+      return unauthorized();
     }
     if (url.pathname === ACCOUNTS_PATH || url.pathname.startsWith(`${ACCOUNTS_PATH}/`)) {
       return accountsRoute(req, url.pathname);

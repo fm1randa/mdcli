@@ -6,6 +6,7 @@
 import { appendFileSync } from 'node:fs';
 import type { ConnectionsResponse, SyncRequestResponse } from '../src/types/index.js';
 import { parseInteger } from '../src/utils/parse.js';
+import { badRequest, notFound } from './mock-http.js';
 
 const CONNECTIONS_PATH = '/api/v1/integracao/connections';
 const UPDATE_PATH = /^\/api\/v1\/integracao\/connection\/update\/(\d+)$/;
@@ -39,7 +40,7 @@ export function recordMockRequest(method: string, pathname: string, search: stri
 
 function syncResponse(id: number): Response {
   const connection = MOCK_CONNECTIONS.find((item) => item.id === id);
-  if (!connection) return Response.json({ message: 'not found' }, { status: 404 });
+  if (!connection) return notFound();
   connection.status = 'UPDATING';
   checksBeforeFinalStatus = 2;
   const body: SyncRequestResponse = {
@@ -55,7 +56,7 @@ export function connectionsRoute(method: string, pathname: string): Response | n
   const update = UPDATE_PATH.exec(pathname);
   if (update && method === 'PUT') {
     const id = parseInteger(update[1] ?? '', 1);
-    return id === undefined ? Response.json({ message: 'invalid id' }, { status: 400 }) : syncResponse(id);
+    return id === undefined ? badRequest('invalid id') : syncResponse(id);
   }
   if (pathname !== CONNECTIONS_PATH || method !== 'GET') return null;
 

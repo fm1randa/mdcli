@@ -7,6 +7,10 @@ export function notFound(): Response {
   return Response.json({ message: 'not found' }, { status: 404 });
 }
 
+export function unauthorized(): Response {
+  return Response.json({ message: 'unauthorized' }, { status: 401 });
+}
+
 export function badRequest(message: string): Response {
   return Response.json({ message }, { status: 400 });
 }
