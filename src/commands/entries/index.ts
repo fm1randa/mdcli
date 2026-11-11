@@ -22,6 +22,7 @@ addFilterOptions(
   entriesCommand.command('summary').description(t('entriesSummaryDescription'))
 )
   .option('-b, --by <grouping>', t('entriesSummaryByOption'), 'category')
+  .option('--regime <regime>', t('entriesSummaryRegimeOption'))
   .option('--include-transfers', t('entriesSummaryIncludeTransfersOption'))
   .option('--json', t('jsonOption'))
   .option('--csv', t('csvOption'))

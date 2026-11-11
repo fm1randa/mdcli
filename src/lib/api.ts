@@ -360,6 +360,8 @@ async function fetchEntries(params: EntriesParams): Promise<EntriesResponse> {
     queryParams.set('tipoRepeticao', params.repetition.toString());
   }
 
+  if (params.regime) queryParams.set('regime', params.regime);
+
   if (params.keywords) {
     queryParams.set('palavras', params.keywords);
   }

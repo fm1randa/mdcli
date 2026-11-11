@@ -5,6 +5,10 @@ export const ptBREntriesSummary = {
   entriesSummaryByOption: () => 'Agrupar por: category, month ou account',
   entriesSummaryIncludeTransfersOption: () =>
     'Contar as transferências entre contas (deixadas de fora por padrão)',
+  entriesSummaryRegimeOption: () =>
+    'Visão dos totais: cash (caixa) ou accrual (competência), como nos relatórios da web',
+  summaryRegimeCash: () => 'visão de caixa',
+  summaryRegimeAccrual: () => 'visão da competência',
   summaryGroupCategory: () => 'Categoria',
   summaryGroupMonth: () => 'Mês',
   summaryGroupAccount: () => 'Conta',

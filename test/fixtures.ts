@@ -95,7 +95,7 @@ export interface SessionResponse {
     ngInit: {
       mdUid?: string;
       usuario: {
-        conta?: { config?: { pendentesPresente?: boolean; metasRD?: boolean; moeda?: number } };
+        conta?: { config?: { pendentesPresente?: boolean; metasRD?: boolean; moeda?: number; visaoCompetencia?: boolean } };
         config?: { mdweb?: { moeda?: { m?: number }; [key: string]: unknown } };
         [key: string]: unknown;
       };

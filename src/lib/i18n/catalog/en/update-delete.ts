@@ -57,6 +57,9 @@ export const enEntriesUpdateDelete: typeof SectionType = {
     `Invalid value "${value}". Use a number like 10, 10.50 or 10,50.`,
   errorJsonOrCsv: () => 'Use either --json or --csv, not both.',
   entriesListHeader: (count, total) => `Entries (${count}) | Total: ${total}`,
+  errorInvalidRegime: (value) => `Invalid --regime "${value}". Use cash or accrual.`,
+  errorAccrualViewOff: () =>
+    'The accrual view is off for this account. Turn it on in the web settings or use --regime cash.',
   errorInvalidBy: (value) => `Invalid --by "${value}". Use category, month, or account.`,
   labelNoCategory: () => '(no category)',
 };

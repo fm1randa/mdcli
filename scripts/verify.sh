@@ -594,6 +594,13 @@ step "cli entries list --repetition (mock)" expect_json 'd.length === 1 && d[0].
 step "cli entries list --csv campos extras (mock)" expect_ok 'transfer_account,tags,notes,document_number' entries list -a 201 -f 2026-01-01 -t 2026-01-31 --csv
 step "cli entries list --csv nomes de tag (mock)" expect_ok ',Trabalho,parcelado,NF-1' entries list -a 201 -f 2026-01-01 -t 2026-01-31 --csv
 step "cli entries summary --repetition (mock)" expect_json 'd.total.count === 1 && d.skippedTransfers === 1' entries summary -a 201 -f 2026-01-01 -t 2026-01-31 -R single --json
+# #283: --regime sends the web reports' regime (ca/co); the mock dates a co entry by dataCompetencia.
+# Seed 73 is paid 2026-04-05 for work on 2026-03-28: cash puts it in April, accrual in March.
+step "cli entries summary --regime cash (mock)" expect_json 'd.regime === "cash" && d.rows.map((r) => r.key + ":" + r.count).join() === "2026-03:1,2026-04:1"' entries summary -a 204 -f 2026-03-01 -t 2026-04-30 --by month --regime cash --json
+step "cli entries summary --regime accrual (mock)" expect_json 'd.regime === "accrual" && d.rows.map((r) => r.key + ":" + r.count).join() === "2026-03:2" && d.total.expenses === -100' entries summary -a 204 -f 2026-03-01 -t 2026-04-30 --by month --regime accrual --json
+step "cli entries summary sem --regime (mock)" expect_json 'd.regime === null && d.total.count === 2' entries summary -a 204 -f 2026-03-01 -t 2026-04-30 --json
+step "cli entries summary --regime --csv (mock)" expect_ok '^month,entries,income,expenses,net' entries summary -a 204 -f 2026-03-01 -t 2026-03-31 --by month --regime accrual --csv
+step "cli entries summary --regime inválido (mock)" expect_fail 'Invalid --regime "x"' entries summary -a 204 --regime x
 step "cli entries show (mock)" expect_ok 'Repetition: Installment \(2/6\)' entries show 60
 step "cli entries show --json (mock)" expect_json 'd.id === 60 && d.notes === "parcelado" && d.seriesId === 99 && d.competenceDate === "2026-01-10"' entries show 60 --json
 step "cli entries show --raw (mock)" expect_json 'd.agendaId === 77 && d.parcela === "fixa"' entries show 80 --raw

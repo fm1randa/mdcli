@@ -7,6 +7,10 @@ export const enEntriesSummary: typeof SectionType = {
   entriesSummaryByOption: () => 'Group by: category, month, or account',
   entriesSummaryIncludeTransfersOption: () =>
     'Count transfers between accounts (left out by default)',
+  entriesSummaryRegimeOption: () =>
+    'Totals view: cash or accrual, like the web reports',
+  summaryRegimeCash: () => 'cash basis',
+  summaryRegimeAccrual: () => 'accrual basis',
   summaryGroupCategory: () => 'Category',
   summaryGroupMonth: () => 'Month',
   summaryGroupAccount: () => 'Account',
