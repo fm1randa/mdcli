@@ -77,7 +77,7 @@ export function checkUpdateAccounts(body: Body, accountType: (conta: unknown) =>
   return null;
 }
 
-export function entryType(tipo: unknown): CreateEntryResponse['tipo'] {
+function entryType(tipo: unknown): CreateEntryResponse['tipo'] {
   return tipo === 'r' || tipo === 't' || tipo === 'p' ? tipo : 'd';
 }
 
