@@ -64,6 +64,19 @@ export default tseslint.config(
     rules: { "local/no-brand-cast": "error" },
   },
   {
+    // An `any` reaches a typed slot unchecked, a branded one included
+    // (`const id: EntryId = JSON.parse(text)`, #290). test/** reads CLI output
+    // through JSON.parse in hundreds of assertions and brands nothing the CLI runs.
+    files: ["src/**/*.ts", "bin/**/*.ts", "scripts/**/*.ts"],
+    rules: {
+      "@typescript-eslint/no-unsafe-argument": "error",
+      "@typescript-eslint/no-unsafe-assignment": "error",
+      "@typescript-eslint/no-unsafe-call": "error",
+      "@typescript-eslint/no-unsafe-member-access": "error",
+      "@typescript-eslint/no-unsafe-return": "error",
+    },
+  },
+  {
     // An empty table cell is written by cell() alone.
     files: ["src/**/*.ts", "test/**/*.ts"],
     ignores: ["src/utils/text.ts"],

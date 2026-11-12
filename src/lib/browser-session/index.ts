@@ -184,8 +184,10 @@ export async function extractSessionFromBrowser(
             try {
               const rememberedUsers = localStorage.getItem('meudinheiro::rememberedUsers');
               if (!rememberedUsers) return null;
-              const users = JSON.parse(rememberedUsers);
-              return users[0]?.id ? String(users[0].id) : null;
+              const users: unknown = JSON.parse(rememberedUsers);
+              const first: unknown = Array.isArray(users) ? users[0] : undefined;
+              const id = typeof first === 'object' && first !== null && 'id' in first ? first.id : undefined;
+              return id ? String(id) : null;
             } catch {
               return null;
             }

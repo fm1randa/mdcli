@@ -84,7 +84,7 @@ function entryType(tipo: unknown): CreateEntryResponse['tipo'] {
 /** A numeric entry ID from the mock. */
 export function mockEntryId(id: number): EntryId {
   const entryId = asEntryId(id);
-  if (entryId === undefined) throw new Error(`mock entry ID ${id} is not an integer`);
+  if (entryId === undefined) throw new Error(`mock entry ID ${id} is not a positive integer`);
   return entryId;
 }
 
@@ -101,7 +101,7 @@ const FULL_PERMISSIONS: CreateEntryResponse['permissoes'] = {
 };
 
 /** The API's answer to POST /v1/lancamentos for a payload that passed checkCreatePayload. */
-export function createdEntry(body: Body, id: EntryId | OccurrenceId): CreateEntryResponse {
+export function createdEntry(body: Body, id: CreateEntryResponse['id']): CreateEntryResponse {
   const reconciled = Boolean(body.conciliado);
   const parcelas = body.parcelas as { valor: number; data: string }[] | undefined;
   const agenda = body.agenda as { inicial?: number; quantidade?: number } | undefined;

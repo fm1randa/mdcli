@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
+import { dirname, relative } from 'node:path';
 import { ESLint } from 'eslint';
 import { git } from '../scripts/git.js';
 
@@ -13,11 +14,17 @@ const AREAS = ['src/lib/normalize.ts', 'test/import-harness.ts', 'scripts/risk.t
 // the parallel run that took 24 s inside the first test (#279). Build them first.
 for (const area of AREAS) await eslint.lintText('export const answer = 42;\n', { filePath: area });
 
-async function hits(code: string, filePath: string): Promise<number[]> {
+async function hits(code: string, filePath: string, rule = RULE): Promise<number[]> {
   const [result] = await eslint.lintText(`${code}\n`, { filePath });
   const fatal = result.messages.find((m) => m.fatal);
   if (fatal) throw new Error(fatal.message);
-  return result.messages.flatMap((m) => (m.ruleId === RULE ? [m.line] : []));
+  return result.messages.flatMap((m) => (m.ruleId === rule ? [m.line] : []));
+}
+
+/** The import of `names` from a repository module, as a file at `area` spells it. */
+function importFrom(area: string, module: string, names: string, type = true): string {
+  const path = relative(dirname(area), module).replace(/\.ts$/, '.js');
+  return `import ${type ? 'type ' : ''}{ ${names} } from '${path.startsWith('.') ? path : `./${path}`}';\n`;
 }
 
 const TYPES = "import type { EntryId, EntryIdText, OccurrenceId } from '../src/types/index.js';\n";
@@ -41,6 +48,21 @@ const FORMS: Record<string, string> = {
 
 const CAST_LINE: Record<string, number> = { 'type declared after the cast': 2 };
 
+// Spellings that resolve to a brand without naming it (#290): only the type
+// checker sees them, so each probe imports from its own area.
+const RESOLVED_FORMS: Record<string, (area: string) => string> = {
+  'typeof a branded value': (area) =>
+    `${importFrom(area, 'src/types/index.ts', 'EntryId')}declare const ref: EntryId;\nexport const v = 5 as typeof ref;`,
+  'a type computed from a constructor': (area) =>
+    `${importFrom(area, 'src/lib/entry-id-brands.ts', 'asEntryId', false)}export const v = 5 as NonNullable<ReturnType<typeof asEntryId>>;`,
+  'a type from another file that carries the brand': (area) =>
+    `${importFrom(area, 'src/commands/entries/entry-id.ts', 'ResolvedCreateEntry')}export const v = JSON.parse('{}') as ResolvedCreateEntry;`,
+  'the brand deep in an object': (area) =>
+    `${importFrom(area, 'src/types/index.ts', 'OccurrenceId')}declare const ref: OccurrenceId;\nexport const v = { x: [{ id: 'y' }] } as { x: { id: typeof ref }[] };`,
+};
+
+const UNSAFE_AREAS = ['src/lib/normalize.ts', 'bin/cli.ts', 'scripts/risk.ts'];
+
 // main when #277 was filed: the casts the issue lists, by line, plus the
 // `id is OccurrenceId` predicate at entry-id.ts:30 that branded the same way.
 const BEFORE = '110719d';
@@ -57,6 +79,31 @@ describe('local/no-brand-cast', () => {
       for (const area of AREAS) expect(await hits(source, area)).toEqual([line]);
     });
   }
+
+  for (const [form, code] of Object.entries(RESOLVED_FORMS)) {
+    test(`fires on ${form} in src, test and scripts`, async () => {
+      for (const area of AREAS) {
+        const source = code(area);
+        expect(await hits(source, area)).toEqual([source.split('\n').length]);
+      }
+    });
+  }
+
+  test('does not fire on a cast whose operand already carries the brand, or on the raw API answer', async () => {
+    for (const area of AREAS) {
+      const kept = `${importFrom(area, 'src/types/index.ts', 'EntryId')}declare const ref: EntryId;\nexport const v = { id: ref } as { id: typeof ref; n?: number };`;
+      expect(await hits(kept, area)).toEqual([]);
+      const raw = `${importFrom(area, 'src/types/index.ts', 'CreateEntryResponse')}export const v = JSON.parse('{}') as CreateEntryResponse;`;
+      expect(await hits(raw, area)).toEqual([]);
+    }
+  });
+
+  test('an `any` assigned to a branded slot fails no-unsafe-assignment in src, bin and scripts', async () => {
+    for (const area of UNSAFE_AREAS) {
+      const source = `${importFrom(area, 'src/types/index.ts', 'EntryId')}export const v: EntryId = JSON.parse('1');`;
+      expect(await hits(source, area, '@typescript-eslint/no-unsafe-assignment')).toEqual([2]);
+    }
+  });
 
   test('does not fire in the constructors module or on casts to other types', async () => {
     expect(await hits(`${TYPES}${FORMS['as EntryId']}`, OWNER)).toEqual([]);

@@ -205,7 +205,7 @@ export async function fetchImportCandidates(accountId: number, start: string, en
       list: JSON.stringify({ page, pageSize: CANDIDATE_PAGE_SIZE }),
     });
     const response = await request<ImportCandidatePage>('GET', `/v2/lancamentos?${query.toString()}`);
-    const items = Array.isArray(response?.list) ? response.list : [];
+    const items: unknown[] = Array.isArray(response?.list) ? response.list : [];
     collected.push(...items);
     if (items.length === 0) return collected;
     const total = response?.meta?.total;
