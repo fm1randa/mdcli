@@ -7,13 +7,14 @@ import { fetchWebBalances } from './account-balances.js';
 import { loadEntriesPreferences, setEntriesPreferences, type EntriesPreferences } from './entries-preferences.js';
 import { loadWebConfig, type WebConfig } from './web-session.js';
 import { t } from './i18n/index.js';
+import { DEFAULT_API_URL, WEB_ORIGIN, WEB_URL } from './meu-dinheiro-host.js';
 
 
 export { normalizeCategories, normalizeAccounts, normalizeCards, normalizeTags, normalizeEntries, normalizeCardEntries, normalizeCardInstallments } from './normalize.js';
 
 /** Read at call time, so a test or caller that sets MDCLI_API_URL after import still reaches it. */
 function apiBaseUrl(): string {
-  return process.env.MDCLI_API_URL ?? 'https://app.meudinheiroweb.com.br/api';
+  return process.env.MDCLI_API_URL ?? DEFAULT_API_URL;
 }
 
 let refreshPromise: Promise<AuthConfig> | null = null;
@@ -100,8 +101,8 @@ function buildWriteHeaders(auth: AuthConfig): Record<string, string> {
     ...buildHeaders(auth),
     'Content-Type': 'application/json;charset=UTF-8',
     'Accept': 'application/json, text/plain, */*',
-    'Origin': 'https://app.meudinheiroweb.com.br',
-    'Referer': 'https://app.meudinheiroweb.com.br/',
+    'Origin': WEB_ORIGIN,
+    'Referer': WEB_URL,
   };
 }
 

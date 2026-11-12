@@ -3,9 +3,7 @@ import type { AuthConfig } from '../types/index.js';
 import { getCredentialsFromOnePassword } from './onepassword.js';
 import { t } from './i18n/index.js';
 import { detectRecaptchaChallenge, solveRecaptcha } from './captcha.js';
-
-const LOGIN_URL = 'https://app.meudinheiroweb.com.br/';
-const API_URL_PATTERN = 'app.meudinheiroweb.com.br/api/';
+import { API_URL_PATTERN, WEB_URL } from './meu-dinheiro-host.js';
 
 const CHROMIUM_CHANNELS = ['chrome', 'msedge'] as const;
 
@@ -97,7 +95,7 @@ export async function captureAuthFromBrowser(): Promise<AuthConfig> {
     console.log(t('authHeadersCaptured'));
   });
 
-  await page.goto(LOGIN_URL);
+  await page.goto(WEB_URL);
 
   console.log(t('authBrowserOpened'));
 
@@ -281,7 +279,7 @@ async function performHeadlessLogin(
     capturedRef.headers = headers;
   });
 
-  await page.goto(LOGIN_URL, { waitUntil: 'networkidle' });
+  await page.goto(WEB_URL, { waitUntil: 'networkidle' });
   await fillLoginForm(page, credentials.username, credentials.password);
   await fillOtpForm(page, credentials.otp);
   await retryOtpIfInvalid(page, opItemName);

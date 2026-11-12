@@ -5,6 +5,7 @@ import { getFirefoxProfilePath } from './firefox.js';
 import { extractUidFromJwt, fetchPublicApiKey } from './jwt.js';
 import { cleanupTempDir, copyProfileToTemp } from './profile-copy.js';
 import { setupAuthCapture } from '../browser-auth.js';
+import { COOKIE_DOMAIN, WEB_URL } from '../meu-dinheiro-host.js';
 
 
 export {
@@ -101,7 +102,7 @@ export async function extractSessionFromBrowser(
         apiHeadersRef.captured = headers;
       });
 
-      await page.goto('https://app.meudinheiroweb.com.br/', { waitUntil: 'domcontentloaded' });
+      await page.goto(WEB_URL, { waitUntil: 'domcontentloaded' });
 
       // Wait for whichever signal shows up first: the Angular app setting
       // loginconfig (unauthenticated -> login page), or a real API request
@@ -137,7 +138,7 @@ export async function extractSessionFromBrowser(
         // captured-header fallbacks instead of throwing.
         .catch(() => null);
 
-      const cookies = await context.cookies('https://app.meudinheiroweb.com.br/');
+      const cookies = await context.cookies(WEB_URL);
       const authCookie = cookies.find((c) => c.name === 'mdauthtoken0');
 
       const capturedApiHeaders = apiHeadersRef.captured;
@@ -148,7 +149,7 @@ export async function extractSessionFromBrowser(
         (capturedApiHeaders?.authorization?.replace(/^Bearer\s+/i, '') ?? '');
 
       if (!token && browserType === 'chrome') {
-        token = getChromeCookieValue('mdauthtoken0', '.meudinheiroweb.com.br') ?? '';
+        token = getChromeCookieValue('mdauthtoken0', COOKIE_DOMAIN) ?? '';
       }
 
       // The current frontend no longer sets window.loginconfig: it reads the
