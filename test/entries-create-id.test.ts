@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createHome, MANUAL_AUTH, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, EMPTY_ENTRIES_RESPONSE, cardInvoice } from './fixtures.js';
+import type { CardInvoiceEntry } from '../src/types/index.js';
+import { serveCreate } from './entry-routes.js';
 
 // The contract of the two resolvers `resolveCreatedEntryId` replaced (#78,
 // #166): an id that is already an entry ID comes back untouched, a card
@@ -19,7 +21,7 @@ const OCCURRENCE_ID = '1234567A2026-01-05';
 const CARD_CREATE = ['entries', 'create', '-a', String(CARD_ACCOUNT), '-d', 'Voo', '-v', '10', '-c', '10', '-D', '2026-01-05', '-p'];
 const SCHEDULED_CREATE = ['entries', 'create', '-a', String(CHECKING_ACCOUNT), '-d', 'IPVA', '-v', '800', '-c', '10', '-p', '-D', '2031-01-20'];
 
-function invoice(due: string, lancamentos: unknown[] = []) {
+function invoice(due: string, lancamentos: CardInvoiceEntry[] = []) {
   return { ...cardInvoice(due, `${due.slice(0, 8)}08`), lancamentos };
 }
 
@@ -28,9 +30,7 @@ function requestsAfterPost(): string[] {
   return api.requests.slice(post + 1).map((request) => `${request.method} ${request.path}`);
 }
 
-function scheduledPost(id: unknown) {
-  return { id, descricao: 'IPVA', valor: -800, data: '2031-01-20', dataPrevista: '2031-01-20', status: 'agendado' };
-}
+const SCHEDULED_POST = { descricao: 'IPVA', valor: -800, data: '2031-01-20', dataPrevista: '2031-01-20', status: 'agendado' };
 
 beforeEach(() => {
   api = startMockApi();
@@ -49,7 +49,7 @@ afterEach(() => {
 
 describe('entries create keeps an id that is already an entry ID', () => {
   test('scheduled: a decimal-string id stays a string and the list is not read', async () => {
-    api.on('POST /v1/lancamentos', scheduledPost('555'));
+    serveCreate(api, '555', SCHEDULED_POST);
 
     const result = await runCli([...SCHEDULED_CREATE, '--json'], { home, api });
 
@@ -59,7 +59,7 @@ describe('entries create keeps an id that is already an entry ID', () => {
   });
 
   test('card: a decimal-string id stays a string and the invoice is not read after the POST', async () => {
-    api.on('POST /v1/lancamentos', { id: '555', descricao: 'Voo', valor: -10, data: '2026-01-05', status: 'confirmado', conta: CARD_ACCOUNT });
+    serveCreate(api, '555', { descricao: 'Voo', valor: -10, data: '2026-01-05', status: 'confirmado', conta: CARD_ACCOUNT });
 
     const result = await runCli([...CARD_CREATE, '--json'], { home, api });
 
@@ -71,7 +71,7 @@ describe('entries create keeps an id that is already an entry ID', () => {
 
 describe('entries create looks up an id the API answered that is neither an entry ID nor an occurrence', () => {
   test('card: reads the invoice, warns, and keeps the API id when the purchase is not there', async () => {
-    api.on('POST /v1/lancamentos', { id: 'abc', descricao: 'Voo', valor: -10, data: '2026-01-05', status: 'confirmado', conta: CARD_ACCOUNT });
+    serveCreate(api, 'abc', { descricao: 'Voo', valor: -10, data: '2026-01-05', status: 'confirmado', conta: CARD_ACCOUNT });
 
     const result = await runCli([...CARD_CREATE, '--json'], { home, api });
 
@@ -83,7 +83,7 @@ describe('entries create looks up an id the API answered that is neither an entr
   });
 
   test('scheduled: leaves the API id alone without reading the list or warning', async () => {
-    api.on('POST /v1/lancamentos', scheduledPost('abc'));
+    serveCreate(api, 'abc', SCHEDULED_POST);
 
     const result = await runCli([...SCHEDULED_CREATE, '--json'], { home, api });
 
@@ -96,7 +96,7 @@ describe('entries create looks up an id the API answered that is neither an entr
 
 describe('entries create keeps the API occurrence id without occurrenceId when the lookup finds nothing', () => {
   test('scheduled', async () => {
-    api.on('POST /v1/lancamentos', scheduledPost('123456A2031-01-20'));
+    serveCreate(api, '123456A2031-01-20', SCHEDULED_POST);
 
     const result = await runCli([...SCHEDULED_CREATE, '--json'], { home, api });
 
@@ -108,7 +108,7 @@ describe('entries create keeps the API occurrence id without occurrenceId when t
   });
 
   test('card', async () => {
-    api.on('POST /v1/lancamentos', { id: OCCURRENCE_ID, descricao: 'Voo', valor: -10, data: '2026-01-05', status: 'confirmado', conta: CARD_ACCOUNT });
+    serveCreate(api, OCCURRENCE_ID, { descricao: 'Voo', valor: -10, data: '2026-01-05', status: 'confirmado', conta: CARD_ACCOUNT });
 
     const result = await runCli([...CARD_CREATE, '--json'], { home, api });
 

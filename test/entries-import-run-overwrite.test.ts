@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
+import { createHome, MANUAL_AUTH, mutations, offContract, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, TAGS_RESPONSE } from './fixtures.js';
-import { CONNECTIONS, mockStatement, SINCE } from './import-harness.js';
+import { candidate, CONNECTIONS, mockStatement, SINCE, type CandidateEntry } from './import-harness.js';
 
 // Fictional ids. 201 is Conta Teste (connection account 301); Entry 4242 is linked to TX1 on its own.
 // The web reads the overwrite preference (config "conciliacao": {o, s, sd}) from the session state
@@ -31,10 +31,18 @@ afterEach(() => {
   home.cleanup();
 });
 
-/** Entry 4242, which the web links to TX1 on its own (same value, a day apart). */
-function linkedEntry(extra: Record<string, unknown> = {}) {
-  const entry = { id: 4242, dataPrevista: '2026-10-08', valor: -12.34, categoria: 11, ...extra };
-  api.on('GET /v2/lancamentos', { list: [entry], meta: { total: 1, page: 1, pageSize: 500 } });
+/**
+ * Entry 4242, which the web links to TX1 on its own (same value, a day apart). Without `descricao` in
+ * `extra` the Entry carries none, an answer outside Entry's type that the overwrite reads as empty.
+ */
+function linkedEntry(extra: Partial<CandidateEntry> = {}) {
+  const entry = candidate({ id: 4242, dataPrevista: '2026-10-08', valor: -12.34, categoria: 11, descricao: '', ...extra });
+  if (extra.descricao !== undefined) {
+    api.on('GET /v2/lancamentos', { list: [entry], meta: { total: 1, page: 1, pageSize: 500 } });
+    return;
+  }
+  const { descricao: _none, ...withoutDescription } = entry;
+  api.on('GET /v2/lancamentos', offContract({ list: [withoutDescription], meta: { total: 1, page: 1, pageSize: 500 } }));
 }
 
 /** The overwritten fields of `linkedEntry()` without extras. */
@@ -164,7 +172,7 @@ describe('entries import run overwrite preference', () => {
   });
 
   test('when the session state cannot be read, the web default applies and the summary says why', async () => {
-    api.on('GET /v1/frontend/sessao', { message: 'no' }, 500);
+    api.fail('GET /v1/frontend/sessao', 500, { message: 'no' });
     linkedEntry();
 
     const result = await run(['--dry-run']);

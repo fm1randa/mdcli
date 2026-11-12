@@ -77,7 +77,7 @@ export function checkUpdateAccounts(body: Body, accountType: (conta: unknown) =>
   return null;
 }
 
-export function entryType(tipo: unknown): CreateEntryResponse['tipo'] {
+function entryType(tipo: unknown): CreateEntryResponse['tipo'] {
   return tipo === 'r' || tipo === 't' || tipo === 'p' ? tipo : 'd';
 }
 
@@ -94,6 +94,11 @@ export function mockOccurrenceId(id: string): OccurrenceId {
   if (occurrenceId === undefined) throw new Error(`mock occurrence ID ${id} is not <series>A<date>`);
   return occurrenceId;
 }
+
+const FULL_PERMISSIONS: CreateEntryResponse['permissoes'] = {
+  visivel: true,
+  acoes: { conciliar: true, confirmar: true, editar: true, excluir: true, clonar: true },
+};
 
 /** The API's answer to POST /v1/lancamentos for a payload that passed checkCreatePayload. */
 export function createdEntry(body: Body, id: EntryId | OccurrenceId): CreateEntryResponse {
@@ -119,7 +124,7 @@ export function createdEntry(body: Body, id: EntryId | OccurrenceId): CreateEntr
     dataCriacao: new Date().toISOString(),
     exibirCp: true,
     exibirCr: true,
-    permissoes: { visivel: true, acoes: { conciliar: true, confirmar: true, editar: true, excluir: true, clonar: true } },
+    permissoes: FULL_PERMISSIONS,
     estorno: false,
     conta: requiredId(body.conta ?? body.contaOrigem, 'conta'),
     categoria: numberOrNull(body.categoria),
@@ -129,5 +134,47 @@ export function createdEntry(body: Body, id: EntryId | OccurrenceId): CreateEntr
     automatico: body.automatico === true,
     ...(body.transferencia === true && { contaT: requiredId(body.contaDestino, 'contaDestino'), valorT: requiredNumber(body.valorT, 'valorT') }),
     ...(parcelas && { parcela: `${agenda?.inicial ?? 1}/${agenda?.quantidade}` }),
+  };
+}
+
+/**
+ * The API's answer to PUT /v1/lancamentos/:id: the payload merged over the
+ * stored entry. Like the real API, without todos: true an occurrence leaves
+ * its series.
+ */
+export function updatedEntry(existing: Entry, body: Body, id: EntryId): CreateEntryResponse & Pick<Entry, 'agendaId' | 'parcela'> & { plastico: number | null } {
+  const merged: Body = { ...existing, ...body, id };
+  const inSeries = Boolean(existing.agendaId) && Boolean(existing.parcela);
+  const keepsSeries = inSeries && body.todos === true;
+  return {
+    ...existing,
+    id,
+    descricao: String(merged.descricao ?? existing.descricao),
+    conciliado: merged.conciliado === true,
+    dataCompetencia: typeof merged.dataCompetencia === 'string' ? merged.dataCompetencia : null,
+    status: statusLabel(body, merged) ?? existing.status,
+    agendaId: keepsSeries ? existing.agendaId : null,
+    parcela: keepsSeries ? existing.parcela : null,
+    tipo: entryType(merged.tipo),
+    valor: requiredNumber(merged.valor, 'valor'),
+    valorPrevisto: requiredNumber(merged.valor, 'valor'),
+    valorEfetivo: numberOrNull(merged.valorEfetivo),
+    estorno: merged.estorno === true,
+    data: String(merged.data ?? existing.data),
+    dataPrevista: String(merged.dataPrevista ?? existing.dataPrevista),
+    dataEfetiva: typeof merged.dataEfetiva === 'string' ? merged.dataEfetiva : null,
+    dataCriacao: new Date().toISOString(),
+    exibirCp: true,
+    exibirCr: true,
+    permissoes: existing.permissoes ?? FULL_PERMISSIONS,
+    // A transfer names its origin as contaOrigem; an invoice payment keeps conta.
+    conta: requiredId(body.contaOrigem ?? merged.conta, 'conta'),
+    categoria: numberOrNull(merged.categoria),
+    tags: numberArray(merged.tags),
+    observacoes: String(merged.observacoes ?? ''),
+    lembrete: String(merged.lembrete ?? '0'),
+    automatico: merged.automatico === true,
+    plastico: numberOrNull(merged.plastico),
+    ...(body.contaDestino !== undefined && { contaT: requiredId(body.contaDestino, 'contaDestino') }),
   };
 }

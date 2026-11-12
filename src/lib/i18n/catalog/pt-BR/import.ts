@@ -215,6 +215,8 @@ export const ptBRImport = {
   errorPrefixInBoth: (prefix: string) => `${prefix} está em --ids e em --reject.`,
   errorSelectedByBoth: (prefix: string) =>
     `${prefix} foi selecionado por --ids e por --reject.`,
+  errorRowAlreadyPlaced: (label: string) =>
+    `${label} já está nesta importação. Uma transação bancária só pode ser importada, vinculada, rejeitada ou pulada.`,
   errorPrefixNeedsOne: (flag: string) => `${flag} precisa de pelo menos um prefixo.`,
   errorEntryIdNotEntry: (input: number | string) =>
     `o lançamento ${input} não é um ID de lançamento (um número inteiro de 1 a ${Number.MAX_SAFE_INTEGER}).`,

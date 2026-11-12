@@ -3,7 +3,7 @@ import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE } from './fixtures.js';
-import { CONNECTIONS, mockStatement, SINCE } from './import-harness.js';
+import { candidate, CONNECTIONS, mockStatement, SINCE, type BankTransaction, type CandidateEntry } from './import-harness.js';
 
 // Fictional ids. 201 is Conta Teste (connection account 301).
 // Categories: 10 Alimentação (d), 20 Salário (r), 30 Transferência (t), 60 Antiga (d, inactive).
@@ -35,15 +35,15 @@ afterEach(() => {
   home.cleanup();
 });
 
-function bank(integrationId: string, extra: Record<string, unknown> = {}) {
+function bank(integrationId: string, extra: Partial<BankTransaction> = {}) {
   return { integrationId, descricao: 'Padaria Ficticia', valor: -12.34, data: '2026-10-07', moeda: 1, ...extra };
 }
 
-function statement(rows: unknown[]) {
+function statement(rows: BankTransaction[]) {
   mockStatement(api, rows);
 }
 
-function entries(list: unknown[]) {
+function entries(list: CandidateEntry[]) {
   api.on('GET /v2/lancamentos', { list, meta: { total: list.length, page: 1, pageSize: 500 } });
 }
 
@@ -150,8 +150,8 @@ describe('entries import run --plan --dry-run', () => {
   test('conciliate links the chosen entry among several candidates', async () => {
     statement([bank(TX1)]);
     entries([
-      { id: 4242, dataPrevista: '2026-10-08', valor: -12.34, descricao: 'Padaria A' },
-      { id: 4343, dataPrevista: '2026-10-09', valor: -12.34, descricao: 'Padaria B' },
+      candidate({ id: 4242, dataPrevista: '2026-10-08', valor: -12.34, descricao: 'Padaria A' }),
+      candidate({ id: 4343, dataPrevista: '2026-10-09', valor: -12.34, descricao: 'Padaria B' }),
     ]);
 
     const body = await dryRun([{ id: 'aaaa1111', action: 'conciliate', entry: 4343 }]);
@@ -169,7 +169,7 @@ describe('entries import run --plan --dry-run', () => {
 
   test('conciliate without entry uses the automatically linked entry', async () => {
     statement([bank(TX1)]);
-    entries([{ id: 4242, dataPrevista: '2026-10-08', valor: -12.34, descricao: 'Padaria A' }]);
+    entries([candidate({ id: 4242, dataPrevista: '2026-10-08', valor: -12.34, descricao: 'Padaria A' })]);
 
     const body = await dryRun([{ id: 'aaaa1111', action: 'conciliate' }]);
 
@@ -179,11 +179,11 @@ describe('entries import run --plan --dry-run', () => {
   test('candidate rules: import of a linked row, conciliate with nothing linked, unknown entry, or no candidate', async () => {
     statement([bank(TX1), bank(TX2, { valor: -7 }), bank(TX3, { valor: -8 }), bank(TX4, { valor: -9 })]);
     entries([
-      { id: 4242, dataPrevista: '2026-10-08', valor: -12.34, descricao: 'Padaria A' },
+      candidate({ id: 4242, dataPrevista: '2026-10-08', valor: -12.34, descricao: 'Padaria A' }),
       // Four and five days before the bank date: candidates, neither linked automatically.
-      { id: 5151, dataPrevista: '2026-10-03', valor: -7, descricao: 'Feira A' },
-      { id: 5252, dataPrevista: '2026-10-02', valor: -7, descricao: 'Feira B' },
-      { id: 6161, dataPrevista: '2026-10-07', valor: -8, descricao: 'Banca' },
+      candidate({ id: 5151, dataPrevista: '2026-10-03', valor: -7, descricao: 'Feira A' }),
+      candidate({ id: 5252, dataPrevista: '2026-10-02', valor: -7, descricao: 'Feira B' }),
+      candidate({ id: 6161, dataPrevista: '2026-10-07', valor: -8, descricao: 'Banca' }),
     ]);
 
     const stderr = await refused({
@@ -204,8 +204,8 @@ describe('entries import run --plan --dry-run', () => {
   test('a candidate beyond 2 days does not block import, and conciliate with entry still links it', async () => {
     statement([bank(TX1), bank(TX2, { valor: -7 })]);
     entries([
-      { id: 4244, dataPrevista: '2026-10-20', valor: -12.34, descricao: 'Padaria prevista' },
-      { id: 5353, dataPrevista: '2026-10-19', valor: -7, descricao: 'Feira prevista' },
+      candidate({ id: 4244, dataPrevista: '2026-10-20', valor: -12.34, descricao: 'Padaria prevista' }),
+      candidate({ id: 5353, dataPrevista: '2026-10-19', valor: -7, descricao: 'Feira prevista' }),
     ]);
 
     const result = await run([

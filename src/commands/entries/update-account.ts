@@ -7,7 +7,7 @@ import type { Account, Entry, UpdateEntryPayload } from '../../types/index.js';
 import { formCardDueDate } from './card-invoice.js';
 import { checkTransferAccounts } from './create-transfer.js';
 import { signForType } from './type.js';
-import { buildEntryStatus, type EntryStatusFlags } from './status.js';
+import { buildEntryStatus, cardMoveFlags, statusRequest, type EntryStatusFlags } from './status.js';
 import { transferSides } from './update-transfer.js';
 
 /** Looks Accounts up by ID in one fetch, exiting on an ID the list lacks. */
@@ -75,6 +75,7 @@ const day = (date: string): string => date.slice(0, 10);
  * is accepted and changes nothing else (other updates keep echoing the entry).
  */
 export async function moveEntry(payload: UpdateEntryPayload, existing: Entry, accountId: number, context: MoveContext): Promise<void> {
+  statusRequest(context.flags);
   payload.conta = accountId;
   if (accountId === existing.conta) return;
 
@@ -104,16 +105,17 @@ async function moveToCard(
   fromCard: boolean,
   { date, flags }: MoveContext
 ): Promise<void> {
-  if (flags.reconciled) {
+  const request = statusRequest(flags);
+  if (request.request === 'reconciled') {
     exitWithError(t('errorReconcileCardPurchase'));
   }
-  if (flags.pending || flags.confirmed) {
+  if (request.request === 'pending' || request.request === 'confirmed') {
     console.error(
       chalk.yellow('⚠'),
       t(
         'warningCardPurchaseMoveStatus',
         existing.conciliado ? t('cardPurchaseReconciledState') : t('cardPurchaseUnreconciledState'),
-        flags.pending ? '--pending' : '--confirmed'
+        request.request === 'pending' ? '--pending' : '--confirmed',
       )
     );
   }
@@ -121,8 +123,8 @@ async function moveToCard(
   // planned date (sf, L).
   const purchaseDate = day(date ?? (fromCard ? existing.data : existing.dataEfetiva ?? existing.dataPrevista));
   // A card has only Conciliado: G sets confirmado = conciliado.
-  const conciliado = existing.conciliado === true;
-  payload.status = { confirmado: conciliado, conciliado };
+  const { confirmado, conciliado } = cardMoveFlags(existing.conciliado === true);
+  payload.status = { confirmado, conciliado };
   payload.conciliado = conciliado;
   payload.data = purchaseDate;
   payload.dataCompetencia = purchaseDate;

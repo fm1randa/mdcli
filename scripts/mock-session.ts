@@ -1,6 +1,7 @@
 // GET /v1/frontend/sessao for scripts/mock-api.ts: the one session state every reader shares.
 import type { SessionResponse } from '../test/fixtures.js';
 import { SESSION_RESPONSE } from '../test/fixtures.js';
+import { json } from './mock-http.js';
 
 const { ngInit } = SESSION_RESPONSE.payload;
 const mdweb = ngInit.usuario.config?.mdweb ?? {};
@@ -23,5 +24,5 @@ const SESSION_STATE: SessionResponse = {
 /** The logged-in session state, or undefined when this request is not its GET. */
 export function sessionRoute(method: string, pathname: string): Response | undefined {
   if (method !== 'GET' || pathname !== '/api/v1/frontend/sessao') return undefined;
-  return Response.json(SESSION_STATE);
+  return json<'GET /v1/frontend/sessao'>(SESSION_STATE);
 }

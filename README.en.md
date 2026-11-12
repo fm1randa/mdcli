@@ -1,4 +1,4 @@
-<!-- traduzido de README.md @ d1530d3 (base: d1530d30d5cc441add880b04400195bd041c9a5c; readme-blob: ad1bffcd2aff2095831d21d679718c15841a2e16); ao atualizar o README.md, sincronize este arquivo e atualize o SHA e o readme-blob (git hash-object README.md) -->
+<!-- traduzido de README.md @ f41a669 (base: f41a669ab37b51619a85b665d1865256e6848955; readme-blob: 84b1c6c37ee43423b2d3ef7f6c177f62f016d19c); ao atualizar o README.md, sincronize este arquivo e atualize o SHA e o readme-blob (git hash-object README.md) -->
 [Português (Brasil)](README.md) · **English**
 
 > The Portuguese [README.md](README.md) is the reference version; this English translation may lag behind it.
@@ -401,7 +401,9 @@ mdcli entries import list --account principal --since 2026-10-01 --json
 
 # Widens the search for entries to reconcile (the web's "Alterar busca"; the
 # default is the statement period ±2 days). On a card, the candidates are the
-# whole invoice of the next due date; a card without a next due date cannot be imported
+# whole invoice of the next due date and the closed invoices the statement's
+# purchases fall in, so a purchase already reconciled in a closed invoice does
+# not come back as new; a card without a next due date cannot be imported
 mdcli entries import list --account principal --search-from 2026-10-01 --search-to 2026-10-20
 
 # Imports transactions chosen by prefix, all in one category; --reject marks

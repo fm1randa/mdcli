@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE } from './fixtures.js';
+import type { Entry } from '../src/types/index.js';
+import { serveEntry } from './entry-routes.js';
 
 // Real use (2026-11-09): GET /v1/lancamentos/:id answers transferencia as a
 // number (the other side's ID on a transfer), while the web app's save sends a
@@ -23,15 +25,14 @@ const expense = {
   categoria: 10,
   tags: [],
   transferencia: 0,
-};
+} satisfies Entry;
 
-const invoicePayment = { ...expense, descricao: 'Pagamento Teste', tipo: 'p', valor: -100, categoria: 30, contaT: 202, transferencia: 9 };
+const invoicePayment = { ...expense, descricao: 'Pagamento Teste', tipo: 'p', valor: -100, categoria: 30, contaT: 202, transferencia: 9 } satisfies Entry;
 
 beforeEach(() => {
   api = startMockApi();
   api.on('GET /v1/cadastros/contas', ACCOUNTS_RESPONSE);
   api.on('GET /v1/cadastros/categorias', CATEGORIES_RESPONSE);
-  api.on('PUT /v1/lancamentos/70', (req) => ({ ...expense, ...(req.body as object) }));
   home = createHome(MANUAL_AUTH);
 });
 
@@ -48,7 +49,7 @@ function sentTransferFlag(): unknown {
 
 describe('entries update sends transferencia as the web app saves it', () => {
   test('an expense whose GET carries a numeric transferencia is sent with false', async () => {
-    api.on('GET /v1/lancamentos/70', expense);
+    serveEntry(api, expense);
 
     const result = await runCli(['entries', 'update', '70', '-d', 'Café da manhã'], { home, api });
 
@@ -57,7 +58,7 @@ describe('entries update sends transferencia as the web app saves it', () => {
   });
 
   test("an invoice payment is sent with true, not its other side's ID", async () => {
-    api.on('GET /v1/lancamentos/70', invoicePayment);
+    serveEntry(api, invoicePayment);
 
     const result = await runCli(['entries', 'update', '70', '-d', 'Pagamento fatura'], { home, api });
 

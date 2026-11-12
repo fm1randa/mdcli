@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createHome, MANUAL_AUTH, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
-import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, CHECKING_ACCOUNT, EMPTY_ENTRIES_RESPONSE, SAMPLE_ENTRIES, TAGS_RESPONSE } from './fixtures.js';
+import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, CHECKING_ACCOUNT, EMPTY_ENTRIES_RESPONSE, SAMPLE_ENTRIES, TAGS_RESPONSE, type SessionResponse } from './fixtures.js';
 
 // Review of #128 (P1): every GET /v2/lancamentos of the web goes through
 // relatoriosDatasource G (mdb.js 44174-44183), which sends the user's
@@ -12,17 +12,19 @@ import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, CHECKING_ACCOUNT, EMPTY_ENTRIES
 let api: MockApi;
 let home: TestHome;
 
+type AccountConfig = NonNullable<SessionResponse['payload']['ngInit']['usuario']['conta']>['config'];
+
 interface SessionPreferences {
-  config?: Record<string, unknown>;
+  config?: AccountConfig;
   mdwebMoeda?: number;
 }
 
-function session({ config, mdwebMoeda }: SessionPreferences): object {
+function session({ config, mdwebMoeda }: SessionPreferences): SessionResponse {
   return {
     branch: 'app',
     payload: {
       ngInit: {
-        mdUid: 42,
+        mdUid: '42',
         usuario: {
           conta: { config },
           config: { mdweb: mdwebMoeda === undefined ? {} : { moeda: { m: mdwebMoeda } } },
@@ -157,7 +159,7 @@ describe('GET /v2/lancamentos sends the user preferences, as the web does', () =
   });
 
   test('a session state that cannot be read: the list still runs, with the web defaults', async () => {
-    api.on('GET /v1/frontend/sessao', { message: 'no' }, 500);
+    api.fail('GET /v1/frontend/sessao', 500, { message: 'no' });
 
     const result = await runCli(['entries', 'list', '-a', '201', '-f', '2026-01-01', '-t', '2026-01-31', '--json'], { home, api });
 

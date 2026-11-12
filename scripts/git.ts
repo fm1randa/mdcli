@@ -7,25 +7,48 @@
 /** The revision every gate compares the branch against unless `--base` says otherwise. */
 export const DEFAULT_BASE = 'origin/main';
 
+/** A checkout without the origin remote still names the trunk `main`. */
+const FALLBACK_BASE = 'main';
+
 /**
- * Takes `--base <rev>` out of a gate's argv and leaves the rest to the gate.
- * A `--base` without a value fails: falling back to the default would run the
- * gate against a revision nobody asked for (#268).
+ * Takes `<flag> <rev>` out of a gate's argv and leaves the rest to the gate.
+ * A flag without a value fails, and so does a value that looks like another
+ * flag: reading `--head -x` as a revision runs the gate against nothing anyone
+ * asked for (#268, #286).
  */
-export function parseBase(argv: readonly string[]): { base: string; rest: string[] } {
-  let base = DEFAULT_BASE;
+export function parseRevisionFlag(
+  argv: readonly string[],
+  flag: '--base' | '--head'
+): { value: string | undefined; rest: string[] } {
+  let value: string | undefined;
   const rest: string[] = [];
   for (let index = 0; index < argv.length; index++) {
     const arg = argv[index]!;
-    if (arg !== '--base') {
+    if (arg !== flag) {
       rest.push(arg);
       continue;
     }
-    const value = argv[++index];
-    if (value === undefined || value.startsWith('-')) throw new Error('--base needs a revision');
-    base = value;
+    const next = argv[++index];
+    if (next === undefined || next.startsWith('-')) throw new Error(`${flag} needs a revision`);
+    value = next;
   }
-  return { base, rest };
+  return { value, rest };
+}
+
+/** `--base <rev>`, defaulting to DEFAULT_BASE; a `--base` without a value fails instead of falling back. */
+export function parseBase(argv: readonly string[]): { base: string; rest: string[] } {
+  const { value, rest } = parseRevisionFlag(argv, '--base');
+  return { base: value ?? DEFAULT_BASE, rest };
+}
+
+/**
+ * The base a gate runs against when nobody passed `--base`: DEFAULT_BASE, or
+ * `main` in a clone without the remote, or undefined when neither exists (a
+ * shallow checkout), so the caller can skip a comparison it cannot make.
+ * scripts/verify.sh reads it through `bun scripts/git.ts --print-base`.
+ */
+export function resolveBase(cwd?: string): string | undefined {
+  return [DEFAULT_BASE, FALLBACK_BASE].find((ref) => revisionExists(ref, cwd));
 }
 
 export interface SpawnResult {
@@ -111,8 +134,11 @@ export async function gitAsync(args: readonly string[], cwd?: string): Promise<s
   return result.stdout;
 }
 
+/** The `head` that diffs against the files on disk, uncommitted edits included. */
+export const WORKING_TREE = Symbol('working tree');
+
 export interface DiffOptions {
-  head?: string;
+  head?: string | typeof WORKING_TREE;
   /** Extra `git diff` flags, such as `--name-status` or `--unified=0`. */
   flags?: readonly string[];
   paths?: readonly string[];
@@ -121,12 +147,24 @@ export interface DiffOptions {
 
 /**
  * What the branch changed since it left `base`: `git diff base...head` (head
- * defaults to HEAD), without rename detection so a moved file shows as a delete
- * plus an add that every gate's parser reads the same way.
+ * defaults to HEAD; WORKING_TREE compares the merge base with the files on
+ * disk), without rename detection so a moved file shows as a delete plus an
+ * add that every gate's parser reads the same way.
  */
 export function diffAgainst(base: string, options: DiffOptions = {}): string {
   const { head = 'HEAD', flags = [], paths = [], cwd } = options;
-  return git(['diff', '--no-renames', '--no-color', ...flags, `${base}...${head}`, '--', ...paths], cwd);
+  const range = head === WORKING_TREE ? ['--merge-base', base] : [`${base}...${head}`];
+  return git(['diff', '--no-renames', '--no-color', ...flags, ...range, '--', ...paths], cwd);
+}
+
+/** The commits head carries that base lacks (`base..head`): what a squash merge of the branch brings in. */
+export function logRange(base: string, head: string = 'HEAD'): string {
+  return `${base}..${head}`;
+}
+
+/** The commit `diffAgainst(base, { head })` compares against: where head left base. */
+export function mergeBase(base: string, head: string = 'HEAD', cwd?: string): string {
+  return git(['merge-base', base, head], cwd).trim();
 }
 
 /** git's trimmed stdout, or undefined when it exits non-zero. */
@@ -143,4 +181,14 @@ export function revisionExists(ref: string, cwd?: string): boolean {
 /** The repository root of `cwd`, so a subdirectory still sees the whole tree. */
 export function repoRoot(cwd: string = process.cwd()): string {
   return git(['rev-parse', '--show-toplevel'], cwd).trim();
+}
+
+if (import.meta.main) {
+  const [command] = process.argv.slice(2);
+  if (command === '--print-base') {
+    console.log(resolveBase() ?? '');
+  } else {
+    console.error('usage: bun scripts/git.ts --print-base');
+    process.exitCode = 2;
+  }
 }

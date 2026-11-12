@@ -1,9 +1,10 @@
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
-import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, CHECKING_ACCOUNT, CREDIT_CARD_ACCOUNT } from './fixtures.js';
-import { SINCE } from './import-harness.js';
+import { createHome, MANUAL_AUTH, mutations, offContract, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
+import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, CHECKING_ACCOUNT, CREDIT_CARD_ACCOUNT, firstInvoice } from './fixtures.js';
+import { mockStatement, SINCE } from './import-harness.js';
+import type { CardInvoiceEntry } from '../src/types/index.js';
 
 // Cartão Teste is 202, proximoVencimento 2026-01-16T00:00:00. Connection account 302 is not that id.
 const CARD_LINK = [
@@ -24,20 +25,15 @@ beforeEach(() => {
   api.on('GET /v1/cadastros/contas', ACCOUNTS_RESPONSE);
   api.on('GET /v1/cadastros/categorias', CATEGORIES_RESPONSE);
   api.on('GET /v1/lancamentos/duplicidade', {});
-  api.on('GET /v1/integracao/account/302/transactions', {
-    inicio: '2026-10-01',
-    fim: '2026-10-10',
-    saldo: 0,
-    lancamentos: [{
-      integrationId: TX,
-      descricao: 'Compra no cartao',
-      valor: -12.34,
-      data: '2026-10-07',
-      moeda: 1,
-      ndocumento: 'DOC-1',
-      _ca: { c: { d: { categoria: { v: 10 } } } },
-    }],
-  });
+  mockStatement(api, [{
+    integrationId: TX,
+    descricao: 'Compra no cartao',
+    valor: -12.34,
+    data: '2026-10-07',
+    moeda: 1,
+    ndocumento: 'DOC-1',
+    _ca: { c: { d: { categoria: { v: 10 } } } },
+  }], { connectionAccount: 302 });
   home = createHome(MANUAL_AUTH);
 });
 
@@ -54,7 +50,7 @@ function list(args: string[] = []) {
   return cli(['entries', 'import', 'list', '-a', '202', '--since', SINCE, '--json', ...args]);
 }
 
-function invoice(items: unknown[]) {
+function invoice(items: CardInvoiceEntry[]) {
   api.on(`GET ${INVOICE}`, {
     lancamentos: items,
     vencimento: '2026-01-16',
@@ -75,7 +71,7 @@ describe('entries import list card candidates', () => {
         dataCompetencia: '2026-01-02', dataPrevista: '2026-10-07', categoria: 11,
       },
       {
-        id: 780, descricao: 'Sinal Trocado', valor: 12.34, dataCompetencia: '2026-10-07', categoria: 20,
+        id: 780, descricao: 'Sinal Trocado', valor: 12.34, data: '2026-10-07', dataCompetencia: '2026-10-07', categoria: 20,
       },
     ]);
     api.on('GET /v1/lancamentos/duplicidade', { '2026-10-07': [{ id: 77, valor: -12.34 }] });
@@ -120,7 +116,7 @@ describe('entries import list card candidates', () => {
 
   test('lists the whole invoice, even an item well before the statement, and a plan may conciliate it', async () => {
     invoice([
-      { id: 783, descricao: 'Antes do extrato', valor: -12.34, dataCompetencia: '2026-09-22', categoria: 10 },
+      { id: 783, descricao: 'Antes do extrato', valor: -12.34, data: '2026-09-22', dataCompetencia: '2026-09-22', categoria: 10 },
     ]);
 
     const listed = await list();
@@ -147,7 +143,7 @@ describe('entries import list card candidates', () => {
       saldo: 0,
       lancamentos: [{ integrationId: TX, descricao: 'Compra no cartao', valor: -12.34, data: '2026-10-07', moeda: 1 }],
     });
-    invoice([{ id: 784, descricao: 'Sem periodo', valor: -12.34, dataCompetencia: '2026-10-07', categoria: 10 }]);
+    invoice([{ id: 784, descricao: 'Sem periodo', valor: -12.34, data: '2026-10-07', dataCompetencia: '2026-10-07', categoria: 10 }]);
 
     const result = await list();
 
@@ -161,7 +157,7 @@ describe('entries import list card candidates', () => {
 
   test('reads a dataCompetencia that carries a time', async () => {
     invoice([
-      { id: 782, descricao: 'Com hora', valor: -12.34, dataCompetencia: '2026-10-06T00:00:00', dataPrevista: '2026-01-16T00:00:00', categoria: 10 },
+      { id: 782, descricao: 'Com hora', valor: -12.34, data: '2026-10-06', dataCompetencia: '2026-10-06T00:00:00', dataPrevista: '2026-01-16T00:00:00', categoria: 10 },
     ]);
 
     const result = await list();
@@ -191,7 +187,7 @@ describe('entries import list card candidates', () => {
 
   test('fails when proximoVencimento is missing or not a calendar date, without loading any invoice', async () => {
     const { proximoVencimento: _omit, ...withoutDue } = CREDIT_CARD_ACCOUNT;
-    api.on('GET /v1/cartoes/202/primeiraFatura', () => '2026-02-21T00:00:00');
+    api.on('GET /v1/cartoes/202/primeiraFatura', firstInvoice(202, '2026-02-21T00:00:00', '2026-02-13T00:00:00'));
     const cards = [withoutDue, { ...CREDIT_CARD_ACCOUNT, proximoVencimento: '2026-02-31T00:00:00' }];
     for (const card of cards) {
       api.requests.length = 0;
@@ -208,7 +204,7 @@ describe('entries import list card candidates', () => {
   });
 
   test('an invoice without lancamentos fails instead of listing no candidates', async () => {
-    api.on(`GET ${INVOICE}`, { vencimento: '2026-01-16', fechamento: '2026-01-08', valor: -12.34 });
+    api.on(`GET ${INVOICE}`, offContract({ vencimento: '2026-01-16', fechamento: '2026-01-08', valor: -12.34 }));
 
     const result = await list();
 
@@ -220,7 +216,7 @@ describe('entries import list card candidates', () => {
 
   test('import run on a card without a due date fails with what to do and writes nothing', async () => {
     const { proximoVencimento: _omit, ...withoutDue } = CREDIT_CARD_ACCOUNT;
-    api.on('GET /v1/cartoes/202/primeiraFatura', () => '2026-02-21T00:00:00');
+    api.on('GET /v1/cartoes/202/primeiraFatura', firstInvoice(202, '2026-02-21T00:00:00', '2026-02-13T00:00:00'));
     api.on('GET /v1/cadastros/contas', { ...ACCOUNTS_RESPONSE, items: [CHECKING_ACCOUNT, withoutDue] });
 
     const result = await cli(['entries', 'import', 'run', '-a', '202', '--since', SINCE, '--ids', TX.slice(0, 8), '--category', '10', '--yes']);
