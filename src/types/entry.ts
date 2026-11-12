@@ -207,11 +207,11 @@ export interface CreateEntryPayload {
 export interface CreateEntryResponse {
   /**
    * An entry ID, except for a card purchase or a future pending entry, where
-   * POST answers an occurrence ID: see entries/entry-id.ts. `entries create`
-   * resolves it before printing, and `ResolvedCreateEntry` is what its output
-   * accepts.
+   * POST answers an occurrence ID: see entries/entry-id.ts. It stays unbranded
+   * because nothing checked it on the way in; `entries create` resolves it
+   * before printing, and `ResolvedCreateEntry` is what its output accepts.
    */
-  id: EntryId | OccurrenceId;
+  id: number | string;
   descricao: string;
   conciliado: boolean;
   /** Only a card purchase carries the purchase date. */

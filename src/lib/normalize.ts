@@ -169,7 +169,7 @@ function remainingFromInstallment(parcela: string | undefined): number {
  * parcelasRestantes; only the legacy wrapper does.
  */
 export function normalizeCardInstallments(response: CardFutureResponse | LegacyCardFutureResponse): NormalizedCardInstallment[] {
-  const raw: unknown = Array.isArray(response) ? response : response.parcelas;
+  const raw = Array.isArray(response) ? response : response.parcelas;
   if (!Array.isArray(raw)) return [];
   const items: Array<CardFutureResponse[number] & { parcelasRestantes?: number }> = raw;
   return items.map((item) => ({

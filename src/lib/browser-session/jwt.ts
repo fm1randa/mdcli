@@ -18,8 +18,9 @@ export function extractUidFromJwt(token: string): string | null {
     const parts = token.split('.');
     if (parts.length !== 3) return null;
 
-    const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString('utf-8'));
-    return payload.uids ? String(payload.uids) : null;
+    const payload: unknown = JSON.parse(Buffer.from(parts[1], 'base64').toString('utf-8'));
+    const uids = typeof payload === 'object' && payload !== null && 'uids' in payload ? payload.uids : undefined;
+    return uids ? String(uids) : null;
   } catch {
     return null;
   }
