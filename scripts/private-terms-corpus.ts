@@ -15,7 +15,7 @@ import {
   termHash,
 } from './private-terms.js';
 
-import { diffAgainst, parseBase } from './git.js';
+import { diffAgainst, parseBase, parseRevisionFlag } from './git.js';
 import { deletedLines, headCorpus, type DeletedLine, type HeadCorpus } from './private-terms-history.js';
 
 export { deletedLines } from './private-terms-history.js';
@@ -265,18 +265,9 @@ export function guardChanged(base: string, head: string, root: string): boolean 
 
 function parseOptions(argv: string[]): { base: string; head: string } {
   const { base, rest } = parseBase(argv);
-  const options = { base, head: 'HEAD' };
-  for (let index = 0; index < rest.length; index++) {
-    const arg = rest[index];
-    if (arg === '--head') {
-      const head = rest[++index];
-      if (head === undefined) throw new Error('--head needs a revision');
-      options.head = head;
-    } else {
-      throw new Error(`unknown argument: ${arg}`);
-    }
-  }
-  return options;
+  const { value: head = 'HEAD', rest: unknown } = parseRevisionFlag(rest, '--head');
+  if (unknown.length > 0) throw new Error(`unknown argument: ${unknown[0]}`);
+  return { base, head };
 }
 
 function main(): void {

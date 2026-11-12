@@ -156,4 +156,35 @@ describe('check-eslint-disables step', () => {
       rmSync(repo, { recursive: true, force: true });
     }
   });
+
+  // The gate diffed base against the files on disk with two dots, so a branch
+  // behind main read a bare directive main had removed as one it added (#286).
+  test('passes a branch behind main and fails on its own uncommitted bare directive', () => {
+    const repo = mkdtempSync(join(tmpdir(), 'mdcli-disables-behind-'));
+    const script = join(import.meta.dir, '..', 'scripts', 'check-eslint-disables.ts');
+    const run = () => Bun.spawnSync(['bun', script, '--base', 'main'], { cwd: repo, stdout: 'pipe', stderr: 'pipe' });
+    try {
+      mkdirSync(join(repo, 'src'), { recursive: true });
+      writeFileSync(join(repo, 'src', 'a.ts'), '// eslint-disable-next-line local/no-raw-dash\nexport const a = 1;\n');
+      git(['init', '-q', '-b', 'main'], repo);
+      commitAll(repo, 'base');
+      git(['checkout', '-q', '-b', 'feature'], repo);
+      git(['checkout', '-q', 'main'], repo);
+      writeFileSync(join(repo, 'src', 'a.ts'), 'export const a = 1;\n');
+      commitAll(repo, 'main drops the bare directive');
+      git(['checkout', '-q', 'feature'], repo);
+
+      const behind = run();
+      expect(behind.stderr.toString()).toBe('');
+      expect(behind.exitCode).toBe(0);
+
+      writeFileSync(join(repo, 'src', 'b.ts'), '// eslint-disable-next-line local/no-raw-dash\nexport const b = 1;\n');
+      git(['add', 'src/b.ts'], repo);
+      const uncommitted = run();
+      expect(uncommitted.exitCode).toBe(1);
+      expect(uncommitted.stderr.toString()).toContain('src/b.ts:1');
+    } finally {
+      rmSync(repo, { recursive: true, force: true });
+    }
+  });
 });

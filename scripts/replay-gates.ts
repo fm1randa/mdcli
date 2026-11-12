@@ -1,5 +1,5 @@
 import { parseInteger } from '../src/utils/parse.js';
-import { DEFAULT_BASE, git, gitQuiet, repoRoot, revisionExists } from './git.js';
+import { diffAgainst, git, gitQuiet, repoRoot, resolveBase, revisionExists } from './git.js';
 import { decideGate } from './fails-on-main-exemption.js';
 import { changesProduct } from './new-tests-fail-on-main.js';
 import { checkProva } from './prova.js';
@@ -122,11 +122,9 @@ export function replayGates(commits: readonly CommitInput[], gates: readonly Gat
 }
 
 function defaultRevision(root: string): string {
-  const candidates = [DEFAULT_BASE, 'main', 'HEAD'];
-  for (const candidate of candidates) {
-    if (revisionExists(candidate, root)) return candidate;
-  }
-  throw new Error(`no ${candidates.join(', ')} revision found`);
+  const base = resolveBase(root) ?? (revisionExists('HEAD', root) ? 'HEAD' : undefined);
+  if (base === undefined) throw new Error('no origin/main, main or HEAD revision found');
+  return base;
 }
 
 /**
@@ -146,8 +144,8 @@ export function readCommits(rev: string, count: number, root: string): CommitInp
       sha,
       subject: git(['log', '-1', '--format=%s', sha], root).trim(),
       body: git(['log', '-1', '--format=%b', sha], root),
-      diff: git(['diff', '--no-renames', '--no-color', parent, sha], root),
-      nameStatus: git(['diff', '--name-status', '--no-renames', parent, sha], root),
+      diff: diffAgainst(parent, { head: sha, cwd: root }),
+      nameStatus: diffAgainst(parent, { head: sha, flags: ['--name-status'], cwd: root }),
     });
   }
   return commits;
