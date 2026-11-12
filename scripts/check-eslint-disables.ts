@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import tseslint from 'typescript-eslint';
 import { parseDiff } from './behavior-change.js';
-import { git, gitResult, parseBase } from './git.js';
+import { WORKING_TREE, diffAgainst, gitResult, mergeBase, parseBase, parseRevisionFlag } from './git.js';
 
 // A copied eslint-disable is how the bare-exit pattern spread (#155, #187).
 // Compare the branch with main and fail on any added directive without a
@@ -114,48 +114,30 @@ function workingTree(path: string): string | undefined {
   }
 }
 
-function reader(base: string, head: string | undefined): ContentReader {
+function reader(oldSide: string, head: string | undefined): ContentReader {
   return (path, side) => {
-    if (side === 'old') return gitShow(base, path);
+    if (side === 'old') return gitShow(oldSide, path);
     return head === undefined ? workingTree(path) : (gitShow(head, path) ?? workingTree(path));
   };
 }
 
-interface Options {
-  base: string;
-  head?: string;
-}
-
-function parseOptions(argv: string[]): Options {
+/** Without `--head`, the files on disk are the new side, so an uncommitted directive fails too. */
+function parseOptions(argv: string[]): { base: string; head: string | undefined } {
   const { base, rest } = parseBase(argv);
-  const options: Options = { base };
-  for (let index = 0; index < rest.length; index++) {
-    const arg = rest[index];
-    if (arg === '--head') {
-      options.head = rest[++index];
-      if (options.head === undefined) throw new Error('--head needs a revision');
-    } else {
-      throw new Error(`unknown argument: ${arg}`);
-    }
-  }
-  return options;
-}
-
-function gitDiff(base: string, head: string | undefined): string {
-  const args = ['diff', '--unified=0', '--no-renames', '--no-color', base];
-  if (head !== undefined) args.push(head);
-  return git(args);
+  const { value: head, rest: unknown } = parseRevisionFlag(rest, '--head');
+  if (unknown.length > 0) throw new Error(`unknown argument: ${unknown[0]}`);
+  return { base, head };
 }
 
 function main(): void {
   try {
-    const options = parseOptions(process.argv.slice(2));
-    const { base } = options;
-    const range = `${base}${options.head ? `..${options.head}` : ''}`;
-    const { added, removed, undocumented } = countDisables(gitDiff(base, options.head), reader(base, options.head));
+    const { base, head } = parseOptions(process.argv.slice(2));
+    const compared = `${base}, merge base to ${head ?? 'the working tree'}`;
+    const diff = diffAgainst(base, { head: head ?? WORKING_TREE, flags: ['--unified=0'] });
+    const { added, removed, undocumented } = countDisables(diff, reader(mergeBase(base, head), head));
     if (undocumented.length > 0) {
       console.error(
-        `✗ eslint-disable: o diff contra ${range} adiciona ${undocumented.length} directive(s) sem motivo depois de "--" ` +
+        `✗ eslint-disable: o diff contra ${compared} adiciona ${undocumented.length} directive(s) sem motivo depois de "--" ` +
           `(remove ${removed}). A supressão copiada não é a correção (#187); use a saída sancionada ` +
           '(exitAfterFlush, card-invoice), explique o motivo ou remova o disable.',
       );
@@ -164,7 +146,7 @@ function main(): void {
       return;
     }
     const addedText = added.length === 0 ? '0 added' : `${added.length} added, all with a reason`;
-    console.log(`✓ eslint-disable: ${addedText}, ${removed} removed (${range})`);
+    console.log(`✓ eslint-disable: ${addedText}, ${removed} removed (${compared})`);
   } catch (error) {
     console.error(`eslint-disable: ${error instanceof Error ? error.message : String(error)}`);
     process.exitCode = 1;

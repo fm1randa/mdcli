@@ -116,16 +116,17 @@ review_notes_not_tracked() {
   fi
 }
 step "review notes not tracked" review_notes_not_tracked
+# The gates' default base (origin/main, else main, else empty to skip) has
+# one owner, scripts/git.ts, so the shell and the gates cannot disagree (#286).
+gate_base() { bun scripts/git.ts --print-base; }
 # The private-data guard is derived from the migration: when a PR maintains
 # the guard, every value the diff removes must already have a hash or a reason,
 # so a sweep cannot close one finding at a time. The script skips an ordinary
 # PR; the test replays the #177 range.
 private_terms_corpus() {
   local base
-  if git rev-parse --verify --quiet origin/main >/dev/null; then base=origin/main
-  elif git rev-parse --verify --quiet main >/dev/null; then base=main
-  else echo "sem origin/main nem main: corpus da guarda ignorado"; return 0
-  fi
+  base=$(gate_base) || return 1
+  if [ -z "$base" ]; then echo "sem origin/main nem main: corpus da guarda ignorado"; return 0; fi
   bun scripts/private-terms-corpus.ts --base "$base"
 }
 step "private-terms corpus" private_terms_corpus
@@ -133,10 +134,8 @@ step "private-terms corpus" private_terms_corpus
 # changes with a force-push (issue #216): scan both before they leave.
 private_messages() {
   local base
-  if git rev-parse --verify --quiet origin/main >/dev/null; then base=origin/main
-  elif git rev-parse --verify --quiet main >/dev/null; then base=main
-  else echo "sem origin/main nem main: comparação de mensagens ignorada"; return 0
-  fi
+  base=$(gate_base) || return 1
+  if [ -z "$base" ]; then echo "sem origin/main nem main: comparação de mensagens ignorada"; return 0; fi
   bun scripts/check-private-messages.ts --base "$base"
 }
 step "private messages" private_messages
@@ -146,10 +145,8 @@ step "private messages" private_messages
 # failing on something it cannot see.
 eslint_disables() {
   local base
-  if git rev-parse --verify --quiet origin/main >/dev/null; then base=origin/main
-  elif git rev-parse --verify --quiet main >/dev/null; then base=main
-  else echo "sem origin/main nem main: comparação de eslint-disable ignorada"; return 0
-  fi
+  base=$(gate_base) || return 1
+  if [ -z "$base" ]; then echo "sem origin/main nem main: comparação de eslint-disable ignorada"; return 0; fi
   bun scripts/check-eslint-disables.ts --base "$base"
 }
 start_step "eslint disables" eslint_disables

@@ -151,6 +151,18 @@ export default tseslint.config(
     rules: { "local/no-git-copy": "error" },
   },
   {
+    // scripts/mock-http.ts owns the mock's error answers (#276, #286).
+    files: ["scripts/mock-*.ts"],
+    ignores: ["scripts/mock-http.ts"],
+    rules: {
+      "no-restricted-syntax": ["error", {
+        selector:
+          ":matches(:matches(CallExpression[callee.object.name='Response'], NewExpression[callee.name='Response']) Property[key.name='status'] > Literal, CallExpression[callee.name='json'] > Literal.arguments:nth-child(2))[raw=/^4\\d\\d$/]",
+        message: "Answer a 4xx through scripts/mock-http.ts (notFound, badRequest, unauthorized), never Response.json or json() with a 4xx status; it owns the error body every route returns.",
+      }],
+    },
+  },
+  {
     ignores: ["node_modules", "dist"],
   }
 );

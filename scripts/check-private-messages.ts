@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { gitAsync, parseBase, spawnAsync } from './git.js';
+import { gitAsync, logRange, parseBase, spawnAsync } from './git.js';
 import { KEYED_TERM_HASHES, requirePrivateTermsKey, scanText } from './private-terms.js';
 
 export interface MessageSource {
@@ -30,7 +30,7 @@ export function messageHits(
 
 export async function commitSources(base: string, root: string = join(import.meta.dirname, '..')): Promise<MessageSource[]> {
   // Async: this runs inside `bun test --parallel`, where spawnSync can hang (see spawnAsync).
-  const stdout = await gitAsync(['log', `${base}..HEAD`, '--format=%H%x00%B%x00'], root);
+  const stdout = await gitAsync(['log', logRange(base), '--format=%H%x00%B%x00'], root);
   const parts = stdout.split('\0');
   const sources: MessageSource[] = [];
   // git joins records with a newline, so the next record's SHA carries it.
