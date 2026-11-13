@@ -13,4 +13,12 @@ export const EXCUSED_REMOVED_TERMS: ReadonlyMap<string, string> = new Map([
     '3a4d6d2b651fc63457e14b5fe26033e41ec87de862344b859becb8dd13598d4e',
     'small generic invoice component the #177 review intentionally left outside the guard',
   ],
+  [
+    '1388157996a295be011f7b47e551e4a2a307ca9def29a42c1597de5ea1ef6159',
+    'TypeScript type names (Uint8Array, Buffer) from the gitBytes signature in scripts/git.ts (#293); not account data',
+  ],
+  [
+    'd4c999ae43633bd2036188d2bca68e1be8202b2cc1f3a1c42a728eaff7d2483d',
+    'the Chrome launch timeout in milliseconds from test/browser-helpers.ts, now derived from TEST_TIMEOUT_MS (#293); not account data',
+  ],
 ]);
