@@ -15,16 +15,16 @@ export interface HeadCorpus {
 }
 
 /** The old side of every changed line, with its path and line number. */
-export function deletedLines(base: string, head: string, root: string): DeletedLine[] {
-  const diff = diffAgainst(base, { head, flags: ['--unified=0', '--no-ext-diff'], cwd: root });
+export async function deletedLines(base: string, head: string, root: string): Promise<DeletedLine[]> {
+  const diff = await diffAgainst(base, { head, flags: ['--unified=0', '--no-ext-diff'], cwd: root });
   return parseDiff(diff).flatMap((file) =>
     file.hunks.flat().flatMap(({ kind, line, text }) => (kind === 'remove' ? [{ file: file.path, line, text }] : []))
   );
 }
 
 /** Every normalized line of `head`, indexed by its tokens for phrase lookups. */
-export function headCorpus(head: string, root: string): HeadCorpus {
-  const result = gitResult(['grep', '--no-color', '-h', '-I', '-e', '.', head, '--', '.'], root);
+export async function headCorpus(head: string, root: string): Promise<HeadCorpus> {
+  const result = await gitResult(['grep', '--no-color', '-h', '-I', '-e', '.', head, '--', '.'], root);
   const tokens = new Set<string>();
   const lines: string[] = [];
   const linesByToken = new Map<string, number[]>();

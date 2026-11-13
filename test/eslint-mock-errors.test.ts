@@ -25,12 +25,12 @@ const COPIES: Record<string, number[]> = {
 describe('a mock route answering a 4xx by hand', () => {
   for (const [path, lines] of Object.entries(COPIES)) {
     test(`fails lint on every copy ${path} carried at ${BEFORE}`, async () => {
-      expect(await hits(git(['show', `${BEFORE}:${path}`], ROOT), path)).toEqual(lines);
+      expect(await hits(await git(['show', `${BEFORE}:${path}`], ROOT), path)).toEqual(lines);
     });
   }
 
   test('passes in the owner and on a 2xx or 5xx answer, and fails a 4xx through json()', async () => {
-    const owner = git(['show', `${BEFORE}:scripts/mock-http.ts`], ROOT);
+    const owner = await git(['show', `${BEFORE}:scripts/mock-http.ts`], ROOT);
     expect(owner).toContain("Response.json({ message: 'not found' }, { status: 404 })");
     expect(await hits(owner, 'scripts/mock-http.ts')).toEqual([]);
     const route = [

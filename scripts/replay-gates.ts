@@ -121,8 +121,8 @@ export function replayGates(commits: readonly CommitInput[], gates: readonly Gat
   return { commits: replayed, fired, skipped: decisions.length - fired };
 }
 
-function defaultRevision(root: string): string {
-  const base = resolveBase(root) ?? (revisionExists('HEAD', root) ? 'HEAD' : undefined);
+async function defaultRevision(root: string): Promise<string> {
+  const base = (await resolveBase(root)) ?? ((await revisionExists('HEAD', root)) ? 'HEAD' : undefined);
   if (base === undefined) throw new Error('no origin/main, main or HEAD revision found');
   return base;
 }
@@ -132,20 +132,20 @@ function defaultRevision(root: string): string {
  * first parent. A squash merge has one parent; `--first-parent` keeps the
  * replay on the commits that actually landed on the trunk.
  */
-export function readCommits(rev: string, count: number, root: string): CommitInput[] {
-  const shas = git(['log', '--first-parent', '-n', String(count), '--format=%H', rev], root)
+export async function readCommits(rev: string, count: number, root: string): Promise<CommitInput[]> {
+  const shas = (await git(['log', '--first-parent', '-n', String(count), '--format=%H', rev], root))
     .split('\n')
     .filter((line) => line !== '');
   const commits: CommitInput[] = [];
   for (const sha of shas) {
-    const parent = gitQuiet(['rev-parse', '--verify', '--quiet', `${sha}^`], root);
+    const parent = await gitQuiet(['rev-parse', '--verify', '--quiet', `${sha}^`], root);
     if (parent === undefined) continue;
     commits.push({
       sha,
-      subject: git(['log', '-1', '--format=%s', sha], root).trim(),
-      body: git(['log', '-1', '--format=%b', sha], root),
-      diff: diffAgainst(parent, { head: sha, cwd: root }),
-      nameStatus: diffAgainst(parent, { head: sha, flags: ['--name-status'], cwd: root }),
+      subject: (await git(['log', '-1', '--format=%s', sha], root)).trim(),
+      body: await git(['log', '-1', '--format=%b', sha], root),
+      diff: await diffAgainst(parent, { head: sha, cwd: root }),
+      nameStatus: await diffAgainst(parent, { head: sha, flags: ['--name-status'], cwd: root }),
     });
   }
   return commits;
@@ -210,12 +210,12 @@ function format(report: ReplayReport, rev: string): string {
   return lines.join('\n');
 }
 
-function main(): void {
+async function main(): Promise<void> {
   try {
     const options = parseOptions(process.argv.slice(2));
-    const root = repoRoot();
-    const rev = options.rev ?? defaultRevision(root);
-    const report = replayGates(readCommits(rev, options.commits, root), selectGates(options.gates));
+    const root = await repoRoot();
+    const rev = options.rev ?? (await defaultRevision(root));
+    const report = replayGates(await readCommits(rev, options.commits, root), selectGates(options.gates));
     console.log(options.json ? JSON.stringify({ rev, ...report }, null, 2) : format(report, rev));
   } catch (error) {
     console.error(`replay-gates: ${error instanceof Error ? error.message : String(error)}`);
@@ -223,4 +223,4 @@ function main(): void {
   }
 }
 
-if (import.meta.main) main();
+if (import.meta.main) await main();

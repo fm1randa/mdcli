@@ -7,21 +7,21 @@ import {
   WORKING_TREE,
   diffAgainst,
   git,
-  gitAsync,
   gitBytes,
   gitQuiet,
   parseBase,
   parseRevisionFlag,
   revisionExists,
-  spawnAsync,
+  spawn,
 } from '../scripts/git.js';
 import { commitAll } from './git-repo.js';
+import { run as runChild } from './run.js';
 
-function withRepo(run: (repo: string) => void): void {
+async function withRepo(run: (repo: string) => Promise<void>): Promise<void> {
   const repo = mkdtempSync(join(tmpdir(), 'mdcli-git-owner-'));
   try {
-    git(['init', '-q', '-b', 'main'], repo);
-    run(repo);
+    await git(['init', '-q', '-b', 'main'], repo);
+    await run(repo);
   } finally {
     rmSync(repo, { recursive: true, force: true });
   }
@@ -30,29 +30,29 @@ function withRepo(run: (repo: string) => void): void {
 describe('scripts/git.ts', () => {
   // Without core.quotepath=false git prints "\303\247" for "ç", and a gate that
   // matches paths by name (risk, prova, the corpus) misses the file.
-  test('lists a non-ASCII path as written, for every caller', () => {
-    withRepo((repo) => {
+  test('lists a non-ASCII path as written, for every caller', async () => {
+    await withRepo(async (repo) => {
       writeFileSync(join(repo, 'ação.ts'), 'export {};\n');
-      git(['add', 'ação.ts'], repo);
-      expect(git(['ls-files'], repo)).toBe('ação.ts\n');
-      expect(git(['diff', '--cached', '--name-only'], repo)).toBe('ação.ts\n');
+      await git(['add', 'ação.ts'], repo);
+      expect(await git(['ls-files'], repo)).toBe('ação.ts\n');
+      expect(await git(['diff', '--cached', '--name-only'], repo)).toBe('ação.ts\n');
     });
   });
 
-  test("throws git's own stderr with the command and the directory", () => {
-    withRepo((repo) => {
-      expect(() => gitBytes(['rev-parse', '--verify', 'no-such-ref'], repo)).toThrow(
+  test("throws git's own stderr with the command and the directory", async () => {
+    await withRepo(async (repo) => {
+      await expect(gitBytes(['rev-parse', '--verify', 'no-such-ref'], repo)).rejects.toThrow(
         `git rev-parse --verify no-such-ref failed in ${repo}: fatal: Needed a single revision`
       );
     });
   });
 
-  test('reports an unborn HEAD as a missing revision instead of throwing', () => {
-    withRepo((repo) => {
-      expect(revisionExists('HEAD', repo)).toBe(false);
-      expect(gitQuiet(['rev-parse', '--verify', '--quiet', 'HEAD'], repo)).toBeUndefined();
-      git(['-c', 'user.name=test', '-c', 'user.email=test@example.com', 'commit', '-q', '--allow-empty', '-m', 'first'], repo);
-      expect(revisionExists('HEAD', repo)).toBe(true);
+  test('reports an unborn HEAD as a missing revision instead of throwing', async () => {
+    await withRepo(async (repo) => {
+      expect(await revisionExists('HEAD', repo)).toBe(false);
+      expect(await gitQuiet(['rev-parse', '--verify', '--quiet', 'HEAD'], repo)).toBeUndefined();
+      await git(['-c', 'user.name=test', '-c', 'user.email=test@example.com', 'commit', '-q', '--allow-empty', '-m', 'first'], repo);
+      expect(await revisionExists('HEAD', repo)).toBe(true);
     });
   });
 
@@ -69,19 +69,19 @@ describe('scripts/git.ts', () => {
     expect(() => parseBase(['--base', '--head', 'HEAD'])).toThrow('--base needs a revision');
   });
 
-  test('diffs what the branch changed since it left the base, not what the base gained since', () => {
-    withRepo((repo) => {
+  test('diffs what the branch changed since it left the base, not what the base gained since', async () => {
+    await withRepo(async (repo) => {
       writeFileSync(join(repo, 'a.ts'), 'export const a = 1;\n');
-      const base = commitAll(repo, 'base');
-      git(['checkout', '-q', '-b', 'feature'], repo);
+      const base = await commitAll(repo, 'base');
+      await git(['checkout', '-q', '-b', 'feature'], repo);
       writeFileSync(join(repo, 'ação.ts'), 'export {};\n');
-      commitAll(repo, 'feature');
-      git(['checkout', '-q', 'main'], repo);
+      await commitAll(repo, 'feature');
+      await git(['checkout', '-q', 'main'], repo);
       writeFileSync(join(repo, 'main-only.ts'), 'export {};\n');
-      commitAll(repo, 'main moves on');
+      await commitAll(repo, 'main moves on');
 
-      expect(diffAgainst('main', { head: 'feature', flags: ['--name-only'], cwd: repo })).toBe('ação.ts\n');
-      expect(diffAgainst(base, { head: 'feature', flags: ['--name-only'], paths: ['a.ts'], cwd: repo })).toBe('');
+      expect(await diffAgainst('main', { head: 'feature', flags: ['--name-only'], cwd: repo })).toBe('ação.ts\n');
+      expect(await diffAgainst(base, { head: 'feature', flags: ['--name-only'], paths: ['a.ts'], cwd: repo })).toBe('');
     });
   });
 
@@ -97,32 +97,27 @@ describe('scripts/git.ts', () => {
 
   // check-eslint-disables used to diff `base` against the files on disk with
   // two dots, so a branch behind main saw main's own changes as its own (#286).
-  test('diffs the working tree from the merge base, uncommitted edits included', () => {
-    withRepo((repo) => {
+  test('diffs the working tree from the merge base, uncommitted edits included', async () => {
+    await withRepo(async (repo) => {
       writeFileSync(join(repo, 'a.ts'), 'export const a = 1;\n');
-      commitAll(repo, 'base');
-      git(['checkout', '-q', '-b', 'feature'], repo);
-      git(['checkout', '-q', 'main'], repo);
+      await commitAll(repo, 'base');
+      await git(['checkout', '-q', '-b', 'feature'], repo);
+      await git(['checkout', '-q', 'main'], repo);
       writeFileSync(join(repo, 'main-only.ts'), 'export {};\n');
-      commitAll(repo, 'main moves on');
-      git(['checkout', '-q', 'feature'], repo);
+      await commitAll(repo, 'main moves on');
+      await git(['checkout', '-q', 'feature'], repo);
       writeFileSync(join(repo, 'a.ts'), 'export const a = 2;\n');
 
-      expect(diffAgainst('main', { head: WORKING_TREE, flags: ['--name-only'], cwd: repo })).toBe('a.ts\n');
+      expect(await diffAgainst('main', { head: WORKING_TREE, flags: ['--name-only'], cwd: repo })).toBe('a.ts\n');
     });
   });
 
-  test("gitAsync returns stdout and throws git's own stderr", async () => {
-    const repo = mkdtempSync(join(tmpdir(), 'mdcli-git-async-'));
-    try {
-      await gitAsync(['init', '-q', '-b', 'main'], repo);
-      expect(await gitAsync(['symbolic-ref', 'HEAD'], repo)).toBe('refs/heads/main\n');
-      await expect(gitAsync(['rev-parse', '--verify', 'no-such-ref'], repo)).rejects.toThrow(
-        `git rev-parse --verify no-such-ref failed in ${repo}: fatal: Needed a single revision`
-      );
-    } finally {
-      rmSync(repo, { recursive: true, force: true });
-    }
+  // private-terms feeds git cat-file --batch every blob id on stdin and reads
+  // the blobs back as raw bytes.
+  test('feeds stdin to the child and keeps its output as bytes', async () => {
+    const result = await spawn(['cat'], { stdin: Buffer.from([0x61, 0x00, 0xff, 0x0a]) });
+    expect(result.exitCode).toBe(0);
+    expect([...result.stdout]).toEqual([0x61, 0x00, 0xff, 0x0a]);
   });
 });
 
@@ -130,17 +125,17 @@ describe('scripts/git.ts', () => {
 // apart from DEFAULT_BASE (#286); now it asks scripts/git.ts.
 describe('bun scripts/git.ts --print-base', () => {
   const script = join(import.meta.dir, '..', 'scripts', 'git.ts');
-  const printBase = async (repo: string) => (await spawnAsync([process.execPath, script, '--print-base'], { cwd: repo })).stdout;
+  const printBase = async (repo: string) => (await runChild([process.execPath, script, '--print-base'], { cwd: repo })).stdout;
 
   test('prints origin/main, then main, then nothing for the shell to skip on', async () => {
     const repo = mkdtempSync(join(tmpdir(), 'mdcli-print-base-'));
     try {
-      await gitAsync(['init', '-q', '-b', 'trunk'], repo);
+      await git(['init', '-q', '-b', 'trunk'], repo);
       expect(await printBase(repo)).toBe('\n');
-      commitAll(repo, 'first', '--allow-empty');
-      await gitAsync(['branch', 'main'], repo);
+      await commitAll(repo, 'first', '--allow-empty');
+      await git(['branch', 'main'], repo);
       expect(await printBase(repo)).toBe('main\n');
-      await gitAsync(['update-ref', 'refs/remotes/origin/main', 'HEAD'], repo);
+      await git(['update-ref', 'refs/remotes/origin/main', 'HEAD'], repo);
       expect(await printBase(repo)).toBe('origin/main\n');
     } finally {
       rmSync(repo, { recursive: true, force: true });
@@ -148,7 +143,7 @@ describe('bun scripts/git.ts --print-base', () => {
   });
 
   test('refuses any other command', async () => {
-    const run = await spawnAsync([process.execPath, script], { cwd: join(import.meta.dir, '..') });
+    const run = await runChild([process.execPath, script], { cwd: join(import.meta.dir, '..') });
     expect(run.exitCode).toBe(2);
     expect(run.stderr).toContain('usage: bun scripts/git.ts --print-base');
   });
@@ -161,7 +156,7 @@ describe('a gate given --base without a revision', () => {
   const gates = ['risk', 'prova', 'new-tests-fail-on-main', 'check-eslint-disables', 'check-private-messages', 'private-terms-corpus'];
   for (const gate of gates) {
     test(`${gate} fails and names the missing revision`, async () => {
-      const run = await spawnAsync([process.execPath, join(root, 'scripts', `${gate}.ts`), '--base'], { cwd: root });
+      const run = await runChild([process.execPath, join(root, 'scripts', `${gate}.ts`), '--base'], { cwd: root });
       expect(run.exitCode).toBe(1);
       expect(run.stderr).toContain('--base needs a revision');
     });
@@ -170,7 +165,7 @@ describe('a gate given --base without a revision', () => {
   // Both --head parsers read `--head -x` as a revision (#286).
   for (const gate of ['check-eslint-disables', 'private-terms-corpus']) {
     test(`${gate} refuses --head followed by another flag`, async () => {
-      const run = await spawnAsync([process.execPath, join(root, 'scripts', `${gate}.ts`), '--head', '-x'], { cwd: root });
+      const run = await runChild([process.execPath, join(root, 'scripts', `${gate}.ts`), '--head', '-x'], { cwd: root });
       expect(run.exitCode).toBe(1);
       expect(run.stderr).toContain('--head needs a revision');
     });

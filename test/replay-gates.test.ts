@@ -5,10 +5,11 @@ import { dirname, join } from 'node:path';
 import { git } from '../scripts/git.js';
 import { readCommits, replayGates, type Gate } from '../scripts/replay-gates.js';
 import { commitAll } from './git-repo.js';
+import { run } from './run.js';
 
 const script = join(import.meta.dir, '..', 'scripts', 'replay-gates.ts');
 
-function commit(root: string, message: string, files: Record<string, string>): string {
+async function commit(root: string, message: string, files: Record<string, string>): Promise<string> {
   for (const [path, content] of Object.entries(files)) {
     const target = join(root, path);
     mkdirSync(dirname(target), { recursive: true });
@@ -23,28 +24,28 @@ interface Commits {
   docs: string;
 }
 
-function withRepo(callback: (root: string, commits: Commits) => void): void {
+async function withRepo(callback: (root: string, commits: Commits) => Promise<void>): Promise<void> {
   const root = mkdtempSync(join(tmpdir(), 'mdcli-replay-gates-'));
   try {
-    git(['init', '-q'], root);
-    commit(root, 'base', { 'src/lib/api.ts': 'export const value = 1;\n', 'AGENTS.md': 'base\n' });
-    const risky = commit(root, 'feat(entries): change a write', {
+    await git(['init', '-q'], root);
+    await commit(root, 'base', { 'src/lib/api.ts': 'export const value = 1;\n', 'AGENTS.md': 'base\n' });
+    const risky = await commit(root, 'feat(entries): change a write', {
       'src/lib/api.ts': 'export const value = 1;\ncreateEntry(payload);\n',
     });
-    const comment = commit(root, 'chore: only a comment', {
+    const comment = await commit(root, 'chore: only a comment', {
       'src/lib/api.ts': 'export const value = 1;\ncreateEntry(payload);\n// note\n',
     });
-    const docs = commit(root, 'docs: note', { 'AGENTS.md': 'base\nnote\n' });
-    callback(root, { risky, comment, docs });
+    const docs = await commit(root, 'docs: note', { 'AGENTS.md': 'base\nnote\n' });
+    await callback(root, { risky, comment, docs });
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
 }
 
 describe('replayGates', () => {
-  test('replays every registered gate against each commit and its own parent', () => {
-    withRepo((root, shas) => {
-      const report = replayGates(readCommits('HEAD', 3, root));
+  test('replays every registered gate against each commit and its own parent', async () => {
+    await withRepo(async (root, shas) => {
+      const report = replayGates(await readCommits('HEAD', 3, root));
       expect(report.commits.map((replay) => replay.sha)).toEqual([shas.docs, shas.comment, shas.risky]);
 
       const bySha = new Map(report.commits.map((replay) => [replay.sha, replay]));
@@ -71,8 +72,8 @@ describe('replayGates', () => {
       },
     };
 
-    withRepo((root, shas) => {
-      const report = replayGates(readCommits('HEAD', 2, root), [srcTouch]);
+    withRepo(async (root, shas) => {
+      const report = replayGates(await readCommits('HEAD', 2, root), [srcTouch]);
       const comment = report.commits.find((replay) => replay.sha === shas.comment)!;
       expect(comment.decisions).toEqual([{ gate: 'src-touch', fired: true, detail: 'touches src/' }]);
       expect(report.fired).toBe(1);
@@ -82,15 +83,13 @@ describe('replayGates', () => {
 });
 
 describe('replay-gates CLI', () => {
-  test('lists firings and skips for the chosen gate without writing to the repository', () => {
-    withRepo((root, shas) => {
-      const before = git(['status', '--porcelain'], root);
-      const result = Bun.spawnSync(['bun', script, '--rev', 'HEAD', '--commits', '3', '--gate', 'risk'], {
+  test('lists firings and skips for the chosen gate without writing to the repository', async () => {
+    await withRepo(async (root, shas) => {
+      const before = await git(['status', '--porcelain'], root);
+      const result = await run(['bun', script, '--rev', 'HEAD', '--commits', '3', '--gate', 'risk'], {
         cwd: root,
-        stdout: 'pipe',
-        stderr: 'pipe',
       });
-      const output = result.stdout.toString();
+      const output = result.stdout;
 
       expect(result.exitCode).toBe(0);
       expect(output).toContain('replay-gates: 3 commits from HEAD');
@@ -99,20 +98,18 @@ describe('replay-gates CLI', () => {
       expect(output).toContain('risk: skipped (safe:');
       expect(output).not.toContain('fails-on-main:');
       expect(output).toContain('replay-gates: 1 fired, 2 skipped');
-      expect(git(['status', '--porcelain'], root)).toBe(before);
+      expect(await git(['status', '--porcelain'], root)).toBe(before);
     });
   });
 
-  test('rejects an unknown gate and names the registry', () => {
-    withRepo((root) => {
-      const result = Bun.spawnSync(['bun', script, '--rev', 'HEAD', '--gate', 'nope'], {
+  test('rejects an unknown gate and names the registry', async () => {
+    await withRepo(async (root) => {
+      const result = await run(['bun', script, '--rev', 'HEAD', '--gate', 'nope'], {
         cwd: root,
-        stdout: 'pipe',
-        stderr: 'pipe',
       });
 
       expect(result.exitCode).toBe(1);
-      expect(result.stderr.toString()).toContain('unknown gate: nope (known: risk, fails-on-main, prova)');
+      expect(result.stderr).toContain('unknown gate: nope (known: risk, fails-on-main, prova)');
     });
   });
 });

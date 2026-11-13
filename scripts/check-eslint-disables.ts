@@ -101,8 +101,8 @@ export function countDisables(diff: string, read: ContentReader): DiffCount {
   };
 }
 
-function gitShow(ref: string, path: string): string | undefined {
-  const result = gitResult(['show', `${ref}:${path}`]);
+async function gitShow(ref: string, path: string): Promise<string | undefined> {
+  const result = await gitResult(['show', `${ref}:${path}`]);
   return result.exitCode === 0 ? result.stdout.toString() : undefined;
 }
 
@@ -114,11 +114,20 @@ function workingTree(path: string): string | undefined {
   }
 }
 
-function reader(oldSide: string, head: string | undefined): ContentReader {
-  return (path, side) => {
-    if (side === 'old') return gitShow(oldSide, path);
-    return head === undefined ? workingTree(path) : (gitShow(head, path) ?? workingTree(path));
-  };
+/**
+ * Both sides of every linted file the diff touches, read up front so
+ * countDisables stays synchronous: git runs only through the async spawn of
+ * scripts/git.ts (#293).
+ */
+async function reader(diff: string, oldSide: string, head: string | undefined): Promise<ContentReader> {
+  const contents = new Map<string, string | undefined>();
+  for (const { path } of parseDiff(diff)) {
+    if (!LINTED.test(path)) continue;
+    contents.set(`old:${path}`, await gitShow(oldSide, path));
+    const committed = head === undefined ? undefined : await gitShow(head, path);
+    contents.set(`new:${path}`, committed ?? workingTree(path));
+  }
+  return (path, side) => contents.get(`${side}:${path}`);
 }
 
 /** Without `--head`, the files on disk are the new side, so an uncommitted directive fails too. */
@@ -129,12 +138,12 @@ function parseOptions(argv: string[]): { base: string; head: string | undefined 
   return { base, head };
 }
 
-function main(): void {
+async function main(): Promise<void> {
   try {
     const { base, head } = parseOptions(process.argv.slice(2));
     const compared = `${base}, merge base to ${head ?? 'the working tree'}`;
-    const diff = diffAgainst(base, { head: head ?? WORKING_TREE, flags: ['--unified=0'] });
-    const { added, removed, undocumented } = countDisables(diff, reader(mergeBase(base, head), head));
+    const diff = await diffAgainst(base, { head: head ?? WORKING_TREE, flags: ['--unified=0'] });
+    const { added, removed, undocumented } = countDisables(diff, await reader(diff, await mergeBase(base, head), head));
     if (undocumented.length > 0) {
       console.error(
         `✗ eslint-disable: o diff contra ${compared} adiciona ${undocumented.length} directive(s) sem motivo depois de "--" ` +
@@ -153,4 +162,4 @@ function main(): void {
   }
 }
 
-if (import.meta.main) main();
+if (import.meta.main) await main();

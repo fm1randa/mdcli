@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { gitAsync, logRange, parseBase, spawnAsync } from './git.js';
+import { git, logRange, parseBase, spawn } from './git.js';
 import { KEYED_TERM_HASHES, requirePrivateTermsKey, scanText } from './private-terms.js';
 
 export interface MessageSource {
@@ -29,8 +29,7 @@ export function messageHits(
 }
 
 export async function commitSources(base: string, root: string = join(import.meta.dirname, '..')): Promise<MessageSource[]> {
-  // Async: this runs inside `bun test --parallel`, where spawnSync can hang (see spawnAsync).
-  const stdout = await gitAsync(['log', logRange(base), '--format=%H%x00%B%x00'], root);
+  const stdout = await git(['log', logRange(base), '--format=%H%x00%B%x00'], root);
   const parts = stdout.split('\0');
   const sources: MessageSource[] = [];
   // git joins records with a newline, so the next record's SHA carries it.
@@ -51,12 +50,12 @@ export async function pullRequestSource(): Promise<MessageSource | undefined> {
   if (body !== undefined) return body.trim() === '' ? undefined : { label: 'PR body', text: body };
   const command = ['gh', 'pr', 'view', '--json', 'body'];
   try {
-    const { stdout, stderr, exitCode } = await spawnAsync(command, { timeout: GH_TIMEOUT_MS });
+    const { stdout, stderr, exitCode } = await spawn(command, { timeout: GH_TIMEOUT_MS });
     if (exitCode !== 0) {
-      console.error(`private-data: gh pr view failed (${stderr.trim() || `exit ${exitCode}`}); PR body not checked`);
+      console.error(`private-data: gh pr view failed (${stderr.toString().trim() || `exit ${exitCode}`}); PR body not checked`);
       return undefined;
     }
-    const parsed = JSON.parse(stdout) as { body?: unknown };
+    const parsed = JSON.parse(stdout.toString()) as { body?: unknown };
     const text = parsed.body;
     return typeof text === 'string' && text.trim() !== '' ? { label: 'PR body', text } : undefined;
   } catch (error) {

@@ -3,6 +3,7 @@ import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, wr
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { checkForUpdate, compareVersions, isGlobalInstall, runManualUpdate } from '../src/lib/self-update.js';
+import { waitFor } from './timeouts.js';
 
 let dir: string;
 let server: ReturnType<typeof Bun.serve>;
@@ -42,15 +43,6 @@ function recorder(exitCode = 0): { env: NodeJS.ProcessEnv; calls: () => string |
       return content.split('\n').filter((l) => l.length > 0);
     },
   };
-}
-
-async function waitFor<T>(fn: () => T | null, attempts = 50): Promise<T | null> {
-  for (let i = 0; i < attempts; i++) {
-    const v = fn();
-    if (v) return v;
-    await Bun.sleep(20);
-  }
-  return null;
 }
 
 beforeEach(() => {
@@ -195,7 +187,7 @@ describe('checkForUpdate', () => {
     const calls = await waitFor(() => {
       const c = existsSync(log) ? readFileSync(log, 'utf-8').trim().split('\n').filter((l) => l.length > 0) : [];
       return c.length >= 2 ? c : null;
-    }, 100);
+    });
     expect(calls).toEqual(['remove -g mdcli', 'install -g github:fm1randa/mdcli#v2026.10.20']);
   });
 

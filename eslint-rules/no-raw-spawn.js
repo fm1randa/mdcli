@@ -29,7 +29,7 @@ export default {
     docs: { description: "Spawn child processes in scripts/ only through scripts/git.ts" },
     messages: {
       rawSpawn:
-        "Spawn through scripts/git.ts (git, gitBytes, gitResult, gitQuiet, spawn, spawnAsync) instead of Bun.{{name}}; it owns the error text, the path quoting and the oven-sh/bun#34069 workaround.",
+        "Spawn through scripts/git.ts (git, gitBytes, gitResult, gitQuiet, spawn) instead of Bun.{{name}}; it owns the error text, the path quoting and the oven-sh/bun#34069 workaround.",
       bunShell: "Spawn through scripts/git.ts instead of the Bun shell ($); it owns child processes in scripts/.",
       childProcess: "Spawn through scripts/git.ts instead of {{source}}; it owns child processes in scripts/.",
       opaqueBun:

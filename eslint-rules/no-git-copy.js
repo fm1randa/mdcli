@@ -34,7 +34,7 @@ export default {
     type: "problem",
     docs: { description: `Parse --base/--head, diff against a base and run git only through ${OWNER}` },
     messages: {
-      rawGit: `Run git through ${OWNER} (git, gitBytes, gitResult, gitQuiet, gitAsync); it owns core.quotepath=false and the error text with git's stderr.`,
+      rawGit: `Run git through ${OWNER} (git, gitBytes, gitResult, gitQuiet); it owns core.quotepath=false and the error text with git's stderr.`,
       revisionFlag: `Parse --base with parseBase and --head with parseRevisionFlag from ${OWNER}; they own the origin/main default and fail when the value is missing or is another flag.`,
       range: `Build a revision range through ${OWNER}: diffAgainst owns the base...head diff (WORKING_TREE for the files on disk) and the flags every gate's parser expects; logRange owns base..head for git log.`,
     },

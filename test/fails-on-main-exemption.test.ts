@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { decideGate, exemptTitle, parseBodyExemption } from '../scripts/fails-on-main-exemption.js';
 import { git } from '../scripts/git.js';
 import { commitAll } from './git-repo.js';
+import { run } from './run.js';
 
 const SCRIPT = join(import.meta.dir, '..', 'scripts', 'new-tests-fail-on-main.ts');
 
@@ -83,9 +84,9 @@ describe('decideGate', () => {
 });
 
 /** A temp repo whose head changes src/, with an optional test file that passes on both trees. */
-function tempRepo(withTest: boolean): string {
+async function tempRepo(withTest: boolean): Promise<string> {
   const root = mkdtempSync(join(tmpdir(), 'mdcli-fails-on-main-exemption-'));
-  git(['init', '-q'], root);
+  await git(['init', '-q'], root);
   mkdirSync(join(root, 'src'), { recursive: true });
   mkdirSync(join(root, 'node_modules'), { recursive: true });
   writeFileSync(join(root, 'bunfig.toml'), '');
@@ -94,7 +95,7 @@ function tempRepo(withTest: boolean): string {
     mkdirSync(join(root, 'test'), { recursive: true });
     writeFileSync(join(root, 'test', 'a.test.ts'), "import { test } from 'bun:test';\ntest('base', () => {});\n");
   }
-  commitAll(root, 'base');
+  await commitAll(root, 'base');
 
   writeFileSync(join(root, 'src', 'program.ts'), 'export const value = 2;\n');
   if (withTest) {
@@ -103,7 +104,7 @@ function tempRepo(withTest: boolean): string {
       "import { expect, test } from 'bun:test';\ntest('passes', () => { expect(1).toBe(1); });\n"
     );
   }
-  commitAll(root, 'head');
+  await commitAll(root, 'head');
   return root;
 }
 
@@ -114,70 +115,68 @@ interface GateRun {
   summary: string;
 }
 
-function runGate(root: string, env: Record<string, string>): GateRun {
+async function runGate(root: string, env: Record<string, string>): Promise<GateRun> {
   const summary = join(root, 'summary.md');
   const { PR_TITLE: _title, PR_BODY: _body, GITHUB_STEP_SUMMARY: _summary, ...ambient } = process.env;
-  const result = Bun.spawnSync(['bun', SCRIPT, '--base', 'HEAD~1'], {
+  const result = await run(['bun', SCRIPT, '--base', 'HEAD~1'], {
     cwd: root,
-    stdout: 'pipe',
-    stderr: 'pipe',
     env: { ...ambient, ...env, GITHUB_STEP_SUMMARY: summary },
   });
   return {
     exitCode: result.exitCode,
-    stdout: result.stdout.toString(),
-    stderr: result.stderr.toString(),
+    stdout: result.stdout,
+    stderr: result.stderr,
     summary: existsSync(summary) ? readFileSync(summary, 'utf8') : '',
   };
 }
 
 describe('fails-on-main exemption in CI', () => {
-  test('a refactor title skips the gate and says why in the summary', () => {
-    const root = tempRepo(false);
+  test('a refactor title skips the gate and says why in the summary', async () => {
+    const root = await tempRepo(false);
     try {
-      const run = runGate(root, { PR_TITLE: 'refactor: extract helper' });
-      expect(run.exitCode).toBe(0);
-      expect(run.stdout).toContain('exempt (title)');
-      expect(run.summary).toContain('## fails-on-main: exempt');
-      expect(run.summary).toContain('`refactor`');
+      const gate = await runGate(root, { PR_TITLE: 'refactor: extract helper' });
+      expect(gate.exitCode).toBe(0);
+      expect(gate.stdout).toContain('exempt (title)');
+      expect(gate.summary).toContain('## fails-on-main: exempt');
+      expect(gate.summary).toContain('`refactor`');
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
   });
 
-  test('a reason declared in the body exempts a fix PR', () => {
-    const root = tempRepo(false);
+  test('a reason declared in the body exempts a fix PR', async () => {
+    const root = await tempRepo(false);
     try {
-      const run = runGate(root, {
+      const gate = await runGate(root, {
         PR_TITLE: 'fix: correct a value',
         PR_BODY: 'Fails-on-main: isento — refactor puro',
       });
-      expect(run.exitCode).toBe(0);
-      expect(run.stdout).toContain('exempt (body)');
-      expect(run.summary).toContain('declared in the PR body: refactor puro');
+      expect(gate.exitCode).toBe(0);
+      expect(gate.stdout).toContain('exempt (body)');
+      expect(gate.summary).toContain('declared in the PR body: refactor puro');
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
   });
 
-  test('a declared exemption without a reason fails and stays visible', () => {
-    const root = tempRepo(false);
+  test('a declared exemption without a reason fails and stays visible', async () => {
+    const root = await tempRepo(false);
     try {
-      const run = runGate(root, { PR_TITLE: 'fix: correct a value', PR_BODY: 'Fails-on-main: isento' });
-      expect(run.exitCode).toBe(1);
-      expect(run.stderr).toContain('without a reason');
-      expect(run.summary).toContain('## fails-on-main: invalid exemption');
+      const gate = await runGate(root, { PR_TITLE: 'fix: correct a value', PR_BODY: 'Fails-on-main: isento' });
+      expect(gate.exitCode).toBe(1);
+      expect(gate.stderr).toContain('without a reason');
+      expect(gate.summary).toContain('## fails-on-main: invalid exemption');
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
   });
 
-  test('a fix PR with a test that passes on main stays rejected', () => {
-    const root = tempRepo(true);
+  test('a fix PR with a test that passes on main stays rejected', async () => {
+    const root = await tempRepo(true);
     try {
-      const run = runGate(root, { PR_TITLE: 'fix: correct a value' });
-      expect(run.exitCode).toBe(1);
-      expect(run.stderr).toContain('test/a.test.ts PASSED against HEAD~1');
+      const gate = await runGate(root, { PR_TITLE: 'fix: correct a value' });
+      expect(gate.exitCode).toBe(1);
+      expect(gate.stderr).toContain('test/a.test.ts PASSED against HEAD~1');
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

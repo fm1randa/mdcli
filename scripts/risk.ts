@@ -170,10 +170,10 @@ function parseOptions(argv: string[]): Options {
   return options;
 }
 
-function main(): void {
+async function main(): Promise<void> {
   try {
     const options = parseOptions(process.argv.slice(2));
-    const diff = options.diff ? readFileSync(options.diff, 'utf8') : diffAgainst(options.base);
+    const diff = options.diff ? readFileSync(options.diff, 'utf8') : await diffAgainst(options.base);
     const report = classifyRisk(diff);
     console.log(JSON.stringify(report, null, 2));
     if (report.risky) process.exitCode = 2;
@@ -183,4 +183,4 @@ function main(): void {
   }
 }
 
-if (import.meta.main) main();
+if (import.meta.main) await main();
