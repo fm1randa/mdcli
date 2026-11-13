@@ -215,8 +215,8 @@ const MAX_SCAN_BYTES = 1_000_000;
 type TreeEntry = { type: string; object: string; path: string };
 
 /** Entries of `ref`'s tree, with their raw paths, as `-z` leaves them unquoted. */
-function commitEntries(root: string, ref: string): TreeEntry[] {
-  const listed = gitBytes(['ls-tree', '-r', '-z', '--full-tree', ref], root).toString();
+async function commitEntries(root: string, ref: string): Promise<TreeEntry[]> {
+  const listed = (await gitBytes(['ls-tree', '-r', '-z', '--full-tree', ref], root)).toString();
   const entries: TreeEntry[] = [];
   for (const record of listed.split('\0')) {
     if (record === '') continue;
@@ -229,10 +229,10 @@ function commitEntries(root: string, ref: string): TreeEntry[] {
 }
 
 /** Raw bytes of every blob, one `git cat-file --batch` for the whole tree. */
-function blobContents(root: string, objects: string[]): Map<string, Buffer> {
+async function blobContents(root: string, objects: string[]): Promise<Map<string, Buffer>> {
   const contents = new Map<string, Buffer>();
   if (objects.length === 0) return contents;
-  const output = gitBytes(['cat-file', '--batch'], root, Buffer.from(`${objects.join('\n')}\n`));
+  const output = await gitBytes(['cat-file', '--batch'], root, Buffer.from(`${objects.join('\n')}\n`));
   let offset = 0;
   for (const object of objects) {
     const newline = output.indexOf(0x0a, offset);
@@ -251,9 +251,9 @@ function blobContents(root: string, objects: string[]): Map<string, Buffer> {
 }
 
 /** Entries of the index (`git ls-files -s`), which holds the staged content. */
-function indexEntries(root: string): TreeEntry[] {
+async function indexEntries(root: string): Promise<TreeEntry[]> {
   const entries: TreeEntry[] = [];
-  for (const record of gitBytes(['ls-files', '-s', '-z'], root).toString().split('\0')) {
+  for (const record of (await gitBytes(['ls-files', '-s', '-z'], root)).toString().split('\0')) {
     if (record === '') continue;
     const tab = record.indexOf('\t');
     const [mode, object, stage] = record.slice(0, tab).split(' ');
@@ -264,7 +264,7 @@ function indexEntries(root: string): TreeEntry[] {
 }
 
 /** Hits from `entries`: their paths and, for blobs not already read, their content. */
-function scanEntries(
+async function scanEntries(
   root: string,
   entries: TreeEntry[],
   terms: ReadonlySet<string>,
@@ -272,14 +272,14 @@ function scanEntries(
   keyed: ReadonlySet<string>,
   key: string | undefined,
   seen: Set<string>
-): PrivateTermHit[] {
+): Promise<PrivateTermHit[]> {
   const hits: PrivateTermHit[] = entries.flatMap((entry) =>
     findPrivateTerms(entry.path, terms, allowed, keyed, key).length > 0 ? [{ file: entry.path }] : []
   );
   const blobs = entries.filter((e) => e.type === 'blob' && !/^0+$/.test(e.object) && !seen.has(e.object));
   const objects = [...new Set(blobs.map((blob) => blob.object))];
   for (const object of objects) seen.add(object);
-  const contents = blobContents(root, objects);
+  const contents = await blobContents(root, objects);
   for (const blob of blobs) {
     const content = contents.get(blob.object);
     if (content === undefined) throw new Error(`missing blob ${blob.object} for ${blob.path}`);
@@ -298,15 +298,15 @@ function scanEntries(
  * index. A file deleted from disk is skipped because the commit and the index
  * still carry it.
  */
-function worktreeHits(
+async function worktreeHits(
   root: string,
   terms: ReadonlySet<string>,
   allowed: ReadonlySet<string>,
   keyed: ReadonlySet<string>,
   key: string | undefined
-): PrivateTermHit[] {
+): Promise<PrivateTermHit[]> {
   const hits: PrivateTermHit[] = [];
-  for (const path of gitBytes(['diff', '--name-only', '-z'], root).toString().split('\0').filter(Boolean)) {
+  for (const path of (await gitBytes(['diff', '--name-only', '-z'], root)).toString().split('\0').filter(Boolean)) {
     let content: Buffer;
     try {
       content = readFileSync(join(root, path));
@@ -327,20 +327,21 @@ function worktreeHits(
  * A committed blob above the size limit fails the guard instead of being
  * skipped.
  */
-export function scanTrackedFiles(
+export async function scanTrackedFiles(
   root: string = join(import.meta.dirname, '..'),
   terms: ReadonlySet<string> = PRIVATE_TERM_HASHES,
   allowed: ReadonlySet<string> = ALLOWED_PHRASE_HASHES,
   ref = 'HEAD',
   keyed: ReadonlySet<string> = KEYED_TERM_HASHES,
   key: string | undefined = privateTermsKey()
-): PrivateTermHit[] {
+): Promise<PrivateTermHit[]> {
   const seen = new Set<string>();
-  const commit = ref === 'HEAD' && !revisionExists(ref, root) ? [] : commitEntries(root, ref);
+  const commit = ref === 'HEAD' && !(await revisionExists(ref, root)) ? [] : await commitEntries(root, ref);
+  // Sequential on purpose: `seen` makes the index skip blobs the commit read.
   const hits = [
-    ...scanEntries(root, commit, terms, allowed, keyed, key, seen),
-    ...scanEntries(root, indexEntries(root), terms, allowed, keyed, key, seen),
-    ...worktreeHits(root, terms, allowed, keyed, key),
+    ...(await scanEntries(root, commit, terms, allowed, keyed, key, seen)),
+    ...(await scanEntries(root, await indexEntries(root), terms, allowed, keyed, key, seen)),
+    ...(await worktreeHits(root, terms, allowed, keyed, key)),
   ];
   const found = new Map<string, PrivateTermHit>();
   for (const hit of hits) found.set(`${hit.file}\u0000${hit.line ?? ''}`, hit);

@@ -1,4 +1,5 @@
 import { chromium, type Browser } from 'playwright';
+import { BROWSER_CLOSE_TIMEOUT_MS, BROWSER_LAUNCH_TIMEOUT_MS } from './timeouts.js';
 
 // A hook timed out after 20 s in CI (run 40568587595): its file reported no
 // test, only "a beforeEach/afterEach hook timed out", and bun killed the
@@ -25,10 +26,8 @@ export async function launchTestBrowser(): Promise<Browser> {
   if (process.env.BUN_TEST_WORKER_ID !== undefined) {
     throw new Error('Chrome launched inside a --parallel worker: name the file test/browser-*.test.ts so `bun run test` runs it serially.');
   }
-  return chromium.launch({ channel: 'chrome', headless: true, timeout: 15000, args: [...LAUNCH_ARGS] });
+  return chromium.launch({ channel: 'chrome', headless: true, timeout: BROWSER_LAUNCH_TIMEOUT_MS, args: [...LAUNCH_ARGS] });
 }
-
-const CLOSE_TIMEOUT_MS = 10000;
 
 // bun kills a dangling browser when a hook hangs and reports only the timeout:
 // fail with the reason and keep the timer from outliving the close.
@@ -40,7 +39,7 @@ export async function closeTestBrowser(browser: Browser | undefined): Promise<vo
     await Promise.race([
       browser.close(),
       new Promise<never>((_, reject) => {
-        timer = setTimeout(() => reject(new Error('browser close timeout')), CLOSE_TIMEOUT_MS);
+        timer = setTimeout(() => reject(new Error('browser close timeout')), BROWSER_CLOSE_TIMEOUT_MS);
       }),
     ]);
   } finally {

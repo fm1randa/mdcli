@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { join } from 'node:path';
 import { changedTestFiles, changesProduct, classify, evaluate } from '../scripts/new-tests-fail-on-main.js';
 import type { RunResult } from '../scripts/new-tests-fail-on-main.js';
+import { run } from './run.js';
 
 const result = (
   exitCode: number | null,
@@ -122,52 +123,44 @@ describe('evaluate', () => {
 describe('fails-on-main CLI', () => {
   const script = join(import.meta.dir, '..', 'scripts', 'new-tests-fail-on-main.ts');
 
-  test('is not required when the diff has no src/ or bin/ change', () => {
-    const result = Bun.spawnSync(['bun', script, '--base', 'HEAD'], {
+  test('is not required when the diff has no src/ or bin/ change', async () => {
+    const result = await run(['bun', script, '--base', 'HEAD'], {
       cwd: join(import.meta.dir, '..'),
-      stdout: 'pipe',
-      stderr: 'pipe',
     });
     expect(result.exitCode).toBe(0);
-    expect(result.stdout.toString()).toContain('not required (no src/ or bin/ code change)');
+    expect(result.stdout).toContain('not required (no src/ or bin/ code change)');
   });
 
-  test('rejects a test that passes against the same tree', () => {
+  test('rejects a test that passes against the same tree', async () => {
     // --base HEAD means the worktree has this branch's product code, so the
     // test passes there and the gate must report it.
-    const result = Bun.spawnSync(['bun', script, '--base', 'HEAD', '--files', 'test/dates.test.ts'], {
+    const result = await run(['bun', script, '--base', 'HEAD', '--files', 'test/dates.test.ts'], {
       cwd: join(import.meta.dir, '..'),
-      stdout: 'pipe',
-      stderr: 'pipe',
     });
     expect(result.exitCode).toBe(1);
-    expect(result.stderr.toString()).toContain('test/dates.test.ts PASSED against HEAD');
+    expect(result.stderr).toContain('test/dates.test.ts PASSED against HEAD');
   });
 
-  test('repeats the test three times and names every run that passed', () => {
-    const result = Bun.spawnSync(['bun', script, '--base', 'HEAD', '--files', 'test/dates.test.ts'], {
+  test('repeats the test three times and names every run that passed', async () => {
+    const result = await run(['bun', script, '--base', 'HEAD', '--files', 'test/dates.test.ts'], {
       cwd: join(import.meta.dir, '..'),
-      stdout: 'pipe',
-      stderr: 'pipe',
     });
     expect(result.exitCode).toBe(1);
-    const stderr = result.stderr.toString();
+    const stderr = result.stderr;
     for (const run of [1, 2, 3]) {
       expect(stderr).toContain(`test/dates.test.ts PASSED against HEAD on run ${run} of 3`);
     }
   });
 
-  test('--repeat sets the number of runs', () => {
-    const result = Bun.spawnSync(
+  test('--repeat sets the number of runs', async () => {
+    const result = await run(
       ['bun', script, '--base', 'HEAD', '--files', 'test/dates.test.ts', '--repeat', '2'],
       {
         cwd: join(import.meta.dir, '..'),
-        stdout: 'pipe',
-        stderr: 'pipe',
       }
     );
     expect(result.exitCode).toBe(1);
-    expect(result.stderr.toString()).toContain('test/dates.test.ts PASSED against HEAD on run 2 of 2');
-    expect(result.stderr.toString()).not.toContain('on run 3 of 2');
+    expect(result.stderr).toContain('test/dates.test.ts PASSED against HEAD on run 2 of 2');
+    expect(result.stderr).not.toContain('on run 3 of 2');
   });
 });

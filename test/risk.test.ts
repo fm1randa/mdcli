@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { classifyRisk, type RiskReport } from '../scripts/risk.js';
+import { run } from './run.js';
 
 const root = join(import.meta.dir, '..');
 const fixtures = join(import.meta.dir, 'fixtures', 'risk');
@@ -14,12 +15,9 @@ function topics(report: RiskReport): string[] {
   return report.reasons.map((reason) => reason.topic);
 }
 
-function runRisk(name: string): { code: number; report: RiskReport } {
-  const result = Bun.spawnSync(
-    ['bun', join(root, 'scripts', 'risk.ts'), '--diff', join(fixtures, `${name}.diff`)],
-    { stdout: 'pipe', stderr: 'pipe' },
-  );
-  return { code: result.exitCode ?? 1, report: JSON.parse(result.stdout.toString()) };
+async function runRisk(name: string): Promise<{ code: number; report: RiskReport }> {
+  const result = await run(['bun', join(root, 'scripts', 'risk.ts'), '--diff', join(fixtures, `${name}.diff`)]);
+  return { code: result.exitCode, report: JSON.parse(result.stdout) };
 }
 
 describe('classifyRisk', () => {
@@ -140,21 +138,21 @@ describe('security surfaces', () => {
 });
 
 describe('risk CLI', () => {
-  test('exits 0 for a diff that only changes types', () => {
-    const { code, report } = runRisk('types-only');
+  test('exits 0 for a diff that only changes types', async () => {
+    const { code, report } = await runRisk('types-only');
     expect(code).toBe(0);
     expect(report).toEqual({ risky: false, reasons: [] });
   });
 
-  test('exits 2 and prints the reason for a data write change', () => {
-    const { code, report } = runRisk('write-behavior');
+  test('exits 2 and prints the reason for a data write change', async () => {
+    const { code, report } = await runRisk('write-behavior');
     expect(code).toBe(2);
     expect(report.risky).toBe(true);
     expect(report.reasons.length).toBeGreaterThan(0);
   });
 
-  test('exits 2 for a change in a security surface', () => {
-    const { code, report } = runRisk('security-surfaces');
+  test('exits 2 for a change in a security surface', async () => {
+    const { code, report } = await runRisk('security-surfaces');
     expect(code).toBe(2);
     expect(report.risky).toBe(true);
   });

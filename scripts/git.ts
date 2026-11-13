@@ -47,8 +47,11 @@ export function parseBase(argv: readonly string[]): { base: string; rest: string
  * shallow checkout), so the caller can skip a comparison it cannot make.
  * scripts/verify.sh reads it through `bun scripts/git.ts --print-base`.
  */
-export function resolveBase(cwd?: string): string | undefined {
-  return [DEFAULT_BASE, FALLBACK_BASE].find((ref) => revisionExists(ref, cwd));
+export async function resolveBase(cwd?: string): Promise<string | undefined> {
+  for (const ref of [DEFAULT_BASE, FALLBACK_BASE]) {
+    if (await revisionExists(ref, cwd)) return ref;
+  }
+  return undefined;
 }
 
 export interface SpawnResult {
@@ -60,53 +63,37 @@ export interface SpawnResult {
 export interface SpawnOptions {
   cwd?: string;
   stdin?: Uint8Array;
-}
-
-/** Runs a child to completion with piped output; the caller reads the exit code. */
-export function spawn(command: readonly string[], options: SpawnOptions = {}): SpawnResult {
-  const result = Bun.spawnSync([...command], {
-    cwd: options.cwd,
-    stdin: options.stdin,
-    stdout: 'pipe',
-    stderr: 'pipe',
-  });
-  return { exitCode: result.exitCode, stdout: result.stdout, stderr: result.stderr };
-}
-
-export interface TextResult {
-  exitCode: number;
-  stdout: string;
-  stderr: string;
+  /** Kills the child after this many milliseconds; the exit code then reports the signal. */
+  timeout?: number;
 }
 
 /**
- * The async path for code that runs inside `bun test --parallel`: Bun 1.4.2
- * can hang a spawnSync call there (oven-sh/bun#34069), and Bun.spawn clears
- * the same reports.
+ * Runs a child to completion with piped output; the caller reads the exit
+ * code. Async only: Bun 1.4.2 can hang a spawnSync call inside
+ * `bun test --parallel` (oven-sh/bun#34069), and the tests call these gates
+ * in-process, so this module never spawns synchronously (#293).
  */
-export async function spawnAsync(
-  command: readonly string[],
-  options: { cwd?: string; timeout?: number } = {}
-): Promise<TextResult> {
+export async function spawn(command: readonly string[], options: SpawnOptions = {}): Promise<SpawnResult> {
   const proc = Bun.spawn([...command], {
     cwd: options.cwd,
+    stdin: options.stdin ?? 'ignore',
     stdout: 'pipe',
     stderr: 'pipe',
     ...(options.timeout === undefined ? {} : { timeout: options.timeout }),
   });
   const [stdout, stderr, exitCode] = await Promise.all([
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
+    new Response(proc.stdout).arrayBuffer(),
+    new Response(proc.stderr).arrayBuffer(),
     proc.exited,
   ]);
-  return { exitCode, stdout, stderr };
+  return { exitCode, stdout: Buffer.from(stdout), stderr: Buffer.from(stderr) };
 }
 
 // Non-ASCII paths stay readable in every diff, ls-files and grep the gates parse.
 const GIT = ['git', '-c', 'core.quotepath=false'] as const;
 
 /** git with the exit code left to the caller (a grep without matches exits 1). */
-export function gitResult(args: readonly string[], cwd?: string, stdin?: Uint8Array): SpawnResult {
+export function gitResult(args: readonly string[], cwd?: string, stdin?: Uint8Array): Promise<SpawnResult> {
   return spawn([...GIT, ...args], { cwd, stdin });
 }
 
@@ -116,22 +103,15 @@ function failure(args: readonly string[], cwd: string | undefined, stderr: strin
 }
 
 /** git's raw stdout; throws with git's stderr when it exits non-zero. */
-export function gitBytes(args: readonly string[], cwd?: string, stdin?: Uint8Array): Buffer {
-  const result = gitResult(args, cwd, stdin);
+export async function gitBytes(args: readonly string[], cwd?: string, stdin?: Uint8Array): Promise<Buffer> {
+  const result = await gitResult(args, cwd, stdin);
   if (result.exitCode !== 0) throw failure(args, cwd, result.stderr.toString());
   return result.stdout;
 }
 
 /** git's stdout as text; throws with git's stderr when it exits non-zero. */
-export function git(args: readonly string[], cwd?: string): string {
-  return gitBytes(args, cwd).toString();
-}
-
-/** git's stdout as text off the spawnSync path (see spawnAsync); throws with git's stderr on a non-zero exit. */
-export async function gitAsync(args: readonly string[], cwd?: string): Promise<string> {
-  const result = await spawnAsync([...GIT, ...args], { cwd });
-  if (result.exitCode !== 0) throw failure(args, cwd, result.stderr);
-  return result.stdout;
+export async function git(args: readonly string[], cwd?: string): Promise<string> {
+  return (await gitBytes(args, cwd)).toString();
 }
 
 /** The `head` that diffs against the files on disk, uncommitted edits included. */
@@ -151,7 +131,7 @@ export interface DiffOptions {
  * disk), without rename detection so a moved file shows as a delete plus an
  * add that every gate's parser reads the same way.
  */
-export function diffAgainst(base: string, options: DiffOptions = {}): string {
+export function diffAgainst(base: string, options: DiffOptions = {}): Promise<string> {
   const { head = 'HEAD', flags = [], paths = [], cwd } = options;
   const range = head === WORKING_TREE ? ['--merge-base', base] : [`${base}...${head}`];
   return git(['diff', '--no-renames', '--no-color', ...flags, ...range, '--', ...paths], cwd);
@@ -163,30 +143,30 @@ export function logRange(base: string, head: string = 'HEAD'): string {
 }
 
 /** The commit `diffAgainst(base, { head })` compares against: where head left base. */
-export function mergeBase(base: string, head: string = 'HEAD', cwd?: string): string {
-  return git(['merge-base', base, head], cwd).trim();
+export async function mergeBase(base: string, head: string = 'HEAD', cwd?: string): Promise<string> {
+  return (await git(['merge-base', base, head], cwd)).trim();
 }
 
 /** git's trimmed stdout, or undefined when it exits non-zero. */
-export function gitQuiet(args: readonly string[], cwd?: string): string | undefined {
-  const result = gitResult(args, cwd);
+export async function gitQuiet(args: readonly string[], cwd?: string): Promise<string | undefined> {
+  const result = await gitResult(args, cwd);
   return result.exitCode === 0 ? result.stdout.toString().trim() : undefined;
 }
 
 /** True when `ref` names a commit; an unborn HEAD names none. */
-export function revisionExists(ref: string, cwd?: string): boolean {
-  return gitQuiet(['rev-parse', '--verify', '--quiet', ref], cwd) !== undefined;
+export async function revisionExists(ref: string, cwd?: string): Promise<boolean> {
+  return (await gitQuiet(['rev-parse', '--verify', '--quiet', ref], cwd)) !== undefined;
 }
 
 /** The repository root of `cwd`, so a subdirectory still sees the whole tree. */
-export function repoRoot(cwd: string = process.cwd()): string {
-  return git(['rev-parse', '--show-toplevel'], cwd).trim();
+export async function repoRoot(cwd: string = process.cwd()): Promise<string> {
+  return (await git(['rev-parse', '--show-toplevel'], cwd)).trim();
 }
 
 if (import.meta.main) {
   const [command] = process.argv.slice(2);
   if (command === '--print-base') {
-    console.log(resolveBase() ?? '');
+    console.log((await resolveBase()) ?? '');
   } else {
     console.error('usage: bun scripts/git.ts --print-base');
     process.exitCode = 2;

@@ -115,11 +115,11 @@ function parseOptions(argv: string[]): Options {
   return options;
 }
 
-function main(): void {
+async function main(): Promise<void> {
   try {
     const options = parseOptions(process.argv.slice(2));
     const body = options.bodyFile ? readFileSync(options.bodyFile, 'utf8') : (process.env.PR_BODY ?? '');
-    const diff = options.diff ? readFileSync(options.diff, 'utf8') : diffAgainst(options.base, { paths: ['src'] });
+    const diff = options.diff ? readFileSync(options.diff, 'utf8') : await diffAgainst(options.base, { paths: ['src'] });
     const check = checkProva(body, diff);
 
     if (!check.required) {
@@ -148,4 +148,4 @@ function main(): void {
   }
 }
 
-if (import.meta.main) main();
+if (import.meta.main) await main();
