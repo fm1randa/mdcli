@@ -1,6 +1,7 @@
 import chalk from 'chalk';
 import { logger } from '../../utils/logger.js';
 import { t } from '../../lib/i18n/index.js';
+import { parseSummaryGrouping } from '../../lib/i18n/summary-grouping.js';
 import { exitWithError } from '../../utils/action.js';
 import { normalizeEntries } from '../../lib/api.js';
 import { fetchListEntries } from './card-entries.js';
@@ -97,9 +98,6 @@ export async function listAction(options: ListOptions): Promise<void> {
   console.log(table.toString());
 }
 
-const SUMMARY_GROUPINGS = ['category', 'month', 'account'] as const;
-type SummaryGrouping = (typeof SUMMARY_GROUPINGS)[number];
-
 interface SummaryOptions extends FilterOptions {
   by?: string;
   includeTransfers?: boolean;
@@ -109,8 +107,8 @@ interface SummaryOptions extends FilterOptions {
 
 export async function summaryAction(options: SummaryOptions): Promise<void> {
   checkOutputFormat(options);
-  const by = (options.by ?? 'category') as SummaryGrouping;
-  if (!SUMMARY_GROUPINGS.includes(by)) {
+  const by = parseSummaryGrouping(options.by);
+  if (by === undefined) {
     exitWithError(t('errorInvalidBy', options.by ?? ''));
   }
 
@@ -171,7 +169,7 @@ export async function summaryAction(options: SummaryOptions): Promise<void> {
 
   const table = newTable({
     head: [
-      by === 'month' ? t('summaryGroupMonth') : by === 'account' ? t('summaryGroupAccount') : t('summaryGroupCategory'),
+      t('summaryGroupColumn', by),
       t('labelEntries'),
       t('labelIncome'),
       t('labelExpenses'),
