@@ -17,7 +17,7 @@ export const ptBREntriesUpdateDelete = {
     'Definir como confirmado, não conciliado (confirma um lançamento pendente ou agendado)',
   entriesUpdateReconciledOption: () => 'Definir como conciliado',
   entriesFilterAccountOption: () =>
-    'ID(s) da(s) conta(s), alias(es) ou nome(s) exato(s) (sem diferenciar maiúsculas/minúsculas), separados por vírgula',
+    'ID(s) da(s) conta(s), alias(es) ou nome(s) exato(s) (sem diferenciar maiúsculas/minúsculas), separados por vírgula; padrão: todas as contas ativas, cartões incluídos',
   entriesFilterFromOption: () =>
     'Data inicial (AAAA-MM-DD); padrão: primeiro dia do mês atual',
   entriesFilterToOption: () =>
@@ -49,6 +49,8 @@ export const ptBREntriesUpdateDelete = {
   filterLabelRepetition: () => 'Repetição',
   errorAccountRequired: () =>
     'É necessário informar ao menos um ID de conta ou alias. Use --account <id> ou --account <id1,id2,...>',
+  errorNoActiveAccounts: () =>
+    'Nenhuma conta ativa encontrada. Use --account <id> para consultar uma conta inativa ou encerrada.',
   errorUnknownAccounts: (list: string) => `Conta(s) desconhecida(s): ${list}`,
   errorUnknownCategories: (list: string) => `Categoria(s) desconhecida(s): ${list}`,
   errorUnknownCategoriesExclude: (list: string) =>
