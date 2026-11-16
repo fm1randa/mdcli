@@ -6,6 +6,7 @@ import { countDisables, directiveLines } from '../scripts/check-eslint-disables.
 import type { ContentReader } from '../scripts/check-eslint-disables.js';
 import { git } from '../scripts/git.js';
 import { commitAll } from './git-repo.js';
+import { run } from './run.js';
 
 const HEADER = `diff --git a/src/lib/x.ts b/src/lib/x.ts
 index 1111111..2222222 100644
@@ -127,7 +128,7 @@ diff --git a/src/lib/b.ts b/src/lib/b.ts
 });
 
 describe('check-eslint-disables step', () => {
-  test('fails when the diff deletes one disable and copies another without a reason', () => {
+  test('fails when the diff deletes one disable and copies another without a reason', async () => {
     const repo = mkdtempSync(join(tmpdir(), 'mdcli-disables-'));
     const script = join(import.meta.dir, '..', 'scripts', 'check-eslint-disables.ts');
     try {
@@ -136,22 +137,18 @@ describe('check-eslint-disables step', () => {
         join(repo, 'src', 'a.ts'),
         'const a = 1;\n// eslint-disable-next-line local/no-raw-dash -- legacy\n'
       );
-      git(['init', '-q'], repo);
-      commitAll(repo, 'base');
+      await git(['init', '-q'], repo);
+      await commitAll(repo, 'base');
 
       writeFileSync(join(repo, 'src', 'a.ts'), 'const a = 1;\n');
       writeFileSync(join(repo, 'src', 'b.ts'), '// eslint-disable-next-line local/no-raw-dash\nexport const b = 1;\n');
-      commitAll(repo, 'delete one, copy another');
+      await commitAll(repo, 'delete one, copy another');
 
-      const result = Bun.spawnSync(['bun', script, '--base', 'HEAD~1', '--head', 'HEAD'], {
-        cwd: repo,
-        stdout: 'pipe',
-        stderr: 'pipe',
-      });
+      const result = await run(['bun', script, '--base', 'HEAD~1', '--head', 'HEAD'], { cwd: repo });
 
       expect(result.exitCode).toBe(1);
-      expect(result.stderr.toString()).toContain('sem motivo depois de "--"');
-      expect(result.stderr.toString()).toContain('src/b.ts:1');
+      expect(result.stderr).toContain('sem motivo depois de "--"');
+      expect(result.stderr).toContain('src/b.ts:1');
     } finally {
       rmSync(repo, { recursive: true, force: true });
     }
@@ -159,30 +156,30 @@ describe('check-eslint-disables step', () => {
 
   // The gate diffed base against the files on disk with two dots, so a branch
   // behind main read a bare directive main had removed as one it added (#286).
-  test('passes a branch behind main and fails on its own uncommitted bare directive', () => {
+  test('passes a branch behind main and fails on its own uncommitted bare directive', async () => {
     const repo = mkdtempSync(join(tmpdir(), 'mdcli-disables-behind-'));
     const script = join(import.meta.dir, '..', 'scripts', 'check-eslint-disables.ts');
-    const run = () => Bun.spawnSync(['bun', script, '--base', 'main'], { cwd: repo, stdout: 'pipe', stderr: 'pipe' });
+    const check = () => run(['bun', script, '--base', 'main'], { cwd: repo });
     try {
       mkdirSync(join(repo, 'src'), { recursive: true });
       writeFileSync(join(repo, 'src', 'a.ts'), '// eslint-disable-next-line local/no-raw-dash\nexport const a = 1;\n');
-      git(['init', '-q', '-b', 'main'], repo);
-      commitAll(repo, 'base');
-      git(['checkout', '-q', '-b', 'feature'], repo);
-      git(['checkout', '-q', 'main'], repo);
+      await git(['init', '-q', '-b', 'main'], repo);
+      await commitAll(repo, 'base');
+      await git(['checkout', '-q', '-b', 'feature'], repo);
+      await git(['checkout', '-q', 'main'], repo);
       writeFileSync(join(repo, 'src', 'a.ts'), 'export const a = 1;\n');
-      commitAll(repo, 'main drops the bare directive');
-      git(['checkout', '-q', 'feature'], repo);
+      await commitAll(repo, 'main drops the bare directive');
+      await git(['checkout', '-q', 'feature'], repo);
 
-      const behind = run();
-      expect(behind.stderr.toString()).toBe('');
+      const behind = await check();
+      expect(behind.stderr).toBe('');
       expect(behind.exitCode).toBe(0);
 
       writeFileSync(join(repo, 'src', 'b.ts'), '// eslint-disable-next-line local/no-raw-dash\nexport const b = 1;\n');
-      git(['add', 'src/b.ts'], repo);
-      const uncommitted = run();
+      await git(['add', 'src/b.ts'], repo);
+      const uncommitted = await check();
       expect(uncommitted.exitCode).toBe(1);
-      expect(uncommitted.stderr.toString()).toContain('src/b.ts:1');
+      expect(uncommitted.stderr).toContain('src/b.ts:1');
     } finally {
       rmSync(repo, { recursive: true, force: true });
     }

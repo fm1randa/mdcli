@@ -1,7 +1,7 @@
 import { repoRoot } from './git.js';
 import { KEYED_TERM_HASHES, requirePrivateTermsKey, scanTrackedFiles } from './private-terms.js';
 
-function main(): void {
+async function main(): Promise<void> {
   try {
     const key = requirePrivateTermsKey();
     if (key === undefined && KEYED_TERM_HASHES.size > 0) {
@@ -9,7 +9,7 @@ function main(): void {
         'guarda de dados privados: aviso: MDCLI_PRIVATE_TERMS_KEY ausente; termos numéricos de baixa entropia não foram verificados'
       );
     }
-    const hits = scanTrackedFiles(repoRoot());
+    const hits = await scanTrackedFiles(await repoRoot());
     if (hits.length === 0) {
       console.log('✓ guarda de dados privados: nenhum termo privado nos arquivos versionados');
       return;
@@ -23,4 +23,4 @@ function main(): void {
   }
 }
 
-if (import.meta.main) main();
+if (import.meta.main) await main();

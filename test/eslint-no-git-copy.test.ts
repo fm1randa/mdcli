@@ -52,7 +52,7 @@ describe('local/no-git-copy', () => {
   for (const [rev, copies] of [[BEFORE, COPIES], [HEAD_BEFORE, HEAD_COPIES]] as const) {
     for (const [path, snippets] of Object.entries(copies)) {
       test(`fires on every copy ${path} carried at ${rev}`, async () => {
-        const source = git(['show', `${rev}:${path}`], ROOT);
+        const source = await git(['show', `${rev}:${path}`], ROOT);
         const lines = await hits(source, path);
         for (const snippet of snippets) expect(lines).toContain(lineOf(source, snippet, rev));
       });

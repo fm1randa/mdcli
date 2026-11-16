@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { createHome, MANUAL_AUTH, runCli, startMockApi } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, TAGS_RESPONSE, entriesPage } from './fixtures.js';
 import type { Entry } from '../src/types/index.js';
+import { run } from './run.js';
 
 // Issue #148: stdout truncated when piped. The CLI writes one large JSON with
 // console.log and then exits; without flushStdout the process exits while the
@@ -89,7 +90,7 @@ describe('stdout flush guard', () => {
   // The old bin/cli.ts unhandledRejection body exited even when flushStdout
   // rejected (`.catch(() => process.exit(1))`). A rejected flush must not
   // re-enter the handler: exitAfterFlush has to reach process.exit anyway.
-  test('exitAfterFlush exits even when the flush throws', () => {
+  test('exitAfterFlush exits even when the flush throws', async () => {
     const helper = join(import.meta.dir, '..', 'src', 'utils', 'action.ts');
     const script = `
       const stdout = process.stdout;
@@ -103,7 +104,7 @@ describe('stdout flush guard', () => {
       process.exitCode = 3;
     `;
 
-    const result = Bun.spawnSync(['bun', '-e', script], { stdout: 'pipe', stderr: 'pipe' });
+    const result = await run(['bun', '-e', script]);
 
     expect(result.exitCode).toBe(7);
   });

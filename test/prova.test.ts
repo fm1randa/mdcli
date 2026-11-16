@@ -3,6 +3,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { checkProva, parseProva, requiresProva } from '../scripts/prova.js';
+import { run } from './run.js';
 
 const BEFORE = ['### Antes (main)', '', '```sh', '$ mdcli entries import run -a 201 --dry-run', 'Dry run: 1 entry', '```'].join(
   '\n',
@@ -113,47 +114,40 @@ describe('checkProva', () => {
 describe('prova CLI', () => {
   const script = join(import.meta.dir, '..', 'scripts', 'prova.ts');
 
-  function run(body: string, diff: string): { code: number; out: string; err: string } {
+  async function runProva(body: string, diff: string): Promise<{ code: number; out: string; err: string }> {
     const dir = mkdtempSync(join(tmpdir(), 'mdcli-prova-'));
     try {
       const bodyFile = join(dir, 'body.md');
       const diffFile = join(dir, 'change.diff');
       writeFileSync(bodyFile, body);
       writeFileSync(diffFile, diff);
-      const result = Bun.spawnSync(['bun', script, '--body-file', bodyFile, '--diff', diffFile], {
-        stdout: 'pipe',
-        stderr: 'pipe',
-      });
-      return {
-        code: result.exitCode ?? 1,
-        out: result.stdout.toString(),
-        err: result.stderr.toString(),
-      };
+      const result = await run(['bun', script, '--body-file', bodyFile, '--diff', diffFile]);
+      return { code: result.exitCode, out: result.stdout, err: result.stderr };
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
   }
 
-  test('passes a src change with the Web line and both blocks and fails without them', () => {
+  test('passes a src change with the Web line and both blocks and fails without them', async () => {
     const filled = ['## Prova', '', WEB, '', BEFORE, '', AFTER].join('\n');
-    expect(run(filled, BEHAVIOR).code).toBe(0);
+    expect((await runProva(filled, BEHAVIOR)).code).toBe(0);
 
     const noWeb = ['## Prova', '', BEFORE, '', AFTER].join('\n');
-    const missingWeb = run(noWeb, BEHAVIOR);
+    const missingWeb = await runProva(noWeb, BEHAVIOR);
     expect(missingWeb.code).toBe(1);
     expect(missingWeb.err).toContain('Web:');
 
-    const failed = run(BEFORE, BEHAVIOR);
+    const failed = await runProva(BEFORE, BEHAVIOR);
     expect(failed.code).toBe(1);
     expect(failed.err).toContain('### Depois (branch)');
   });
 
-  test('passes a docs-only change and a comment-only src change without the section', () => {
-    const docs = run('## Problema\n\nnada', DOCS_ONLY);
+  test('passes a docs-only change and a comment-only src change without the section', async () => {
+    const docs = await runProva('## Problema\n\nnada', DOCS_ONLY);
     expect(docs.code).toBe(0);
     expect(docs.out).toContain('not required');
 
-    const comment = run('## Problema\n\nnada', COMMENT_ONLY);
+    const comment = await runProva('## Problema\n\nnada', COMMENT_ONLY);
     expect(comment.code).toBe(0);
     expect(comment.out).toContain('not required');
   });

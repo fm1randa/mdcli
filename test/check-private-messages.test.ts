@@ -3,9 +3,9 @@ import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { commitSources, messageHits, pullRequestSource } from '../scripts/check-private-messages.js';
-import { gitAsync } from '../scripts/git.js';
+import { git } from '../scripts/git.js';
 import { keyedTermHash, termHash } from '../scripts/private-terms.js';
-import { commitAllAsync } from './git-repo.js';
+import { commitAll } from './git-repo.js';
 
 const fakeTerm = 'termo-sintetico-proibido';
 const fakeHashes = new Set([termHash(fakeTerm)]);
@@ -40,13 +40,13 @@ async function runScript(ghDir: string): Promise<{ stdout: string; stderr: strin
 
 async function tempRepo(): Promise<string> {
   const root = mkdtempSync(join(tmpdir(), 'mdcli-private-messages-'));
-  await gitAsync(['init', '-q'], root);
+  await git(['init', '-q'], root);
   return root;
 }
 
 async function commit(root: string, message: string): Promise<string> {
   writeFileSync(join(root, 'note.txt'), `${message}\n`);
-  return commitAllAsync(root, message);
+  return commitAll(root, message);
 }
 
 test('reports a commit message carrying a term and passes on a clean range', async () => {

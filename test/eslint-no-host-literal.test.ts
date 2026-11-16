@@ -54,7 +54,7 @@ describe('local/no-host-literal', () => {
 
   test(`catches every copy main carried at ${BEFORE}, and the branch carries none`, async () => {
     for (const [file, lines] of Object.entries(COPIES)) {
-      expect(await hits(git(['show', `${BEFORE}:${file}`], ROOT), file)).toEqual(lines);
+      expect(await hits(await git(['show', `${BEFORE}:${file}`], ROOT), file)).toEqual(lines);
       expect(await hits(readFileSync(`${ROOT}/${file}`, 'utf8'), file)).toEqual([]);
     }
   });

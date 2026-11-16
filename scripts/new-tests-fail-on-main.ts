@@ -92,11 +92,11 @@ function parseOptions(argv: string[]): Options {
   return options;
 }
 
-function runTests(root: string, base: string, files: string[], repeat: number): RunResult[] {
+async function runTests(root: string, base: string, files: string[], repeat: number): Promise<RunResult[]> {
   const dir = mkdtempSync(join(tmpdir(), 'mdcli-fails-on-main-'));
   const worktree = join(dir, 'worktree');
   try {
-    git(['worktree', 'add', '--detach', worktree, base], root);
+    await git(['worktree', 'add', '--detach', worktree, base], root);
     // The branch's tests run against main's product code: replace the test
     // directory (helpers, fixtures, setup) and keep src/, bin/ and scripts/.
     rmSync(join(worktree, 'test'), { recursive: true, force: true });
@@ -108,7 +108,8 @@ function runTests(root: string, base: string, files: string[], repeat: number): 
     for (const file of files) {
       for (let run = 1; run <= repeat; run++) {
         console.log(`fails-on-main: ${file} run ${run} of ${repeat}`);
-        const result = spawn(['bun', 'test', `./${file}`, '--timeout', '20000'], { cwd: worktree });
+        // The copied test/setup.ts sets the per-test timeout (TEST_TIMEOUT_MS).
+        const result = await spawn(['bun', 'test', `./${file}`], { cwd: worktree });
         const output = `${result.stdout.toString()}\n${result.stderr.toString()}`;
         process.stdout.write(result.stdout);
         process.stderr.write(result.stderr);
@@ -118,7 +119,7 @@ function runTests(root: string, base: string, files: string[], repeat: number): 
     return results;
   } finally {
     try {
-      if (existsSync(worktree)) git(['worktree', 'remove', '--force', worktree], root);
+      if (existsSync(worktree)) await git(['worktree', 'remove', '--force', worktree], root);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -135,15 +136,15 @@ function writeSummary(markdown: string): void {
   }
 }
 
-function main(): void {
+async function main(): Promise<void> {
   try {
     const options = parseOptions(process.argv.slice(2));
-    const root = repoRoot();
-    const diff = diffAgainst(options.base, { flags: ['--name-status'], cwd: root });
+    const root = await repoRoot();
+    const diff = await diffAgainst(options.base, { flags: ['--name-status'], cwd: root });
     // A test-only PR (like this gate's own fix to a flawed guard) has no new
     // behavior to prove, and a comment in src/ is not behavior either; the gate
     // only guards PRs that change product code.
-    const productDiff = diffAgainst(options.base, { paths: ['src', 'bin'], cwd: root });
+    const productDiff = await diffAgainst(options.base, { paths: ['src', 'bin'], cwd: root });
     // A `--files` run is the manual proof from the PR: it always runs, so an
     // exemption never hides a proof the author asked for.
     if (options.files === undefined) {
@@ -176,7 +177,7 @@ function main(): void {
     }
 
     console.log(`fails-on-main: running against ${options.base} ${options.repeat} times: ${files.join(', ')}`);
-    const verdict = evaluate(runTests(root, options.base, files, options.repeat));
+    const verdict = evaluate(await runTests(root, options.base, files, options.repeat));
     if (verdict.ok) {
       console.log('fails-on-main: every changed test failed against main in every run (good)');
       return;
@@ -200,4 +201,4 @@ function main(): void {
   }
 }
 
-if (import.meta.main) main();
+if (import.meta.main) await main();

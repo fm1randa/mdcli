@@ -63,19 +63,20 @@ function normalize(source: string): string {
   return source.split('\n').map((line) => line.trim()).filter((line) => line !== '').join('\n');
 }
 
-function mainRef(cwd: string): string {
-  const ref = ['origin/main', 'main'].find((candidate) => revisionExists(`${candidate}^{commit}`, cwd));
-  if (ref !== undefined) return ref;
+async function mainRef(cwd: string): Promise<string> {
+  for (const ref of ['origin/main', 'main']) {
+    if (await revisionExists(`${ref}^{commit}`, cwd)) return ref;
+  }
   throw new Error('cannot verify fixture origins without origin/main or main; fetch the main history');
 }
 
 // A fixture whose origin survives only on the PR branch passes this checkout
 // but disappears when the squash merge rewrites that branch, leaving main red.
 // Requiring the origin to be in main's history refuses it before the merge.
-function assertReachable(rule: string, origin: string, cwd = ROOT): void {
-  const base = mainRef(cwd);
+async function assertReachable(rule: string, origin: string, cwd = ROOT): Promise<void> {
+  const base = await mainRef(cwd);
   try {
-    git(['merge-base', '--is-ancestor', origin, base], cwd);
+    await git(['merge-base', '--is-ancestor', origin, base], cwd);
   } catch {
     throw new Error(`${rule}: fixture origin ${origin} is not reachable from ${base}; the squash merge drops branch-only commits, so anchor the fixture in a commit already on main`);
   }
@@ -84,14 +85,14 @@ function assertReachable(rule: string, origin: string, cwd = ROOT): void {
 // The fixture proves the rule catches real code only when that code is still
 // in the commit that motivated the rule. A hand-written approximation lets a
 // narrow selector pass while missing the shape it was built for.
-function assertOriginCode(rule: string, fixture: Fixture): void {
-  if (!revisionExists(`${fixture.origin}^{commit}`, ROOT)) {
+async function assertOriginCode(rule: string, fixture: Fixture): Promise<void> {
+  if (!(await revisionExists(`${fixture.origin}^{commit}`, ROOT))) {
     throw new Error(`${rule}: fixture origin ${fixture.origin} is not a commit in this repository`);
   }
-  assertReachable(rule, fixture.origin);
+  await assertReachable(rule, fixture.origin);
   let blob: string;
   try {
-    blob = git(['show', `${fixture.origin}:${fixture.source}`], ROOT);
+    blob = await git(['show', `${fixture.origin}:${fixture.source}`], ROOT);
   } catch {
     throw new Error(`${rule}: ${fixture.source} does not exist at ${fixture.origin}`);
   }
@@ -119,7 +120,7 @@ describe('every local rule is proven against the code that motivated it', () => 
       expect(fixture!.origin).toMatch(/^[0-9a-f]{7,40}\^?$/);
       expect(fixture!.note.trim()).not.toBe('');
       expect(existsSync(join(ROOT, fixture!.source))).toBe(true);
-      assertOriginCode(rule, fixture!);
+      await assertOriginCode(rule, fixture!);
 
       // A plain Linter keeps this check off the typed-project startup in
       // eslint-local-rules.test.ts; the scope is proven by calculateConfigForFile above.
@@ -158,18 +159,18 @@ describe('every local rule is proven against the code that motivated it', () => 
 });
 
 describe('fixture origins survive the squash merge', () => {
-  test('accepts a commit on main and rejects one only on a side branch', () => {
+  test('accepts a commit on main and rejects one only on a side branch', async () => {
     const repo = mkdtempSync(join(tmpdir(), 'mdcli-fixture-origin-'));
     try {
-      const commit = (message: string): string => commitAll(repo, message, '--allow-empty');
-      git(['init', '-q', '-b', 'main'], repo);
-      const mainCommit = commit('main');
-      git(['update-ref', 'refs/remotes/origin/main', mainCommit], repo);
-      git(['checkout', '-q', '-b', 'feature'], repo);
-      const sideCommit = commit('side');
+      const commit = (message: string): Promise<string> => commitAll(repo, message, '--allow-empty');
+      await git(['init', '-q', '-b', 'main'], repo);
+      const mainCommit = await commit('main');
+      await git(['update-ref', 'refs/remotes/origin/main', mainCommit], repo);
+      await git(['checkout', '-q', '-b', 'feature'], repo);
+      const sideCommit = await commit('side');
 
-      expect(() => assertReachable('rule', mainCommit, repo)).not.toThrow();
-      expect(() => assertReachable('rule', sideCommit, repo)).toThrow(/not reachable from origin\/main/);
+      await expect(assertReachable('rule', mainCommit, repo)).resolves.toBeUndefined();
+      await expect(assertReachable('rule', sideCommit, repo)).rejects.toThrow(/not reachable from origin\/main/);
     } finally {
       rmSync(repo, { recursive: true, force: true });
     }

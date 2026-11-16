@@ -236,7 +236,7 @@ function uncoveredRemovedTerms(
   return hits;
 }
 
-export function removedRunsBetween(
+export async function removedRunsBetween(
   base: string,
   head: string,
   root: string = join(import.meta.dirname, '..'),
@@ -245,10 +245,10 @@ export function removedRunsBetween(
   excused: ReadonlyMap<string, string> = EXCUSED_REMOVED_TERMS,
   keyed: ReadonlySet<string> = KEYED_TERM_HASHES,
   key: string | undefined = privateTermsKey()
-): RemovedTermHit[] {
+): Promise<RemovedTermHit[]> {
   return uncoveredRemovedTerms(
-    deletedLines(base, head, root),
-    headCorpus(head, root),
+    await deletedLines(base, head, root),
+    await headCorpus(head, root),
     terms,
     allowed,
     excused,
@@ -258,8 +258,8 @@ export function removedRunsBetween(
 }
 
 /** A PR that does not maintain the private-data guard has no corpus to check. */
-export function guardChanged(base: string, head: string, root: string): boolean {
-  const changed = diffAgainst(base, { head, flags: ['--name-only'], paths: GUARD_FILES, cwd: root });
+export async function guardChanged(base: string, head: string, root: string): Promise<boolean> {
+  const changed = await diffAgainst(base, { head, flags: ['--name-only'], paths: GUARD_FILES, cwd: root });
   return changed.trim() !== '';
 }
 
@@ -270,12 +270,12 @@ function parseOptions(argv: string[]): { base: string; head: string } {
   return { base, head };
 }
 
-function main(): void {
+async function main(): Promise<void> {
   try {
     const root = join(import.meta.dirname, '..');
     const { base, head } = parseOptions(process.argv.slice(2));
     const key = requirePrivateTermsKey();
-    if (!guardChanged(base, head, root)) {
+    if (!(await guardChanged(base, head, root))) {
       console.log(`private-terms corpus: skipped (${base}...${head} does not maintain the private-data guard)`);
       return;
     }
@@ -284,7 +284,7 @@ function main(): void {
         'private-terms corpus: warning: MDCLI_PRIVATE_TERMS_KEY is unset; low-entropy numeric terms were not checked'
       );
     }
-    const hits = removedRunsBetween(base, head, root);
+    const hits = await removedRunsBetween(base, head, root);
     if (hits.length === 0) {
       console.log(`private-terms corpus: every removed term is guarded (${base}...${head})`);
       return;
@@ -307,4 +307,4 @@ function main(): void {
   }
 }
 
-if (import.meta.main) main();
+if (import.meta.main) await main();
