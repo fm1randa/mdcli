@@ -63,7 +63,7 @@ describe('replayGates', () => {
     });
   });
 
-  test('surfaces a gate that fires on a behavior-preserving commit', () => {
+  test('surfaces a gate that fires on a behavior-preserving commit', async () => {
     const srcTouch: Gate = {
       name: 'src-touch',
       decide(commit) {
@@ -72,7 +72,7 @@ describe('replayGates', () => {
       },
     };
 
-    withRepo(async (root, shas) => {
+    await withRepo(async (root, shas) => {
       const report = replayGates(await readCommits('HEAD', 2, root), [srcTouch]);
       const comment = report.commits.find((replay) => replay.sha === shas.comment)!;
       expect(comment.decisions).toEqual([{ gate: 'src-touch', fired: true, detail: 'touches src/' }]);
