@@ -1,9 +1,8 @@
 import { fetchCardInvoice } from '../../../lib/api.js';
 import { t } from '../../../lib/i18n/index.js';
 import { addInterval, calendarDay, shiftDueDate } from '../../../lib/dates.js';
+import { MAX_INVOICE_STEPS } from '../card-invoice.js';
 
-/** How far back the walk goes, like `resolveCardDueDate`. */
-const MAX_EARLIER_INVOICES = 24;
 /** Closing days drift a day or two between months; this bounds the guess that skips a request. */
 const CLOSING_DRIFT_DAYS = 7;
 
@@ -29,7 +28,8 @@ export async function invoiceItems(cardId: number, due: string, purchaseDates: r
   const items = [...current.items];
   const earliest = earliestDate(purchaseDates);
   let closing = current.closing;
-  for (let offset = -1; offset >= -MAX_EARLIER_INVOICES; offset--) {
+  // How far back the walk goes, like `resolveCardDueDate`.
+  for (let offset = -1; offset >= -MAX_INVOICE_STEPS; offset--) {
     if (earliest === null || closing === null) break;
     // The previous closing is about a month before this one: no request when every purchase is clearly after it.
     if (earliest > addInterval(shiftDueDate(closing, -1), CLOSING_DRIFT_DAYS, 'd')) break;
