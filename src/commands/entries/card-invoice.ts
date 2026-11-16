@@ -4,7 +4,7 @@ import { addInterval, calendarDay, dueDateInMonth, parseInvoiceMonth, shiftDueDa
 import { parseInteger } from '../../utils/parse.js';
 import type { Account, EntryAgenda } from '../../types/index.js';
 
-const MAX_INVOICE_STEPS = 24;
+export const MAX_INVOICE_STEPS = 24;
 
 /**
  * The due date (YYYY-MM-DD) the card's invoices are counted from. This file
