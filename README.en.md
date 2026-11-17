@@ -1,4 +1,4 @@
-<!-- traduzido de README.md @ f41a669 (base: f41a669ab37b51619a85b665d1865256e6848955; readme-blob: d65094a2ef329c2bea89124126431d88fe7ca390); ao atualizar o README.md, sincronize este arquivo e atualize o SHA e o readme-blob (git hash-object README.md) -->
+<!-- traduzido de README.md @ f41a669 (base: f41a669ab37b51619a85b665d1865256e6848955; readme-blob: ad25f4507fbdd9a59347a456115cf47c5d969c18); ao atualizar o README.md, sincronize este arquivo e atualize o SHA e o readme-blob (git hash-object README.md) -->
 [Português (Brasil)](README.md) · **English**
 
 > The Portuguese [README.md](README.md) is the reference version; this English translation may lag behind it.
@@ -509,6 +509,13 @@ mdcli budget
 mdcli budget --month 2026-11
 mdcli budget --from 2026-11-01 --to 2026-11-30 --regime accrual --json
 
+# Set or remove one category goal. The amount uses the sign the read shows
+# (negative for an expense, positive for income). It asks for confirmation. --dry-run does not save.
+# Remove stores 0, and the next read drops the row.
+mdcli budget set --category Alimentação --value -800 --month 2026-11
+mdcli budget set --category 20 --value 4500 --month 2026-11 --until 2026-12 --dry-run
+mdcli budget remove --category Alimentação --month 2026-11
+
 # List only active tags
 mdcli tags list --active
 
@@ -593,6 +600,8 @@ The tests in `test/` run the real CLI as a subprocess against a local mock of th
 | Month or range (`--month`, `--from`, `--to`) | Done |
 | Cash or accrual regime (`--regime`) | Done |
 | JSON output | Done |
+| Set a goal (`budget set`) | Done |
+| Remove a goal (`budget remove`) | Done |
 
 ### Tags
 | Feature | Status |

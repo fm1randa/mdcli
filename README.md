@@ -506,6 +506,13 @@ mdcli budget
 mdcli budget --month 2026-11
 mdcli budget --from 2026-11-01 --to 2026-11-30 --regime accrual --json
 
+# Define ou remove a meta de uma categoria. O valor vai com o sinal que a leitura mostra
+# (despesa negativa, receita positiva). Pede confirmação. --dry-run não grava.
+# Remover grava 0, e a leitura seguinte deixa de mostrar a linha.
+mdcli budget set --category Alimentação --value -800 --month 2026-11
+mdcli budget set --category 20 --value 4500 --month 2026-11 --until 2026-12 --dry-run
+mdcli budget remove --category Alimentação --month 2026-11
+
 # Lista só as tags ativas
 mdcli tags list --active
 
@@ -590,6 +597,8 @@ Os testes em `test/` executam a CLI real como subprocesso contra um mock local d
 | Mês ou intervalo (`--month`, `--from`, `--to`) | Pronto |
 | Regime caixa ou competência (`--regime`) | Pronto |
 | Saída em JSON | Pronto |
+| Definir meta (`budget set`) | Pronto |
+| Remover meta (`budget remove`) | Pronto |
 
 ### Tags
 | Funcionalidade | Status |

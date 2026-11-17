@@ -22,6 +22,6 @@ describe('mock payloads are typed by route', () => {
   });
 
   test('the scan finds the raw calls the helpers own', () => {
-    expect(rawJsonCalls(HELPERS)).toHaveLength(6);
+    expect(rawJsonCalls(HELPERS)).toHaveLength(7);
   });
 });
