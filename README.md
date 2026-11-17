@@ -254,6 +254,11 @@ mdcli tags alias list
 mdcli tags alias update --id 678 --name trip
 mdcli tags alias rm --name trip
 
+# Sem --account, list e summary usam todas as contas ativas, cartões incluídos
+# (as mesmas de `mdcli accounts list --active`). Com --account, só as contas pedidas.
+mdcli entries summary
+mdcli entries list --from 2026-11-01 --to 2026-11-30
+
 # Lista lançamentos usando o alias
 mdcli entries list --account principal --from 2024-01-01 --to 2024-01-31
 
