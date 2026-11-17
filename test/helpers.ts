@@ -106,7 +106,7 @@ export function startMockApi(): MockApi {
       routes.set(route, { handler: body, status });
     },
     stop() {
-      server.stop(true);
+      void server.stop(true);
     },
   };
 }

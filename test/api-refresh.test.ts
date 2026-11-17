@@ -33,7 +33,7 @@ beforeAll(async () => {
   // mock.module replaces the module for every test file in the run, so keep the
   // real exports (e.g. parseFirefoxInstallDefaults) and override only what we need.
   const realBrowserSession = { ...(await import('../src/lib/browser-session/index.js')) };
-  mock.module('../src/lib/browser-session/index.js', () => ({
+  await mock.module('../src/lib/browser-session/index.js', () => ({
     ...realBrowserSession,
     extractSessionFromBrowser: async () => {
       refreshes += 1;
@@ -82,7 +82,7 @@ describe('concurrent refresh after 401', () => {
 
     const { deleteAccount } = await import('../src/lib/api.js');
 
-    await expect(Promise.all([deleteAccount(201), deleteAccount(201)])).resolves.toEqual([undefined, undefined]);
+    expect(Promise.all([deleteAccount(201), deleteAccount(201)])).resolves.toEqual([undefined, undefined]);
     expect(refreshes).toBe(1);
     expect(calls).toBe(4);
     // Both retries went out with the refreshed credentials.
@@ -135,7 +135,7 @@ describe('concurrent refresh after 401', () => {
 
     const { deleteAccount } = await import('../src/lib/api.js');
 
-    await expect(deleteAccount(201)).rejects.toThrow('account has entries');
+    expect(deleteAccount(201)).rejects.toThrow('account has entries');
   });
 });
 
@@ -145,7 +145,7 @@ describe('response handling', () => {
 
     const { fetchAccounts } = await import('../src/lib/api.js');
 
-    await expect(fetchAccounts()).rejects.toThrow(
+    expect(fetchAccounts()).rejects.toThrow(
       'A API retornou um JSON inválido (GET /v1/cadastros/contas?meta=true&paginate=false)'
     );
   });
@@ -157,7 +157,7 @@ describe('response handling', () => {
 
     const { updateAccount } = await import('../src/lib/api.js');
 
-    await expect(updateAccount(201, { nome: 'X' } as never)).rejects.toThrow(
+    expect(updateAccount(201, { nome: 'X' } as never)).rejects.toThrow(
       /A requisição à API falhou \(PUT \/v1\/cadastros\/contas\/201\): 409 .*name taken/
     );
   });
@@ -173,6 +173,6 @@ describe('response handling', () => {
 
     const { deleteAccount } = await import('../src/lib/api.js');
 
-    await expect(deleteAccount(201)).rejects.toThrow('(DELETE /v1/cadastros/contas/201, após renovar as credenciais): 403');
+    expect(deleteAccount(201)).rejects.toThrow('(DELETE /v1/cadastros/contas/201, após renovar as credenciais): 403');
   });
 });

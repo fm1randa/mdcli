@@ -169,8 +169,8 @@ describe('fixture origins survive the squash merge', () => {
       await git(['checkout', '-q', '-b', 'feature'], repo);
       const sideCommit = await commit('side');
 
-      await expect(assertReachable('rule', mainCommit, repo)).resolves.toBeUndefined();
-      await expect(assertReachable('rule', sideCommit, repo)).rejects.toThrow(/not reachable from origin\/main/);
+      expect(assertReachable('rule', mainCommit, repo)).resolves.toBeUndefined();
+      expect(assertReachable('rule', sideCommit, repo)).rejects.toThrow(/not reachable from origin\/main/);
     } finally {
       rmSync(repo, { recursive: true, force: true });
     }

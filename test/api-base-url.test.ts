@@ -43,9 +43,9 @@ describe('API base URL', () => {
     const sent: { url: string; apiKey: string | null }[] = [];
     // Stands in for the network so the test never reaches the real host.
     globalThis.fetch = Object.assign(
-      async (input: string | URL | Request, init?: RequestInit) => {
+      (input: string | URL | Request, init?: RequestInit) => {
         sent.push({ url: String(input), apiKey: new Headers(init?.headers).get('mdapikey') });
-        return Response.json(ACCOUNTS_RESPONSE);
+        return Promise.resolve(Response.json(ACCOUNTS_RESPONSE));
       },
       { preconnect: realFetch.preconnect }
     );

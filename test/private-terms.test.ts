@@ -225,7 +225,7 @@ test('fails loudly instead of skipping a blob above the scan limit', async () =>
     writeFileSync(join(root, 'big.txt'), 'a'.repeat(1_000_001));
     await commitAll(root, 'add a large blob');
 
-    await expect(scanTrackedFiles(root, fakeHashes)).rejects.toThrow(/big\.txt.*above the 1000000-byte scan limit/);
+    expect(scanTrackedFiles(root, fakeHashes)).rejects.toThrow(/big\.txt.*above the 1000000-byte scan limit/);
   });
 });
 

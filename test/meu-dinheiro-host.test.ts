@@ -34,9 +34,9 @@ function stubFetch(body: unknown): { url: string; headers: Headers }[] {
   const sent: { url: string; headers: Headers }[] = [];
   // Stands in for the network so the test never reaches the real host.
   globalThis.fetch = Object.assign(
-    async (input: string | URL | Request, init?: RequestInit) => {
+    (input: string | URL | Request, init?: RequestInit) => {
       sent.push({ url: String(input), headers: new Headers(init?.headers) });
-      return Response.json(body);
+      return Promise.resolve(Response.json(body));
     },
     { preconnect: realFetch.preconnect }
   );

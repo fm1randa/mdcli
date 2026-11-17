@@ -17,7 +17,7 @@ import {
 import { commitAll } from './git-repo.js';
 import { run as runChild } from './run.js';
 
-async function withRepo(run: (repo: string) => Promise<void>): Promise<void> {
+async function withRepo(run: (repo: string) => Promise<void> | void): Promise<void> {
   const repo = mkdtempSync(join(tmpdir(), 'mdcli-git-owner-'));
   try {
     await git(['init', '-q', '-b', 'main'], repo);
@@ -40,8 +40,8 @@ describe('scripts/git.ts', () => {
   });
 
   test("throws git's own stderr with the command and the directory", async () => {
-    await withRepo(async (repo) => {
-      await expect(gitBytes(['rev-parse', '--verify', 'no-such-ref'], repo)).rejects.toThrow(
+    await withRepo((repo) => {
+      expect(gitBytes(['rev-parse', '--verify', 'no-such-ref'], repo)).rejects.toThrow(
         `git rev-parse --verify no-such-ref failed in ${repo}: fatal: Needed a single revision`
       );
     });

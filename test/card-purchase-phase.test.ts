@@ -38,13 +38,13 @@ describe('card purchase phase', () => {
     );
   });
 
-  test('a move cannot ask for pending and confirmed at once', async () => {
+  test('a move cannot ask for pending and confirmed at once', () => {
     const previous = process.env.MDCLI_CONFIG_DIR;
     process.env.MDCLI_CONFIG_DIR = mkdtempSync(join(tmpdir(), 'mdcli-card-phase-'));
     const payload = { status: { confirmado: false, conciliado: false } } as UpdateEntryPayload;
     const existing = { conta: 201, status: 'confirmado', conciliado: false } as Entry;
     try {
-      await expect(moveEntry(payload, existing, 202, {
+      expect(moveEntry(payload, existing, 202, {
         flags: { pending: true, confirmed: true },
       })).rejects.toThrow('Use only one of pending, confirmed and reconciled.');
     } finally {
