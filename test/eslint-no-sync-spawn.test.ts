@@ -49,4 +49,11 @@ describe('local/no-sync-spawn', () => {
       await localRules("import { spawnSync } from 'node:child_process';\nexport const run = spawnSync;", OWNER),
     ).toEqual([]);
   });
+
+  test('the owner may import the sync names only from node:child_process', async () => {
+    expect(await localRules("import { execSync } from 'child_process';\nexport const run = execSync;", OWNER)).toEqual([]);
+    expect(await localRules("import { spawnSync } from 'bun';\nexport const run = spawnSync;", OWNER)).toEqual([RULE]);
+    expect(await localRules("export const result = Bun.spawnSync(['true']);", OWNER)).toEqual([RULE]);
+    expect(await localRules("const { execSync } = Bun;\nexport { execSync };", OWNER)).toEqual([RULE]);
+  });
 });

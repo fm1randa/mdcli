@@ -1,10 +1,12 @@
-// An ESM named import of spawnSync, execSync, or execFileSync keeps the
-// original binding. test/sync-spawn-guard.ts patches Bun.spawnSync and the
-// default export, and that patch never reaches the named binding
-// (oven-sh/bun#34069, #301). src/lib/sync-child.ts is the only production
-// caller. The guard and its probe are the other two files that may name them.
+// Synchronous spawn belongs in src/lib/sync-child.ts. On Bun 1.4.2 a named
+// `import { spawnSync } from "bun"` captured before test/sync-spawn-guard.ts
+// assigns Bun.spawnSync keeps the original function and starts the child.
+// A named import from node:child_process calls that assignment, so the child
+// does not start. The owner may import the three names only from
+// node:child_process or child_process.
 const SYNC = new Set(["spawnSync", "execSync", "execFileSync"]);
 const CHILD_PROCESS = new Set(["child_process", "node:child_process"]);
+const OWNER = /[\\/]src[\\/]lib[\\/]sync-child\.ts$/;
 
 /** A static name: `a.name`, `a["name"]`, `` a[`name`] ``, `{ name }`. A computed variable has none. */
 const keyName = (key, computed) => {
@@ -16,17 +18,20 @@ const keyName = (key, computed) => {
 
 const importedName = (node) => (node.type === "Identifier" ? node.name : node.value);
 
+const ownerChildSource = (filename, source) =>
+  OWNER.test(filename) && source?.type === "Literal" && CHILD_PROCESS.has(source.value);
+
 export default {
   meta: {
     type: "problem",
     docs: { description: "Synchronous child processes go through src/lib/sync-child.ts" },
     messages: {
       namedImport:
-        "Call {{name}} only from src/lib/sync-child.ts. A named ESM import keeps the original binding, so test/sync-spawn-guard.ts cannot stop it (oven-sh/bun#34069).",
+        'Import {{name}} only in src/lib/sync-child.ts, and only from node:child_process. A named import from "bun" captured before the guard keeps the original function and starts the child (Bun 1.4.2).',
       namespaceImport:
-        "Do not namespace-import child_process. The namespace keeps spawnSync, execSync, and execFileSync on the original binding, which test/sync-spawn-guard.ts cannot patch (oven-sh/bun#34069). Use src/lib/sync-child.ts for a synchronous wait, or import { spawn } for an async one.",
+        "Do not namespace-import child_process. Import spawnSync, execSync, or execFileSync only in src/lib/sync-child.ts, from node:child_process.",
       member:
-        "Call {{name}} only from src/lib/sync-child.ts. A synchronous spawn hangs a bun test --parallel worker (oven-sh/bun#34069). Use runInheritedShell or readCommandStdout, or Bun.spawn.",
+        "Call {{name}} only from src/lib/sync-child.ts. Use runInheritedShell or readCommandStdout, or async Bun.spawn.",
     },
     schema: [],
   },
@@ -40,10 +45,11 @@ export default {
     return {
       ImportDeclaration(node) {
         if (!isChild(node.source) && !isBun(node.source)) return;
+        const ownerChild = ownerChildSource(context.filename, node.source);
         for (const specifier of node.specifiers) {
           if (specifier.type === "ImportNamespaceSpecifier" && isChild(node.source)) {
             context.report({ node: specifier, messageId: "namespaceImport" });
-          } else if (specifier.type === "ImportSpecifier") {
+          } else if (specifier.type === "ImportSpecifier" && !ownerChild) {
             reportSync(specifier, importedName(specifier.imported), "namedImport");
           }
         }

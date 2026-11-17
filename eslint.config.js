@@ -144,10 +144,12 @@ export default tseslint.config(
     rules: { "local/no-raw-spawn": "error" },
   },
   {
-    // A named ESM import of spawnSync, execSync, or execFileSync keeps the
-    // original binding, so the parallel-worker guard cannot patch it (#301).
+    // Sync spawn has one owner. That file may import the three names only from
+    // node:child_process. A named import from "bun" captured before the guard
+    // still starts the child (Bun 1.4.2, #301). The guard, its probe, and the
+    // contract probe name the raw calls on purpose.
     files: ["src/**/*.ts", "test/**/*.ts"],
-    ignores: ["src/lib/sync-child.ts", "test/sync-spawn-guard.ts", "test/probes/sync-spawn.ts"],
+    ignores: ["test/sync-spawn-guard.ts", "test/probes/sync-spawn.ts", "test/probes/sync-child-contract.ts"],
     rules: { "local/no-sync-spawn": "error" },
   },
   {
