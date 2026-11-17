@@ -77,8 +77,8 @@ describe('entries import run --dry-run', () => {
 
   test('does not ask the AI for a category: --category already gives it', async () => {
     statement([
-      bank(TX1, { _ca: { ait: { d: 'tok-padaria' } } }),
-      bank(TX2, { valor: -5, _ca: { ait: { d: 'tok-mercado' } } }),
+      bank(TX1, { _ca: { ait: { d: ['d', 'tok-padaria'] } } }),
+      bank(TX2, { valor: -5, _ca: { ait: { d: ['d', 'tok-mercado'] } } }),
     ]);
     api.on('POST /v1/smartmatch/ai', [10, 10]);
 

@@ -46,7 +46,7 @@ describe('entries import list duplicates', () => {
         descricao: 'Categoria Sumida',
         valor: -8,
         data: '2026-10-19',
-        _ca: { c: { d: { categoria: { v: 999 } } } },
+        _ca: { c: { d: { categoria: { v: '999' } } } },
       },
     ]);
 
@@ -72,7 +72,7 @@ describe('entries import list duplicates', () => {
         descricao: 'Padaria do Bairro',
         valor: -12.34,
         data: '2026-10-20',
-        _ca: { c: { d: { categoria: { v: 11 }, conta: { v: 204 } } } },
+        _ca: { c: { d: { categoria: { v: '11' }, conta: { v: 204 } } } },
       },
       {
         integrationId: DUP_OTHER_VALUE,
@@ -173,7 +173,7 @@ describe('entries import list duplicates', () => {
         _ca: {
           c: {
             d: {
-              categoria: { v: 11 },
+              categoria: { v: '11' },
               descricao: { v: 'Padaria Sugerida' },
               tags: { v: [501, 502] },
             },
@@ -185,7 +185,7 @@ describe('entries import list duplicates', () => {
         descricao: 'Sem Nome',
         valor: -2,
         data: '2026-10-08',
-        _ca: { c: { d: { categoria: { v: 999 } } } },
+        _ca: { c: { d: { categoria: { v: '999' } } } },
       },
     ]);
     api.on('GET /v1/lancamentos/duplicidade', {

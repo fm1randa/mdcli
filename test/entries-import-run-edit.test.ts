@@ -19,7 +19,7 @@ const TX1 = 'aaaa1111-1111-4000-8000-000000000001';
 const TX2 = 'bbbb2222-2222-4000-8000-000000000002';
 const TX3 = 'cccc3333-3333-4000-8000-000000000003';
 const TX4 = 'dddd4444-4444-4000-8000-000000000004';
-const RULE_10 = { c: { d: { categoria: { v: 10 }, descricao: { v: 'Padaria' } } } };
+const RULE_10 = { c: { d: { categoria: { v: '10' }, descricao: { v: 'Padaria' } } } };
 
 let api: MockApi;
 let home: TestHome;
@@ -118,7 +118,7 @@ describe('entries import run --edit', () => {
   test('opens each default action: rule, AI, needs-category, duplicate, and conciliate with the linked entry', async () => {
     statement([
       bank(TX1, { _ca: RULE_10 }),
-      bank(TX2, { valor: 3000, data: '2026-10-05', descricao: 'Empresa Teste', _ca: { ait: { r: 'tok-r' } } }),
+      bank(TX2, { valor: 3000, data: '2026-10-05', descricao: 'Empresa Teste', _ca: { ait: { r: ['r', 'tok-r'] } } }),
       bank(TX3, { valor: -7, data: '2026-10-06', descricao: 'Mercado' }),
       bank(TX4, { valor: -40, data: '2026-10-08', descricao: 'Posto' }),
     ]);
@@ -284,7 +284,7 @@ describe('entries import run --edit', () => {
   });
 
   test('an untouched line with an empty bank description parses and imports', async () => {
-    statement([bank(TX1, { descricao: '', _ca: { c: { d: { categoria: { v: 10 } } } } })]);
+    statement([bank(TX1, { descricao: '', _ca: { c: { d: { categoria: { v: '10' } } } } })]);
     const editor = fake.script([null]);
 
     const result = await run(['--dry-run', '--json'], editor);
@@ -317,7 +317,7 @@ describe('entries import run --edit', () => {
     // 40 Outros (d) is the rule's suggestion; 41 Outros (r) shares the name and would win a lookup by name.
     const twin: Category = { ...CATEGORIES_RESPONSE.items[4], id: 41, tipo: 'r' };
     api.on('GET /v1/cadastros/categorias', { ...CATEGORIES_RESPONSE, items: [...CATEGORIES_RESPONSE.items, twin] });
-    statement([bank(TX1, { _ca: { c: { d: { categoria: { v: 40 } } } } })]);
+    statement([bank(TX1, { _ca: { c: { d: { categoria: { v: '40' } } } } })]);
 
     const result = await run(['--yes'], fake.script([null]));
 
@@ -331,7 +331,7 @@ describe('entries import run --edit', () => {
   test('writing the suggested name back on its line keeps the suggested category', async () => {
     const twin: Category = { ...CATEGORIES_RESPONSE.items[4], id: 41, tipo: 'r' };
     api.on('GET /v1/cadastros/categorias', { ...CATEGORIES_RESPONSE, items: [...CATEGORIES_RESPONSE.items, twin] });
-    statement([bank(TX1, { _ca: { c: { d: { categoria: { v: 40 } } } } })]);
+    statement([bank(TX1, { _ca: { c: { d: { categoria: { v: '40' } } } } })]);
 
     const result = await run(['--yes'], fake.script(['import aaaa1111 2026-10-07 -12.34 outros | Padaria\n']));
 

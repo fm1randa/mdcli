@@ -1,9 +1,28 @@
 import type { Entry } from '../src/types/index.js';
 
-// Seeded entries for GET/PUT/DELETE /v1/lancamentos/:id (parity with unit fixtures),
-// shaped like the real GET (real use 2026-11-09): no dataEfetiva, and
-// transferencia is a number, the other side's ID on a transfer.
-export const SEEDED_ENTRIES: Record<number, Entry> = {
+// Seeded entries for GET/PUT/DELETE /v1/lancamentos/:id.
+
+type ScheduledSeed = Omit<Entry, 'dataEfetiva' | 'transferencia' | 'status' | 'tipo'> & {
+  status: 'agendado';
+  tipo: 'd' | 'r';
+};
+
+type SettledEntrySeed = Omit<Entry, 'dataEfetiva' | 'transferencia' | 'status' | 'tipo'> & {
+  status: 'conciliado' | 'confirmado';
+  tipo: 'd' | 'r';
+  dataEfetiva: string;
+};
+
+type SettledTransferSeed = Omit<Entry, 'dataEfetiva' | 'transferencia' | 'status' | 'tipo'> & {
+  status: 'conciliado' | 'confirmado';
+  tipo: 't' | 'p';
+  dataEfetiva: string;
+  transferencia: number;
+};
+
+type SeedEntry = ScheduledSeed | SettledEntrySeed | SettledTransferSeed;
+
+const SEED_ENTRIES = {
   50: {
     id: 50,
     descricao: 'Poupança',
@@ -12,6 +31,7 @@ export const SEEDED_ENTRIES: Record<number, Entry> = {
     valorT: 1000,
     data: '2026-01-15',
     dataPrevista: '2026-01-15',
+    dataEfetiva: '2026-01-15',
     status: 'conciliado',
     conciliado: true,
     conta: 201,
@@ -29,6 +49,7 @@ export const SEEDED_ENTRIES: Record<number, Entry> = {
     valor: -250,
     data: '2026-01-10',
     dataPrevista: '2026-01-10',
+    dataEfetiva: '2026-01-10',
     dataCompetencia: '2026-01-10',
     status: 'conciliado',
     conciliado: true,
@@ -48,7 +69,6 @@ export const SEEDED_ENTRIES: Record<number, Entry> = {
     exibirCp: true,
     exibirCr: true,
     estorno: false,
-    transferencia: 0,
   },
   // A future occurrence of a fixed monthly series (#65): scheduled, so no
   // effective date or value yet.
@@ -79,6 +99,7 @@ export const SEEDED_ENTRIES: Record<number, Entry> = {
     valorT: 300,
     data: '2025-06-15',
     dataPrevista: '2025-06-15',
+    dataEfetiva: '2025-06-15',
     status: 'conciliado',
     conciliado: true,
     conta: 201,
@@ -95,6 +116,7 @@ export const SEEDED_ENTRIES: Record<number, Entry> = {
     valor: -12.5,
     data: '2026-01-12',
     dataPrevista: '2026-01-12',
+    dataEfetiva: '2026-01-14',
     status: 'conciliado',
     conciliado: true,
     conta: 201,
@@ -113,6 +135,7 @@ export const SEEDED_ENTRIES: Record<number, Entry> = {
     valorEfetivo: -1700,
     data: '2026-01-12',
     dataPrevista: '2026-01-12',
+    dataEfetiva: '2026-01-12',
     dataReconhecimento: '2026-01-12',
     status: 'conciliado',
     conciliado: true,
@@ -121,4 +144,20 @@ export const SEEDED_ENTRIES: Record<number, Entry> = {
     categoria: 20,
     tags: [],
   },
-};
+} satisfies Record<number, SeedEntry>;
+
+export const SEEDED_ENTRIES: Record<number, Entry> = { ...SEED_ENTRIES };
+
+function rejectedSeedShapes(): void {
+  // @ts-expect-error a reconciled expense omits transferencia
+  const withTransfer: SeedEntry = { id: 1, descricao: 'x', tipo: 'd', status: 'conciliado', valor: -1, data: '2026-01-10', dataPrevista: '2026-01-10', dataEfetiva: '2026-01-10', conta: 1, transferencia: 0 };
+  // @ts-expect-error a reconciled expense requires dataEfetiva
+  const missingDate: SeedEntry = { id: 1, descricao: 'x', tipo: 'd', status: 'conciliado', valor: -1, data: '2026-01-10', dataPrevista: '2026-01-10', conta: 1 };
+  // @ts-expect-error a scheduled row omits dataEfetiva
+  const datedSchedule: SeedEntry = { id: 1, descricao: 'x', tipo: 'd', status: 'agendado', valor: -1, data: '2027-01-10', dataPrevista: '2027-01-10', dataEfetiva: '2027-01-10', conta: 1 };
+  void withTransfer;
+  void missingDate;
+  void datedSchedule;
+}
+
+void rejectedSeedShapes;

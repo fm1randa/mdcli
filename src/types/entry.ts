@@ -84,7 +84,7 @@ export interface Entry {
   valorEfetivoT?: number;
   plasticoT?: number;
   contaT?: number;
-  /** The ID of a transfer's other side; a number on any entry (real use 2026-11-09). */
+  /** Other side's id on a transfer or an invoice payment. An expense or income omits the key. */
   transferencia?: number;
   metaEconomiaDestino?: number;
   projecaoFatura?: number;
