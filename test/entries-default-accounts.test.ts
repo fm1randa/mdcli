@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createHome, MANUAL_AUTH, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
-import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, CHECKING_ACCOUNT, SAMPLE_ENTRIES, cardInvoice, entriesPage } from './fixtures.js';
+import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, CHECKING_ACCOUNT, CREDIT_CARD_ACCOUNT, SAMPLE_ENTRIES, cardInvoice, entriesPage } from './fixtures.js';
+import type { InvoiceProjection } from './api-routes.js';
 
 let api: MockApi;
 let home: TestHome;
@@ -9,6 +10,21 @@ const PERIOD = ['--from', '2026-01-01', '--to', '2026-02-28'] as const;
 
 const INACTIVE = { ...CHECKING_ACCOUNT, id: 205, nome: 'Inativa', status: false };
 const CLOSED = { ...CHECKING_ACCOUNT, id: 206, nome: 'Encerrada', encerrada: true };
+const CLOSED_CARD = { ...CREDIT_CARD_ACCOUNT, id: 207, nome: 'Cartão Encerrado', encerrada: true };
+
+const JANUARY = ['--from', '2026-01-01', '--to', '2026-01-31'] as const;
+
+function projection(cardId: number, description: string, value: number): InvoiceProjection {
+  return {
+    descricao: description,
+    valor: value,
+    data: '2026-01-16',
+    dataPrevista: '2026-01-16',
+    status: 'pendente',
+    conta: 201,
+    projecaoFatura: cardId,
+  };
+}
 
 function accountIds(mock: MockApi): number[] {
   const listed = mock.requests.filter((request) => request.path === '/v2/lancamentos');
@@ -75,5 +91,56 @@ describe('entries without --account', () => {
       const head = result.stdout.split('\n').find((line) => line.includes('Lançamentos'));
       expect(head).toContain(column);
     }
+  });
+
+  test('drops the active card projection, keeps its purchase, and leaves a closed card out', async () => {
+    api.on('GET /v1/cadastros/contas', {
+      ...ACCOUNTS_RESPONSE,
+      items: [...ACCOUNTS_RESPONSE.items, INACTIVE, CLOSED, CLOSED_CARD],
+    });
+    api.on('GET /v2/lancamentos', entriesPage([
+      SAMPLE_ENTRIES[0],
+      projection(202, 'Fatura Cartão Teste', -2500),
+      projection(207, 'Fatura Cartão Encerrado', -80),
+    ]));
+    api.on('GET /v1/cartoes/202/fatura/2026-01-16', {
+      ...cardInvoice('2026-01-16', '2026-01-08'),
+      lancamentos: [{ id: 91, descricao: 'Mercado cartão', valor: -50, data: '2026-01-05', tipo: 'd', categoria: 11 }],
+    });
+
+    const listed = await runCli(['entries', 'list', ...JANUARY, '--json'], { home, api });
+
+    expect(listed.exitCode).toBe(0);
+    expect(accountIds(api)).toEqual([201, 202]);
+    expect(JSON.parse(listed.stdout).map((entry: { id: number | string }) => entry.id)).toEqual([1, 'invoice:207', 91]);
+    expect(api.requests.some((request) => request.path.includes('/cartoes/207/'))).toBe(false);
+
+    const summary = await runCli(['entries', 'summary', ...JANUARY, '--json'], { home, api });
+
+    expect(summary.exitCode).toBe(0);
+    expect(JSON.parse(summary.stdout)).toMatchObject({
+      total: { count: 2, expenses: -150.5 },
+      skippedInvoices: 1,
+    });
+  });
+
+  test('a 500 from the active card invoice exits 1', async () => {
+    api.fail('GET /v1/cartoes/202/fatura/2026-01-16', 500, { message: 'boom' });
+
+    const listed = await runCli(['entries', 'list', ...JANUARY], { home, api });
+    expect(listed.exitCode).toBe(1);
+    expect(listed.stderr).toContain('500');
+
+    const summary = await runCli(['entries', 'summary', ...JANUARY], { home, api });
+    expect(summary.exitCode).toBe(1);
+    expect(summary.stderr).toContain('500');
+  });
+
+  test('an invalid date fails before accounts are read', async () => {
+    const result = await runCli(['entries', 'list', '--from', '2026-13-01', '--to', '2026-01-31'], { home, api });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('Invalid --from date');
+    expect(api.requests.some((request) => request.path === '/v1/cadastros/contas')).toBe(false);
   });
 });
