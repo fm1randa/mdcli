@@ -32,7 +32,7 @@ beforeEach(() => {
     data: '2026-10-07',
     moeda: 1,
     ndocumento: 'DOC-1',
-    _ca: { c: { d: { categoria: { v: 10 } } } },
+    _ca: { c: { d: { categoria: { v: '10' } } } },
   }], { connectionAccount: 302 });
   home = createHome(MANUAL_AUTH);
 });

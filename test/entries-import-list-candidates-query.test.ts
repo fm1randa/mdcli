@@ -31,7 +31,7 @@ beforeEach(() => {
       valor: -12.34,
       data: '2026-10-07',
       moeda: 1,
-      _ca: { c: { d: { categoria: { v: 10 } } } },
+      _ca: { c: { d: { categoria: { v: '10' } } } },
     }],
   });
   home = createHome(MANUAL_AUTH);
@@ -234,7 +234,7 @@ describe('entries import list candidate query', () => {
       lancamentos: [
         {
           integrationId: TX, descricao: 'Pagamento Ficticio', valor: -12.34, data: '2026-10-07', moeda: 1,
-          _ca: { c: { d: { categoria: { v: 10 } } } },
+          _ca: { c: { d: { categoria: { v: '10' } } } },
         },
         {
           integrationId: '34343434-1111-4000-8000-000000000002',

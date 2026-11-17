@@ -28,7 +28,7 @@ const STATEMENT = {
       moeda: 1,
       nomePlastico: 'Ficticio',
       status: 'conciliado',
-      _ca: { d: 'Descricao Sugerida', c: { d: { categoria: { v: 10 } } } },
+      _ca: { d: 'Descricao Sugerida', c: { d: { categoria: { v: '10' } } } },
     },
     { integrationId: SHARED_A, descricao: 'Credito Ficticio', valor: 8.5, data: '2026-10-08', moeda: 1 },
     { integrationId: SHARED_B, descricao: 'Taxi Ficticio', valor: -1, data: '2026-10-09', moeda: 1 },

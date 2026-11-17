@@ -49,14 +49,14 @@ const STATEMENT: BankStatementResponse = {
   saldo: 0,
   lancamentos: [
     // Two Bank Transactions with one key: +1 day comes before -1 day.
-    bank(B1, '2026-10-10', -50, { _ca: { ait: { d: 'tok-b1' } } }),
+    bank(B1, '2026-10-10', -50, { _ca: { ait: { d: ['d', 'tok-b1'] } } }),
     bank(B2, '2026-10-10', -50),
     // A Reconciled Entry on the same day links.
     bank(B3, '2026-10-15', 0.31),
     // A Reconciled Entry one day off is used up; the confirmed one on the other side links.
     bank(B4, '2026-10-20', -7),
     // Only a Reconciled Entry one day off: nothing is linked.
-    bank(B5, '2026-10-25', -9, { _ca: { ait: { d: 'tok-b5' } } }),
+    bank(B5, '2026-10-25', -9, { _ca: { ait: { d: ['d', 'tok-b5'] } } }),
     // The document number pass goes first: B7 is listed before B6, yet 709 (same document) wins it.
     bank(B7, '2026-10-05', -20, { ndocumento: 'D2' }),
     bank(B6, '2026-10-05', -20),
@@ -159,7 +159,7 @@ describe('entries import: one Entry linked automatically, like the web', () => {
 
     const ai = api.requests.filter((r) => r.path === '/v1/smartmatch/ai');
     expect(ai).toHaveLength(1);
-    expect(ai[0].body).toEqual({ t: ['tok-b5'] });
+    expect(ai[0].body).toEqual({ t: [['d', 'tok-b5']] });
   });
 
   test('a linked duplicate conciliates; an unlinked duplicate is skipped', async () => {

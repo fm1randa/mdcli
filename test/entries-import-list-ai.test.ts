@@ -37,7 +37,13 @@ function statement(rows: BankTransaction[]) {
   mockStatement(api, rows);
 }
 
-function bank(integrationId: string, valor: number, descricao: string, ca: Record<string, unknown>, data = '2026-10-07') {
+function bank(
+  integrationId: string,
+  valor: number,
+  descricao: string,
+  ca: NonNullable<BankTransaction['_ca']>,
+  data = '2026-10-07',
+): BankTransaction {
   return { integrationId, descricao, valor, data, moeda: 1, _ca: ca };
 }
 
@@ -75,7 +81,7 @@ function rows(stdout: string): Map<string, Row> {
 describe('entries import list AI category', () => {
   test('asks the AI only for rows without a rule category and without an automatically linked entry', async () => {
     statement([
-      bank(RULE, -5, 'Padaria Regra', { c: { d: { categoria: { v: 11 } } }, ait: { d: ['d', 'padaria regra'] } }),
+      bank(RULE, -5, 'Padaria Regra', { c: { d: { categoria: { v: '11' } } }, ait: { d: ['d', 'padaria regra'] } }),
       bank(MARKET, -20, 'Mercado Sem Regra', { ait: { d: ['d', 'mercado sem regra'], r: ['r', 'nao usar'] } }),
       bank(UNKNOWN, -30, 'Loja Desconhecida', { ait: { d: ['d', 'loja desconhecida'] } }),
       bank(ONE_MATCH, -40, 'Boleto Casado', { ait: { d: ['d', 'boleto casado'] } }),
@@ -118,7 +124,7 @@ describe('entries import list AI category', () => {
   for (const status of [500, 401, 403]) {
     test(`a ${status} answer marks the AI unavailable and the list still comes out with the rule category`, async () => {
       statement([
-        bank(RULE, -5, 'Padaria Regra', { c: { d: { categoria: { v: 11 } } }, ait: { d: ['d', 'padaria regra'] } }),
+        bank(RULE, -5, 'Padaria Regra', { c: { d: { categoria: { v: '11' } } }, ait: { d: ['d', 'padaria regra'] } }),
         bank(UNKNOWN, -30, 'Loja Desconhecida', { ait: { d: ['d', 'loja desconhecida'] } }),
       ]);
       api.fail('POST /v1/smartmatch/ai', status, { message: 'plano' });
@@ -151,7 +157,7 @@ describe('entries import list AI category', () => {
 
   test('is unused and sends nothing when every row has a rule category or an automatically linked entry', async () => {
     statement([
-      bank(RULE, -5, 'Padaria Regra', { c: { d: { categoria: { v: 11 } } }, ait: { d: ['d', 'padaria regra'] } }),
+      bank(RULE, -5, 'Padaria Regra', { c: { d: { categoria: { v: '11' } } }, ait: { d: ['d', 'padaria regra'] } }),
       bank(ONE_MATCH, -40, 'Boleto Casado', { ait: { d: ['d', 'boleto casado'] } }),
     ]);
     entries([candidate({ id: 7001, dataPrevista: '2026-10-08', valor: -40, descricao: 'Boleto' })]);

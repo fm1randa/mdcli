@@ -37,7 +37,7 @@ function bank(extra: Partial<BankTransaction> = {}): BankTransaction {
     valor: -12.34,
     data: '2026-10-07',
     moeda: 1,
-    _ca: { c: { d: { categoria: { v: 10 } } } },
+    _ca: { c: { d: { categoria: { v: '10' } } } },
     ...extra,
   };
 }

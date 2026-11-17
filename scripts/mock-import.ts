@@ -11,15 +11,21 @@ const TRANSACTIONS = /^\/api\/v1\/integracao\/account\/(\d+)\/transactions$/;
 const DUPLICATES = '/api/v1/lancamentos/duplicidade';
 const AI = '/api/v1/smartmatch/ai';
 
+type BankTransaction = NonNullable<BankStatementResponse['lancamentos']>[number];
+
 const PADARIA = {
   integrationId: 'aaaaaaaa-1111-4000-8000-000000000001',
   descricao: 'Padaria Ficticia',
   valor: -12.34,
   data: '2026-10-07',
   moeda: 1,
-  // No rule category, so the CLI asks the AI with this token.
-  _ca: { ait: { d: 'tok-padaria' } },
-};
+  k: ['padaria'],
+  _ca: {
+    ait: { d: ['d', 'tok-padaria'] },
+    t: ['tok-padaria'],
+    c: { r: { categoria: { v: '20' } } },
+  },
+} satisfies BankTransaction;
 
 // A rule category keeps the AI to the single Padaria token. The value pairs with IMPORT_CANDIDATES,
 // so the list links it and the round-trip plans a conciliation.
@@ -29,8 +35,15 @@ const MERCADO = {
   valor: -20,
   data: '2026-10-08',
   moeda: 1,
-  _ca: { c: { d: { categoria: { v: 11 } } } },
-};
+  _ca: {
+    st: false,
+    t: ['mercado'],
+    c: {
+      d: { categoria: { v: '11' } },
+      r: { categoria: { v: '20' } },
+    },
+  },
+} satisfies BankTransaction;
 
 // The import duplicate lookup below pairs this row with Entry 77, so the list skips it.
 const DUPLICADO = {
@@ -39,8 +52,19 @@ const DUPLICADO = {
   valor: -5,
   data: '2026-10-09',
   moeda: 1,
-  _ca: { c: { d: { categoria: { v: 10 } } } },
-};
+  _ca: { c: { d: { categoria: { v: '10' } } } },
+} satisfies BankTransaction;
+
+function rejectedStatementShapes(): void {
+  // @ts-expect-error ait values are string arrays
+  const stringToken: BankTransaction = { _ca: { ait: { d: 'tok-padaria' } } };
+  // @ts-expect-error categoria.v is a string
+  const numericCategory: BankTransaction = { _ca: { c: { d: { categoria: { v: 11 } } } } };
+  void stringToken;
+  void numericCategory;
+}
+
+void rejectedStatementShapes;
 
 const STATEMENT: BankStatementResponse = {
   inicio: '2026-10-01',

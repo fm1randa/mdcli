@@ -56,9 +56,9 @@ describe('entries import list suggestions', () => {
         _ca: {
           st: false,
           c: {
-            d: { categoria: { v: 11 } },
-            r: { categoria: { v: 20 } },
-            t: { categoria: { v: 30 } },
+            d: { categoria: { v: '11' } },
+            r: { categoria: { v: '20' } },
+            t: { categoria: { v: '30' } },
           },
         },
       },
@@ -105,8 +105,8 @@ describe('entries import list suggestions', () => {
         data: '2026-10-08',
         _ca: {
           c: {
-            d: { categoria: { v: 11 } },
-            r: { categoria: { v: 20 } },
+            d: { categoria: { v: '11' } },
+            r: { categoria: { v: '20' } },
           },
         },
       },
@@ -148,8 +148,8 @@ describe('entries import list suggestions', () => {
         _ca: {
           d: 'Texto do Zero',
           c: {
-            d: { categoria: { v: 11 }, descricao: { v: 'Nao Esta' }, tags: { v: 501 } },
-            r: { categoria: { v: 20 } },
+            d: { categoria: { v: '11' }, descricao: { v: 'Nao Esta' }, tags: { v: 501 } },
+            r: { categoria: { v: '20' } },
           },
         },
       },
@@ -183,8 +183,8 @@ describe('entries import list suggestions', () => {
           st: true,
           d: 'Fallback D',
           c: {
-            d: { categoria: { v: 11 }, descricao: { v: 'Despesa' }, tags: { v: 501 } },
-            t: { categoria: { v: 30 }, descricao: { v: 'Transferencia Sugerida' }, tags: { v: [502] } },
+            d: { categoria: { v: '11' }, descricao: { v: 'Despesa' }, tags: { v: 501 } },
+            t: { categoria: { v: '30' }, descricao: { v: 'Transferencia Sugerida' }, tags: { v: [502] } },
           },
         },
       },
@@ -294,7 +294,7 @@ describe('entries import list suggestions', () => {
         descricao: 'Sem Campo',
         valor: -7,
         data: '2026-10-17',
-        _ca: { c: { d: { categoria: { v: 11 } } } },
+        _ca: { c: { d: { categoria: { v: '11' } } } },
       },
       {
         integrationId: TAG_MIXED,
