@@ -1,4 +1,4 @@
-<!-- traduzido de README.md @ f41a669 (base: f41a669ab37b51619a85b665d1865256e6848955; readme-blob: 6d9547f24b7b9586b7756f801d9bbe0ef453b4b4); ao atualizar o README.md, sincronize este arquivo e atualize o SHA e o readme-blob (git hash-object README.md) -->
+<!-- traduzido de README.md @ f41a669 (base: f41a669ab37b51619a85b665d1865256e6848955; readme-blob: d65094a2ef329c2bea89124126431d88fe7ca390); ao atualizar o README.md, sincronize este arquivo e atualize o SHA e o readme-blob (git hash-object README.md) -->
 [Português (Brasil)](README.md) · **English**
 
 > The Portuguese [README.md](README.md) is the reference version; this English translation may lag behind it.
@@ -256,6 +256,11 @@ mdcli tags alias add --id 678 --name viagem
 mdcli tags alias list
 mdcli tags alias update --id 678 --name trip
 mdcli tags alias rm --name trip
+
+# Without --account, list and summary use every active account, cards included
+# (the same set as `mdcli accounts list --active`). With --account, only those accounts.
+mdcli entries summary
+mdcli entries list --from 2026-11-01 --to 2026-11-30
 
 # List entries using alias
 mdcli entries list --account principal --from 2024-01-01 --to 2024-01-31

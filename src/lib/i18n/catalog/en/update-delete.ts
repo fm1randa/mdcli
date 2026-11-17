@@ -19,7 +19,7 @@ export const enEntriesUpdateDelete: typeof SectionType = {
     'Set as confirmed, not reconciled (confirms a pending or scheduled entry)',
   entriesUpdateReconciledOption: () => 'Set as reconciled',
   entriesFilterAccountOption: () =>
-    'Account ID(s), alias(es), or exact name(s) (case-insensitive), comma-separated',
+    'Account ID(s), alias(es), or exact name(s) (case-insensitive), comma-separated; defaults to every active account, cards included',
   entriesFilterFromOption: () =>
     'Start date (YYYY-MM-DD), defaults to first day of current month',
   entriesFilterToOption: () =>
@@ -49,6 +49,8 @@ export const enEntriesUpdateDelete: typeof SectionType = {
   filterLabelRepetition: () => 'repetition',
   errorAccountRequired: () =>
     'At least one account ID or alias is required. Use --account <id> or --account <id1,id2,...>',
+  errorNoActiveAccounts: () =>
+    'No active account found. Use --account <id> to read an inactive or closed account.',
   errorUnknownAccounts: (list) => `Unknown account(s): ${list}`,
   errorUnknownCategories: (list) => `Unknown category(ies): ${list}`,
   errorUnknownCategoriesExclude: (list) =>

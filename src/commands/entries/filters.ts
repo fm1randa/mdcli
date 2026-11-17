@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import { exitWithError } from '../../utils/action.js';
 import { t } from '../../lib/i18n/index.js';
-import { fetchCategories } from '../../lib/api.js';
+import { fetchAccounts, fetchCategories, isActiveAccount } from '../../lib/api.js';
 import { resolveIds } from '../../lib/aliases.js';
 import { resolveTags } from './tags.js';
 import type { EntriesParams } from '../../types/index.js';
@@ -117,19 +117,26 @@ export interface FilterOptions {
   invoices?: boolean;
 }
 
-export async function resolveEntryFilters(options: FilterOptions): Promise<Omit<EntriesParams, 'page' | 'pageSize'>> {
-  if (!options.account) {
-    exitWithError(t('errorAccountRequired'));
+async function resolveAccountIds(account: string | undefined): Promise<number[]> {
+  if (account === undefined) {
+    const { items } = await fetchAccounts();
+    const ids = items.filter(isActiveAccount).map((item) => item.id);
+    if (ids.length === 0) exitWithError(t('errorNoActiveAccounts'));
+    return ids;
   }
-  checkDateRange(options.from, options.to);
+  if (account === '') exitWithError(t('errorAccountRequired'));
 
-  const accountResult = await resolveIds('accounts', options.account);
+  const accountResult = await resolveIds('accounts', account);
   if (accountResult.unresolved.length > 0) {
     exitWithError(t('errorUnknownAccounts', accountResult.unresolved.join(', ')));
   }
-  if (accountResult.ids.length === 0) {
-    exitWithError(t('errorAccountRequired'));
-  }
+  if (accountResult.ids.length === 0) exitWithError(t('errorAccountRequired'));
+  return accountResult.ids;
+}
+
+export async function resolveEntryFilters(options: FilterOptions): Promise<Omit<EntriesParams, 'page' | 'pageSize'>> {
+  checkDateRange(options.from, options.to);
+  const accountIds = await resolveAccountIds(options.account);
 
   let categoryIds: number[] | undefined;
   if (options.category) {
@@ -153,7 +160,7 @@ export async function resolveEntryFilters(options: FilterOptions): Promise<Omit<
   const { startDate: defaultStart, endDate: defaultEnd } = getCurrentMonthRange();
 
   return {
-    accountIds: accountResult.ids,
+    accountIds,
     startDate: options.from ?? defaultStart,
     endDate: options.to ?? defaultEnd,
     categoryIds,
@@ -189,7 +196,7 @@ export async function resolveExcludedCategories(input: string | undefined): Prom
 
 export function addFilterOptions(command: Command): Command {
   return command
-    .requiredOption('-a, --account <ids>', t('entriesFilterAccountOption'))
+    .option('-a, --account <ids>', t('entriesFilterAccountOption'))
     .option('-f, --from <date>', t('entriesFilterFromOption'))
     .option('-t, --to <date>', t('entriesFilterToOption'))
     .option('-s, --status <filter>', t('entriesFilterStatusOption'))

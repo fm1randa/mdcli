@@ -19,6 +19,10 @@ export function normalizeCategories(response: CategoriesResponse): NormalizedCat
   }));
 }
 
+export function isActiveAccount(account: { status: boolean; encerrada: boolean }): boolean {
+  return account.status && !account.encerrada;
+}
+
 export function normalizeAccounts(response: AccountsResponse): NormalizedAccount[] {
   return response.items.map((acc) => ({
     id: acc.id,
