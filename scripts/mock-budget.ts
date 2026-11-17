@@ -10,11 +10,6 @@ const PARENT_TOLERANCE = 0.001;
 /** One snapshot per `YYYY-MM`. A write touches only the months in `datas`. */
 const spendByMonth = new Map<string, BudgetGoalRow[]>();
 
-/** Tests share this module. Drop stored months so one case cannot leak into the next. */
-export function resetBudgetMock(): void {
-  spendByMonth.clear();
-}
-
 /** GET metasorcamento, and POST /v1/metas/orcamento which updates the rows the next GET returns. */
 export async function budgetRoute(method: string, url: URL, req: Request): Promise<Response | undefined> {
   if (url.pathname === READ_PATH && method === 'GET') return readGoals(url);
