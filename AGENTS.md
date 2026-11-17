@@ -32,6 +32,7 @@ Each rule below names the check that fails when it breaks. A rule marked *text o
 | `README.en.md` translates the current `README.md` | `readme sync` step (CI `verify`) | `scripts/verify.sh` |
 | Both i18n catalogs carry the same keys | `catalog-keys` test | `test/catalog-keys.test.ts` |
 | Files stay small | `max-lines` (300) | `eslint.config.js` |
+| A promise in `src/`, `scripts/` and `test/` is awaited or explicitly voided. An `async` function without `await` is an error, and awaiting a non-promise is an error (#302) | `@typescript-eslint/no-floating-promises`, `@typescript-eslint/await-thenable`, `@typescript-eslint/require-await`. `expect().rejects` and `expect().resolves` return void and already wait, so awaiting them is the error | `eslint.config.js`, `test/eslint-promises.test.ts` |
 | The suite gives the same result on any terminal | environment normalization, guard test, and a hostile `TERM` in CI | `test/setup.ts`, `test/terminal-env.test.ts`, `.github/workflows/ci.yml` |
 | Tests pass a relative `--since` and read a pinned clock | `no-literal-since`, `no-ambient-clock`, restricted date imports; `TZ` and `MDCLI_TODAY` pinned | `eslint-rules/`, `eslint.config.js`, `test/setup.ts` |
 | Strings become numbers only through the strict helpers | `no-loose-number` | `eslint-rules/no-loose-number.js` |
