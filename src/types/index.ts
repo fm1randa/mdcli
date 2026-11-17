@@ -1,4 +1,5 @@
 export type * from './account.js';
+export type * from './budget.js';
 export type * from './api.js';
 export type * from './card.js';
 export type * from './category.js';

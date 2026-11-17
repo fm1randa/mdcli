@@ -4,6 +4,7 @@ import type {
   AccountsResponse,
   BankStatementResponse,
   CardFutureResponse,
+  BudgetGoalRow,
   CardInvoiceResponse,
   CardPlastic,
   CategoriesResponse,
@@ -58,6 +59,7 @@ export interface ApiResponses {
   [route: `PUT /v1/integracao/connection/update/${number}`]: SyncRequestResponse | null;
   'POST /v1/integracao/transactions/markImported': unknown;
   'GET /v2/lancamentos': EntriesPage | AccountBalancesResponse;
+  'GET /v2/lancamentos/metasorcamento': BudgetGoalRow[];
   'GET /v1/lancamentos/duplicidade': unknown;
   'POST /v1/lancamentos': CreateEntryResponse;
   [route: `GET /v1/lancamentos/${number}`]: Entry;

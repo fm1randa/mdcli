@@ -495,6 +495,12 @@ mdcli categories update 12345 --inactive
 # Categorias com subcategorias precisam ter essas removidas antes.
 mdcli categories delete 12345 --move-to "Outros"
 
+# Metas do período (despesa, receita e investimento): meta, confirmado, projetado, falta e excedente.
+# O padrão é o mês atual e o regime cash (caixa). --month não combina com --from ou --to.
+mdcli budget
+mdcli budget --month 2026-11
+mdcli budget --from 2026-11-01 --to 2026-11-30 --regime accrual --json
+
 # Lista só as tags ativas
 mdcli tags list --active
 
@@ -571,6 +577,14 @@ Os testes em `test/` executam a CLI real como subprocesso contra um mock local d
 | Atualizar | Pronto |
 | Excluir (move os lançamentos para outra categoria) | Pronto |
 | Arquivar | Pronto |
+
+### Orçamento
+| Funcionalidade | Status |
+|---------|--------|
+| Leitura do período (`budget`) | Pronto |
+| Mês ou intervalo (`--month`, `--from`, `--to`) | Pronto |
+| Regime caixa ou competência (`--regime`) | Pronto |
+| Saída em JSON | Pronto |
 
 ### Tags
 | Funcionalidade | Status |

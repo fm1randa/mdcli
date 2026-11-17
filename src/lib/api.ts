@@ -320,10 +320,13 @@ export async function fetchAllEntries(params: Omit<EntriesParams, 'page' | 'page
   );
 }
 
-/** The user's preferences every list and sum carries (src/lib/entries-preferences.ts). */
-const loadPreferences = (accounts: Promise<Account[]>) => loadEntriesPreferences(fetchWebConfig(), accounts);
-// Loaded once per run: fetchAllEntries asks for many pages.
 let entriesPreferences: Promise<EntriesPreferences> | null = null;
+
+/** Session preferences every lancamentos read merges. Loaded once per run. */
+export const loadSessionPreferences = (accounts?: Promise<Account[]>): Promise<EntriesPreferences> => (entriesPreferences ??= loadEntriesPreferences(fetchWebConfig(), accounts ?? fetchAccounts().then((r) => r.items)));
+
+/** Authenticated GET. A module that imports only this cannot write. */
+export const apiGet = <T>(endpoint: string): Promise<T> => request<T>('GET', endpoint);
 
 async function fetchEntries(params: EntriesParams): Promise<EntriesResponse> {
   const contas = JSON.stringify({ faturas: params.includeFaturas ?? true, ids: params.accountIds });
@@ -346,7 +349,7 @@ async function fetchEntries(params: EntriesParams): Promise<EntriesResponse> {
     tipoLancamento: (params.entryType ?? 15).toString(),
     type: 'list',
   });
-  setEntriesPreferences(queryParams, await (entriesPreferences ??= loadPreferences(fetchAccounts().then((r) => r.items))));
+  setEntriesPreferences(queryParams, await loadSessionPreferences());
 
   if (params.categoryIds?.length) {
     queryParams.set('categorias', JSON.stringify({ ids: params.categoryIds.map(String) }));
@@ -374,7 +377,7 @@ async function fetchEntries(params: EntriesParams): Promise<EntriesResponse> {
 
 /** The web's account balances (src/lib/account-balances.ts); `accounts`: every account of the user. */
 export const fetchAccountBalances = (accounts: Account[], end: string): Promise<AccountBalanceSum[]> =>
-  fetchWebBalances((endpoint) => request('GET', endpoint), accounts, end, () => (entriesPreferences ??= loadPreferences(Promise.resolve(accounts))), fetchWebConfig);
+  fetchWebBalances((endpoint) => request('GET', endpoint), accounts, end, () => loadSessionPreferences(Promise.resolve(accounts)), fetchWebConfig);
 
 export function isCreditCard(account: Account): boolean {
   return account.tipo === 'CARTAOCREDITO';
