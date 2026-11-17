@@ -61,6 +61,7 @@ export async function editRun(
 }
 
 function openEditor(editor: string, file: string): void {
+  // $EDITOR may contain arguments (`code --wait`), so the command is one shell string.
   const result = runInheritedShell(`${editor} "${file}"`);
   if (result.error !== undefined) {
     throw new Error(t('errorCouldNotRunEditor', editor, result.error.message));

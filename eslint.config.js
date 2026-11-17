@@ -147,8 +147,9 @@ export default tseslint.config(
     // Sync spawn has one owner. That file may import the three names only from
     // node:child_process. A named import from "bun" captured before the guard
     // still starts the child (Bun 1.4.2, #301). The guard, its probe, and the
-    // contract probe name the raw calls on purpose.
-    files: ["src/**/*.ts", "test/**/*.ts"],
+    // contract probe name the raw calls on purpose. bin/ is included so a
+    // named import in bin/cli.ts cannot skip the rule.
+    files: ["src/**/*.ts", "test/**/*.ts", "bin/**/*.ts"],
     ignores: ["test/sync-spawn-guard.ts", "test/probes/sync-spawn.ts", "test/probes/sync-child-contract.ts"],
     rules: { "local/no-sync-spawn": "error" },
   },

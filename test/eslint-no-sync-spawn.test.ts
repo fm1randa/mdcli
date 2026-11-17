@@ -13,6 +13,7 @@ async function localRules(code: string, filePath: string): Promise<string[]> {
 const RULE = 'local/no-sync-spawn';
 const CALLER = 'src/commands/entries/import/edit.ts';
 const OWNER = 'src/lib/sync-child.ts';
+const BIN = 'bin/cli.ts';
 
 describe('local/no-sync-spawn', () => {
   test('fires on the named import the editor used', async () => {
@@ -48,6 +49,17 @@ describe('local/no-sync-spawn', () => {
     expect(
       await localRules("import { spawnSync } from 'node:child_process';\nexport const run = spawnSync;", OWNER),
     ).toEqual([]);
+  });
+
+  test('fires on a bun named import in bin/cli.ts', async () => {
+    expect(await localRules("import { spawnSync } from 'bun';\nexport const run = spawnSync;", BIN)).toEqual([RULE]);
+    expect(await localRules("import { spawn } from 'bun';\nexport const run = spawn;", BIN)).toEqual([]);
+  });
+
+  test('fires on export * from bun and from node:child_process', async () => {
+    expect(await localRules("export * from 'bun';", CALLER)).toEqual([RULE]);
+    expect(await localRules("export * from 'node:child_process';", CALLER)).toEqual([RULE]);
+    expect(await localRules("export { spawn } from 'bun';", CALLER)).toEqual([]);
   });
 
   test('the owner may import the sync names only from node:child_process', async () => {
