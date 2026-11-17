@@ -2,9 +2,9 @@ import chalk from 'chalk';
 import { logger } from '../../utils/logger.js';
 import { t } from '../../lib/i18n/index.js';
 import { parseSummaryGrouping } from '../../lib/i18n/summary-grouping.js';
-import { exitWithError } from '../../utils/action.js';
+import { exitAfterFlush, exitWithError } from '../../utils/action.js';
 import { normalizeEntries } from '../../lib/api.js';
-import { fetchListEntries } from './card-entries.js';
+import { fetchListEntries, type FailedInvoice } from './card-entries.js';
 import { toCsv } from '../../lib/csv.js';
 import { summarize, totalRow } from '../../lib/summary.js';
 import { type FilterOptions, resolveEntryFilters, resolveExcludedCategories } from './filters.js';
@@ -16,11 +16,26 @@ import { newTable } from '../../utils/table.js';
 
 const LIST_COL_WIDTHS = [12, 12, 36, 15, 12, 12, 13];
 
+function reportFailedInvoices(failures: FailedInvoice[]): void {
+  for (const failure of failures) {
+    console.error(
+      chalk.yellow('⚠'),
+      t('warningInvoiceReadFailed', failure.cardName, failure.cardId, failure.dueDate, failure.message),
+    );
+  }
+}
+
 async function loadEntries(options: FilterOptions) {
   const params = await resolveEntryFilters(options);
   const excludedCategories = await resolveExcludedCategories(options.excludeCategory);
-  const all = normalizeEntries(await fetchListEntries(params));
+  const policy = options.account === undefined ? 'continue' : 'strict';
+  const loaded = await fetchListEntries(params, policy);
+  const all = normalizeEntries(loaded.entries);
   const entries = all.filter((e) => e.categoryId === null || !excludedCategories.has(e.categoryId));
+  reportFailedInvoices(loaded.failedInvoices);
+  if (loaded.failedInvoices.length > 0 && entries.length === 0) {
+    await exitAfterFlush(1);
+  }
   return { params, entries, excludedByCategory: all.length - entries.length };
 }
 
