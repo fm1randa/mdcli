@@ -16,9 +16,9 @@ function syncSpawnRefusal(name: string): Error {
 
 /**
  * Replaces the synchronous spawners with ones that throw. Bun.spawnSync covers
- * `import { spawnSync } from 'bun'` too; the node:child_process default export
- * and require() see the patch, while an ESM named import of node:child_process
- * keeps the original binding.
+ * `import { spawnSync } from 'bun'` taken after this assignment. The default
+ * export and require() see the patch. An ESM named import keeps the original
+ * binding, so local/no-sync-spawn forbids that import outside src/lib/sync-child.ts.
  */
 export function refuseSyncSpawn(): void {
   Bun.spawnSync = (() => {
