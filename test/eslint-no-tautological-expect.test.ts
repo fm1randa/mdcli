@@ -29,6 +29,10 @@ describe('local/no-tautological-expect', () => {
     expect(await localRules("const source = readFileSync('src/lib/api.ts', 'utf8');\ntest('x', () => { expect(source.slice(0, 10)).toContain('x'); });", TEST_FILE)).toEqual(['local/no-tautological-expect']);
   });
 
+  test('fires on the spawn probe filename', async () => {
+    expect(await localRules("test('probe', () => { expect(true).toBe(true); });", 'test/probes/sync-spawn.ts')).toEqual(['local/no-tautological-expect']);
+  });
+
   test('does not fire on a real assertion, a different literal, or a non-src read', async () => {
     expect(await localRules("test('x', () => { expect(actual).toBe(true); });", TEST_FILE)).toEqual([]);
     expect(await localRules("test('x', () => { expect('a').toBe('b'); });", TEST_FILE)).toEqual([]);

@@ -11,6 +11,7 @@ import noDueAnchorFallback from "./no-due-anchor-fallback.js";
 import noGitCopy from "./no-git-copy.js";
 import noHostLiteral from "./no-host-literal.js";
 import noLiteralSince from "./no-literal-since.js";
+import noLooseDeadline from "./no-loose-deadline.js";
 import noLooseNumber from "./no-loose-number.js";
 import noRawDash from "./no-raw-dash.js";
 import noRawSpawn from "./no-raw-spawn.js";
@@ -34,6 +35,7 @@ export default {
     "no-git-copy": noGitCopy,
     "no-host-literal": noHostLiteral,
     "no-literal-since": noLiteralSince,
+    "no-loose-deadline": noLooseDeadline,
     "no-loose-number": noLooseNumber,
     "no-raw-cents": noRawCents,
     "no-raw-currency": noRawCurrency,

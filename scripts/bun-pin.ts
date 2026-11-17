@@ -1,0 +1,46 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
+const BUN_PREFIX = 'bun@';
+
+/**
+ * Compares the packageManager field to the running version.
+ * Undefined when the field is `bun@` plus that version. A missing or non-bun
+ * field still returns a message; it does not throw. No filesystem and no spawn.
+ */
+export function pinMismatch(packageManagerField: string, runningVersion: string): string | undefined {
+  const pin = packageManagerField.startsWith(BUN_PREFIX) ? packageManagerField.slice(BUN_PREFIX.length) : packageManagerField;
+  if (packageManagerField.startsWith(BUN_PREFIX) && pin === runningVersion) return undefined;
+  return [
+    `Bun ${runningVersion} está no PATH. package.json pede ${packageManagerField}.`,
+    'Instale esse pin e coloque esse bun antes no PATH:',
+    `  curl -fsSL https://bun.sh/install | bash -s "bun-v${pin}"`,
+  ].join('\n');
+}
+
+/** CLI. No flags: package.json next to this script, and Bun.version. The two flags override both. */
+export function bunPinMain(argv: readonly string[]): number {
+  let running = Bun.version;
+  let field: string | undefined;
+  for (let index = 0; index < argv.length; index++) {
+    const arg = argv[index];
+    if (arg === '--running') running = argv[++index] ?? '';
+    else if (arg === '--package-manager') field = argv[++index] ?? '';
+    else if (arg?.startsWith('-')) {
+      console.error(`unknown argument: ${arg}`);
+      return 1;
+    }
+  }
+  const packageManagerField = field ?? readPackageManager();
+  const message = pinMismatch(packageManagerField, running);
+  if (message === undefined) return 0;
+  console.log(message);
+  return 1;
+}
+
+function readPackageManager(): string {
+  const parsed = JSON.parse(readFileSync(join(import.meta.dir, '..', 'package.json'), 'utf8')) as { packageManager?: unknown };
+  return typeof parsed.packageManager === 'string' ? parsed.packageManager : '';
+}
+
+if (import.meta.main) process.exit(bunPinMain(process.argv.slice(2)));

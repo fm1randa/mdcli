@@ -122,8 +122,16 @@ export default tseslint.config(
   {
     // A test that compares a literal to itself, or asserts the text of a
     // src/ or bin/ file, cannot fail when the behavior breaks (issue #186).
-    files: ["test/**/*.test.ts"],
+    // Probes are bun:test files too (#303).
+    files: ["test/**/*.ts"],
     rules: { "local/no-tautological-expect": "error" },
+  },
+  {
+    // Suite deadlines live in test/timeouts.ts. A literal, or one local bound
+    // to a literal, is a second copy (#303).
+    files: ["test/**/*.ts"],
+    ignores: ["test/timeouts.ts"],
+    rules: { "local/no-loose-deadline": "error" },
   },
   {
     // Short options with = must be preprocessed before commander parses argv (#151).
@@ -138,10 +146,18 @@ export default tseslint.config(
   },
   {
     // scripts/ spawns git, gh and bun only through scripts/git.ts (#260).
-    // src/** and test/** are exempt in eslint-rules/scope-exemptions.json.
+    // src/** is exempt in eslint-rules/scope-exemptions.json. The default
+    // syncNames is "self", so spawnSync in a gate stays this rule.
     files: ["scripts/**/*.ts"],
     ignores: ["scripts/git.ts"],
     rules: { "local/no-raw-spawn": "error" },
+  },
+  {
+    // test/ spawns only through test/run.ts. Synchronous names stay on
+    // no-sync-spawn, so one spawnSync is one local rule (#301, #303).
+    files: ["test/**/*.ts"],
+    ignores: ["test/run.ts"],
+    rules: { "local/no-raw-spawn": ["error", { syncNames: "sync-rule" }] },
   },
   {
     // Sync spawn has one owner. That file may import the three names only from

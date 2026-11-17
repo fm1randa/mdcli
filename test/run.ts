@@ -31,3 +31,67 @@ export async function run(command: readonly string[], options: RunOptions = {}):
   ]);
   return { exitCode, stdout, stderr };
 }
+
+export interface IgnoredChild {
+  readonly exited: Promise<number>;
+}
+
+export interface IgnoredOptions {
+  cwd?: string;
+  env?: Record<string, string | undefined>;
+}
+
+export function spawnIgnored(command: readonly string[], options: IgnoredOptions = {}): IgnoredChild {
+  const proc = Bun.spawn([...command], {
+    cwd: options.cwd,
+    env: options.env,
+    stdout: 'ignore',
+    stderr: 'ignore',
+  });
+  return { exited: proc.exited };
+}
+
+export interface TerminalChild {
+  readonly exited: Promise<number>;
+  exitCode(): number | null;
+  write(data: string): void;
+  kill(): void;
+  close(): void;
+}
+
+export interface TerminalOptions {
+  cwd?: string;
+  env?: Record<string, string | undefined>;
+  cols: number;
+  rows: number;
+  onData(chunk: Uint8Array): void;
+}
+
+export function attachTerminal(command: readonly string[], options: TerminalOptions): TerminalChild {
+  const proc = Bun.spawn([...command], {
+    cwd: options.cwd,
+    env: options.env,
+    terminal: {
+      cols: options.cols,
+      rows: options.rows,
+      data(_terminal, chunk) {
+        options.onData(chunk);
+      },
+    },
+  });
+  const terminal = proc.terminal;
+  if (!terminal) throw new Error('Bun.spawn returned no terminal');
+  return {
+    exited: proc.exited,
+    exitCode: () => proc.exitCode,
+    write(data) {
+      terminal.write(data);
+    },
+    kill() {
+      proc.kill();
+    },
+    close() {
+      terminal.close();
+    },
+  };
+}

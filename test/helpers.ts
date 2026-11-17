@@ -4,6 +4,8 @@ import { join } from 'node:path';
 import type { MdcliConfig } from '../src/types/index.js';
 import type { ApiResponses, ApiRoute } from './api-routes.js';
 import { SESSION_RESPONSE } from './fixtures.js';
+import { attachTerminal, run } from './run.js';
+import { POLL_DEADLINE_MS, waitFor } from './timeouts.js';
 
 const REPO_ROOT = join(import.meta.dir, '..');
 
@@ -191,21 +193,27 @@ export async function runCli(
   args: string[],
   env: { home: TestHome; api: MockApi; stdin?: string; extraEnv?: Record<string, string | undefined> }
 ): Promise<CliResult> {
-  const proc = Bun.spawn(['bun', join(REPO_ROOT, 'bin', 'cli.ts'), ...args], {
-    cwd: REPO_ROOT,
-    // Piped output, as in a script: no color.
-    env: cliEnv(env, { TERM: 'dumb', NO_COLOR: '1', FORCE_COLOR: '0' }),
-    stdin: env.stdin === undefined ? 'ignore' : new Blob([env.stdin]),
-    stdout: 'pipe',
-    stderr: 'pipe',
-  });
+  const collected = await run(
+    ['bun', join(REPO_ROOT, 'bin', 'cli.ts'), ...args],
+    {
+      cwd: REPO_ROOT,
+      env: cliEnv(env, { TERM: 'dumb', NO_COLOR: '1', FORCE_COLOR: '0' }),
+      stdin: env.stdin,
+    },
+  );
+  return { ...collected, output: collected.stdout + collected.stderr };
+}
 
-  const [stdout, stderr, exitCode] = await Promise.all([
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
-    proc.exited,
-  ]);
-  return { exitCode, stdout, stderr, output: stdout + stderr };
+function findStep(screen: string, pattern: string | RegExp): number | null {
+  if (typeof pattern === 'string') {
+    const index = screen.indexOf(pattern);
+    const end = index < 0 ? 0 : index + pattern.length;
+    return end > 0 ? end : null;
+  }
+  const match = pattern.exec(screen);
+  if (!match) return null;
+  const end = match.index + match[0].length;
+  return end > 0 ? end : null;
 }
 
 /** One scripted interaction: wait until the screen shows `waitFor`, then type `send`. */
@@ -226,56 +234,44 @@ export async function runCliInTerminal(
   args: string[],
   env: { home: TestHome; api: MockApi },
   steps: TerminalStep[],
-  stepTimeoutMs = 10_000
 ): Promise<{ exitCode: number; output: string }> {
   let raw = '';
   const decoder = new TextDecoder();
-  const proc = Bun.spawn(['bun', join(REPO_ROOT, 'bin', 'cli.ts'), ...args], {
+  // An xterm, whatever terminal runs the tests (on TERM=linux, @inquirer/prompts draws ">" instead of "❯").
+  const term = attachTerminal(['bun', join(REPO_ROOT, 'bin', 'cli.ts'), ...args], {
     cwd: REPO_ROOT,
-    // The pseudo-terminal below is an xterm, whatever terminal runs the tests
-    // (on TERM=linux, @inquirer/prompts draws ">" instead of "❯").
     env: cliEnv(env, { TERM: 'xterm-256color', FORCE_COLOR: '0' }),
-    terminal: {
-      cols: 120,
-      rows: 40,
-      data(_terminal, data) {
-        raw += decoder.decode(data, { stream: true });
-      },
+    cols: 120,
+    rows: 40,
+    onData(chunk) {
+      raw += decoder.decode(chunk, { stream: true });
     },
   });
-  const terminal = proc.terminal!;
   const screen = () => Bun.stripANSI(raw);
 
   try {
     let consumed = 0;
     for (const step of steps) {
-      const deadline = Date.now() + stepTimeoutMs;
-      for (;;) {
-        const rest = screen().slice(consumed);
-        const match = typeof step.waitFor === 'string'
-          ? (() => { const i = rest.indexOf(step.waitFor); return i < 0 ? undefined : i + step.waitFor.length; })()
-          : (() => { const m = step.waitFor.exec(rest); return m ? m.index + m[0].length : undefined; })();
-        if (match !== undefined) {
-          consumed += match;
-          break;
-        }
-        if (Date.now() > deadline || proc.exitCode !== null) {
-          throw new Error(`terminal never showed ${String(step.waitFor)}; screen:\n${screen()}`);
-        }
-        await Bun.sleep(20);
+      const matchEnd = await waitFor(
+        () => findStep(screen().slice(consumed), step.waitFor),
+        { abort: () => term.exitCode() !== null },
+      );
+      if (matchEnd === null) {
+        throw new Error(`terminal never showed ${String(step.waitFor)}; screen:\n${screen()}`);
       }
-      terminal.write(step.send);
+      consumed += matchEnd;
+      term.write(step.send);
     }
     const exitCode = await Promise.race([
-      proc.exited,
-      Bun.sleep(stepTimeoutMs).then(() => {
+      term.exited,
+      Bun.sleep(POLL_DEADLINE_MS).then(() => {
         throw new Error(`CLI did not exit; screen:\n${screen()}`);
       }),
     ]);
     return { exitCode, output: screen() };
   } finally {
-    proc.kill();
-    terminal.close();
+    term.kill();
+    term.close();
   }
 }
 
