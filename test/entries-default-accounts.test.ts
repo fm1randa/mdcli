@@ -124,16 +124,47 @@ describe('entries without --account', () => {
     });
   });
 
-  test('a 500 from the active card invoice exits 1', async () => {
+  test('a 500 from the active card invoice warns, lists the other accounts, and exits 0', async () => {
     api.fail('GET /v1/cartoes/202/fatura/2026-01-16', 500, { message: 'boom' });
 
     const listed = await runCli(['entries', 'list', ...JANUARY], { home, api });
-    expect(listed.exitCode).toBe(1);
+    expect(listed.exitCode).toBe(0);
+    expect(listed.stdout).toContain('Mercado');
+    expect(listed.stdout).not.toContain('Cartão Teste');
+    expect(listed.stderr).toContain('Cartão Teste');
+    expect(listed.stderr).toContain('2026-01-16');
+    expect(listed.stderr).toContain('500');
+
+    const summary = await runCli(['entries', 'summary', ...JANUARY, '--json'], { home, api });
+    expect(summary.exitCode).toBe(0);
+    expect(summary.stderr).toContain('Cartão Teste');
+    expect(summary.stderr).toContain('2026-01-16');
+    expect(JSON.parse(summary.stdout)).toMatchObject({
+      total: { count: 5, income: 5000, expenses: -360.75 },
+    });
+
+    const named = await runCli(['entries', 'list', ...JANUARY, '-a', '201,202'], { home, api });
+    expect(named.exitCode).toBe(1);
+    expect(named.stderr).toContain('API request failed');
+    expect(named.stdout).not.toContain('Mercado');
+  });
+
+  test('a 500 from every relevant invoice exits non-zero when nothing else remains', async () => {
+    api.on('GET /v1/cadastros/contas', { ...ACCOUNTS_RESPONSE, items: [CREDIT_CARD_ACCOUNT] });
+    api.on('GET /v2/lancamentos', entriesPage([]));
+    api.fail('GET /v1/cartoes/202/fatura/2026-01-16', 500, { message: 'boom' });
+
+    const listed = await runCli(['entries', 'list', ...JANUARY], { home, api });
+    expect(listed.exitCode).not.toBe(0);
+    expect(listed.stdout.trim()).toBe('');
+    expect(listed.stderr).toContain('Cartão Teste');
+    expect(listed.stderr).toContain('2026-01-16');
     expect(listed.stderr).toContain('500');
 
     const summary = await runCli(['entries', 'summary', ...JANUARY], { home, api });
-    expect(summary.exitCode).toBe(1);
-    expect(summary.stderr).toContain('500');
+    expect(summary.exitCode).not.toBe(0);
+    expect(summary.stdout.trim()).toBe('');
+    expect(summary.stderr).toContain('Cartão Teste');
   });
 
   test('an invalid date fails before accounts are read', async () => {
