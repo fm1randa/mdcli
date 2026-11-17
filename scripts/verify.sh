@@ -555,7 +555,7 @@ step "cli entries update -p texto (mock)" expect_ok 'Status: Pending' entries up
 step "cli entries update parcela (mock)"     expect_ok 'Entry updated' entries update 60 -d "Notebook (2/6)"
 step "cli entries update parcela --json (mock)" expect_json 'd.id === 60 && d.descricao === "Notebook (2/6)"' entries update 60 -d "Notebook (2/6)" --json
 step "cli entries update transferência (mock)" expect_ok 'Entry updated' entries update 50 -d "Poupança mensal" -v 1200
-step "cli entries update transferência --json (mock)" expect_json 'd.id === 50 && d.descricao === "Poupança mensal"' entries update 50 -d "Poupança mensal" -v 1200 --json
+step "cli entries update transferência --json (mock)" expect_json 'd.id === 50 && d.descricao === "Poupança mensal" && d.dataEfetiva === "2026-01-15"' entries update 50 -d "Poupança mensal" -v 1200 --json
 # Recurring series (#65): a scheduled occurrence stays scheduled, --scope maps
 # to todos (the mock keeps it in the series only with todos: true) and editing
 # without --scope warns on stderr.
@@ -573,7 +573,8 @@ step "cli entries update --account texto (mock)" expect_ok 'Account: 204' entrie
 # Into a card the invoice is the web form's (from proximoVencimento, closing
 # fechamento days before) and the plastic is the new card's holder, or null.
 step "cli entries update --account cartão (mock)" expect_json 'd.conta === 205 && d.dataCompetencia === "2026-11-10" && d.dataPrevista === "2026-12-16" && d.dataEfetiva === null && d.plastico === 62' entries update 70 --account 205 -D 2026-11-10 --json
-step "cli entries update --account cartão data passada (mock)" expect_json 'd.conta === 205 && d.dataCompetencia === "2026-01-12" && d.dataPrevista === "2026-11-16"' entries update 70 --account 205 --json
+step "cli entries update echoes dataEfetiva (mock)" expect_json 'd.dataEfetiva === "2026-01-14" && d.dataPrevista === "2026-01-12"' entries update 70 -d "Café quente" --json
+step "cli entries update --account cartão data passada (mock)" expect_json 'd.conta === 205 && d.dataCompetencia === "2026-01-14" && d.dataPrevista === "2026-11-16"' entries update 70 --account 205 --json
 step "cli entries update --account cartão sem plástico (mock)" expect_json 'd.conta === 202 && d.plastico === null' entries update 70 --account 202 --json
 step "cli entries update --account inexistente (mock)" expect_fail 'Unknown account: Inexistente' entries update 70 --account Inexistente
 step "cli entries update --to-account fora de transferência (mock)" expect_fail 'to-account only applies to transfers' entries update 70 --to-account 204
@@ -593,7 +594,8 @@ step "cli entries list --csv nomes de tag (mock)" expect_ok ',Trabalho,parcelado
 step "cli entries summary --repetition (mock)" expect_json 'd.total.count === 1 && d.skippedTransfers === 1' entries summary -a 201 -f 2026-01-01 -t 2026-01-31 -R single --json
 step "cli entries show (mock)" expect_ok 'Repetition: Installment \(2/6\)' entries show 60
 step "cli entries show --json (mock)" expect_json 'd.id === 60 && d.notes === "parcelado" && d.seriesId === 99 && d.competenceDate === "2026-01-10"' entries show 60 --json
-step "cli entries show --raw (mock)" expect_json 'd.agendaId === 77 && d.parcela === "fixa"' entries show 80 --raw
+step "cli entries show 60 --raw (mock)" expect_json 'd.dataEfetiva === "2026-01-10" && Object.hasOwn(d, "transferencia") === false' entries show 60 --raw
+step "cli entries show --raw (mock)" expect_json 'd.agendaId === 77 && d.parcela === "fixa" && Object.hasOwn(d, "dataEfetiva") === false' entries show 80 --raw
 step "cli entries show inexistente (mock)" expect_fail 'GET /v1/lancamentos/9999\): 404' entries show 9999
 step "cli entries list --to > 2031 (mock)" expect_fail 'is past 2031-12-31' entries list -a 201 -f 2026-11-01 -t 2035-12-31
 step "cli entries list --to > 2031 --json (mock)" expect_json_error 'is past 2031-12-31' entries list -a 201 -f 2026-11-01 -t 2035-12-31 --json
