@@ -18,15 +18,15 @@ function deferred(): Deferred {
 const flush = () => new Promise((r) => setTimeout(r, 0));
 
 describe('mapConcurrent', () => {
-  test.each([0, -1, Number.NaN, 1.5, Number.POSITIVE_INFINITY])('rejects limit %p without calling fn', async (limit) => {
+  test.each([0, -1, Number.NaN, 1.5, Number.POSITIVE_INFINITY])('rejects limit %p without calling fn', (limit) => {
     let calls = 0;
-    const run = mapConcurrent([1, 2, 3], limit, async (n) => {
+    const run = mapConcurrent([1, 2, 3], limit, (n) => {
       calls++;
-      return n;
+      return Promise.resolve(n);
     });
 
-    await expect(run).rejects.toThrow(RangeError);
-    await expect(run).rejects.toThrow('limit must be an integer >= 1');
+    expect(run).rejects.toThrow(RangeError);
+    expect(run).rejects.toThrow('limit must be an integer >= 1');
     expect(calls).toBe(0);
   });
 
@@ -73,14 +73,15 @@ describe('mapConcurrent', () => {
   });
 
   test('works with a limit larger than the number of items', async () => {
-    expect(await mapConcurrent(['a', 'b'], 10, async (s) => s.toUpperCase())).toEqual(['A', 'B']);
+    expect(await mapConcurrent(['a', 'b'], 10, (s) => Promise.resolve(s.toUpperCase()))).toEqual(['A', 'B']);
   });
 
   test('returns [] for no items', async () => {
     let calls = 0;
     expect(
-      await mapConcurrent([], 4, async () => {
+      await mapConcurrent([], 4, () => {
         calls++;
+        return Promise.resolve();
       })
     ).toEqual([]);
     expect(calls).toBe(0);

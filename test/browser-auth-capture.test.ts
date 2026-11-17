@@ -34,7 +34,7 @@ afterAll(async () => {
   try {
     await closeTestBrowser(browser);
   } finally {
-    server?.stop(true);
+    void server?.stop(true);
   }
 });
 

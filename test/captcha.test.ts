@@ -16,8 +16,8 @@ function fakePage(overrides: {
   url?: string;
 }) {
   return {
-    evaluate: async () => overrides.evaluateResult ?? null,
-    content: async () => overrides.content ?? '<html></html>',
+    evaluate: () => Promise.resolve(overrides.evaluateResult ?? null),
+    content: () => Promise.resolve(overrides.content ?? '<html></html>'),
     url: () => overrides.url ?? 'https://example.com/login',
   };
 }

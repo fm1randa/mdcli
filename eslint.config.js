@@ -181,6 +181,14 @@ export default tseslint.config(
     },
   },
   {
+    files: ["src/**/*.ts", "scripts/**/*.ts", "test/**/*.ts"],
+    rules: {
+      "@typescript-eslint/no-floating-promises": "error",
+      "@typescript-eslint/await-thenable": "error",
+      "@typescript-eslint/require-await": "error",
+    },
+  },
+  {
     ignores: ["node_modules", "dist"],
   }
 );

@@ -59,7 +59,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  server.stop(true);
+  void server.stop(true);
   rmSync(dir, { recursive: true, force: true });
 });
 
