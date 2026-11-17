@@ -6,6 +6,7 @@ import { commitSources, messageHits, pullRequestSource } from '../scripts/check-
 import { git } from '../scripts/git.js';
 import { keyedTermHash, termHash } from '../scripts/private-terms.js';
 import { commitAll } from './git-repo.js';
+import { run } from './run.js';
 
 const fakeTerm = 'termo-sintetico-proibido';
 const fakeHashes = new Set([termHash(fakeTerm)]);
@@ -21,21 +22,11 @@ function fakeGh(script: string): string {
 
 async function runScript(ghDir: string): Promise<{ stdout: string; stderr: string; code: number | null }> {
   const { PR_BODY: _ignored, ...env } = process.env;
-  const proc = Bun.spawn(
+  const collected = await run(
     [process.execPath, join(repoRoot, 'scripts', 'check-private-messages.ts'), '--base', 'HEAD'],
-    {
-      cwd: repoRoot,
-      env: { ...env, PATH: `${ghDir}:${process.env.PATH ?? ''}` },
-      stdout: 'pipe',
-      stderr: 'pipe',
-    }
+    { cwd: repoRoot, env: { ...env, PATH: `${ghDir}:${process.env.PATH ?? ''}` } },
   );
-  const [stdout, stderr, code] = await Promise.all([
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
-    proc.exited,
-  ]);
-  return { stdout, stderr, code };
+  return { stdout: collected.stdout, stderr: collected.stderr, code: collected.exitCode };
 }
 
 async function tempRepo(): Promise<string> {

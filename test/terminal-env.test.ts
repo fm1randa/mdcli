@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { join } from 'node:path';
 import { createHome, KEY, runCliInTerminal, startMockApi, type MockApi, type TestHome } from './helpers.js';
+import { run } from './run.js';
 
 // The suite must give the same result on any terminal. A claude.ai container
 // runs it with TERM=linux and may force color, while GitHub CI has no TERM:
@@ -40,17 +41,10 @@ describe('test run under a TERM=linux, color-forcing caller', () => {
   test('in-process code sees a plain terminal after test/setup.ts', async () => {
     // A child `bun test` preloads test/setup.ts like this run did, but starts
     // from the hostile environment set above.
-    const proc = Bun.spawn(['bun', 'test', './test/probes/terminal.ts'], {
-      cwd: join(import.meta.dir, '..'),
-      env: process.env,
-      stdout: 'pipe',
-      stderr: 'pipe',
-    });
-    const [stdout, stderr, exitCode] = await Promise.all([
-      new Response(proc.stdout).text(),
-      new Response(proc.stderr).text(),
-      proc.exited,
-    ]);
+    const { exitCode, stdout, stderr } = await run(
+      ['bun', 'test', './test/probes/terminal.ts'],
+      { cwd: join(import.meta.dir, '..'), env: process.env },
+    );
 
     expect(exitCode, stderr).toBe(0);
     // stdout also carries bun's "bun test vX" banner; the probe's line is JSON.

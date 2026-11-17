@@ -1,4 +1,4 @@
-import { expect, test } from 'bun:test';
+import { test } from 'bun:test';
 import childProcess from 'node:child_process';
 
 // Run by test/sync-spawn-guard.test.ts with and without --parallel: each
@@ -15,5 +15,4 @@ function attempt(name: string, spawn: () => unknown): void {
 test('probe', () => {
   attempt('Bun.spawnSync', () => Bun.spawnSync(['true']));
   attempt('child_process.execSync', () => childProcess.execSync('true'));
-  expect(true).toBe(true);
 });

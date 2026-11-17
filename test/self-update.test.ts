@@ -3,7 +3,8 @@ import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, wr
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { checkForUpdate, compareVersions, isGlobalInstall, runManualUpdate } from '../src/lib/self-update.js';
-import { waitFor } from './timeouts.js';
+import { spawnIgnored } from './run.js';
+import { QUIET_WINDOW_MS, waitFor } from './timeouts.js';
 
 let dir: string;
 let server: ReturnType<typeof Bun.serve>;
@@ -100,7 +101,7 @@ describe('checkForUpdate', () => {
     expect(await checkForUpdate({ packageRoot: globalInstall('2026.10.20'), env })).toBe('up-to-date');
     latestTag = 'v2026.10.1';
     expect(await checkForUpdate({ packageRoot: globalInstall('2026.10.20'), env: { ...env, MDCLI_CONFIG_DIR: join(dir, 'c2') } })).toBe('up-to-date');
-    await Bun.sleep(100);
+    await Bun.sleep(QUIET_WINDOW_MS);
     expect(calls()).toBeNull();
   });
 
@@ -178,12 +179,10 @@ describe('checkForUpdate', () => {
         `await checkForUpdate({ packageRoot: process.argv[2], env: JSON.parse(process.env.CHECK_ENV || '{}') });`,
       ].join('\n'),
     );
-    const proc = Bun.spawn([process.execPath, cli, root], {
+    const child = spawnIgnored([process.execPath, cli, root], {
       env: { ...process.env, CHECK_ENV: JSON.stringify(env) },
-      stdout: 'ignore',
-      stderr: 'ignore',
     });
-    expect(await proc.exited).toBe(0);
+    expect(await child.exited).toBe(0);
     const calls = await waitFor(() => {
       const c = existsSync(log) ? readFileSync(log, 'utf-8').trim().split('\n').filter((l) => l.length > 0) : [];
       return c.length >= 2 ? c : null;

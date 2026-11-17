@@ -117,4 +117,50 @@ describe('local/no-raw-spawn', () => {
     expect(await localRules("const window = [1, 2];\nexport const first = window[0];", GATE)).toEqual([]);
     expect(await localRules("import { spawn } from './git.js';\nexport const result = spawn(['gh', 'auth', 'status']);", GATE)).toEqual([]);
   });
+
+  test('a test file names run, spawnIgnored and attachTerminal, and a gate still names scripts/git.ts', async () => {
+    const [testFile] = await eslint.lintText("export const proc = Bun.spawn(['true']);\n", { filePath: 'test/helpers.ts' });
+    const testMessage = testFile.messages.find((message) => message.ruleId === RULE)?.message ?? '';
+    expect(testMessage).toContain('run');
+    expect(testMessage).toContain('spawnIgnored');
+    expect(testMessage).toContain('attachTerminal');
+    expect(testMessage.includes('scripts/git.ts')).toBe(false);
+    const [gate] = await eslint.lintText("export const proc = Bun.spawn(['true']);\n", { filePath: GATE });
+    expect(gate.messages.find((message) => message.ruleId === RULE)?.message ?? '').toContain('scripts/git.ts');
+  });
+
+  test('reports the spawn sites once, with sync names owned by no-sync-spawn in test/', async () => {
+    const reports: { file: string; code: string; ids: string[] }[] = [
+      { file: 'scripts/risk.ts', code: "export const result = Bun.spawnSync(['true']);", ids: [RULE] },
+      { file: 'scripts/risk.ts', code: "import { execFileSync } from 'node:child_process';\nexport const run = execFileSync;", ids: [RULE] },
+      { file: 'scripts/git.ts', code: "export const proc = Bun.spawn(['true']);", ids: [] },
+      { file: 'test/helpers.ts', code: "export const proc = Bun.spawn(['true']);", ids: [RULE] },
+      { file: 'test/helpers.ts', code: "export const result = Bun.spawnSync(['true']);", ids: ['local/no-sync-spawn'] },
+      { file: 'test/helpers.ts', code: "import { execFileSync } from 'node:child_process';\nexport const run = execFileSync;", ids: ['local/no-sync-spawn'] },
+      { file: 'test/helpers.ts', code: "import { spawn } from 'node:child_process';\nexport const run = spawn;", ids: [RULE] },
+      {
+        file: 'test/helpers.ts',
+        code: "import { spawn, spawnSync } from 'node:child_process';\nexport const run = spawn;",
+        ids: [RULE, 'local/no-sync-spawn'],
+      },
+      { file: 'test/run.ts', code: "export const proc = Bun.spawn(['true']);", ids: [] },
+      {
+        file: 'test/probes/sync-spawn.ts',
+        code: "import childProcess from 'node:child_process';\nBun.spawnSync(['true']);\nchildProcess.execSync('true');",
+        ids: [],
+      },
+      { file: 'test/sync-spawn-guard.ts', code: "Bun.spawnSync = (() => { throw new Error('no'); }) as typeof Bun.spawnSync;", ids: [] },
+      { file: 'src/lib/api.ts', code: "export const proc = Bun.spawn(['true']);", ids: [] },
+    ];
+    for (const row of reports) {
+      expect(await localRules(row.code, row.file)).toEqual(row.ids);
+    }
+    expect(await localRules("export const out = await Bun.$`echo hi`.text();", 'test/helpers.ts')).toEqual([RULE]);
+    expect(await localRules("import cp from 'node:child_process';\nexport const run = cp.spawn;", 'test/helpers.ts')).toEqual([RULE]);
+    expect(await localRules("import cp from 'node:child_process';\nexport const run = cp.spawnSync;", 'test/helpers.ts')).toEqual(['local/no-sync-spawn']);
+    expect(await localRules("import cp from 'node:child_process';\nexport const run = cp.execSync;", 'test/helpers.ts')).toEqual(['local/no-sync-spawn']);
+    expect(await localRules("import cp from 'node:child_process';\nexport const run = cp.execFileSync;", 'test/helpers.ts')).toEqual(['local/no-sync-spawn']);
+    expect(await localRules("import { spawnSync } from 'node:child_process';\nexport const run = spawnSync;", 'test/helpers.ts')).toEqual(['local/no-sync-spawn']);
+    expect(await localRules("import { execSync } from 'node:child_process';\nexport const run = execSync;", 'test/helpers.ts')).toEqual(['local/no-sync-spawn']);
+  });
 });

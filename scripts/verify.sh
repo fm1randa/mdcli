@@ -81,6 +81,13 @@ wait_steps() {
   done
 }
 
+if ! command -v bun >/dev/null 2>&1; then
+  pin=$(sed -n 's/^[[:space:]]*"packageManager":[[:space:]]*"\([^"]*\)".*/\1/p' package.json | head -n 1)
+  echo "bun não está no PATH. package.json pede ${pin:-packageManager}."
+  exit 1
+fi
+bun scripts/bun-pin.ts || exit 1
+
 step "install"   bun install --frozen-lockfile
 # README.en.md translates README.md: its top comment records the git blob hash
 # of the README.md it matches (readme-blob). Computed in Bun, like

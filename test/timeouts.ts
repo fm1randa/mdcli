@@ -5,8 +5,15 @@
 /** Per-test and per-hook timeout of every `bun test` run; test/setup.ts applies it. */
 export const TEST_TIMEOUT_MS = 20_000;
 
-/** How long a poll waits for a background effect: half a test, leaving time to assert and clean up. */
-const POLL_DEADLINE_MS = TEST_TIMEOUT_MS / 2;
+/** Half a test. waitFor's deadline and the terminal exit race. */
+export const POLL_DEADLINE_MS = TEST_TIMEOUT_MS / 2;
+
+/**
+ * How long the up-to-date self-update test waits to see that no background
+ * install started. Not a fraction of the suite budget: a longer test timeout
+ * must not stretch this observation.
+ */
+export const QUIET_WINDOW_MS = 100;
 
 /** Chrome's launch deadline, below the hook's so the launch error names the cause before bun kills the hook. */
 export const BROWSER_LAUNCH_TIMEOUT_MS = (TEST_TIMEOUT_MS * 3) / 4;
@@ -16,10 +23,16 @@ export const BROWSER_CLOSE_TIMEOUT_MS = TEST_TIMEOUT_MS / 2;
 
 const POLL_INTERVAL_MS = 20;
 
-/** Polls `probe` until it returns a truthy value, or null once the poll deadline passes. */
-export async function waitFor<T>(probe: () => T | null): Promise<T | null> {
+export interface WaitOptions {
+  /** Checked each iteration before the sleep. When it returns true, waitFor resolves null. */
+  abort?: () => boolean;
+}
+
+/** Polls `probe` until it returns a truthy value, or null when the deadline passes or `abort` fires. */
+export async function waitFor<T>(probe: () => T | null, options?: WaitOptions): Promise<T | null> {
   const deadline = performance.now() + POLL_DEADLINE_MS;
   for (;;) {
+    if (options?.abort?.()) return null;
     const value = probe();
     if (value) return value;
     if (performance.now() >= deadline) return null;
