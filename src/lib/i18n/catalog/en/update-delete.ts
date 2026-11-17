@@ -58,6 +58,8 @@ export const enEntriesUpdateDelete: typeof SectionType = {
   errorInvalidValue: (value) =>
     `Invalid value "${value}". Use a number like 10, 10.50 or 10,50.`,
   errorJsonOrCsv: () => 'Use either --json or --csv, not both.',
+  warningInvoiceReadFailed: (cardName, cardId, dueDate, detail) =>
+    `Invoice for ${cardName} (${cardId}) due ${dueDate} failed: ${detail}`,
   entriesListHeader: (count, total) => `Entries (${count}) | Total: ${total}`,
   errorInvalidBy: (value) => `Invalid --by "${value}". Use category, month, or account.`,
   labelNoCategory: () => '(no category)',

@@ -1,7 +1,7 @@
 import { fetchAccounts, fetchAllEntries, fetchCardInvoice, isCreditCard } from '../../lib/api.js';
 import { t } from '../../lib/i18n/index.js';
 import { shiftDueDate } from '../../lib/dates.js';
-import type { Account, CardInvoiceEntry, EntriesParams, Entry } from '../../types/index.js';
+import type { Account, CardInvoiceEntry, CardInvoiceResponse, EntriesParams, Entry } from '../../types/index.js';
 import { asEntryId } from '../../lib/entry-id-brands.js';
 import type { CreatedEntryLookup } from './entry-id.js';
 import { cardDueAnchor } from './card-invoice.js';
@@ -14,6 +14,21 @@ import { mapConcurrent } from '../../utils/concurrency.js';
 const INVOICE_CONCURRENCY = 4;
 
 type ListParams = Omit<EntriesParams, 'page' | 'pageSize'>;
+
+/** `strict` is an explicit account selection: one failed invoice fails the command.
+ * `continue` is the default active set: a failed invoice is reported and the rest is kept. */
+type InvoiceFailurePolicy = 'strict' | 'continue';
+
+export interface FailedInvoice {
+  cardId: number;
+  cardName: string;
+  dueDate: string;
+  message: string;
+}
+
+type InvoiceRead =
+  | { ok: true; invoice: CardInvoiceResponse }
+  | { ok: false; failure: FailedInvoice };
 
 
 /** Due dates of the card's invoices that fall within [from, to]. */
@@ -40,6 +55,16 @@ function toEntry(item: CardInvoiceEntry, card: Account, dueDate: string): Entry 
     dataPrevista: item.dataPrevista ?? dueDate,
     dataCompetencia: item.dataCompetencia ?? item.data,
   } as Entry;
+}
+
+async function readInvoice(card: Account, dueDate: string, policy: InvoiceFailurePolicy): Promise<InvoiceRead> {
+  try {
+    return { ok: true, invoice: await fetchCardInvoice(card.id, dueDate) };
+  } catch (error) {
+    if (policy === 'strict') throw error;
+    const message = error instanceof Error ? error.message : String(error);
+    return { ok: false, failure: { cardId: card.id, cardName: card.nome, dueDate, message } };
+  }
 }
 
 function inMask(mask: number | undefined, bit: number): boolean {
@@ -71,9 +96,13 @@ function matchesFilters(entry: Entry, params: ListParams): boolean {
  * reads them from it: its card screens (Fatura, card reconciliation) load
  * each invoice. So for every card among the accounts, the purchases of the
  * invoices due within the range are added, filtered like the API would,
- * skipping any the statement list already returned.
+ * skipping any the statement list already returned. `continue` keeps a failed
+ * invoice as data. `strict` throws, so an explicit account selection still stops.
  */
-export async function fetchListEntries(params: ListParams): Promise<Entry[]> {
+export async function fetchListEntries(
+  params: ListParams,
+  policy: InvoiceFailurePolicy,
+): Promise<{ entries: Entry[]; failedInvoices: FailedInvoice[] }> {
   const listed = await fetchAllEntries(params);
   const { items } = await fetchAccounts();
   const cards = items.filter((a) => params.accountIds.includes(a.id) && isCreditCard(a));
@@ -93,20 +122,27 @@ export async function fetchListEntries(params: ListParams): Promise<Entry[]> {
     dueDatesInRange(card, params.startDate, params.endDate)
   );
   const wanted = cards.flatMap((card, i) => dueDates[i].map((due) => ({ card, due })));
-  const invoices = await mapConcurrent(wanted, INVOICE_CONCURRENCY, ({ card, due }) => fetchCardInvoice(card.id, due));
+  const reads = await mapConcurrent(wanted, INVOICE_CONCURRENCY, ({ card, due }) => readInvoice(card, due, policy));
   const seen = new Set(withoutDupedInvoices.map((e) => String(e.id)));
   const fromInvoices: Entry[] = [];
+  const failedInvoices: FailedInvoice[] = [];
   wanted.forEach(({ card, due }, i) => {
-    for (const item of invoices[i].lancamentos ?? []) {
+    const read = reads[i];
+    if (!read.ok) {
+      failedInvoices.push(read.failure);
+      return;
+    }
+    for (const item of read.invoice.lancamentos ?? []) {
       const entry = toEntry(item, card, due);
       if (seen.has(String(entry.id)) || !matchesFilters(entry, params)) continue;
       seen.add(String(entry.id));
       fromInvoices.push(entry);
     }
   });
-  if (fromInvoices.length === 0) return withoutDupedInvoices;
+  if (fromInvoices.length === 0) return { entries: withoutDupedInvoices, failedInvoices };
   const date = (e: Entry): string => (e.dataPrevista ?? e.data).slice(0, 10);
-  return [...withoutDupedInvoices, ...fromInvoices].sort((a, b) => date(a).localeCompare(date(b)));
+  const entries = [...withoutDupedInvoices, ...fromInvoices].sort((a, b) => date(a).localeCompare(date(b)));
+  return { entries, failedInvoices };
 }
 
 /**

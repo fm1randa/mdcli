@@ -58,6 +58,8 @@ export const ptBREntriesUpdateDelete = {
   errorInvalidValue: (value: string) =>
     `Valor inválido "${value}". Use um número como 10, 10.50 ou 10,50.`,
   errorJsonOrCsv: () => 'Use --json ou --csv, mas não os dois.',
+  warningInvoiceReadFailed: (cardName: string, cardId: number, dueDate: string, detail: string) =>
+    `Fatura de ${cardName} (${cardId}) com vencimento ${dueDate} falhou: ${detail}`,
   entriesListHeader: (count: number, total: string) => `Lançamentos (${count}) | Total: ${total}`,
   errorInvalidBy: (value: string) => `--by inválido "${value}". Use category, month ou account.`,
   labelNoCategory: () => '(sem categoria)',
