@@ -16,7 +16,7 @@ export interface RiskReport {
 }
 
 const AUTH_PATH =
-  /^src\/(?:commands\/auth\/|lib\/(?:api|browser-auth|web-session|captcha|onepassword|config)\.ts|lib\/browser-session\/[^/]+\.ts|types\/config\.ts)/;
+  /^src\/(?:commands\/auth\/|lib\/(?:api|browser-auth|web-session|captcha|onepassword|config|sync-child)\.ts|lib\/browser-session\/[^/]+\.ts|types\/config\.ts)/;
 const WRITE_PATH =
   /^src\/(?:lib\/api\.ts|commands\/(?:.*\/)?(?:create|update|delete)(?:-[^/]*)?\.ts|commands\/(?:categories|tags)\.ts|commands\/(?:entries\/import|sync)\/(?:run|commit)\.ts)$/;
 

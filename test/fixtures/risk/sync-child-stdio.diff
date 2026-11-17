@@ -1,0 +1,9 @@
+diff --git a/src/lib/sync-child.ts b/src/lib/sync-child.ts
+--- a/src/lib/sync-child.ts
++++ b/src/lib/sync-child.ts
+@@ -11,1 +11,1 @@
+-  const result = spawnSync(command, { shell: true, stdio: 'inherit' });
++  const result = spawnSync(command, { shell: true, stdio: 'pipe' });
+@@ -20,1 +20,1 @@
+-  return execSync(command, { encoding: 'utf-8' });
++  return execSync(command);

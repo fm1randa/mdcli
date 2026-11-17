@@ -55,6 +55,19 @@ describe('classifyRisk', () => {
     expect(topics(report)).toContain('auth');
   });
 
+  test('flags a stdio or encoding change in sync-child.ts', () => {
+    expect(classifyRisk(diff('sync-child-stdio'))).toEqual({
+      risky: true,
+      reasons: [
+        {
+          topic: 'auth',
+          path: 'src/lib/sync-child.ts',
+          detail: 'unclassified change in a sensitive file',
+        },
+      ],
+    });
+  });
+
   test('flags a payload change in a combined write command', () => {
     const report = classifyRisk(diff('payload-in-combined-command'));
     expect(report.risky).toBe(true);
