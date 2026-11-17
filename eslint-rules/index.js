@@ -17,6 +17,7 @@ import noRawSpawn from "./no-raw-spawn.js";
 import noRawCents from "./no-raw-cents.js";
 import noRawCurrency from "./no-raw-currency.js";
 import noShortOptionEquals from "./no-short-option-equals.js";
+import noSyncSpawn from "./no-sync-spawn.js";
 import noTautologicalExpect from "./no-tautological-expect.js";
 
 export default {
@@ -39,6 +40,7 @@ export default {
     "no-raw-dash": noRawDash,
     "no-raw-spawn": noRawSpawn,
     "no-short-option-equals": noShortOptionEquals,
+    "no-sync-spawn": noSyncSpawn,
     "no-tautological-expect": noTautologicalExpect,
   },
 };

@@ -37,6 +37,9 @@
     "test/**": "Tests exercise the preprocessing through the real CLI (test/cli-short-option-equals.test.ts), not by importing it.",
     "scripts/**": "preprocessShortOptions runs only in bin/cli.ts; scripts/ parses its own long flags."
   },
+  "no-sync-spawn": {
+    "scripts/**": "local/no-raw-spawn already forbids child_process and Bun.spawnSync in scripts/, except scripts/git.ts, which spawns only with async Bun.spawn."
+  },
   "no-tautological-expect": {
     "src/**": "The rule guards test assertions; src/ has no expect() calls.",
     "test/**": "Only test/**/*.test.ts is linted; helpers and fixtures hold no assertions.",
