@@ -10,6 +10,7 @@ import { ptBREntriesSummary } from './catalog/pt-BR/summary.js';
 import { ptBREntriesImportOutput } from './catalog/pt-BR/import-output.js';
 import { ptBRImport } from './catalog/pt-BR/import.js';
 import { ptBRInternals } from './catalog/pt-BR/internals.js';
+import { ptBRBudget } from './catalog/pt-BR/budget.js';
 
 /**
  * The pt-BR catalog. It is the source of truth for the message keys and their
@@ -28,4 +29,5 @@ export const ptBRCatalog = {
   ...ptBREntriesImportOutput,
   ...ptBRImport,
   ...ptBRInternals,
+  ...ptBRBudget,
 };

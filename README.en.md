@@ -1,4 +1,4 @@
-<!-- traduzido de README.md @ f41a669 (base: f41a669ab37b51619a85b665d1865256e6848955; readme-blob: f06624ccc0c69afc6eee2908dfb2f1c3f8c3197e); ao atualizar o README.md, sincronize este arquivo e atualize o SHA e o readme-blob (git hash-object README.md) -->
+<!-- traduzido de README.md @ f41a669 (base: f41a669ab37b51619a85b665d1865256e6848955; readme-blob: d65094a2ef329c2bea89124126431d88fe7ca390); ao atualizar o README.md, sincronize este arquivo e atualize o SHA e o readme-blob (git hash-object README.md) -->
 [Português (Brasil)](README.md) · **English**
 
 > The Portuguese [README.md](README.md) is the reference version; this English translation may lag behind it.
@@ -503,6 +503,12 @@ mdcli categories update 12345 --inactive
 # Categories with subcategories must have those removed first.
 mdcli categories delete 12345 --move-to "Outros"
 
+# Budget goals for the period (expense, income and investment): goal, confirmed, projected, remaining and surplus.
+# The default is the current month and cash. --month is not combined with --from or --to.
+mdcli budget
+mdcli budget --month 2026-11
+mdcli budget --from 2026-11-01 --to 2026-11-30 --regime accrual --json
+
 # List only active tags
 mdcli tags list --active
 
@@ -579,6 +585,14 @@ The tests in `test/` run the real CLI as a subprocess against a local mock of th
 | Update | Done |
 | Delete (moves entries to another category) | Done |
 | Archive | Done |
+
+### Budget
+| Feature | Status |
+|---------|--------|
+| Read the period (`budget`) | Done |
+| Month or range (`--month`, `--from`, `--to`) | Done |
+| Cash or accrual regime (`--regime`) | Done |
+| JSON output | Done |
 
 ### Tags
 | Feature | Status |

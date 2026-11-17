@@ -1,6 +1,7 @@
 // Local HTTP server that mimics the Meu Dinheiro API for scripts/verify.sh.
 // Uses the same fixtures as the unit tests; never touches the real API.
 import type { Account, AccountsResponse, CategoriesResponse } from '../src/types/index.js';
+import { BUDGET_EXTRA_CATEGORIES } from '../test/budget-fixtures.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, CREDIT_CARD_ACCOUNT, SAVINGS_ACCOUNT, TAGS_RESPONSE } from '../test/fixtures.js';
 import { plasticsRoute } from './mock-plastics.js';
 import { ENTRIES_PATH, entriesListRoute, entriesRoute } from './mock-entries.js';
@@ -8,6 +9,7 @@ import { badRequest, idOf, json, latestRelease, notFound, readJsonBody, required
 import { connectionsRoute, recordMockRequest } from './mock-connections.js';
 import { importRoute, withRecentStatement } from './mock-import.js';
 import { balancesRoute } from './mock-balances.js';
+import { budgetRoute } from './mock-budget.js';
 import { cardsRoute } from './mock-cards.js';
 import { sessionRoute } from './mock-session.js';
 import { CLOSED_INVOICE_CARD } from './mock-closed-invoice.js';
@@ -52,6 +54,7 @@ const MOCK_CATEGORIES: CategoriesResponse = {
   ...CATEGORIES_RESPONSE,
   items: [
     ...CATEGORIES_RESPONSE.items,
+    ...BUDGET_EXTRA_CATEGORIES,
     { ...CATEGORIES_RESPONSE.items[4], id: 42, nome: 'Moradia', nomeRel: 'Moradia', _ordenacao: 'MORADIA' },
     { ...CATEGORIES_RESPONSE.items[4], id: 41, nome: 'Moradia', nomeRel: 'Moradia', _ordenacao: 'MORADIA', status: false },
     { ...CATEGORIES_RESPONSE.items[4], id: 43, nome: 'Casa', nomeRel: 'Casa', _ordenacao: 'CASA' },
@@ -162,7 +165,7 @@ const server = Bun.serve({
     if (url.pathname === ENTRIES_PATH || url.pathname.startsWith(`${ENTRIES_PATH}/`)) {
       return entriesRoute(req, url.pathname, accountTipo);
     }
-    return connectionsRoute(req.method, url.pathname) ?? plasticsRoute(req.method, url.pathname) ?? sessionRoute(req.method, url.pathname) ?? notFound();
+    return connectionsRoute(req.method, url.pathname) ?? plasticsRoute(req.method, url.pathname) ?? sessionRoute(req.method, url.pathname) ?? budgetRoute(req.method, url) ?? notFound();
   },
 });
 
