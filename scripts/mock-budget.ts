@@ -7,8 +7,13 @@ const READ_PATH = '/api/v2/lancamentos/metasorcamento';
 const WRITE_PATH = '/api/v1/metas/orcamento';
 const PARENT_TOLERANCE = 0.001;
 
-/** One snapshot. The read mock already ignores the month, so a write updates that same snapshot. */
-let spendRows: BudgetGoalRow[] = SPEND_ROWS.map((row) => ({ ...row }));
+/** One snapshot per `YYYY-MM`. A write touches only the months in `datas`. */
+const spendByMonth = new Map<string, BudgetGoalRow[]>();
+
+/** Tests share this module. Drop stored months so one case cannot leak into the next. */
+export function resetBudgetMock(): void {
+  spendByMonth.clear();
+}
 
 /** GET metasorcamento, and POST /v1/metas/orcamento which updates the rows the next GET returns. */
 export async function budgetRoute(method: string, url: URL, req: Request): Promise<Response | undefined> {
@@ -20,8 +25,19 @@ export async function budgetRoute(method: string, url: URL, req: Request): Promi
 function readGoals(url: URL): Response | undefined {
   const investments = url.searchParams.get('investimentos');
   if (investments === 'true') return json<'GET /v2/lancamentos/metasorcamento'>(INVEST_ROWS);
-  if (investments === 'false') return json<'GET /v2/lancamentos/metasorcamento'>(spendRows);
+  if (investments === 'false') {
+    const month = url.searchParams.get('inicio')?.slice(0, 7) ?? 'default';
+    return json<'GET /v2/lancamentos/metasorcamento'>(snapshot(month));
+  }
   return undefined;
+}
+
+function snapshot(month: string): BudgetGoalRow[] {
+  const existing = spendByMonth.get(month);
+  if (existing) return existing;
+  const fresh = SPEND_ROWS.map((row) => ({ ...row }));
+  spendByMonth.set(month, fresh);
+  return fresh;
 }
 
 async function writeGoals(req: Request): Promise<Response> {
@@ -29,28 +45,43 @@ async function writeGoals(req: Request): Promise<Response> {
   if (body instanceof Response) return body;
   const metas = body.metas;
   if (!Array.isArray(metas)) return badRequest('metas must be an array');
-  const next = spendRows.map((row) => ({ ...row }));
+  const lines: PostedLine[] = [];
   for (const item of metas) {
     const line = postedLine(item);
     if (line instanceof Response) return line;
-    const index = next.findIndex((row) => row.tipo === line.tipo && row.categoria === line.categoria);
-    if (index >= 0) {
-      const current = next[index];
-      if (current) next[index] = { ...current, meta: line.meta };
-    } else {
-      next.push(blank(line.tipo, line.categoria, line.meta));
+    lines.push(line);
+  }
+  const pending = new Map<string, BudgetGoalRow[]>();
+  for (const month of monthsOf(lines)) {
+    let next = snapshot(month).map((row) => ({ ...row }));
+    for (const line of lines) {
+      if (!line.datas.some((date) => date.startsWith(month))) continue;
+      next = applyLine(next, line);
+    }
+    const parent = parentBelowChildren(next);
+    if (parent !== null) return conflict([parent]);
+    pending.set(month, next);
+  }
+  for (const [month, rows] of pending) spendByMonth.set(month, rows);
+  return json<'POST /v1/metas/orcamento'>({});
+}
+
+function monthsOf(lines: readonly PostedLine[]): string[] {
+  const months: string[] = [];
+  for (const line of lines) {
+    for (const date of line.datas) {
+      const month = date.slice(0, 7);
+      if (!months.includes(month)) months.push(month);
     }
   }
-  const parent = parentBelowChildren(next);
-  if (parent !== null) return conflict([parent]);
-  spendRows = next;
-  return json<'POST /v1/metas/orcamento'>({});
+  return months;
 }
 
 interface PostedLine {
   meta: number;
   categoria: number;
   tipo: 'd' | 'r';
+  datas: readonly string[];
 }
 
 function postedLine(item: unknown): PostedLine | Response {
@@ -59,11 +90,25 @@ function postedLine(item: unknown): PostedLine | Response {
   if (typeof line.meta !== 'number') return badRequest('meta must be a number');
   if (typeof line.categoria !== 'number') return badRequest('categoria must be a number');
   if (line.tipo !== 'd' && line.tipo !== 'r') return badRequest('tipo must be d or r');
-  if (!Array.isArray(line.datas) || line.datas.some((date) => typeof date !== 'string' || !/^\d{4}-\d{2}-01$/.test(date))) {
-    return badRequest('datas must be YYYY-MM-01 dates');
-  }
+  if (!isMonthStarts(line.datas)) return badRequest('datas must be YYYY-MM-01 dates');
   if (typeof line.sobreescrever !== 'boolean') return badRequest('sobreescrever must be a boolean');
-  return { meta: line.meta, categoria: line.categoria, tipo: line.tipo };
+  return { meta: line.meta, categoria: line.categoria, tipo: line.tipo, datas: line.datas };
+}
+
+function isMonthStarts(value: unknown): value is readonly string[] {
+  return Array.isArray(value) && value.every((date) => typeof date === 'string' && /^\d{4}-\d{2}-01$/.test(date));
+}
+
+function applyLine(rows: readonly BudgetGoalRow[], line: PostedLine): BudgetGoalRow[] {
+  const next = rows.map((row) => ({ ...row }));
+  const index = next.findIndex((row) => row.tipo === line.tipo && row.categoria === line.categoria);
+  if (index >= 0) {
+    const current = next[index];
+    if (current) next[index] = { ...current, meta: line.meta };
+  } else {
+    next.push(blank(line.tipo, line.categoria, line.meta));
+  }
+  return next;
 }
 
 function blank(tipo: string, categoria: number, meta: number): BudgetGoalRow {

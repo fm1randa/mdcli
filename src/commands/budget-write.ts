@@ -69,10 +69,11 @@ function withParentFlags<T extends WriteFlags>(options: T, command: Command): T 
 
 async function writeBudget(options: WriteFlags, value: number): Promise<void> {
   const write = await resolveWrite(options, value);
-  const first = write.months[0];
-  const report = await loadBudget({ period: monthRange(first), regime: 'cash' });
-  const conflicts = findConflicts(report, write);
-  if (conflicts.length > 0) exitWithError(formatConflicts(conflicts));
+  for (const month of write.months) {
+    const report = await loadBudget({ period: monthRange(month), regime: 'cash' });
+    const conflicts = findConflicts(report, write);
+    if (conflicts.length > 0) exitWithError(formatConflicts(conflicts));
+  }
 
   const payload = buildSavePayload(write);
   if (options.dryRun) {
@@ -96,7 +97,9 @@ async function resolveWrite(options: WriteFlags, value: number): Promise<GoalWri
   if (!isYearMonth(month)) exitWithError(t('errorInvalidBudgetMonth', month));
   if (options.until !== undefined && !isYearMonth(options.until)) exitWithError(t('errorInvalidBudgetMonth', options.until));
   if (options.until !== undefined && options.until < month) exitWithError(t('errorBudgetUntilBefore', options.until, month));
-  return { category: await resolveGoalCategory(options.category), value, months: monthSpan(month, options.until) };
+  const months = monthSpan(month, options.until);
+  if (!months) exitWithError(t('errorBudgetSpanTooLong'));
+  return { category: await resolveGoalCategory(options.category), value, months };
 }
 
 async function resolveGoalCategory(input: string): Promise<GoalCategory> {

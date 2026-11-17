@@ -279,4 +279,40 @@ describe('budget set and remove', () => {
     expect(range.stderr).toContain('--until');
     expect(posts()).toHaveLength(0);
   });
+
+  test('refuses a later month that would put the parent under its children', async () => {
+    api.on('GET /v2/lancamentos/metasorcamento', (request) => {
+      if (request.query.get('investimentos') === 'true') return INVEST_ROWS;
+      if (request.query.get('inicio')?.startsWith('2026-12')) {
+        return SPEND_ROWS.map((row) => (row.categoria === 11 ? { ...row, meta: -350 } : { ...row }));
+      }
+      return spend;
+    });
+    const december = await runCli(
+      ['budget', 'set', '--category', '10', '--value', '-400', '--month', '2026-12', '--dangerously-skip-confirmation'],
+      { home, api },
+    );
+    expect(december.exitCode).toBe(1);
+    expect(december.stderr).toContain('Alimentação');
+    expect(posts()).toHaveLength(0);
+
+    const span = await runCli(
+      ['budget', 'set', '--category', '10', '--value', '-400', '--month', '2026-11', '--until', '2026-12', '--dangerously-skip-confirmation'],
+      { home, api },
+    );
+    expect(span.exitCode).toBe(1);
+    expect(span.stderr).toContain('Alimentação');
+    expect(posts()).toHaveLength(0);
+  });
+
+  test('refuses a span longer than 600 months instead of truncating it', async () => {
+    const result = await runCli(
+      ['budget', 'set', '--category', '40', '--value', '-50', '--month', '2000-01', '--until', '2100-01', '--dry-run'],
+      { home, api },
+    );
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('600');
+    expect(result.stdout).not.toContain('2000-01');
+    expect(posts()).toHaveLength(0);
+  });
 });

@@ -38,12 +38,19 @@ type CategoryLine = KindBudget['categories'][number];
 
 const KIND_OF = { d: 'expense', r: 'income' } as const;
 
-/** Inclusive `YYYY-MM` list. The caller has already rejected an inverted range. */
-export function monthSpan(start: string, until?: string): readonly [string, ...string[]] {
+/** Inclusive ceiling. A longer range used to be cut here and still saved. */
+const MAX_GOAL_MONTHS = 600;
+
+/**
+ * Inclusive `YYYY-MM` list. The caller has already rejected an inverted range.
+ * Undefined when the range is longer than {@link MAX_GOAL_MONTHS}.
+ */
+export function monthSpan(start: string, until?: string): readonly [string, ...string[]] | undefined {
   if (until === undefined) return [start];
   const months: [string, ...string[]] = [start];
   let cursor = nextMonth(start);
-  while (cursor <= until && months.length < 600) {
+  while (cursor <= until) {
+    if (months.length >= MAX_GOAL_MONTHS) return undefined;
     months.push(cursor);
     cursor = nextMonth(cursor);
   }
@@ -71,11 +78,10 @@ export function buildSavePayload(write: GoalWrite): BudgetGoalSave {
 }
 
 /**
- * Parents the write would leave below their children, for the first month's
- * report. A parent whose goal is 0 is skipped: the web does that
- * (`if (!b.filhos || !s.metasMes[b.id]) return true`, mdb.js ~54391), so
- * removing a parent is allowed while its children remain. Later months of a
- * repeat are the server's 422.
+ * Parents the write would leave below their children, for one month's report.
+ * The command runs this for every month it would save. A parent whose goal is
+ * 0 is skipped: the web does that (`if (!b.filhos || !s.metasMes[b.id]) return
+ * true`, mdb.js ~54391), so removing a parent is allowed while its children remain.
  */
 export function findConflicts(report: BudgetReport, write: GoalWrite): BudgetConflict[] {
   const section = report.budgets[KIND_OF[write.category.tipo]];

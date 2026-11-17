@@ -33,6 +33,7 @@ export const ptBRBudget = {
   budgetDryRunOption: () => 'Mostra a gravação e não chama a API nem pede confirmação',
   errorBudgetZero: () => 'Meta 0 apaga a meta. Use: mdcli budget remove',
   errorBudgetUntilBefore: (until: string, month: string) => `--until ${until} é anterior a ${month}.`,
+  errorBudgetSpanTooLong: () => 'Uma meta cobre no máximo 600 meses.',
   errorBudgetTransfer: (name: string) => `A categoria "${name}" é uma transferência. A meta vale para despesa ou receita.`,
   errorBudgetParentSum: (name: string, min: number) =>
     `A soma da categoria ${name} deve ser maior ou igual à soma das filhas (mínimo ${min}).`,
