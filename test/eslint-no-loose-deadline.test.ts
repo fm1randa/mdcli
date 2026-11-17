@@ -17,6 +17,13 @@ describe('local/no-loose-deadline', () => {
     expect(await localRules('await Bun.sleep(100);', 'test/self-update.test.ts')).toEqual([RULE]);
   });
 
+  test('fires on Bun.sleep reached through a global object', async () => {
+    expect(await localRules('await globalThis.Bun.sleep(100);', 'test/self-update.test.ts')).toEqual([RULE]);
+    expect(await localRules('await global.Bun.sleep(100);', 'test/self-update.test.ts')).toEqual([RULE]);
+    expect(await localRules('await self.Bun.sleep(100);', 'test/self-update.test.ts')).toEqual([RULE]);
+    expect(await localRules('await window.Bun.sleep(100);', 'test/self-update.test.ts')).toEqual([RULE]);
+  });
+
   test('fires on the helpers deadline the before fixture keeps', async () => {
     expect(await localRules('stepTimeoutMs = 10_000;', 'test/helpers.ts')).toEqual([RULE]);
     expect(await localRules('await Bun.sleep(20);', 'test/helpers.ts')).toEqual([RULE]);
@@ -28,6 +35,7 @@ describe('local/no-loose-deadline', () => {
 
   test('allows an import, a parameter, setTimeout, a second binding, and arithmetic', async () => {
     expect(await localRules("import { QUIET_WINDOW_MS } from './timeouts.js';\nawait Bun.sleep(QUIET_WINDOW_MS);", 'test/self-update.test.ts')).toEqual([]);
+    expect(await localRules("import { QUIET_WINDOW_MS } from './timeouts.js';\nawait globalThis.Bun.sleep(QUIET_WINDOW_MS);", 'test/self-update.test.ts')).toEqual([]);
     expect(await localRules('function slow(ms: number) { return Bun.sleep(ms); }', 'test/entries-card-concurrency.test.ts')).toEqual([]);
     expect(await localRules('setTimeout(resolve, 50);', 'test/api-refresh.test.ts')).toEqual([]);
     expect(await localRules('setTimeout(r, 0);', 'test/concurrency.test.ts')).toEqual([]);
