@@ -133,6 +133,7 @@ describe('budget set and remove', () => {
     expect(result.exitCode).toBe(1);
     expect(posts()).toHaveLength(0);
     expect(result.stderr).toContain('Alimentação');
+    expect(result.stderr).toContain('2026-11');
     expect(result.stderr).toContain('300');
   });
 
@@ -294,6 +295,7 @@ describe('budget set and remove', () => {
     );
     expect(december.exitCode).toBe(1);
     expect(december.stderr).toContain('Alimentação');
+    expect(december.stderr).toContain('2026-12');
     expect(posts()).toHaveLength(0);
 
     const span = await runCli(
@@ -302,7 +304,17 @@ describe('budget set and remove', () => {
     );
     expect(span.exitCode).toBe(1);
     expect(span.stderr).toContain('Alimentação');
+    expect(span.stderr).toContain('2026-12');
+    expect(span.stderr).not.toContain('2026-11');
     expect(posts()).toHaveLength(0);
+  });
+
+  test('dry-run help says it reads and does not save', async () => {
+    const result = await runCli(['budget', 'set', '--help'], { home, api });
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain('without saving');
+    expect(result.stdout).toContain('Only reads');
+    expect(result.stdout).not.toContain('do not call the API');
   });
 
   test('refuses a span longer than 600 months instead of truncating it', async () => {

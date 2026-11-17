@@ -72,7 +72,7 @@ async function writeBudget(options: WriteFlags, value: number): Promise<void> {
   for (const month of write.months) {
     const report = await loadBudget({ period: monthRange(month), regime: 'cash' });
     const conflicts = findConflicts(report, write);
-    if (conflicts.length > 0) exitWithError(formatConflicts(conflicts));
+    if (conflicts.length > 0) exitWithError(formatConflicts(conflicts, month));
   }
 
   const payload = buildSavePayload(write);

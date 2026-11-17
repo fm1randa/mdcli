@@ -32,13 +32,13 @@ export const enBudget: typeof SectionType = {
   budgetSetValueOption: () => 'Amount with the sign the read shows: negative expense, positive income. 0 is refused; use budget remove',
   budgetSetMonthOption: () => 'Month YYYY-MM (default: the current month)',
   budgetSetUntilOption: () => 'Repeat the goal from --month through this YYYY-MM, inclusive',
-  budgetDryRunOption: () => 'Show the write, and do not call the API or ask for confirmation',
+  budgetDryRunOption: () => 'Show the write without saving. Only reads the API and does not ask for confirmation',
   errorBudgetZero: () => 'A goal of 0 removes it. Use: mdcli budget remove',
   errorBudgetUntilBefore: (until, month) => `--until ${until} is before ${month}.`,
   errorBudgetSpanTooLong: () => 'A goal covers at most 600 months.',
   errorBudgetTransfer: (name) => `Category "${name}" is a transfer. A goal is for an expense or an income category.`,
-  errorBudgetParentSum: (name, min) =>
-    `Category ${name} must be at least the sum of its children (minimum ${min}).`,
+  errorBudgetParentSum: (name, min, month) =>
+    `Category ${name} in ${month} must be at least the sum of its children (minimum ${min}).`,
   errorBudgetJsonNeedsSkip: () => '--json does not prompt. Use --dry-run or --dangerously-skip-confirmation.',
   confirmBudgetSet: (name, id, amount, months) =>
     `Set the goal of "${name}" (${id}) to ${amount} for ${months}? (y/N) `,

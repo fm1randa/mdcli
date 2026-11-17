@@ -110,10 +110,10 @@ function childSum(line: CategoryLine, write: GoalWrite): number {
   }, 0);
 }
 
-export function formatConflicts(conflicts: readonly BudgetConflict[]): string {
+export function formatConflicts(conflicts: readonly BudgetConflict[], month: string): string {
   return conflicts.map((conflict) => {
     const name = conflict.category.name ?? String(conflict.category.id);
-    return t('errorBudgetParentSum', name, conflict.minAbs);
+    return t('errorBudgetParentSum', name, conflict.minAbs, month);
   }).join('\n');
 }
 

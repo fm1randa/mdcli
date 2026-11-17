@@ -30,13 +30,13 @@ export const ptBRBudget = {
   budgetSetValueOption: () => 'Valor com o sinal da leitura: despesa negativa, receita positiva. 0 não vale; use budget remove',
   budgetSetMonthOption: () => 'Mês YYYY-MM (padrão: o mês atual)',
   budgetSetUntilOption: () => 'Repete a meta de --month até este YYYY-MM, inclusive',
-  budgetDryRunOption: () => 'Mostra a gravação e não chama a API nem pede confirmação',
+  budgetDryRunOption: () => 'Mostra a gravação sem gravar. Só lê a API e não pede confirmação',
   errorBudgetZero: () => 'Meta 0 apaga a meta. Use: mdcli budget remove',
   errorBudgetUntilBefore: (until: string, month: string) => `--until ${until} é anterior a ${month}.`,
   errorBudgetSpanTooLong: () => 'Uma meta cobre no máximo 600 meses.',
   errorBudgetTransfer: (name: string) => `A categoria "${name}" é uma transferência. A meta vale para despesa ou receita.`,
-  errorBudgetParentSum: (name: string, min: number) =>
-    `A soma da categoria ${name} deve ser maior ou igual à soma das filhas (mínimo ${min}).`,
+  errorBudgetParentSum: (name: string, min: number, month: string) =>
+    `A soma da categoria ${name} em ${month} deve ser maior ou igual à soma das filhas (mínimo ${min}).`,
   errorBudgetJsonNeedsSkip: () => '--json não pergunta. Use --dry-run ou --dangerously-skip-confirmation.',
   confirmBudgetSet: (name: string, id: number, amount: string, months: string) =>
     `Definir a meta de "${name}" (${id}) como ${amount} em ${months}? (y/N) `,
