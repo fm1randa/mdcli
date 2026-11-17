@@ -24,7 +24,7 @@ export const BROWSER_CLOSE_TIMEOUT_MS = TEST_TIMEOUT_MS / 2;
 const POLL_INTERVAL_MS = 20;
 
 export interface WaitOptions {
-  /** Checked each iteration before the sleep. When it returns true, waitFor resolves null. */
+  /** When this returns true and the probe is still empty, waitFor resolves null. */
   abort?: () => boolean;
 }
 
@@ -32,9 +32,9 @@ export interface WaitOptions {
 export async function waitFor<T>(probe: () => T | null, options?: WaitOptions): Promise<T | null> {
   const deadline = performance.now() + POLL_DEADLINE_MS;
   for (;;) {
-    if (options?.abort?.()) return null;
     const value = probe();
     if (value) return value;
+    if (options?.abort?.()) return null;
     if (performance.now() >= deadline) return null;
     await Bun.sleep(POLL_INTERVAL_MS);
   }

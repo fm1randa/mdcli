@@ -84,13 +84,23 @@ export default {
       return object.type === "Identifier" && (object.name === "Date" || object.name === "performance");
     };
 
+    const isBunObject = (node) => {
+      const value = unwrap(node);
+      if (value?.type === "Identifier" && value.name === "Bun") return true;
+      if (value?.type !== "MemberExpression" || value.computed) return false;
+      if (value.property.type !== "Identifier" || value.property.name !== "Bun") return false;
+      return (
+        value.object.type === "Identifier" &&
+        ["globalThis", "global", "self", "window"].includes(value.object.name)
+      );
+    };
+
     const isBunSleep = (callee) => {
       const value = unwrap(callee);
       return (
         value?.type === "MemberExpression" &&
         !value.computed &&
-        value.object.type === "Identifier" &&
-        value.object.name === "Bun" &&
+        isBunObject(value.object) &&
         value.property.type === "Identifier" &&
         value.property.name === "sleep"
       );
