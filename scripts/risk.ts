@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { behaviorIndexes, fileChangesBehavior, parseDiff, type DiffFile } from './behavior-change.js';
-import { diffAgainst, gitQuiet, parseBase, repoRoot } from './git.js';
+import { diffAgainst, gitResult, parseBase, repoRoot } from './git.js';
 
 type RiskTopic = 'auth' | 'write' | 'security';
 
@@ -134,14 +134,17 @@ export function writeApiModules(root: string): ReadonlySet<string> {
  * `apiPost` out of a file would drop that file from the head surface while the
  * base still wrote through it, so the classifier takes both sides (#315).
  */
-async function writeApiModulesAt(ref: string, root: string): Promise<ReadonlySet<string>> {
+export async function writeApiModulesAt(ref: string, root: string): Promise<ReadonlySet<string>> {
   const modules = new Set<string>();
-  const found = await gitQuiet(
+  const result = await gitResult(
     ['grep', '-l', '-E', 'api(Post|Put|Delete)[[:space:]]*[<(]', ref, '--', 'src'],
     root
   );
-  if (found === undefined) return modules;
-  for (const line of found.split('\n')) {
+  if (result.exitCode === 1) return modules;
+  if (result.exitCode !== 0) {
+    throw new Error(`cannot read the write surface of ${ref}: ${result.stderr.toString().trim()}`);
+  }
+  for (const line of result.stdout.toString().split('\n')) {
     const separator = line.indexOf(':');
     if (separator === -1) continue;
     const path = line.slice(separator + 1);
