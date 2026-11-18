@@ -43,6 +43,12 @@ describe('classifyRisk', () => {
     expect(topics(report)).toContain('write');
   });
 
+  test('flags a new module that calls the write API', () => {
+    const report = classifyRisk(diff('new-write-module'));
+    expect(report.risky).toBe(true);
+    expect(topics(report)).toContain('write');
+  });
+
   test('flags a login or credential change', () => {
     const report = classifyRisk(diff('auth-behavior'));
     expect(report.risky).toBe(true);
@@ -148,6 +154,30 @@ describe('security surfaces', () => {
   test('passes comment-only changes in a security surface', () => {
     expect(classifyRisk(diff('security-comments'))).toEqual({ risky: false, reasons: [] });
   });
+
+  test('flags a change in the gate scripts and workflows as security', () => {
+    const report = classifyRisk(diff('gate-surfaces'));
+    expect(report.risky).toBe(true);
+    expect(report.reasons.map((reason) => reason.path)).toEqual([
+      'scripts/risk.ts',
+      'scripts/risk-label.ts',
+      'scripts/new-tests-fail-on-main.ts',
+      'scripts/fails-on-main-exemption.ts',
+      'scripts/prova.ts',
+      '.github/workflows/risco.yml',
+      '.github/workflows/fails-on-main.yml',
+    ]);
+    expect(topics(report)).toEqual([
+      'security',
+      'security',
+      'security',
+      'security',
+      'security',
+      'security',
+      'security',
+    ]);
+    expect(report.reasons.every((reason) => reason.detail.length > 0)).toBe(true);
+  });
 });
 
 describe('risk CLI', () => {
@@ -168,5 +198,12 @@ describe('risk CLI', () => {
     const { code, report } = await runRisk('security-surfaces');
     expect(code).toBe(2);
     expect(report.risky).toBe(true);
+  });
+
+  test('exits 2 for a behavior change in a module that calls the write API', async () => {
+    // budget-write.ts calls apiPost and its name is not in WRITE_PATH (#315).
+    const { code, report } = await runRisk('budget-write-behavior');
+    expect(code).toBe(2);
+    expect(topics(report)).toContain('write');
   });
 });
