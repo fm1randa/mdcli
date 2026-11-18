@@ -136,7 +136,7 @@ async function accountsRoute(req: Request, path: string): Promise<Response> {
 
 const server = Bun.serve({
   port: 0,
-  fetch(req) {
+  async fetch(req) {
     const url = new URL(req.url);
     recordMockRequest(req.method, url.pathname, url.search);
     if (url.pathname === LATEST_RELEASE_PATH) return latestRelease(MOCK_LATEST_TAG);
@@ -165,7 +165,11 @@ const server = Bun.serve({
     if (url.pathname === ENTRIES_PATH || url.pathname.startsWith(`${ENTRIES_PATH}/`)) {
       return entriesRoute(req, url.pathname, accountTipo);
     }
-    return connectionsRoute(req.method, url.pathname) ?? plasticsRoute(req.method, url.pathname) ?? sessionRoute(req.method, url.pathname) ?? budgetRoute(req.method, url) ?? notFound();
+    if (url.pathname === '/api/v2/lancamentos/metasorcamento' || url.pathname === '/api/v1/metas/orcamento') {
+      const budget = await budgetRoute(req.method, url, req);
+      if (budget) return budget;
+    }
+    return connectionsRoute(req.method, url.pathname) ?? plasticsRoute(req.method, url.pathname) ?? sessionRoute(req.method, url.pathname) ?? notFound();
   },
 });
 

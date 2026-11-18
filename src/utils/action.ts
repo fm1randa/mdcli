@@ -71,7 +71,11 @@ export function action<Args extends unknown[]>(
   return async (...args: Args) => {
     // Commander passes the Command itself as the last argument.
     const command = args.at(-1);
-    jsonErrors = command instanceof Command && command.opts().json === true;
+    // `budget` is both a command and a parent, so Commander stores --json on the
+    // parent before the set/remove action runs. Either place means JSON errors.
+    const ownJson = command instanceof Command && command.opts().json === true;
+    const parentJson = command instanceof Command && command.parent?.opts().json === true;
+    jsonErrors = ownJson || parentJson;
     try {
       await fn(...args);
     } catch (error) {

@@ -6,6 +6,7 @@ import { newTable } from '../utils/table.js';
 import { t } from '../lib/i18n/index.js';
 import { getCurrentMonthRange, isCalendarDate, isYearMonth, monthRange } from '../lib/dates.js';
 import { loadBudget, type BudgetKind, type BudgetReport, type CategoryRef, type GoalFigures, type KindBudget } from '../lib/budget.js';
+import { registerBudgetWrites } from './budget-write.js';
 import { parseRegime, type Regime } from '../lib/regime.js';
 
 interface BudgetOptions {
@@ -112,3 +113,5 @@ export const budgetCommand = new Command('budget')
   .option('-r, --regime <regime>', t('budgetRegimeOption'))
   .option('--json', t('jsonOption'))
   .action(action(budgetAction));
+
+registerBudgetWrites(budgetCommand);

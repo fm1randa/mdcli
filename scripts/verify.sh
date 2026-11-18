@@ -624,6 +624,12 @@ step "cli entries delete inexistente (mock)" expect_fail 'GET /v1/lancamentos/99
 # Delete with scope (#65): ?todos=true|false only for a series occurrence;
 # the mock answers 400 to any other todos.
 step "cli entries delete --scope following (mock)" expect_json 'd.deleted === true && d.id === 80 && d.scope === "following"' entries delete 80 --scope following --dangerously-skip-confirmation --json
+step "cli budget set --dry-run (mock)" expect_ok 'Would set the goal of "Outros"' budget set --category 40 --value -50 --month 2026-11 --dry-run
+step "cli budget set (mock)" expect_json 'd.saved === true && d.categoryId === 40 && d.meta === -50 && d.months[0] === "2026-11"' budget set --category 40 --value -50 --month 2026-11 --dangerously-skip-confirmation --json
+step "cli budget read after set (mock)" expect_json 'd.budgets.expense.categories.some((c) => c.category.id === 40 && c.figures.goal === -50)' budget --month 2026-11 --json
+step "cli budget set pai abaixo das filhas (mock)" expect_fail 'Alimentação' budget set --category 10 --value -10 --month 2026-11 --dangerously-skip-confirmation
+step "cli budget remove (mock)" expect_json 'd.saved === true && d.meta === 0 && d.categoryId === 40' budget remove --category 40 --month 2026-11 --dangerously-skip-confirmation --json
+step "cli budget read after remove (mock)" expect_json 'd.budgets.expense.categories.every((c) => c.category.id !== 40)' budget --month 2026-11 --json
 step "cli entries delete série sem --scope avisa (mock)" expect_ok 'only this occurrence will be deleted' entries delete 80 --dangerously-skip-confirmation
 step "cli entries delete --scope fora de série (mock)" expect_fail 'not part of a recurring series' entries delete 70 --scope following --dangerously-skip-confirmation
 

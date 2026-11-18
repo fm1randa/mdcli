@@ -7,6 +7,7 @@ import { fetchWebBalances } from './account-balances.js';
 import { loadEntriesPreferences, setEntriesPreferences, type EntriesPreferences } from './entries-preferences.js';
 import { loadWebConfig, type WebConfig } from './web-session.js';
 import { t } from './i18n/index.js';
+import { ApiError, parseErrorBody } from './api-error.js';
 import { DEFAULT_API_URL, WEB_ORIGIN, WEB_URL } from './meu-dinheiro-host.js';
 
 
@@ -83,7 +84,7 @@ async function readResponse<T>(response: Response, context: string): Promise<T> 
     const cachedType = popStaleNameCacheUse();
     if (cachedType) invalidateNameCache(cachedType);
     const errorText = await response.text();
-    throw new Error(t('errorApiRequestFailed', context, response.status, response.statusText, errorText));
+    throw new ApiError(t('errorApiRequestFailed', context, response.status, response.statusText, errorText), response.status, parseErrorBody(errorText));
   }
 
   const text = await response.text();
@@ -327,6 +328,7 @@ export const loadSessionPreferences = (accounts?: Promise<Account[]>): Promise<E
 
 /** Authenticated GET. A module that imports only this cannot write. */
 export const apiGet = <T>(endpoint: string): Promise<T> => request<T>('GET', endpoint);
+export const apiPost = <T>(endpoint: string, body: unknown): Promise<T> => request<T>('POST', endpoint, body);
 
 async function fetchEntries(params: EntriesParams): Promise<EntriesResponse> {
   const contas = JSON.stringify({ faturas: params.includeFaturas ?? true, ids: params.accountIds });
@@ -383,9 +385,7 @@ export function isCreditCard(account: Account): boolean {
   return account.tipo === 'CARTAOCREDITO';
 }
 
-export async function fetchAccountById(id: number): Promise<Account | undefined> {
-  return (await fetchAccounts()).items.find((a) => a.id === id);
-}
+export const fetchAccountById = async (id: number): Promise<Account | undefined> => (await fetchAccounts()).items.find((a) => a.id === id);
 
 /** Every plastic of every card (the web app loads them with paginate=false). */
 export async function fetchPlastics(): Promise<CardPlastic[]> {

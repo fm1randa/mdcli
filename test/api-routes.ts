@@ -60,6 +60,8 @@ export interface ApiResponses {
   'POST /v1/integracao/transactions/markImported': unknown;
   'GET /v2/lancamentos': EntriesPage | AccountBalancesResponse;
   'GET /v2/lancamentos/metasorcamento': BudgetGoalRow[];
+  /** The web save. The CLI does not read the success body. */
+  'POST /v1/metas/orcamento': unknown;
   'GET /v1/lancamentos/duplicidade': unknown;
   'POST /v1/lancamentos': CreateEntryResponse;
   [route: `GET /v1/lancamentos/${number}`]: Entry;

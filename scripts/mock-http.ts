@@ -30,6 +30,11 @@ export function badRequest(message: string): Response {
   return Response.json({ message }, { status: 400 });
 }
 
+/** 422 whose body is `{ conflitos }`, the budget parent's answer when it would sit below its children. */
+export function conflict(conflitos: readonly unknown[]): Response {
+  return Response.json({ conflitos }, { status: 422 });
+}
+
 export async function readJsonBody(req: Request): Promise<Body | Response> {
   if (!req.headers.get('Content-Type')?.startsWith('application/json')) {
     return Response.json({ message: 'expected a JSON body' }, { status: 415 });
