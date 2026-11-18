@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { behaviorIndexes, fileChangesBehavior, parseDiff, type DiffFile } from './behavior-change.js';
-import { diffAgainst, parseBase } from './git.js';
+import { diffAgainst, gitQuiet, parseBase, repoRoot } from './git.js';
 
 type RiskTopic = 'auth' | 'write' | 'security';
 
@@ -126,6 +126,27 @@ export function writeApiModules(root: string): ReadonlySet<string> {
   return modules;
 }
 
+/**
+ * The write modules of the tree the PR is compared against. A PR that moves
+ * `apiPost` out of a file would drop that file from the head surface while the
+ * base still wrote through it, so the classifier takes both sides (#315).
+ */
+async function writeApiModulesAt(ref: string, root: string): Promise<ReadonlySet<string>> {
+  const modules = new Set<string>();
+  const found = await gitQuiet(
+    ['grep', '-l', '-E', 'api(Post|Put|Delete)[[:space:]]*[<(]', ref, '--', 'src'],
+    root
+  );
+  if (found === undefined) return modules;
+  for (const line of found.split('\n')) {
+    const separator = line.indexOf(':');
+    if (separator === -1) continue;
+    const path = line.slice(separator + 1);
+    if (path.endsWith('.ts')) modules.add(path);
+  }
+  return modules;
+}
+
 function sensitiveDetail(topic: RiskTopic): string {
   return topic === 'auth'
     ? 'authentication, session or credential behavior changed'
@@ -208,8 +229,10 @@ function parseOptions(argv: string[]): Options {
 async function main(): Promise<void> {
   try {
     const options = parseOptions(process.argv.slice(2));
-    const diff = options.diff ? readFileSync(options.diff, 'utf8') : await diffAgainst(options.base);
-    const report = classifyRisk(diff, { writeModules: writeApiModules(process.cwd()) });
+    const root = await repoRoot();
+    const diff = options.diff ? readFileSync(options.diff, 'utf8') : await diffAgainst(options.base, { cwd: root });
+    const writeModules = new Set([...writeApiModules(root), ...(await writeApiModulesAt(options.base, root))]);
+    const report = classifyRisk(diff, { writeModules });
     console.log(JSON.stringify(report, null, 2));
     if (report.risky) process.exitCode = 2;
   } catch (error) {

@@ -11,6 +11,7 @@ export interface CommitInput {
   body: string;
   diff: string;
   nameStatus: string;
+  writeModules: ReadonlySet<string>;
 }
 
 interface GateDecision {
@@ -40,12 +41,10 @@ function riskDetail(reasons: readonly RiskReason[]): string {
   return reasons.map((reason) => `${reason.path} (${reason.topic}): ${reason.detail}`).join('; ');
 }
 
-const WRITE_MODULES = writeApiModules(process.cwd());
-
 const RISK_GATE: Gate = {
   name: 'risk',
   decide(commit) {
-    const report = classifyRisk(commit.diff, { writeModules: WRITE_MODULES });
+    const report = classifyRisk(commit.diff, { writeModules: commit.writeModules });
     if (!report.risky) {
       return {
         gate: 'risk',
@@ -138,6 +137,7 @@ export async function readCommits(rev: string, count: number, root: string): Pro
   const shas = (await git(['log', '--first-parent', '-n', String(count), '--format=%H', rev], root))
     .split('\n')
     .filter((line) => line !== '');
+  const writeModules = writeApiModules(root);
   const commits: CommitInput[] = [];
   for (const sha of shas) {
     const parent = await gitQuiet(['rev-parse', '--verify', '--quiet', `${sha}^`], root);
@@ -148,6 +148,7 @@ export async function readCommits(rev: string, count: number, root: string): Pro
       body: await git(['log', '-1', '--format=%b', sha], root),
       diff: await diffAgainst(parent, { head: sha, cwd: root }),
       nameStatus: await diffAgainst(parent, { head: sha, flags: ['--name-status'], cwd: root }),
+      writeModules,
     });
   }
   return commits;

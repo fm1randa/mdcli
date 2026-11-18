@@ -1,11 +1,35 @@
 import { describe, expect, test } from 'bun:test';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
+import { git } from '../scripts/git.js';
 import { classifyRisk, type RiskReport } from '../scripts/risk.js';
+import { commitAll } from './git-repo.js';
 import { run } from './run.js';
 
 const root = join(import.meta.dir, '..');
 const fixtures = join(import.meta.dir, 'fixtures', 'risk');
+const riskScript = join(root, 'scripts', 'risk.ts');
+
+async function tempRepo(files: Record<string, string>): Promise<{ root: string; rev: string }> {
+  const repo = mkdtempSync(join(tmpdir(), 'mdcli-risk-'));
+  await git(['init', '-q'], repo);
+  for (const [path, content] of Object.entries(files)) {
+    const target = join(repo, path);
+    mkdirSync(dirname(target), { recursive: true });
+    writeFileSync(target, content);
+  }
+  return { root: repo, rev: await commitAll(repo, 'base') };
+}
+
+const WRITER = [
+  "import { apiPost } from '../lib/api.js';",
+  '',
+  'export function save(payload: unknown): Promise<unknown> {',
+  "  return apiPost('/v1/metas/orcamento', payload);",
+  '}',
+  '',
+].join('\n');
 
 function diff(name: string): string {
   return readFileSync(join(fixtures, `${name}.diff`), 'utf8');
@@ -205,5 +229,34 @@ describe('risk CLI', () => {
     const { code, report } = await runRisk('budget-write-behavior');
     expect(code).toBe(2);
     expect(topics(report)).toContain('write');
+  });
+
+  test('finds the write module when the gate runs from a subdirectory', async () => {
+    const repo = await tempRepo({ 'src/commands/budget-write.ts': WRITER });
+    try {
+      const result = await run(['bun', riskScript, '--diff', join(fixtures, 'budget-write-behavior.diff')], {
+        cwd: join(repo.root, 'src', 'commands'),
+      });
+      expect(result.exitCode).toBe(2);
+      expect(topics(JSON.parse(result.stdout) as RiskReport)).toContain('write');
+    } finally {
+      rmSync(repo.root, { recursive: true, force: true });
+    }
+  });
+
+  test('flags a file that called the write API at the base after the call moves away', async () => {
+    const repo = await tempRepo({ 'src/commands/budget-write.ts': WRITER });
+    try {
+      writeFileSync(join(repo.root, 'src', 'commands', 'budget-write.ts'), 'export const value = 1;\n');
+      await commitAll(repo.root, 'move the write away');
+      const result = await run(
+        ['bun', riskScript, '--base', repo.rev, '--diff', join(fixtures, 'budget-write-behavior.diff')],
+        { cwd: repo.root }
+      );
+      expect(result.exitCode).toBe(2);
+      expect(topics(JSON.parse(result.stdout) as RiskReport)).toContain('write');
+    } finally {
+      rmSync(repo.root, { recursive: true, force: true });
+    }
   });
 });

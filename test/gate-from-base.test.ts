@@ -20,29 +20,41 @@ function steps(file: string): Step[] {
   return Object.values(workflow.jobs).flatMap((job) => job.steps);
 }
 
-function step(file: string, name: string): Step | undefined {
-  return steps(file).find((candidate) => candidate.name === name);
+function stepRunning(file: string, script: string): Step | undefined {
+  return steps(file).find((candidate) => candidate.run?.includes(`scripts/${script}`) === true);
+}
+
+function prepareStep(file: string): Step | undefined {
+  return steps(file).find((candidate) => candidate.run?.includes('git worktree add --detach') === true);
+}
+
+function expectGateFromBase(file: string, script: string): void {
+  const prepare = prepareStep(file);
+  expect(prepare?.run ?? '').toContain('git worktree add --detach');
+  expect(prepare?.run ?? '').toContain('origin/');
+
+  const gate = stepRunning(file, script);
+  expect(gate?.env?.GATE_BASE).toBe(GATE_BASE);
+  expect(gate?.run ?? '').toContain(`bun "$GATE_BASE/scripts/${script}"`);
+  expect(gate?.run ?? '').not.toContain(`bun scripts/${script}`);
 }
 
 describe('gate scripts come from the base branch', () => {
   test('the risco workflow checks the base scripts out in a worktree', () => {
-    const prepare = step('risco.yml', 'Check out the gate scripts from the base branch');
-    expect(prepare?.run ?? '').toContain('git worktree add --detach "$GATE_BASE" "origin/$BASE_REF"');
-
-    const classify = step('risco.yml', 'Classificar o diff e sincronizar a label `risco`');
-    expect(classify?.env?.GATE_BASE).toBe(GATE_BASE);
-    expect(classify?.run ?? '').toContain('bun "$GATE_BASE/scripts/risk.ts"');
-    expect(classify?.run ?? '').toContain('bun "$GATE_BASE/scripts/risk-label.ts"');
-    expect(classify?.run ?? '').not.toMatch(/bun scripts\/risk/);
+    expectGateFromBase('risco.yml', 'risk.ts');
+    expect(stepRunning('risco.yml', 'risk-label.ts')?.run ?? '').toContain(
+      'bun "$GATE_BASE/scripts/risk-label.ts"'
+    );
+    expect(prepareStep('risco.yml')?.run ?? '').toContain('origin/$BASE_REF');
   });
 
   test('the fails-on-main workflow checks the base gate out in a worktree', () => {
-    const prepare = step('fails-on-main.yml', 'Check out the gate scripts from the base branch');
-    expect(prepare?.run ?? '').toContain('git worktree add --detach "$GATE_BASE" origin/main');
+    expectGateFromBase('fails-on-main.yml', 'new-tests-fail-on-main.ts');
+    expect(prepareStep('fails-on-main.yml')?.run ?? '').toContain('origin/main');
+  });
 
-    const gate = step('fails-on-main.yml', 'Every new or changed test must fail against origin/main');
-    expect(gate?.env?.GATE_BASE).toBe(GATE_BASE);
-    expect(gate?.run ?? '').toContain('bun "$GATE_BASE/scripts/new-tests-fail-on-main.ts"');
-    expect(gate?.run ?? '').not.toMatch(/bun scripts\/new-tests-fail-on-main/);
+  test('the prova workflow checks the base gate out in a worktree', () => {
+    expectGateFromBase('prova.yml', 'prova.ts');
+    expect(prepareStep('prova.yml')?.run ?? '').toContain('origin/main');
   });
 });
