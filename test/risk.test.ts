@@ -234,9 +234,10 @@ describe('risk CLI', () => {
   test('finds the write module when the gate runs from a subdirectory', async () => {
     const repo = await tempRepo({ 'src/commands/budget-write.ts': WRITER });
     try {
-      const result = await run(['bun', riskScript, '--diff', join(fixtures, 'budget-write-behavior.diff')], {
-        cwd: join(repo.root, 'src', 'commands'),
-      });
+      const result = await run(
+        ['bun', riskScript, '--base', repo.rev, '--diff', join(fixtures, 'budget-write-behavior.diff')],
+        { cwd: join(repo.root, 'src', 'commands') }
+      );
       expect(result.exitCode).toBe(2);
       expect(topics(JSON.parse(result.stdout) as RiskReport)).toContain('write');
     } finally {
@@ -258,5 +259,11 @@ describe('risk CLI', () => {
     } finally {
       rmSync(repo.root, { recursive: true, force: true });
     }
+  });
+
+  test('fails instead of reporting safe when the base does not resolve', async () => {
+    const result = await run(['bun', riskScript, '--base', 'mian', '--diff', join(fixtures, 'budget-write-behavior.diff')]);
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('mian');
   });
 });

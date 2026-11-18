@@ -3,7 +3,7 @@ import { diffAgainst, git, gitQuiet, repoRoot, resolveBase, revisionExists } fro
 import { decideGate } from './fails-on-main-exemption.js';
 import { changesProduct } from './new-tests-fail-on-main.js';
 import { checkProva } from './prova.js';
-import { classifyRisk, writeApiModules, type RiskReason } from './risk.js';
+import { classifyRisk, writeApiModules, writeApiModulesAt, type RiskReason } from './risk.js';
 
 export interface CommitInput {
   sha: string;
@@ -137,11 +137,12 @@ export async function readCommits(rev: string, count: number, root: string): Pro
   const shas = (await git(['log', '--first-parent', '-n', String(count), '--format=%H', rev], root))
     .split('\n')
     .filter((line) => line !== '');
-  const writeModules = writeApiModules(root);
+  const currentWriters = writeApiModules(root);
   const commits: CommitInput[] = [];
   for (const sha of shas) {
     const parent = await gitQuiet(['rev-parse', '--verify', '--quiet', `${sha}^`], root);
     if (parent === undefined) continue;
+    const writeModules = new Set([...currentWriters, ...(await writeApiModulesAt(parent, root))]);
     commits.push({
       sha,
       subject: (await git(['log', '-1', '--format=%s', sha], root)).trim(),
