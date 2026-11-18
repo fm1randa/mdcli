@@ -1,8 +1,9 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { behaviorIndexes, fileChangesBehavior, parseDiff, type DiffFile } from './behavior-change.js';
 import { diffAgainst, parseBase } from './git.js';
 
-export type RiskTopic = 'auth' | 'write' | 'security';
+type RiskTopic = 'auth' | 'write' | 'security';
 
 export interface RiskReason {
   topic: RiskTopic;
@@ -36,6 +37,15 @@ const SECURITY_SURFACES: readonly SecuritySurface[] = [
   { path: /^scripts\/check-private-messages\.ts$/, detail: 'private-data message guard changed' },
   { path: /^test\/check-private-messages\.test\.ts$/, detail: 'private-data message guard test changed' },
   { path: /^scripts\/verify\.sh$/, detail: 'verification script changed' },
+  // The merge gates themselves: a PR that edits the classifier, the label
+  // writer, the gate runner, its exemption or the proof gate would otherwise
+  // be judged by the edited copy (#315).
+  { path: /^scripts\/risk\.ts$/, detail: 'risk classifier changed' },
+  { path: /^scripts\/risk-label\.ts$/, detail: 'risk label gate changed' },
+  { path: /^scripts\/new-tests-fail-on-main\.ts$/, detail: 'fails-on-main gate changed' },
+  { path: /^scripts\/fails-on-main-exemption\.ts$/, detail: 'fails-on-main exemption changed' },
+  { path: /^scripts\/prova\.ts$/, detail: 'proof gate changed' },
+  { path: /^\.github\/workflows\//, detail: 'CI gate workflow changed' },
   { path: /^eslint-rules\//, detail: 'local ESLint rule changed' },
   // The config decides where each local rule runs: dropping scripts/** from a
   // block silences the rule there as surely as editing the rule (#272).
@@ -73,6 +83,7 @@ const WRITE_FUNCTIONS = [
   'deleteEntry',
 ].join('|');
 const WRITE_CALL = new RegExp(`\\b(?:${WRITE_FUNCTIONS})\\s*\\(`);
+const WRITE_API_CALL = /\bapi(?:Post|Put|Delete)\s*[<(]/;
 const WRITE_REQUEST = /\brequest\s*<[^>]*>\s*\(\s*['"](?:POST|PUT|DELETE)['"]/;
 const WRITE_METHOD = /\bmethod\s*[:=]\s*['"](?:POST|PUT|DELETE)['"]/;
 
@@ -80,20 +91,39 @@ const OUTPUT_ONLY =
   /\b(?:flushStdout|exitAfterFlush|process\.exit|console\.(?:log|error|warn|info|debug)|logger\.\w+|chalk\.\w+)\b/;
 
 function commentStyle(path: string): 'js' | 'shell' {
-  return path.endsWith('.sh') ? 'shell' : 'js';
+  return path.endsWith('.sh') || path.endsWith('.yml') || path.endsWith('.yaml') ? 'shell' : 'js';
 }
 
 function topicOf(text: string): RiskTopic | null {
   if (AUTH_BEHAVIOR.test(text)) return 'auth';
-  if (WRITE_CALL.test(text) || WRITE_REQUEST.test(text) || WRITE_METHOD.test(text)) return 'write';
+  if (WRITE_CALL.test(text) || WRITE_API_CALL.test(text) || WRITE_REQUEST.test(text) || WRITE_METHOD.test(text)) {
+    return 'write';
+  }
   return null;
 }
 
-function sensitivity(path: string): RiskTopic[] {
+function sensitivity(path: string, writeModules: ReadonlySet<string> | undefined): RiskTopic[] {
   const topics: RiskTopic[] = [];
   if (AUTH_PATH.test(path)) topics.push('auth');
-  if (WRITE_PATH.test(path)) topics.push('write');
+  if (WRITE_PATH.test(path) || writeModules?.has(path) === true) topics.push('write');
   return topics;
+}
+
+/**
+ * The src modules that call the write API. WRITE_PATH keeps the modules whose
+ * path names the write, and a new writer used to need a manual entry there:
+ * budget-write.ts called apiPost and classified safe (#315).
+ */
+export function writeApiModules(root: string): ReadonlySet<string> {
+  const modules = new Set<string>();
+  const src = join(root, 'src');
+  if (!existsSync(src)) return modules;
+  for (const entry of readdirSync(src, { recursive: true, encoding: 'utf8' })) {
+    const path = `src/${entry.replaceAll('\\', '/')}`;
+    if (!path.endsWith('.ts')) continue;
+    if (WRITE_API_CALL.test(readFileSync(join(root, path), 'utf8'))) modules.add(path);
+  }
+  return modules;
 }
 
 function sensitiveDetail(topic: RiskTopic): string {
@@ -117,7 +147,12 @@ function changesSecurityBehavior(file: DiffFile): boolean {
   return fileChangesBehavior(file, { commentStyle: commentStyle(file.path) });
 }
 
-export function classifyRisk(diff: string): RiskReport {
+interface RiskOptions {
+  /** src modules that call the write API; the CLI derives them from the checkout. */
+  writeModules?: ReadonlySet<string>;
+}
+
+export function classifyRisk(diff: string, options: RiskOptions = {}): RiskReport {
   const reasons: RiskReason[] = [];
   const seen = new Set<string>();
   for (const file of parseDiff(diff)) {
@@ -136,7 +171,7 @@ export function classifyRisk(diff: string): RiskReport {
         if (topic) {
           addReason(reasons, seen, { topic, path: file.path, detail: sensitiveDetail(topic) });
         } else if (!OUTPUT_ONLY.test(line.text)) {
-          for (const sensitive of sensitivity(file.path)) {
+          for (const sensitive of sensitivity(file.path, options.writeModules)) {
             addReason(reasons, seen, {
               topic: sensitive,
               path: file.path,
@@ -174,7 +209,7 @@ async function main(): Promise<void> {
   try {
     const options = parseOptions(process.argv.slice(2));
     const diff = options.diff ? readFileSync(options.diff, 'utf8') : await diffAgainst(options.base);
-    const report = classifyRisk(diff);
+    const report = classifyRisk(diff, { writeModules: writeApiModules(process.cwd()) });
     console.log(JSON.stringify(report, null, 2));
     if (report.risky) process.exitCode = 2;
   } catch (error) {

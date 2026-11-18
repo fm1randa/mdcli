@@ -28,13 +28,21 @@ jobs:
           restore-keys: bun-${{ runner.os }}-
       - name: Install
         run: bun install --frozen-lockfile
+      # The gate reads the scripts the base branch trusts: a PR that edits the
+      # exemption is still judged by the copy it found (#315).
+      - name: Check out the gate scripts from the base branch
+        env:
+          GATE_BASE: ${{ runner.temp }}/gate
+        run: |
+          git fetch --no-tags origin main
+          git worktree add --detach "$GATE_BASE" origin/main
       - name: Every new or changed test must fail against origin/main
         # A test that passes without the change proves nothing (#155). Issue
         # #237: a behavior-preserving PR skips the gate, and the step summary
         # says which title or body reason did it.
         env:
+          GATE_BASE: ${{ runner.temp }}/gate
           PR_TITLE: ${{ github.event.pull_request.title }}
           PR_BODY: ${{ github.event.pull_request.body }}
         run: |
-          git fetch --no-tags origin main
-          bun scripts/new-tests-fail-on-main.ts --base origin/main
+          bun "$GATE_BASE/scripts/new-tests-fail-on-main.ts" --base origin/main
