@@ -3,7 +3,7 @@ import { diffAgainst, git, gitQuiet, repoRoot, resolveBase, revisionExists } fro
 import { decideGate } from './fails-on-main-exemption.js';
 import { changesProduct } from './new-tests-fail-on-main.js';
 import { checkProva } from './prova.js';
-import { classifyRisk, type RiskReason } from './risk.js';
+import { classifyRisk, writeApiModules, type RiskReason } from './risk.js';
 
 export interface CommitInput {
   sha: string;
@@ -40,10 +40,12 @@ function riskDetail(reasons: readonly RiskReason[]): string {
   return reasons.map((reason) => `${reason.path} (${reason.topic}): ${reason.detail}`).join('; ');
 }
 
+const WRITE_MODULES = writeApiModules(process.cwd());
+
 const RISK_GATE: Gate = {
   name: 'risk',
   decide(commit) {
-    const report = classifyRisk(commit.diff);
+    const report = classifyRisk(commit.diff, { writeModules: WRITE_MODULES });
     if (!report.risky) {
       return {
         gate: 'risk',
