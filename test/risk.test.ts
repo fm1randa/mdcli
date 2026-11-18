@@ -288,4 +288,18 @@ describe('risk CLI', () => {
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toContain('mian');
   });
+
+  test('classifies a --diff run without origin/main and warns', async () => {
+    const repo = await tempRepo({ 'src/commands/budget-write.ts': WRITER });
+    try {
+      const result = await run(['bun', riskScript, '--diff', join(fixtures, 'budget-write-behavior.diff')], {
+        cwd: repo.root,
+      });
+      expect(result.exitCode).toBe(2);
+      expect(result.stderr).toContain('origin/main');
+      expect(topics(JSON.parse(result.stdout) as RiskReport)).toContain('write');
+    } finally {
+      rmSync(repo.root, { recursive: true, force: true });
+    }
+  });
 });

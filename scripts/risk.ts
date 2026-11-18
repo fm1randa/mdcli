@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { behaviorIndexes, fileChangesBehavior, parseDiff, type DiffFile } from './behavior-change.js';
-import { diffAgainst, gitResult, parseBase, repoRoot } from './git.js';
+import { DEFAULT_BASE, diffAgainst, gitResult, parseRevisionFlag, repoRoot, revisionExists } from './git.js';
 
 type RiskTopic = 'auth' | 'write' | 'security';
 
@@ -214,12 +214,14 @@ export function classifyRisk(diff: string, options: RiskOptions = {}): RiskRepor
 
 interface Options {
   base: string;
+  /** A caller-pinned `--base` fails when it does not resolve; a default may fall back to the head. */
+  explicitBase: boolean;
   diff?: string;
 }
 
 function parseOptions(argv: string[]): Options {
-  const { base, rest } = parseBase(argv);
-  const options: Options = { base };
+  const { value, rest } = parseRevisionFlag(argv, '--base');
+  const options: Options = { base: value ?? DEFAULT_BASE, explicitBase: value !== undefined };
   for (let index = 0; index < rest.length; index++) {
     const arg = rest[index];
     if (arg === '--diff') {
@@ -237,8 +239,17 @@ async function main(): Promise<void> {
     const options = parseOptions(process.argv.slice(2));
     const root = await repoRoot();
     const diff = options.diff ? readFileSync(options.diff, 'utf8') : await diffAgainst(options.base, { cwd: root });
-    const writeModules = new Set([...writeApiModules(root), ...(await writeApiModulesAt(options.base, root))]);
-    const report = classifyRisk(diff, { writeModules });
+    // A `--diff` run does not need the base to build the diff. When nobody
+    // pinned one and the checkout has no origin/main, keep the run working
+    // with the head surface instead of failing on the default base.
+    const hasBase = options.explicitBase || (await revisionExists(options.base, root));
+    let baseWriters: ReadonlySet<string> = new Set();
+    if (hasBase) {
+      baseWriters = await writeApiModulesAt(options.base, root);
+    } else {
+      console.error(`risk: ${options.base} does not resolve; classifying with the head write surface only`);
+    }
+    const report = classifyRisk(diff, { writeModules: new Set([...writeApiModules(root), ...baseWriters]) });
     console.log(JSON.stringify(report, null, 2));
     if (report.risky) process.exitCode = 2;
   } catch (error) {
