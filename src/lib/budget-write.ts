@@ -96,19 +96,29 @@ export function findConflicts(report: BudgetReport, write: GoalWrite): BudgetCon
 
 function conflictOn(line: CategoryLine, write: GoalWrite): BudgetConflict | null {
   const targetsParent = line.category.id === write.category.id;
-  const targetsChild = line.category.id === write.category.parentId;
+  const targetsChild = isChildOf(line, write.category);
   if (!targetsParent && !targetsChild) return null;
   const parentValue = targetsParent ? write.value : (line.figures?.goal ?? 0);
   if (parentValue === 0) return null;
-  const minAbs = childSum(line, write);
+  const minAbs = childSum(line, write, targetsChild);
   if (Math.abs(parentValue) + BUDGET_PARENT_TOLERANCE >= minAbs) return null;
   return { category: line.category, value: parentValue, minAbs };
 }
 
-/** The children's goals after the write. A child new to the month is not among `subcategories` yet. */
-function childSum(line: CategoryLine, write: GoalWrite): number {
+/**
+ * Either source makes the category a child of the line: the catalog's `pai`
+ * covers a child new to the month, which the report omits, and the report
+ * covers a child whose catalog entry carries no `pai`.
+ */
+function isChildOf(line: CategoryLine, category: GoalCategory): boolean {
+  return line.category.id === category.parentId
+    || line.subcategories.some((child) => child.category.id === category.id);
+}
+
+/** The children's goals after the write. */
+function childSum(line: CategoryLine, write: GoalWrite, targetsChild: boolean): number {
   const others = line.subcategories.filter((child) => child.category.id !== write.category.id).map((child) => child.figures.goal);
-  const goals = line.category.id === write.category.parentId ? [...others, write.value] : others;
+  const goals = targetsChild ? [...others, write.value] : others;
   return goals.reduce((sum, goal) => roundToCents(sum + Math.abs(goal)), 0);
 }
 
