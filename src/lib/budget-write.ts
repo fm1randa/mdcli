@@ -12,6 +12,8 @@ export interface GoalCategory {
   readonly id: number;
   readonly name: string;
   readonly tipo: 'd' | 'r';
+  /** `Category.pai` from the catalog. The report omits a child with no goal, so its parent is found here. */
+  readonly parentId: number | null;
 }
 
 /**
@@ -94,7 +96,7 @@ export function findConflicts(report: BudgetReport, write: GoalWrite): BudgetCon
 
 function conflictOn(line: CategoryLine, write: GoalWrite): BudgetConflict | null {
   const targetsParent = line.category.id === write.category.id;
-  const targetsChild = line.subcategories.some((child) => child.category.id === write.category.id);
+  const targetsChild = line.category.id === write.category.parentId;
   if (!targetsParent && !targetsChild) return null;
   const parentValue = targetsParent ? write.value : (line.figures?.goal ?? 0);
   if (parentValue === 0) return null;
@@ -103,11 +105,11 @@ function conflictOn(line: CategoryLine, write: GoalWrite): BudgetConflict | null
   return { category: line.category, value: parentValue, minAbs };
 }
 
+/** The children's goals after the write. A child new to the month is not among `subcategories` yet. */
 function childSum(line: CategoryLine, write: GoalWrite): number {
-  return line.subcategories.reduce((sum, child) => {
-    const value = child.category.id === write.category.id ? write.value : child.figures.goal;
-    return roundToCents(sum + Math.abs(value));
-  }, 0);
+  const others = line.subcategories.filter((child) => child.category.id !== write.category.id).map((child) => child.figures.goal);
+  const goals = line.category.id === write.category.parentId ? [...others, write.value] : others;
+  return goals.reduce((sum, goal) => roundToCents(sum + Math.abs(goal)), 0);
 }
 
 export function formatConflicts(conflicts: readonly BudgetConflict[], month: string): string {
