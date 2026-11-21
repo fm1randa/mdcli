@@ -15,10 +15,13 @@ export interface RiskReport {
   reasons: RiskReason[];
 }
 
+// src/lib/api.ts re-exports the client split under src/lib/api/ (#318): the
+// request core there carries the auth headers and the 401 refresh, and every
+// module there sends its resource's writes.
 const AUTH_PATH =
-  /^src\/(?:commands\/auth\/|lib\/(?:api|browser-auth|web-session|captcha|onepassword|config|sync-child)\.ts|lib\/browser-session\/[^/]+\.ts|types\/config\.ts)/;
+  /^src\/(?:commands\/auth\/|lib\/(?:api|api\/request|browser-auth|web-session|captcha|onepassword|config|sync-child)\.ts|lib\/browser-session\/[^/]+\.ts|types\/config\.ts)/;
 const WRITE_PATH =
-  /^src\/(?:lib\/api\.ts|commands\/(?:.*\/)?(?:create|update|delete)(?:-[^/]*)?\.ts|commands\/(?:categories|tags)\.ts|commands\/(?:entries\/import|sync)\/(?:run|commit)\.ts)$/;
+  /^src\/(?:lib\/api(?:\/[^/]+)?\.ts|commands\/(?:.*\/)?(?:create|update|delete)(?:-[^/]*)?\.ts|commands\/(?:categories|tags)\.ts|commands\/(?:entries\/import|sync)\/(?:run|commit)\.ts)$/;
 
 interface SecuritySurface {
   path: RegExp;

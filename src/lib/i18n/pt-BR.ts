@@ -7,6 +7,7 @@ import { ptBREntriesCreate } from './catalog/pt-BR/create.js';
 import { ptBREntriesUpdateDelete } from './catalog/pt-BR/update-delete.js';
 import { ptBREntriesDelete } from './catalog/pt-BR/delete.js';
 import { ptBREntriesSummary } from './catalog/pt-BR/summary.js';
+import { ptBREntryLabels } from './catalog/pt-BR/entry-labels.js';
 import { ptBREntriesImportOutput } from './catalog/pt-BR/import-output.js';
 import { ptBRImport } from './catalog/pt-BR/import.js';
 import { ptBRInternals } from './catalog/pt-BR/internals.js';
@@ -26,6 +27,7 @@ export const ptBRCatalog = {
   ...ptBREntriesUpdateDelete,
   ...ptBREntriesDelete,
   ...ptBREntriesSummary,
+  ...ptBREntryLabels,
   ...ptBREntriesImportOutput,
   ...ptBRImport,
   ...ptBRInternals,

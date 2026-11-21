@@ -100,6 +100,28 @@ describe('classifyRisk', () => {
   });
 });
 
+// One unclassified line, so only the path decides the topic.
+function unclassifiedChange(path: string): string {
+  return [`diff --git a/${path} b/${path}`, `--- a/${path}`, `+++ b/${path}`, '@@ -1 +1 @@', '-const value = build();', '+const value = build({});', ''].join('\n');
+}
+
+describe('the API client split by resource (#318)', () => {
+  test('sees auth and writes in the request core', () => {
+    expect(topics(classifyRisk(unclassifiedChange('src/lib/api/request.ts')))).toEqual(['auth', 'write']);
+  });
+
+  test('sees writes in every resource module', () => {
+    for (const path of ['src/lib/api/registry.ts', 'src/lib/api/entries.ts', 'src/lib/api/bank-import.ts', 'src/lib/api/cards.ts', 'src/lib/api/session.ts']) {
+      expect(topics(classifyRisk(unclassifiedChange(path)))).toEqual(['write']);
+    }
+  });
+
+  test('keeps the barrel and leaves the error helper next to it safe', () => {
+    expect(topics(classifyRisk(unclassifiedChange('src/lib/api.ts')))).toEqual(['auth', 'write']);
+    expect(classifyRisk(unclassifiedChange('src/lib/api-error.ts'))).toEqual({ risky: false, reasons: [] });
+  });
+});
+
 describe('security surfaces', () => {
   test('flags a behavior change in the guard, its test, the verify script and the ESLint rules', () => {
     const report = classifyRisk(diff('security-surfaces'));
