@@ -270,6 +270,11 @@ mdcli entries list --account "Conta Teste - Conta Corrente" --from 2024-01-01 --
 # --json eles também são JSON ({"error": "..."}), então o stdout só contém o resultado.
 mdcli entries list --account principal --from 2026-11-01 --to 2031-12-31 --json
 
+# Sem --account, se a fatura de um cartão falha, list e summary avisam no stderr e
+# mostram o resto: saem com 0 se sobrou algum lançamento e com 1 se não sobrou nenhum.
+# Com --account, a falha da fatura derruba o comando (stderr, código de saída 1).
+mdcli entries summary
+
 # Exporta lançamentos para CSV (todas as páginas, com nomes de conta, categoria,
 # conta da transferência e tags, datas efetiva/de competência, repetição,
 # observações e número do documento; date é a data prevista, a que --from/--to filtram)
@@ -509,6 +514,9 @@ mdcli budget --from 2026-11-01 --to 2026-11-30 --regime accrual --json
 # Define ou remove a meta de uma categoria. O valor vai com o sinal que a leitura mostra
 # (despesa negativa, receita positiva). Pede confirmação. --dry-run não grava.
 # Remover grava 0, e a leitura seguinte deixa de mostrar a linha.
+# Limites: grava só os meses de --month a --until e não sobrescreve as metas dos meses
+# seguintes; cobre no máximo 600 meses; só define meta de categoria de despesa ou
+# receita (não grava a meta geral nem a de investimento).
 mdcli budget set --category Alimentação --value -800 --month 2026-11
 mdcli budget set --category 20 --value 4500 --month 2026-11 --until 2026-12 --dry-run
 mdcli budget remove --category Alimentação --month 2026-11

@@ -1,4 +1,4 @@
-<!-- traduzido de README.md @ f41a669 (base: f41a669ab37b51619a85b665d1865256e6848955; readme-blob: ad25f4507fbdd9a59347a456115cf47c5d969c18); ao atualizar o README.md, sincronize este arquivo e atualize o SHA e o readme-blob (git hash-object README.md) -->
+<!-- traduzido de README.md @ 1976652 (base: 19766524ed08cbced3f03599af48006dd085dc59; readme-blob: 3e798030e16abb2c73318744eb085e72cc60b394); ao atualizar o README.md, sincronize este arquivo e atualize o SHA e o readme-blob (git hash-object README.md) -->
 [Português (Brasil)](README.md) · **English**
 
 > The Portuguese [README.md](README.md) is the reference version; this English translation may lag behind it.
@@ -273,6 +273,11 @@ mdcli entries list --account "Conta Teste - Conta Corrente" --from 2024-01-01 --
 # JSON too ({"error": "..."}), so stdout only ever holds the result.
 mdcli entries list --account principal --from 2026-11-01 --to 2031-12-31 --json
 
+# Without --account, when a card invoice fails, list and summary warn on stderr and
+# show the rest: they exit 0 if any entry is left and 1 if none is.
+# With --account, the invoice failure stops the command (stderr, exit code 1).
+mdcli entries summary
+
 # Export entries to CSV (all pages, with account, category, transfer-account and tag names,
 # effective/competence dates, repetition, notes and document number;
 # date is the planned date, the one --from/--to filter on)
@@ -512,6 +517,9 @@ mdcli budget --from 2026-11-01 --to 2026-11-30 --regime accrual --json
 # Set or remove one category goal. The amount uses the sign the read shows
 # (negative for an expense, positive for income). It asks for confirmation. --dry-run does not save.
 # Remove stores 0, and the next read drops the row.
+# Limits: it saves only the months from --month to --until and does not overwrite the
+# goals of later months; it covers at most 600 months; it only sets an expense or income
+# category goal (it does not save the general goal or the investment goal).
 mdcli budget set --category Alimentação --value -800 --month 2026-11
 mdcli budget set --category 20 --value 4500 --month 2026-11 --until 2026-12 --dry-run
 mdcli budget remove --category Alimentação --month 2026-11

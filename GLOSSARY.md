@@ -39,6 +39,18 @@ _Avoid_: "balance" for a card (`cards list --json` has none: `saldoUltimoExtrato
 A recurring Entry rule (agenda). Occurrences carry `agendaId` and `parcela` (e.g. `fixa`, `2/6`). On update/delete, `--scope this` (default) touches only the current occurrence; `--scope following` touches this one and the ones after it. Both map to the API flag `todos` (`false` / `true`). The web labels are "Apenas neste" / "Neste e em todos na sequência". There is no `--scope all` — the web only exposes that boolean.
 _Avoid_: "recurrence" alone (prefer Series when talking about `--scope`)
 
+**Goal**:
+A monthly budget target (meta) of the web app's Orçamento screen, set on a Category or as the **general** goal of a kind (the API row with no category). Its sign follows the Category: an expense goal is negative, an income goal positive, so `budget set --value -800` is an 800 expense goal and `budget` reads it back with the same sign. A goal of 0 is no goal (`budget remove` stores 0). `budget set` writes only Category goals of expense or income, never the general or investment goal, only the months from `--month` to `--until` (at most 600) and never later months (`sobreescrever: false`).
+_Avoid_: "limit", "target" alone
+
+**Budget**:
+The goals of a period with their figures, per kind (expense, income, investment): goal, confirmed, projected, remaining and surplus, as `budget` prints them. It is read under a Regime.
+_Avoid_: "orçamento" (Portuguese only), "budget" for a single goal (that is a Goal)
+
+**Regime**:
+How a Budget dates an Entry: **cash** (caixa, `regime=ca`, the default) by its date, **accrual** (competência, `regime=co`) by its competence date. `budget --regime cash|accrual`.
+_Avoid_: "mode", "basis"
+
 **Connection**:
 A link between a bank and Meu Dinheiro through the web app's bank integration (Integração bancária). A Connection has zero or more Accounts (a checking account and its card can share one). Each bank-side account is a connection account, optionally linked to an Account. **Sync** asks the bank for new data through the Connection (the web's "Atualizar conexão"), at most 3 times a day per connector.
 _Avoid_: "integration" for a single link (the integration is the feature; a Connection is one bank link)
