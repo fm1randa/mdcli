@@ -7,6 +7,7 @@ import { enEntriesCreate } from './catalog/en/create.js';
 import { enEntriesUpdateDelete } from './catalog/en/update-delete.js';
 import { enEntriesDelete } from './catalog/en/delete.js';
 import { enEntriesSummary } from './catalog/en/summary.js';
+import { enEntryLabels } from './catalog/en/entry-labels.js';
 import { enEntriesImportOutput } from './catalog/en/import-output.js';
 import { enImport } from './catalog/en/import.js';
 import { enInternals } from './catalog/en/internals.js';
@@ -22,6 +23,7 @@ export const enCatalog: Catalog = {
   ...enEntriesUpdateDelete,
   ...enEntriesDelete,
   ...enEntriesSummary,
+  ...enEntryLabels,
   ...enEntriesImportOutput,
   ...enImport,
   ...enInternals,
