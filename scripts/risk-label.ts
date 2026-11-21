@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import type { RiskReport } from './risk.js';
 import { spawn } from './git.js';
 
-export const RISK_LABEL = 'risco';
+const RISK_LABEL = 'risco';
 
 export type LabelAction = 'add' | 'remove' | 'keep';
 

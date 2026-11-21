@@ -80,6 +80,42 @@ describe('replayGates', () => {
       expect(report.skipped).toBe(1);
     });
   });
+
+  test('keeps the write surface of a commit whose parent still called the API', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'mdcli-replay-gates-'));
+    try {
+      await git(['init', '-q'], root);
+      await commit(root, 'base', {
+        'src/commands/budget-write.ts': [
+          "import { apiPost } from '../lib/api.js';",
+          '',
+          'apiPost("/v1/metas/orcamento", payload);',
+          '',
+        ].join('\n'),
+      });
+      const write = await commit(root, 'feat(budget): check every month', {
+        'src/commands/budget-write.ts': [
+          "import { apiPost } from '../lib/api.js';",
+          '',
+          'for (const month of months) check(month);',
+          'apiPost("/v1/metas/orcamento", payload);',
+          '',
+        ].join('\n'),
+      });
+      await commit(root, 'refactor(budget): move the write out', {
+        'src/commands/budget-write.ts': 'export const value = 1;\n',
+      });
+
+      const report = replayGates(await readCommits('HEAD', 3, root));
+      const decision = report.commits
+        .find((replay) => replay.sha === write)!
+        .decisions.find((candidate) => candidate.gate === 'risk')!;
+      expect(decision.fired).toBe(true);
+      expect(decision.detail).toContain('src/commands/budget-write.ts (write)');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
 });
 
 describe('replay-gates CLI', () => {

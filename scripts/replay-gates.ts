@@ -3,7 +3,7 @@ import { diffAgainst, git, gitQuiet, repoRoot, resolveBase, revisionExists } fro
 import { decideGate } from './fails-on-main-exemption.js';
 import { changesProduct } from './new-tests-fail-on-main.js';
 import { checkProva } from './prova.js';
-import { classifyRisk, type RiskReason } from './risk.js';
+import { classifyRisk, writeApiModules, writeApiModulesAt, type RiskReason } from './risk.js';
 
 export interface CommitInput {
   sha: string;
@@ -11,6 +11,7 @@ export interface CommitInput {
   body: string;
   diff: string;
   nameStatus: string;
+  writeModules: ReadonlySet<string>;
 }
 
 interface GateDecision {
@@ -43,7 +44,7 @@ function riskDetail(reasons: readonly RiskReason[]): string {
 const RISK_GATE: Gate = {
   name: 'risk',
   decide(commit) {
-    const report = classifyRisk(commit.diff);
+    const report = classifyRisk(commit.diff, { writeModules: commit.writeModules });
     if (!report.risky) {
       return {
         gate: 'risk',
@@ -136,16 +137,19 @@ export async function readCommits(rev: string, count: number, root: string): Pro
   const shas = (await git(['log', '--first-parent', '-n', String(count), '--format=%H', rev], root))
     .split('\n')
     .filter((line) => line !== '');
+  const currentWriters = writeApiModules(root);
   const commits: CommitInput[] = [];
   for (const sha of shas) {
     const parent = await gitQuiet(['rev-parse', '--verify', '--quiet', `${sha}^`], root);
     if (parent === undefined) continue;
+    const writeModules = new Set([...currentWriters, ...(await writeApiModulesAt(parent, root))]);
     commits.push({
       sha,
       subject: (await git(['log', '-1', '--format=%s', sha], root)).trim(),
       body: await git(['log', '-1', '--format=%b', sha], root),
       diff: await diffAgainst(parent, { head: sha, cwd: root }),
       nameStatus: await diffAgainst(parent, { head: sha, flags: ['--name-status'], cwd: root }),
+      writeModules,
     });
   }
   return commits;
