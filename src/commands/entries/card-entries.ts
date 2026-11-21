@@ -1,19 +1,17 @@
-import { fetchAccounts, fetchAllEntries, fetchCardInvoice, isCreditCard } from '../../lib/api.js';
+import { fetchAllEntries, fetchCardInvoice, isCreditCard, loadSessionPreferences } from '../../lib/api.js';
 import { t } from '../../lib/i18n/index.js';
 import { shiftDueDate } from '../../lib/dates.js';
-import type { Account, CardInvoiceEntry, CardInvoiceResponse, EntriesParams, Entry } from '../../types/index.js';
+import type { Account, CardInvoiceEntry, CardInvoiceResponse, Entry } from '../../types/index.js';
 import { asEntryId } from '../../lib/entry-id-brands.js';
 import type { CreatedEntryLookup } from './entry-id.js';
 import { cardDueAnchor } from './card-invoice.js';
-import { statusBit, typeBit } from './filters.js';
+import { statusBit, typeBit, type ListParams } from './filters.js';
 import { toCents } from '../../utils/currency.js';
 import { mapConcurrent } from '../../utils/concurrency.js';
 
 // Invoice requests in flight at once for entries list/summary: enough to cut
 // the wait, few enough not to hammer the API.
 const INVOICE_CONCURRENCY = 4;
-
-type ListParams = Omit<EntriesParams, 'page' | 'pageSize'>;
 
 /** `strict` is an explicit account selection: one failed invoice fails the command.
  * `continue` is the default active set: a failed invoice is reported and the rest is kept. */
@@ -98,14 +96,17 @@ function matchesFilters(entry: Entry, params: ListParams): boolean {
  * invoices due within the range are added, filtered like the API would,
  * skipping any the statement list already returned. `continue` keeps a failed
  * invoice as data. `strict` throws, so an explicit account selection still stops.
+ * `accounts` is every account of the user, read once by the filters: it also
+ * seeds the session preferences, which would otherwise read them again.
  */
 export async function fetchListEntries(
   params: ListParams,
+  accounts: Account[],
   policy: InvoiceFailurePolicy,
 ): Promise<{ entries: Entry[]; failedInvoices: FailedInvoice[] }> {
+  await loadSessionPreferences(Promise.resolve(accounts));
   const listed = await fetchAllEntries(params);
-  const { items } = await fetchAccounts();
-  const cards = items.filter((a) => params.accountIds.includes(a.id) && isCreditCard(a));
+  const cards = accounts.filter((a) => params.accountIds.includes(a.id) && isCreditCard(a));
   // When the card is also in -a, its purchases come from the invoices below.
   // Drop the statement's projecaoFatura for that card so the bill is not
   // counted twice (real use 2026-10-19 / regression of #78 over #72).

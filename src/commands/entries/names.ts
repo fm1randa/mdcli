@@ -1,4 +1,5 @@
 import { fetchAccounts, fetchCategories, fetchTags } from '../../lib/api.js';
+import type { Account } from '../../types/index.js';
 
 export interface Names {
   accounts: Map<number, string>;
@@ -6,15 +7,15 @@ export interface Names {
   tags: Map<number, string>;
 }
 
-/** Account, category and (optionally) tag names, for human-readable output. */
-export async function loadNames(options: { tags?: boolean } = {}): Promise<Names> {
+/** Account, category and (optionally) tag names, for human-readable output. `accounts`: the accounts when the caller already read them. */
+export async function loadNames(options: { tags?: boolean; accounts?: Account[] } = {}): Promise<Names> {
   const [accounts, categories, tags] = await Promise.all([
-    fetchAccounts(),
+    options.accounts ?? fetchAccounts().then((response) => response.items),
     fetchCategories(),
     options.tags ? fetchTags() : Promise.resolve([]),
   ]);
   return {
-    accounts: new Map(accounts.items.map((a) => [a.id, a.nome])),
+    accounts: new Map(accounts.map((a) => [a.id, a.nome])),
     categories: new Map(categories.items.map((c) => [c.id, c.nome])),
     tags: new Map(tags.map((t) => [t.id, t.nome])),
   };

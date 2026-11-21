@@ -22,6 +22,12 @@ import {
   type GoalWrite,
 } from '../lib/budget-write.js';
 import type { BudgetGoalSave } from '../types/budget.js';
+import type { Category } from '../types/index.js';
+import { mapConcurrent } from '../utils/concurrency.js';
+
+// Months whose goals are read at once before a write: a long --until span
+// waits less, and the API still sees only a few requests in flight.
+const MONTH_READ_CONCURRENCY = 4;
 
 interface WriteFlags {
   category: string;
@@ -69,12 +75,14 @@ function withParentFlags<T extends WriteFlags>(options: T, command: Command): T 
 }
 
 async function writeBudget(options: WriteFlags, value: number): Promise<void> {
-  const write = await resolveWrite(options, value);
-  for (const month of write.months) {
-    const report = await loadBudget({ period: monthRange(month), regime: 'cash' });
-    const conflicts = findConflicts(report, write);
+  const { write, categories } = await resolveWrite(options, value);
+  const reports = await mapConcurrent(write.months, MONTH_READ_CONCURRENCY, (month) =>
+    loadBudget({ period: monthRange(month), regime: 'cash' }, categories)
+  );
+  write.months.forEach((month, i) => {
+    const conflicts = findConflicts(reports[i], write);
     if (conflicts.length > 0) exitWithError(formatConflicts(conflicts, month));
-  }
+  });
 
   const payload = buildSavePayload(write);
   if (options.dryRun) {
@@ -93,18 +101,19 @@ async function writeBudget(options: WriteFlags, value: number): Promise<void> {
   printPlan(write, payload, false, options.json === true);
 }
 
-async function resolveWrite(options: WriteFlags, value: number): Promise<GoalWrite> {
+/** The write, and the category catalog it was resolved against, so the month reads reuse it. */
+async function resolveWrite(options: WriteFlags, value: number): Promise<{ write: GoalWrite; categories: Category[] }> {
   const month = options.month ?? today().slice(0, 7);
   if (!isYearMonth(month)) exitWithError(t('errorInvalidBudgetMonth', month));
   if (options.until !== undefined && !isYearMonth(options.until)) exitWithError(t('errorInvalidBudgetMonth', options.until));
   if (options.until !== undefined && options.until < month) exitWithError(t('errorBudgetUntilBefore', options.until, month));
   const months = monthSpan(month, options.until);
   if (!months) exitWithError(t('errorBudgetSpanTooLong', MAX_GOAL_MONTHS));
-  return { category: await resolveGoalCategory(options.category), value, months };
+  const categories = (await fetchCategories()).items;
+  return { write: { category: await resolveGoalCategory(options.category, categories), value, months }, categories };
 }
 
-async function resolveGoalCategory(input: string): Promise<GoalCategory> {
-  const items = (await fetchCategories()).items;
+async function resolveGoalCategory(input: string, items: Category[]): Promise<GoalCategory> {
   const resolution = resolveCategoryReference(input, await resolveId('categories', input), items);
   if (resolution.kind === 'ambiguous') exitWithError(t('errorCategoryNameAmbiguous', input, resolution.ids.join(', ')));
   if (resolution.kind === 'inactive') exitWithError(t('errorCategoryInactiveDestination', resolution.category.nome, resolution.category.id));

@@ -108,11 +108,9 @@ describe('GET /v2/lancamentos sends the user preferences, as the web does', () =
     expect(lancamentos('list')).toHaveLength(2);
     expect((JSON.parse(result.stdout) as Array<{ id: number }>).map((e) => e.id)).toEqual([1, 2]);
     expect(api.requests.filter((r) => r.path === '/v1/frontend/sessao')).toHaveLength(1);
-    // Up to the last page, only the preferences ask for the accounts; the list
-    // then asks for them once more, to tell cards apart (fetchListEntries).
-    const beforeLastPage = api.requests.slice(0, api.requests.indexOf(lancamentos('list')[1]));
-    expect(beforeLastPage.filter((r) => r.path === '/v1/cadastros/contas')).toHaveLength(1);
-    expect(api.requests.filter((r) => r.path === '/v1/cadastros/contas')).toHaveLength(2);
+    // The filters read the accounts once; the preferences and the card
+    // lookup (fetchListEntries) reuse that read (#322).
+    expect(api.requests.filter((r) => r.path === '/v1/cadastros/contas')).toHaveLength(1);
   });
 
   test('moeda is the currency picked in the web when an active account uses it', async () => {

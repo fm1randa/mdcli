@@ -91,11 +91,12 @@ const BUDGET_PATH = '/v2/lancamentos/metasorcamento';
  * Expense and income come from `investimentos=false`, the screen's request.
  * Investment comes from a second GET, and only its `i` rows are kept, so a
  * server that recounts expenses when the flag is on cannot change those numbers.
+ * `categories` is the catalog when the caller already read it.
  */
-export async function loadBudget(query: BudgetQuery): Promise<BudgetReport> {
+export async function loadBudget(query: BudgetQuery, categories?: readonly Category[]): Promise<BudgetReport> {
   const [preferences, catalog] = await Promise.all([
     loadSessionPreferences(),
-    fetchCategories(),
+    categories ?? fetchCategories().then((response) => response.items),
   ]);
   const [spendRows, investRows] = await Promise.all([
     apiGet<BudgetGoalRow[]>(budgetEndpoint(query, preferences, false)),
@@ -105,7 +106,7 @@ export async function loadBudget(query: BudgetQuery): Promise<BudgetReport> {
     ...spendRows.filter((row) => row.tipo !== 'i'),
     ...investRows.filter((row) => row.tipo === 'i'),
   ];
-  return { period: query.period, regime: query.regime, budgets: assemble(rows, namesOf(catalog.items)) };
+  return { period: query.period, regime: query.regime, budgets: assemble(rows, namesOf(catalog)) };
 }
 
 function budgetEndpoint(query: BudgetQuery, preferences: EntriesPreferences, investments: boolean): string {
