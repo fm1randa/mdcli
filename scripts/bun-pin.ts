@@ -6,11 +6,15 @@ const BUN_PREFIX = 'bun@';
 /**
  * Compares the packageManager field to the running version.
  * Undefined when the field is `bun@` plus that version. A missing or non-bun
- * field still returns a message; it does not throw. No filesystem and no spawn.
+ * field returns its own message with no install line, since there is no bun
+ * version to install; it does not throw. No filesystem and no spawn.
  */
 export function pinMismatch(packageManagerField: string, runningVersion: string): string | undefined {
-  const pin = packageManagerField.startsWith(BUN_PREFIX) ? packageManagerField.slice(BUN_PREFIX.length) : packageManagerField;
-  if (packageManagerField.startsWith(BUN_PREFIX) && pin === runningVersion) return undefined;
+  if (!packageManagerField.startsWith(BUN_PREFIX)) {
+    return `package.json pede ${packageManagerField || '(nada)'} em packageManager; este repositório espera bun@<versão>.`;
+  }
+  const pin = packageManagerField.slice(BUN_PREFIX.length);
+  if (pin === runningVersion) return undefined;
   return [
     `Bun ${runningVersion} está no PATH. package.json pede ${packageManagerField}.`,
     'Instale esse pin e coloque esse bun antes no PATH:',

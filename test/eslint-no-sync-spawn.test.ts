@@ -51,6 +51,13 @@ describe('local/no-sync-spawn', () => {
     ).toEqual([]);
   });
 
+  test('allows a type-only import, which calls nothing', async () => {
+    expect(await localRules('import type { spawnSync } from "bun";\nexport type S = typeof spawnSync;', CALLER)).toEqual([]);
+    expect(await localRules('import { type spawnSync } from "bun";\nexport type S = typeof spawnSync;', CALLER)).toEqual([]);
+    expect(await localRules('import type { execSync } from "node:child_process";\nexport type S = typeof execSync;', CALLER)).toEqual([]);
+    expect(await localRules('import { spawnSync } from "bun";\nspawnSync(["true"]);', CALLER)).toEqual([RULE]);
+  });
+
   test('fires on a bun named import in bin/cli.ts', async () => {
     expect(await localRules("import { spawnSync } from 'bun';\nexport const run = spawnSync;", BIN)).toEqual([RULE]);
     expect(await localRules("import { spawn } from 'bun';\nexport const run = spawn;", BIN)).toEqual([]);

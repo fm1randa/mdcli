@@ -3,6 +3,8 @@
 // may contain those numbers. The follow is one binding deep: a second local
 // and an arithmetic initializer stay review. setTimeout is a macrotask or a
 // scripted delay, not a suite deadline, so it is not a site.
+import { keyName, memberName } from "./lib/static-member.js";
+
 const TIMEOUT_NAME = /timeout|deadline/i;
 const WRAPPERS = new Set([
   "TSAsExpression",
@@ -68,18 +70,13 @@ export default {
       if (param.type === "AssignmentPattern") checkNamedInit(param.left, param.right);
     };
 
-    const isTimeoutKey = (key, computed) => {
-      if (computed) return false;
-      if (key.type === "Identifier") return key.name === "timeout";
-      return key.type === "Literal" && key.value === "timeout";
-    };
+    const isTimeoutKey = (key, computed) => keyName(key, computed) === "timeout";
 
     const isNow = (node) => {
       const value = unwrap(node);
       if (value?.type !== "CallExpression") return false;
       const callee = unwrap(value.callee);
-      if (callee?.type !== "MemberExpression" || callee.computed) return false;
-      if (callee.property.type !== "Identifier" || callee.property.name !== "now") return false;
+      if (callee?.type !== "MemberExpression" || memberName(callee) !== "now") return false;
       const object = callee.object;
       return object.type === "Identifier" && (object.name === "Date" || object.name === "performance");
     };
@@ -87,8 +84,7 @@ export default {
     const isBunObject = (node) => {
       const value = unwrap(node);
       if (value?.type === "Identifier" && value.name === "Bun") return true;
-      if (value?.type !== "MemberExpression" || value.computed) return false;
-      if (value.property.type !== "Identifier" || value.property.name !== "Bun") return false;
+      if (value?.type !== "MemberExpression" || memberName(value) !== "Bun") return false;
       return (
         value.object.type === "Identifier" &&
         ["globalThis", "global", "self", "window"].includes(value.object.name)
@@ -97,13 +93,7 @@ export default {
 
     const isBunSleep = (callee) => {
       const value = unwrap(callee);
-      return (
-        value?.type === "MemberExpression" &&
-        !value.computed &&
-        isBunObject(value.object) &&
-        value.property.type === "Identifier" &&
-        value.property.name === "sleep"
-      );
+      return value?.type === "MemberExpression" && memberName(value) === "sleep" && isBunObject(value.object);
     };
 
     return {

@@ -76,6 +76,23 @@ describe('budget set and remove', () => {
     });
   });
 
+  test('reads --month and --json in any position after the subcommand', async () => {
+    const expected = { metas: [{ meta: -50, categoria: 40, tipo: 'd', datas: ['2026-12-01'], sobreescrever: false }] };
+    for (const args of [
+      ['budget', 'set', '--month', '2026-12', '--json', '--category', '40', '--value', '-50', '--dry-run'],
+      ['budget', 'set', '--category', '40', '--value', '-50', '--dry-run', '--month', '2026-12', '--json'],
+      ['budget', 'remove', '--month', '2026-12', '--json', '--category', '40', '--dry-run'],
+    ]) {
+      const result = await runCli(args, { home, api });
+      expect(result.exitCode).toBe(0);
+      const remove = args[1] === 'remove';
+      expect(JSON.parse(result.stdout)).toEqual(remove ? { metas: [{ ...expected.metas[0], meta: 0 }] } : expected);
+    }
+    const refused = await runCli(['budget', 'set', '--json', '--category', '40', '--value', 'abc'], { home, api });
+    expect(refused.exitCode).toBe(1);
+    expect(Object.keys(JSON.parse(refused.stderr) as object)).toEqual(['error']);
+  });
+
   test('sends the typed sign, then the next budget read shows it', async () => {
     const write = await runCli(
       ['budget', 'set', '--category', '40', '--value', '-50', '--month', '2026-12', '--dangerously-skip-confirmation'],
