@@ -26,17 +26,17 @@ function reportFailedInvoices(failures: FailedInvoice[]): void {
 }
 
 async function loadEntries(options: FilterOptions) {
-  const params = await resolveEntryFilters(options);
+  const { params, accounts } = await resolveEntryFilters(options);
   const excludedCategories = await resolveExcludedCategories(options.excludeCategory);
   const policy = options.account === undefined ? 'continue' : 'strict';
-  const loaded = await fetchListEntries(params, policy);
+  const loaded = await fetchListEntries(params, accounts, policy);
   const all = normalizeEntries(loaded.entries);
   const entries = all.filter((e) => e.categoryId === null || !excludedCategories.has(e.categoryId));
   reportFailedInvoices(loaded.failedInvoices);
   if (loaded.failedInvoices.length > 0 && entries.length === 0) {
     await exitAfterFlush(1);
   }
-  return { params, entries, excludedByCategory: all.length - entries.length };
+  return { params, accounts, entries, excludedByCategory: all.length - entries.length };
 }
 
 function checkOutputFormat(options: { json?: boolean; csv?: boolean }): void {
@@ -52,7 +52,7 @@ interface ListOptions extends FilterOptions {
 
 export async function listAction(options: ListOptions): Promise<void> {
   checkOutputFormat(options);
-  const { entries } = await loadEntries(options);
+  const { accounts, entries } = await loadEntries(options);
 
   if (options.json) {
     console.log(JSON.stringify(entries, null, 2));
@@ -60,7 +60,7 @@ export async function listAction(options: ListOptions): Promise<void> {
   }
 
   if (options.csv) {
-    const names = await loadNames({ tags: entries.some((e) => e.tagIds.length > 0) });
+    const names = await loadNames({ tags: entries.some((e) => e.tagIds.length > 0), accounts });
     process.stdout.write(
       toCsv(
         [
@@ -127,7 +127,7 @@ export async function summaryAction(options: SummaryOptions): Promise<void> {
     exitWithError(t('errorInvalidBy', options.by ?? ''));
   }
 
-  const { params, entries: filtered, excludedByCategory } = await loadEntries(options);
+  const { params, accounts, entries: filtered, excludedByCategory } = await loadEntries(options);
   // Transfers stay optional via --include-transfers. Payments (tipo p) and
   // invoice projections are never income/expense: always leave them out of
   // the summary (real use 2026-10-19).
@@ -142,7 +142,7 @@ export async function summaryAction(options: SummaryOptions): Promise<void> {
     return true;
   });
 
-  const names = by === 'month' ? null : await loadNames();
+  const names = by === 'month' ? null : await loadNames({ accounts });
   const rows = summarize(entries, (e) => {
     if (by === 'month') {
       const month = e.date.slice(0, 7);

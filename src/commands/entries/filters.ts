@@ -4,7 +4,7 @@ import { t } from '../../lib/i18n/index.js';
 import { fetchAccounts, fetchCategories, isActiveAccount } from '../../lib/api.js';
 import { resolveIds } from '../../lib/aliases.js';
 import { resolveTags } from './tags.js';
-import type { EntriesParams } from '../../types/index.js';
+import type { Account, EntriesParams } from '../../types/index.js';
 import { getCurrentMonthRange, isCalendarDate } from '../../lib/dates.js';
 import { parseAmount, parseInteger } from '../../utils/parse.js';
 
@@ -117,12 +117,13 @@ export interface FilterOptions {
   invoices?: boolean;
 }
 
-async function resolveAccountIds(account: string | undefined): Promise<number[]> {
+/** The accounts the filters select, and every account of the user, read once for the whole run. */
+async function resolveAccounts(account: string | undefined): Promise<{ accountIds: number[]; accounts: Account[] }> {
   if (account === undefined) {
     const { items } = await fetchAccounts();
     const ids = items.filter(isActiveAccount).map((item) => item.id);
     if (ids.length === 0) exitWithError(t('errorNoActiveAccounts'));
-    return ids;
+    return { accountIds: ids, accounts: items };
   }
   if (account === '') exitWithError(t('errorAccountRequired'));
 
@@ -131,12 +132,15 @@ async function resolveAccountIds(account: string | undefined): Promise<number[]>
     exitWithError(t('errorUnknownAccounts', accountResult.unresolved.join(', ')));
   }
   if (accountResult.ids.length === 0) exitWithError(t('errorAccountRequired'));
-  return accountResult.ids;
+  return { accountIds: accountResult.ids, accounts: (await fetchAccounts()).items };
 }
 
-export async function resolveEntryFilters(options: FilterOptions): Promise<Omit<EntriesParams, 'page' | 'pageSize'>> {
+export type ListParams = Omit<EntriesParams, 'page' | 'pageSize'>;
+
+/** The list filters, plus every account of the user, so nothing later has to read them again. */
+export async function resolveEntryFilters(options: FilterOptions): Promise<{ params: ListParams; accounts: Account[] }> {
   checkDateRange(options.from, options.to);
-  const accountIds = await resolveAccountIds(options.account);
+  const { accountIds, accounts } = await resolveAccounts(options.account);
 
   let categoryIds: number[] | undefined;
   if (options.category) {
@@ -159,7 +163,7 @@ export async function resolveEntryFilters(options: FilterOptions): Promise<Omit<
 
   const { startDate: defaultStart, endDate: defaultEnd } = getCurrentMonthRange();
 
-  return {
+  const params: ListParams = {
     accountIds,
     startDate: options.from ?? defaultStart,
     endDate: options.to ?? defaultEnd,
@@ -172,6 +176,7 @@ export async function resolveEntryFilters(options: FilterOptions): Promise<Omit<
     repetition: options.repetition ? parseRepetitionFilter(options.repetition) : undefined,
     includeFaturas: options.invoices,
   };
+  return { params, accounts };
 }
 
 /** Resolves --exclude-category to those categories plus all of their subcategories. */

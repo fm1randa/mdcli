@@ -142,6 +142,23 @@ describe('budget set and remove', () => {
     expect(goal(read.stdout, 20)).toBe(4500);
   });
 
+  test('a span reads the category catalog once and both goal reads of every month', async () => {
+    const result = await runCli(
+      ['budget', 'set', '--category', '40', '--value', '-50', '--month', '2026-11', '--until', '2027-02', '--dry-run'],
+      { home, api },
+    );
+    expect(result.exitCode).toBe(0);
+    expect(api.requests.filter((request) => request.path === '/v1/cadastros/categorias')).toHaveLength(1);
+    const goalReads = api.requests
+      .filter((request) => request.path === '/v2/lancamentos/metasorcamento')
+      .map((request) => `${request.query.get('inicio')} ${request.query.get('investimentos')}`)
+      .sort();
+    expect(goalReads).toEqual([
+      '2026-11-01 false', '2026-11-01 true', '2026-12-01 false', '2026-12-01 true',
+      '2027-01-01 false', '2027-01-01 true', '2027-02-01 false', '2027-02-01 true',
+    ]);
+  });
+
   test('refuses a parent below its children before any post', async () => {
     const result = await runCli(
       ['budget', 'set', '--category', '10', '--value', '-10', '--month', '2026-11', '--dangerously-skip-confirmation'],

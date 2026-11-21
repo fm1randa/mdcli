@@ -167,6 +167,16 @@ describe('entries without --account', () => {
     expect(summary.stderr).toContain('Cartão Teste');
   });
 
+  test('list and summary without -a read the accounts once, and -a reads them once too', async () => {
+    const accountReads = (): number => api.requests.filter((request) => request.path === '/v1/cadastros/contas').length;
+    for (const [command, account] of [['list', []], ['summary', []], ['list', ['-a', '201,202']], ['summary', ['-a', '201,202']]] as const) {
+      api.requests.length = 0;
+      const result = await runCli(['entries', command, ...JANUARY, ...account], { home, api });
+      expect(result.exitCode).toBe(0);
+      expect(accountReads()).toBe(1);
+    }
+  });
+
   test('an invalid date fails before accounts are read', async () => {
     const result = await runCli(['entries', 'list', '--from', '2026-13-01', '--to', '2026-01-31'], { home, api });
 
