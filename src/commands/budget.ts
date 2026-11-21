@@ -4,7 +4,7 @@ import { formatCurrency } from '../utils/currency.js';
 import { logger } from '../utils/logger.js';
 import { newTable } from '../utils/table.js';
 import { t } from '../lib/i18n/index.js';
-import { getCurrentMonthRange, isCalendarDate, isYearMonth, monthRange } from '../lib/dates.js';
+import { dateRange, getCurrentMonthRange, isCalendarDate, isYearMonth, monthRange, type DateRange } from '../lib/dates.js';
 import { loadBudget, type BudgetKind, type BudgetReport, type CategoryRef, type GoalFigures, type KindBudget } from '../lib/budget.js';
 import { registerBudgetWrites } from './budget-write.js';
 import { parseRegime, type Regime } from '../lib/regime.js';
@@ -27,7 +27,7 @@ function kindLabel(kind: BudgetKind): string {
   return KIND_LABEL[kind]();
 }
 
-function parseBudgetOptions(options: BudgetOptions): { period: { start: string; end: string }; regime: Regime } {
+function parseBudgetOptions(options: BudgetOptions): { period: DateRange; regime: Regime } {
   const regime = options.regime === undefined ? 'cash' : parseRegime(options.regime);
   if (regime === null) exitWithError(t('errorInvalidRegime', options.regime ?? ''));
 
@@ -48,8 +48,9 @@ function parseBudgetOptions(options: BudgetOptions): { period: { start: string; 
   const current = getCurrentMonthRange();
   const start = options.from ?? current.startDate;
   const end = options.to ?? current.endDate;
-  if (start > end) exitWithError(t('errorBudgetRangeReversed', start, end));
-  return { period: { start, end }, regime };
+  const period = dateRange(start, end);
+  if (!period) exitWithError(t('errorBudgetRangeReversed', start, end));
+  return { period, regime };
 }
 
 function money(figures: GoalFigures | null): string[] {

@@ -11,7 +11,7 @@ import { ApiError, parseErrorBody } from './api-error.js';
 import { DEFAULT_API_URL, WEB_ORIGIN, WEB_URL } from './meu-dinheiro-host.js';
 
 
-export { normalizeCategories, normalizeAccounts, normalizeCards, normalizeTags, normalizeEntries, normalizeCardEntries, normalizeCardInstallments, isActiveAccount } from './normalize.js';
+export { normalizeCategories, normalizeAccounts, normalizeCards, normalizeTags, normalizeEntries, normalizeCardEntries, normalizeCardInstallments, isActiveAccount, isSelectableAccount } from './normalize.js';
 
 /** Read at call time, so a test or caller that sets MDCLI_API_URL after import still reaches it. */
 function apiBaseUrl(): string {

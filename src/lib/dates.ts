@@ -35,10 +35,21 @@ export function today(): string {
   return toLocalDateString(now());
 }
 
-/** An inclusive YYYY-MM-DD range. `monthRange` is the only constructor, so start <= end. */
+declare const dateRangeBrand: unique symbol;
+
+/**
+ * An inclusive YYYY-MM-DD range. The brand makes `dateRange` and `monthRange`
+ * the only constructors, so start <= end holds by type.
+ */
 export interface DateRange {
   readonly start: string;
   readonly end: string;
+  readonly [dateRangeBrand]: true;
+}
+
+/** The inclusive range from start to end. Null when start is after end. */
+export function dateRange(start: string, end: string): DateRange | null {
+  return start > end ? null : ({ start, end } as DateRange);
 }
 
 const YEAR_MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
@@ -54,7 +65,7 @@ export function monthRange(month: string): DateRange {
     throw new Error(t('errorInvalidInvoiceMonth', month));
   }
   const [year, mon] = dateParts(month);
-  return { start: `${month}-01`, end: toLocalDateString(new Date(year, mon, 0)) };
+  return { start: `${month}-01`, end: toLocalDateString(new Date(year, mon, 0)) } as DateRange;
 }
 
 /** First and last calendar day of the current local month. */

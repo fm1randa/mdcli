@@ -1,7 +1,7 @@
 import type { BudgetGoalSave } from '../types/budget.js';
-import type { BudgetReport, CategoryRef, KindBudget } from './budget.js';
+import { kindOfCode, type BudgetReport, type CategoryRef, type KindBudget } from './budget.js';
 import { roundToCents } from '../utils/currency.js';
-import { parseInteger } from '../utils/parse.js';
+import { addInterval } from './dates.js';
 import { t } from './i18n/index.js';
 
 /** The parent-sum tolerance the web uses before it posts (mdb.js, 2026-10-30). */
@@ -38,10 +38,8 @@ export interface BudgetConflict {
 
 type CategoryLine = KindBudget['categories'][number];
 
-const KIND_OF = { d: 'expense', r: 'income' } as const;
-
 /** Inclusive ceiling. A longer range used to be cut here and still saved. */
-const MAX_GOAL_MONTHS = 600;
+export const MAX_GOAL_MONTHS = 600;
 
 /**
  * Inclusive `YYYY-MM` list. The caller has already rejected an inverted range.
@@ -60,10 +58,7 @@ export function monthSpan(start: string, until?: string): readonly [string, ...s
 }
 
 function nextMonth(month: string): string {
-  const year = parseInteger(month.slice(0, 4)) ?? 0;
-  const mon = parseInteger(month.slice(5, 7)) ?? 1;
-  if (mon === 12) return `${year + 1}-01`;
-  return `${year}-${String(mon + 1).padStart(2, '0')}`;
+  return addInterval(`${month}-01`, 1, 'M').slice(0, 7);
 }
 
 /** The observed POST body. `sobreescrever` stays false: this command does not repeat over later months. */
@@ -86,7 +81,7 @@ export function buildSavePayload(write: GoalWrite): BudgetGoalSave {
  * true`, mdb.js ~54391), so removing a parent is allowed while its children remain.
  */
 export function findConflicts(report: BudgetReport, write: GoalWrite): BudgetConflict[] {
-  const section = report.budgets[KIND_OF[write.category.tipo]];
+  const section = report.budgets[kindOfCode(write.category.tipo)];
   if (!section) return [];
   return section.categories.flatMap((line) => {
     const conflict = conflictOn(line, write);

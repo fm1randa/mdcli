@@ -1,5 +1,5 @@
 import chalk from 'chalk';
-import { fetchAccounts, fetchPlastics, isCreditCard } from '../../lib/api.js';
+import { fetchAccounts, fetchPlastics, isCreditCard, isSelectableAccount } from '../../lib/api.js';
 import { exitWithError } from '../../utils/action.js';
 import { t } from '../../lib/i18n/index.js';
 import { today } from '../../lib/dates.js';
@@ -20,12 +20,9 @@ async function accountLookup(): Promise<(id: number) => Account> {
   };
 }
 
-/**
- * Refuses an inactive account the entry moves to: the web app's account
- * selectors leave it out (mdwSelect, contas: status !== false).
- */
-function checkActive(account: Account): void {
-  if (account.status === false) {
+/** Refuses an account the entry moves to that the web app would not offer. */
+function refuseUnselectableDestination(account: Account): void {
+  if (!isSelectableAccount(account)) {
     exitWithError(t('errorAccountInactive', account.nome, account.id));
   }
 }
@@ -50,8 +47,8 @@ export async function moveTransfer(
     exitWithError(t('errorTransferSameAccounts', originId));
   }
   const get = await accountLookup();
-  if (originId !== current.origin) checkActive(get(originId));
-  if (destinationId !== current.destination) checkActive(get(destinationId));
+  if (originId !== current.origin) refuseUnselectableDestination(get(originId));
+  if (destinationId !== current.destination) refuseUnselectableDestination(get(destinationId));
   checkTransferAccounts(get(current.origin), get(current.destination));
   checkTransferAccounts(get(originId), get(destinationId));
   return { originId, destinationId };
@@ -82,7 +79,7 @@ export async function moveEntry(payload: UpdateEntryPayload, existing: Entry, ac
   const get = await accountLookup();
   const fromCard = isCreditCard(get(existing.conta));
   const target = get(accountId);
-  checkActive(target);
+  refuseUnselectableDestination(target);
   if (isCreditCard(target)) {
     await moveToCard(payload, existing, target, fromCard, context);
     return;

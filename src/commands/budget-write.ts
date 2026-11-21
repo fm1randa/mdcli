@@ -15,6 +15,7 @@ import {
   buildSavePayload,
   findConflicts,
   formatConflicts,
+  MAX_GOAL_MONTHS,
   monthSpan,
   renderConflicts,
   type GoalCategory,
@@ -98,7 +99,7 @@ async function resolveWrite(options: WriteFlags, value: number): Promise<GoalWri
   if (options.until !== undefined && !isYearMonth(options.until)) exitWithError(t('errorInvalidBudgetMonth', options.until));
   if (options.until !== undefined && options.until < month) exitWithError(t('errorBudgetUntilBefore', options.until, month));
   const months = monthSpan(month, options.until);
-  if (!months) exitWithError(t('errorBudgetSpanTooLong'));
+  if (!months) exitWithError(t('errorBudgetSpanTooLong', MAX_GOAL_MONTHS));
   return { category: await resolveGoalCategory(options.category), value, months };
 }
 
