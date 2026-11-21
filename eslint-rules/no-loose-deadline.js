@@ -3,7 +3,7 @@
 // may contain those numbers. The follow is one binding deep: a second local
 // and an arithmetic initializer stay review. setTimeout is a macrotask or a
 // scripted delay, not a suite deadline, so it is not a site.
-import { keyName, memberName } from "./lib/static-member.js";
+import { keyName, memberName } from "./static-member.js";
 
 const TIMEOUT_NAME = /timeout|deadline/i;
 const WRAPPERS = new Set([

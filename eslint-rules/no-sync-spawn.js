@@ -4,7 +4,7 @@
 // A named import from node:child_process calls that assignment, so the child
 // does not start. The owner may import the three names only from
 // node:child_process or child_process.
-import { keyName } from "./lib/static-member.js";
+import { keyName } from "./static-member.js";
 
 const SYNC = new Set(["spawnSync", "execSync", "execFileSync"]);
 const CHILD_PROCESS = new Set(["child_process", "node:child_process"]);

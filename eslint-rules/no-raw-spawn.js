@@ -14,7 +14,7 @@
 // "self" (the default, scripts/) reports spawnSync too. "sync-rule" (test/)
 // leaves spawnSync, execSync and execFileSync to local/no-sync-spawn, so one
 // call is one local rule id (#301, #303).
-import { keyName } from "./lib/static-member.js";
+import { keyName } from "./static-member.js";
 
 const CHILD_PROCESS = new Set(["child_process", "node:child_process"]);
 const GLOBAL_OBJECTS = ["globalThis", "global", "self", "window"];
