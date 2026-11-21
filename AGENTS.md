@@ -72,7 +72,7 @@ Every PR that changes `src/` fills the **Prova** section of the PR template. It 
 `bun scripts/risk.ts` classifies the diff against `origin/main` and prints `{ "risky": bool, "reasons": [...] }`; it exits 2 when the PR touches authentication, session or credentials, data writes (create, update, delete, `entries import run`, or any POST/PUT/DELETE call to the API), or a security surface: `scripts/private-terms.ts`, `scripts/private-terms-hashes.ts`, `scripts/private-terms-history.ts`, `scripts/private-terms-cli.ts`, `scripts/private-terms-corpus.ts`, `test/private-terms.test.ts`, `test/private-terms-corpus.test.ts`, `scripts/check-private-messages.ts`, `test/check-private-messages.test.ts`, `scripts/verify.sh`, `src/utils/parse.ts` (the guard parses git output with it), `scripts/git.ts` and `scripts/behavior-change.ts` (the guard spawns git and parses its diffs through them), anything under `eslint-rules/`, or `eslint.config.js` (it decides where each local rule runs). A comment-only change in a security surface stays safe. A risky PR:
 
 - runs `/blast-radius` and proves the security fact in a test or in `scripts/verify.sh`;
-- waits for the maintainer's decision before merge.
+- waits for the maintainer's decision before merge, except under the full-send exception (item 4).
 
 The `risco` label mirrors that classification in the PR list. `.github/workflows/risco.yml` runs `scripts/risk.ts` on `opened`, `synchronize`, `reopened` and `edited`, then `scripts/risk-label.ts` adds the label when the PR is risky and removes it when a push leaves the PR safe. The job writes the reasons to its summary, and a PR from a fork only gets the summary: its read-only token cannot change labels, so the job does not fail over the label. The workflow declares only `contents: read` and `pull-requests: write`; creating a repository label needs `issues: write`, so the label is created once and kept in sync by the workflow. Create it (or restore it after deletion) with:
 
@@ -80,7 +80,7 @@ The `risco` label mirrors that classification in the PR list. `.github/workflows
 gh label create risco --force --color B60205 --description "PR arriscado: exige /blast-radius e decisão do mantenedor"
 ```
 
-A PR labeled `risco` follows the two rules above.
+A PR labeled `risco` follows the two rules above. A `/tstack:full-send` session may merge it without waiting once its merge gate passes (item 4).
 
 `bun scripts/replay-gates.ts --gate <name>` replays the current gates over the last 10 squash commits of `main`, each against its own parent, and lists every firing and skip. A PR that creates or changes a gate (`scripts/risk.ts`, `scripts/fails-on-main-exemption.ts`, `scripts/prova.ts`, or the registry in `scripts/replay-gates.ts`) attaches that output to the Prova section, so a false positive shows up before the merge instead of after it.
 
@@ -139,6 +139,13 @@ An agent session prompt is a short intention followed by the skill call at the e
 ### Limits (what the session never does)
 
 4. Never merge, release, tag, force-push, or push to `main`; the release flow in Releases belongs to the maintainer, not to a session. Non-force push only to the PR's own branch (`git push -u origin HEAD:<branch>`).
+
+   **Full-send exception** (authorized by the maintainer on 2026-11-21, aware of the risk): a session running `/tstack:full-send` may squash-merge the PRs it opened itself, including PRs labeled `risco` and PRs that change account writes (create, update, delete, import, or any POST/PUT/DELETE to the API), once the merge gate passes on the latest commit:
+   - CI 4/4: the `verify`, `prova`, `fails-on-main` and `label` checks are green;
+   - **Prova**: the PR body carries the Prova section that `prova` requires, run against the mock, and a risky PR also carries the `/blast-radius` result and the test or `scripts/verify.sh` step that proves its security fact;
+   - verification: `scripts/verify.sh` ended with `VERIFICAÇÃO OK` on that commit (item 3).
+
+   Merge with `gh pr merge <n> --squash`, never `--admin` or any other bypass of branch protection. The exception covers only the merge: releases, tags, force-push and pushes to `main` stay forbidden, and items 5 and 6 still hold (proof runs only against the mock, never the real account). Outside `/tstack:full-send`, the rule above stands: the session does not merge on its own a PR labeled `risco` or one that changes account writes, nor any other PR.
 5. Never touch secrets or credentials; never read or print values of `MDCLI_WEBHOOK_*`.
 6. Never use the real Meu Dinheiro account or real data, and never send real PUT/POST. Only use the mock (`scripts/mock-api.ts`) with fake config in `/tmp`.
 7. No external posts not requested: nothing outside this repo's own issue or PR on GitHub (no comments elsewhere, chats, or webhooks). Never call the memory service at `100.91.167.116:8888`.
