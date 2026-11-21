@@ -30,7 +30,6 @@ export const enBudget: typeof SectionType = {
   budgetSetCategoryOption: () => 'Category (id, alias, or name)',
   budgetRemoveCategoryOption: () => 'Category (id, alias, or name) whose goal goes away',
   budgetSetValueOption: () => 'Amount with the sign the read shows: negative expense, positive income. 0 is refused; use budget remove',
-  budgetSetMonthOption: () => 'Month YYYY-MM (default: the current month)',
   budgetSetUntilOption: () => 'Repeat the goal from --month through this YYYY-MM, inclusive',
   budgetDryRunOption: () => 'Show the write without saving. Only reads the API and does not ask for confirmation',
   errorBudgetZero: () => 'A goal of 0 removes it. Use: mdcli budget remove',

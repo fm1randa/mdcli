@@ -28,7 +28,6 @@ export const ptBRBudget = {
   budgetSetCategoryOption: () => 'Categoria (id, apelido ou nome)',
   budgetRemoveCategoryOption: () => 'Categoria (id, apelido ou nome) cuja meta sai',
   budgetSetValueOption: () => 'Valor com o sinal da leitura: despesa negativa, receita positiva. 0 não vale; use budget remove',
-  budgetSetMonthOption: () => 'Mês YYYY-MM (padrão: o mês atual)',
   budgetSetUntilOption: () => 'Repete a meta de --month até este YYYY-MM, inclusive',
   budgetDryRunOption: () => 'Mostra a gravação sem gravar. Só lê a API e não pede confirmação',
   errorBudgetZero: () => 'Meta 0 apaga a meta. Use: mdcli budget remove',

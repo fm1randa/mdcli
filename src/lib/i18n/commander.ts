@@ -117,7 +117,7 @@ function outputError(text: string, write: (message: string) => void): void {
  */
 export function applyCommanderLocalization(root: Command): void {
   root
-    .configureHelp({ styleTitle, styleUsage, styleSubcommandTerm })
+    .configureHelp({ ...root.configureHelp(), styleTitle, styleUsage, styleSubcommandTerm })
     .configureOutput({ outputError })
     .helpOption('-h, --help', t('helpOptionDescription'));
   if (root.commands.length > 0) {

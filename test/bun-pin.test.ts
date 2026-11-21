@@ -18,10 +18,16 @@ describe('pinMismatch', () => {
     expect(message).not.toMatch(/\/home\/|~/);
   });
 
-  test('a non-bun field still returns a message', () => {
-    const message = pinMismatch('npm@10.0.0', '1.4.2') ?? '';
-    expect(message).toContain('package.json pede npm@10.0.0.');
-    expect(message).toContain('bun-vnpm@10.0.0');
+  test('a non-bun field is refused without a fake install line', () => {
+    const message = pinMismatch('npm@10.0.0', '1.4.2');
+    expect(message).toBe('package.json pede npm@10.0.0 em packageManager; este repositório espera bun@<versão>.');
+    expect(message).not.toContain('bun-v');
+  });
+
+  test('a missing field is refused without a fake install line', () => {
+    const message = pinMismatch('', '1.4.2');
+    expect(message).toBe('package.json pede (nada) em packageManager; este repositório espera bun@<versão>.');
+    expect(message).not.toContain('bun-v');
   });
 });
 
