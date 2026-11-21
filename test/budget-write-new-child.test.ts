@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import type { BudgetGoalRow } from '../src/types/index.js';
-import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE } from './fixtures.js';
+import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, category } from './fixtures.js';
 import { BUDGET_EXTRA_CATEGORIES, INVEST_ROWS, SPEND_ROWS } from './budget-fixtures.js';
 import { createHome, MANUAL_AUTH, runCli, startMockApi, type MockApi, type RecordedRequest, type TestHome } from './helpers.js';
 
@@ -72,5 +72,17 @@ describe('budget set on a child with no goal in the month', () => {
     );
     expect(result.exitCode).toBe(0);
     expect(posts()).toHaveLength(1);
+  });
+
+  test('still refuses a child the report lists under the parent when the catalog has no pai for it', async () => {
+    const orphaned = CATEGORIES_RESPONSE.items.map((item) => (item.id === 11 ? category(11, 'Alimentação/Mercado', 'd') : item));
+    api.on('GET /v1/cadastros/categorias', { ...CATEGORIES_RESPONSE, items: [...orphaned, ...BUDGET_EXTRA_CATEGORIES] });
+    const result = await runCli(
+      ['budget', 'set', '--category', '11', '--value', '-900', '--month', '2026-11', '--dangerously-skip-confirmation'],
+      { home, api },
+    );
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('Category Alimentação in 2026-11 must be at least the sum of its children (minimum 1000).');
+    expect(posts()).toHaveLength(0);
   });
 });
