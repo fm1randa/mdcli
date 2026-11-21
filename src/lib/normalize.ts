@@ -19,8 +19,18 @@ export function normalizeCategories(response: CategoriesResponse): NormalizedCat
   }));
 }
 
+/** Open and enabled: what `--active` lists, the card list keeps, and an account filter searches. */
 export function isActiveAccount(account: { status: boolean; encerrada: boolean }): boolean {
   return account.status && !account.encerrada;
+}
+
+/**
+ * Offered by the web app's account selectors (mdwSelect, contas: status !==
+ * false), so an entry may move to it. A closed account that is still enabled
+ * passes: this is not {@link isActiveAccount}.
+ */
+export function isSelectableAccount(account: { status: boolean }): boolean {
+  return account.status !== false;
 }
 
 export function normalizeAccounts(response: AccountsResponse): NormalizedAccount[] {

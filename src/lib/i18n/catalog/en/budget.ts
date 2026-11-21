@@ -35,7 +35,7 @@ export const enBudget: typeof SectionType = {
   budgetDryRunOption: () => 'Show the write without saving. Only reads the API and does not ask for confirmation',
   errorBudgetZero: () => 'A goal of 0 removes it. Use: mdcli budget remove',
   errorBudgetUntilBefore: (until, month) => `--until ${until} is before ${month}.`,
-  errorBudgetSpanTooLong: () => 'A goal covers at most 600 months.',
+  errorBudgetSpanTooLong: (max) => `A goal covers at most ${max} months.`,
   errorBudgetTransfer: (name) => `Category "${name}" is a transfer. A goal is for an expense or an income category.`,
   errorBudgetParentSum: (name, min, month) =>
     `Category ${name} in ${month} must be at least the sum of its children (minimum ${min}).`,

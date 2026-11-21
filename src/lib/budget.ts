@@ -15,6 +15,13 @@ const BUDGET_KINDS = [
 
 export type BudgetKind = (typeof BUDGET_KINDS)[number][0];
 
+/** The kind an API code stands for, from {@link BUDGET_KINDS}. */
+export function kindOfCode(code: BudgetKindCode): BudgetKind {
+  const pair = BUDGET_KINDS.find(([, kindCode]) => kindCode === code);
+  if (!pair) throw new Error(`unknown budget kind code: ${code}`);
+  return pair[0];
+}
+
 /** What the caller asks for. The command builds it from flags. This module trusts it. */
 export interface BudgetQuery {
   readonly period: DateRange;
