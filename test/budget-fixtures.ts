@@ -6,6 +6,9 @@ export const BUDGET_EXTRA_CATEGORIES: Category[] = [
   category(12, 'Zebra', 'd'),
   category(13, 'Filhote', 'd', { pai: 12 }),
   category(14, 'Aves', 'd', { pai: 10 }),
+  // Children with no goal row in SPEND_ROWS: a goal set on them is a new row (#317).
+  category(15, 'Feira', 'd', { pai: 10 }),
+  category(16, 'Potro', 'd', { pai: 12 }),
 ];
 
 function goal(tipo: string, meta: number | null, extra: Partial<BudgetGoalRow> = {}): BudgetGoalRow {

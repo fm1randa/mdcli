@@ -43,3 +43,18 @@ describe('mock budget writes per month', () => {
     expect(await goal('2026-12', 10)).toBe(-800);
   });
 });
+
+describe('mock budget parent rule on a new child', () => {
+  test('a new child row carries its parent, so the parent rule refuses it', async () => {
+    const over = await budgetRoute('POST', new URL(WRITE), posted([line(-600, 15, ['2027-01-01'])]));
+    expect(over?.status).toBe(422);
+    expect(await goal('2027-01', 15)).toBeUndefined();
+
+    const fits = await budgetRoute('POST', new URL(WRITE), posted([line(-500, 15, ['2027-01-01'])]));
+    expect(fits?.status).toBe(200);
+    expect(await goal('2027-01', 15)).toBe(-500);
+
+    const raised = await budgetRoute('POST', new URL(WRITE), posted([line(-1000, 11, ['2027-01-01'])]));
+    expect(raised?.status).toBe(422);
+  });
+});
