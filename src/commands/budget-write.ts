@@ -1,4 +1,4 @@
-import { Command } from 'commander';
+import type { Command } from 'commander';
 import { logger } from '../utils/logger.js';
 import { action, exitAfterFlush, exitWithError } from '../utils/action.js';
 import { promptConfirmation } from '../utils/prompt.js';
@@ -29,6 +29,7 @@ import { mapConcurrent } from '../utils/concurrency.js';
 // waits less, and the API still sees only a few requests in flight.
 const MONTH_READ_CONCURRENCY = 4;
 
+/** --month and --json belong to `budget`, which parses them wherever they appear; optsWithGlobals() merges them in. */
 interface WriteFlags {
   category: string;
   month?: string;
@@ -47,31 +48,16 @@ function saveBudgetGoals(payload: BudgetGoalSave): Promise<unknown> {
   return apiPost<unknown>('/v1/metas/orcamento', payload);
 }
 
-async function setBudgetAction(options: SetFlags, command: Command): Promise<void> {
-  const flags = withParentFlags(options, command);
-  const amount = parseAmount(flags.value);
-  if (amount === undefined) exitWithError(t('errorInvalidValue', flags.value));
+async function setBudgetAction(_options: SetFlags, command: Command): Promise<void> {
+  const options = command.optsWithGlobals<SetFlags>();
+  const amount = parseAmount(options.value);
+  if (amount === undefined) exitWithError(t('errorInvalidValue', options.value));
   if (amount === 0) exitWithError(t('errorBudgetZero'));
-  await writeBudget(flags, amount);
+  await writeBudget(options, amount);
 }
 
-async function removeBudgetAction(options: WriteFlags, command: Command): Promise<void> {
-  await writeBudget(withParentFlags(options, command), 0);
-}
-
-/**
- * `budget` already has `--month` and `--json` for the read. Commander parses
- * those on the parent before set/remove sees them, so a flag after the
- * subcommand name lands on the parent. The subcommand's own copy still wins
- * when Commander did give it the value.
- */
-function withParentFlags<T extends WriteFlags>(options: T, command: Command): T {
-  const parent = command.parent?.opts() as Partial<WriteFlags> | undefined;
-  return {
-    ...options,
-    month: options.month ?? parent?.month,
-    json: options.json === true || parent?.json === true,
-  };
+async function removeBudgetAction(_options: WriteFlags, command: Command): Promise<void> {
+  await writeBudget(command.optsWithGlobals<WriteFlags>(), 0);
 }
 
 async function writeBudget(options: WriteFlags, value: number): Promise<void> {
@@ -169,21 +155,19 @@ export function registerBudgetWrites(budget: Command): void {
     .description(t('budgetSetDescription'))
     .requiredOption('--category <ref>', t('budgetSetCategoryOption'))
     .requiredOption('--value <amount>', t('budgetSetValueOption'))
-    .option('--month <YYYY-MM>', t('budgetSetMonthOption'))
     .option('--until <YYYY-MM>', t('budgetSetUntilOption'))
     .option('--dry-run', t('budgetDryRunOption'))
     .option('--dangerously-skip-confirmation', t('skipConfirmationOption'))
-    .option('--json', t('jsonOption'))
+    .configureHelp({ showGlobalOptions: true })
     .action(action(setBudgetAction));
 
   budget
     .command('remove')
     .description(t('budgetRemoveDescription'))
     .requiredOption('--category <ref>', t('budgetRemoveCategoryOption'))
-    .option('--month <YYYY-MM>', t('budgetSetMonthOption'))
     .option('--until <YYYY-MM>', t('budgetSetUntilOption'))
     .option('--dry-run', t('budgetDryRunOption'))
     .option('--dangerously-skip-confirmation', t('skipConfirmationOption'))
-    .option('--json', t('jsonOption'))
+    .configureHelp({ showGlobalOptions: true })
     .action(action(removeBudgetAction));
 }

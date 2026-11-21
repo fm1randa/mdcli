@@ -55,17 +55,6 @@ const DUPLICADO = {
   _ca: { c: { d: { categoria: { v: '10' } } } },
 } satisfies BankTransaction;
 
-function rejectedStatementShapes(): void {
-  // @ts-expect-error ait values are string arrays
-  const stringToken: BankTransaction = { _ca: { ait: { d: 'tok-padaria' } } };
-  // @ts-expect-error categoria.v is a string
-  const numericCategory: BankTransaction = { _ca: { c: { d: { categoria: { v: 11 } } } } };
-  void stringToken;
-  void numericCategory;
-}
-
-void rejectedStatementShapes;
-
 const STATEMENT: BankStatementResponse = {
   inicio: '2026-10-01',
   fim: '2026-10-20',

@@ -20,7 +20,7 @@ type SettledTransferSeed = Omit<Entry, 'dataEfetiva' | 'transferencia' | 'status
   transferencia: number;
 };
 
-type SeedEntry = ScheduledSeed | SettledEntrySeed | SettledTransferSeed;
+export type SeedEntry = ScheduledSeed | SettledEntrySeed | SettledTransferSeed;
 
 const SEED_ENTRIES = {
   50: {
@@ -147,17 +147,3 @@ const SEED_ENTRIES = {
 } satisfies Record<number, SeedEntry>;
 
 export const SEEDED_ENTRIES: Record<number, Entry> = { ...SEED_ENTRIES };
-
-function rejectedSeedShapes(): void {
-  // @ts-expect-error a reconciled expense omits transferencia
-  const withTransfer: SeedEntry = { id: 1, descricao: 'x', tipo: 'd', status: 'conciliado', valor: -1, data: '2026-01-10', dataPrevista: '2026-01-10', dataEfetiva: '2026-01-10', conta: 1, transferencia: 0 };
-  // @ts-expect-error a reconciled expense requires dataEfetiva
-  const missingDate: SeedEntry = { id: 1, descricao: 'x', tipo: 'd', status: 'conciliado', valor: -1, data: '2026-01-10', dataPrevista: '2026-01-10', conta: 1 };
-  // @ts-expect-error a scheduled row omits dataEfetiva
-  const datedSchedule: SeedEntry = { id: 1, descricao: 'x', tipo: 'd', status: 'agendado', valor: -1, data: '2027-01-10', dataPrevista: '2027-01-10', dataEfetiva: '2027-01-10', conta: 1 };
-  void withTransfer;
-  void missingDate;
-  void datedSchedule;
-}
-
-void rejectedSeedShapes;

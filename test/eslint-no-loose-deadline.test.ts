@@ -24,6 +24,15 @@ describe('local/no-loose-deadline', () => {
     expect(await localRules('await window.Bun.sleep(100);', 'test/self-update.test.ts')).toEqual([RULE]);
   });
 
+  test('fires on Bun.sleep read by a computed static key', async () => {
+    expect(await localRules('await Bun["sleep"](100);', 'test/self-update.test.ts')).toEqual([RULE]);
+    expect(await localRules('await Bun[`sleep`](100);', 'test/self-update.test.ts')).toEqual([RULE]);
+    expect(await localRules('await globalThis["Bun"].sleep(100);', 'test/self-update.test.ts')).toEqual([RULE]);
+    expect(await localRules('await globalThis["Bun"]["sleep"](100);', 'test/self-update.test.ts')).toEqual([RULE]);
+    expect(await localRules('chromium.launch({ ["timeout"]: 10_000 });', 'test/browser-helpers.ts')).toEqual([RULE]);
+    expect(await localRules('export const deadline = Date["now"]() + 10_000;', 'test/helpers.ts')).toEqual([RULE]);
+  });
+
   test('fires on the helpers deadline the before fixture keeps', async () => {
     expect(await localRules('stepTimeoutMs = 10_000;', 'test/helpers.ts')).toEqual([RULE]);
     expect(await localRules('await Bun.sleep(20);', 'test/helpers.ts')).toEqual([RULE]);

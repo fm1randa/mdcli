@@ -1,22 +1,16 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { parseInteger } from '../src/utils/parse.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE } from './fixtures.js';
 import { BUDGET_EXTRA_CATEGORIES, INVEST_ROWS, SPEND_ROWS } from './budget-fixtures.js';
-import { createHome, localDay, MANUAL_AUTH, runCli, startMockApi, type MockApi, type RecordedRequest, type TestHome } from './helpers.js';
+import { createHome, MANUAL_AUTH, runCli, startMockApi, type MockApi, type RecordedRequest, type TestHome } from './helpers.js';
 
 let api: MockApi;
 let home: TestHome;
 
 const plain = (value: string): string => value.replace(/\u00a0/g, ' ');
 
-function monthBounds(day: string): { start: string; end: string } {
-  const month = day.slice(0, 7);
-  const year = parseInteger(month.slice(0, 4));
-  const mon = parseInteger(month.slice(5, 7));
-  if (year === undefined || mon === undefined) throw new Error(month);
-  const last = new Date(year, mon, 0).getDate();
-  return { start: `${month}-01`, end: `${month}-${String(last).padStart(2, '0')}` };
-}
+// A pinned day with literal month bounds, so the expected range does not come
+// from the month arithmetic under test.
+const PINNED_TODAY = { MDCLI_TODAY: '2026-11-18' };
 
 function budgetCalls(): RecordedRequest[] {
   return api.requests.filter((request) => request.path === '/v2/lancamentos/metasorcamento');
@@ -160,11 +154,10 @@ describe('budget', () => {
   });
 
   test('defaults to the current month in cash', async () => {
-    const bounds = monthBounds(localDay());
-    const result = await runCli(['budget', '--json'], { home, api });
+    const result = await runCli(['budget', '--json'], { home, api, extraEnv: PINNED_TODAY });
     expect(result.exitCode).toBe(0);
-    expect(budgetCalls()[0]?.query.get('inicio')).toBe(bounds.start);
-    expect(budgetCalls()[0]?.query.get('fim')).toBe(bounds.end);
+    expect(budgetCalls()[0]?.query.get('inicio')).toBe('2026-11-01');
+    expect(budgetCalls()[0]?.query.get('fim')).toBe('2026-11-30');
     expect(budgetCalls()[0]?.query.get('regime')).toBe('ca');
   });
 
@@ -176,14 +169,13 @@ describe('budget', () => {
   });
 
   test('fills the missing bound from the current month', async () => {
-    const bounds = monthBounds(localDay());
-    const from = await runCli(['budget', '--from', `${bounds.start.slice(0, 8)}15`, '--json'], { home, api });
+    const from = await runCli(['budget', '--from', '2026-11-15', '--json'], { home, api, extraEnv: PINNED_TODAY });
     expect(from.exitCode).toBe(0);
-    expect(budgetCalls().at(-1)?.query.get('inicio')).toBe(`${bounds.start.slice(0, 8)}15`);
-    expect(budgetCalls().at(-1)?.query.get('fim')).toBe(bounds.end);
-    const to = await runCli(['budget', '--to', `${bounds.start.slice(0, 8)}10`, '--json'], { home, api });
+    expect(budgetCalls().at(-1)?.query.get('inicio')).toBe('2026-11-15');
+    expect(budgetCalls().at(-1)?.query.get('fim')).toBe('2026-11-30');
+    const to = await runCli(['budget', '--to', '2026-11-10', '--json'], { home, api, extraEnv: PINNED_TODAY });
     expect(to.exitCode).toBe(0);
-    expect(budgetCalls().at(-1)?.query.get('inicio')).toBe(bounds.start);
-    expect(budgetCalls().at(-1)?.query.get('fim')).toBe(`${bounds.start.slice(0, 8)}10`);
+    expect(budgetCalls().at(-1)?.query.get('inicio')).toBe('2026-11-01');
+    expect(budgetCalls().at(-1)?.query.get('fim')).toBe('2026-11-10');
   });
 });

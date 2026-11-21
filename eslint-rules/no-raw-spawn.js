@@ -14,16 +14,12 @@
 // "self" (the default, scripts/) reports spawnSync too. "sync-rule" (test/)
 // leaves spawnSync, execSync and execFileSync to local/no-sync-spawn, so one
 // call is one local rule id (#301, #303).
+import { keyName } from "./static-member.js";
+
 const CHILD_PROCESS = new Set(["child_process", "node:child_process"]);
 const GLOBAL_OBJECTS = ["globalThis", "global", "self", "window"];
 const TRANSPARENT = new Set(["TSAsExpression", "TSNonNullExpression", "TSTypeAssertion", "TSSatisfiesExpression", "ChainExpression"]);
 
-/** The static name of a member or key: `a.name`, `a["name"]`, `` a[`name`] ``, `{ name }`; a computed variable has none. */
-const keyName = (key, computed) => {
-  if (key.type === "Literal") return String(key.value);
-  if (key.type === "TemplateLiteral" && key.expressions.length === 0) return key.quasis[0].value.cooked;
-  return key.type === "Identifier" && !computed ? key.name : undefined;
-};
 
 export default {
   meta: {
