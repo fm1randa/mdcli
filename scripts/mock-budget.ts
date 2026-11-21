@@ -1,11 +1,17 @@
 import type { BudgetGoalRow } from '../src/types/index.js';
 import { roundToCents } from '../src/utils/currency.js';
-import { INVEST_ROWS, SPEND_ROWS } from '../test/budget-fixtures.js';
+import { BUDGET_EXTRA_CATEGORIES, INVEST_ROWS, SPEND_ROWS } from '../test/budget-fixtures.js';
+import { CATEGORIES_RESPONSE } from '../test/fixtures.js';
 import { badRequest, conflict, json, readJsonBody } from './mock-http.js';
 
 const READ_PATH = '/api/v2/lancamentos/metasorcamento';
 const WRITE_PATH = '/api/v1/metas/orcamento';
 const PARENT_TOLERANCE = 0.001;
+
+/** `Category.pai` of the mock catalog, so a new goal row carries `categoriaPai` as the API's does. */
+const PARENT_OF = new Map(
+  [...CATEGORIES_RESPONSE.items, ...BUDGET_EXTRA_CATEGORIES].flatMap((item) => (item.pai === undefined ? [] : [[item.id, item.pai] as const])),
+);
 
 /** One snapshot per `YYYY-MM`. A write touches only the months in `datas`. */
 const spendByMonth = new Map<string, BudgetGoalRow[]>();
@@ -107,7 +113,9 @@ function applyLine(rows: readonly BudgetGoalRow[], line: PostedLine): BudgetGoal
 }
 
 function blank(tipo: string, categoria: number, meta: number): BudgetGoalRow {
+  const parent = PARENT_OF.get(categoria);
   return {
+    ...(parent === undefined ? {} : { categoriaPai: parent }),
     meta,
     residuo: 0,
     confirmado: 0,

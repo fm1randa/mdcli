@@ -113,6 +113,7 @@ async function resolveGoalCategory(input: string): Promise<GoalCategory> {
     id: resolution.category.id,
     name: resolution.category.nomeRel || resolution.category.nome,
     tipo: resolution.category.tipo,
+    parentId: resolution.category.pai ?? null,
   };
 }
 
