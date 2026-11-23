@@ -1,4 +1,4 @@
-import { apiGet } from './api.js';
+import { apiGet, fetchSavingsGoals } from './api.js';
 import { addInterval, today, type DateRange } from './dates.js';
 import { normalizeEntry } from './normalize.js';
 import type { Entry, NormalizedEntry, SavingsGoal } from '../types/index.js';
@@ -54,9 +54,20 @@ export interface GoalStatement {
   readonly closingBalance: number;
 }
 
-/** Every savings goal, as GET /v1/metas/economia answers. */
-function fetchSavingsGoals(): Promise<SavingsGoal[]> {
-  return apiGet<SavingsGoal[]>(GOALS_PATH);
+/** A goal with every figure `goals` reads. */
+type GoalAccountFigures = Required<SavingsGoal['contas'][number]>;
+type FiguredGoal = Required<Omit<SavingsGoal, 'dataSaldo' | 'contas'>> & Pick<SavingsGoal, 'dataSaldo'> & { contas: GoalAccountFigures[] };
+
+const FIGURES = ['valor', 'data', 'taxa', 'saldo', 'saldoInicial', 'dataSaldoInicial'] as const;
+
+/** The goal with its figures, which the API always sends; an answer without them is refused, not read as 0. */
+function figured(goal: SavingsGoal): FiguredGoal {
+  const missing = FIGURES.filter((field) => goal[field] === undefined);
+  const accounts = goal.contas.filter((account) => account.saldo === undefined || account.saldoInicial === undefined);
+  if (missing.length > 0 || accounts.length > 0) {
+    throw new Error(`GET ${GOALS_PATH} answered goal ${goal.id} without ${[...missing, ...accounts.map((a) => `contas[${a.conta}]`)].join(', ')}`);
+  }
+  return goal as FiguredGoal;
 }
 
 /** The goals sorted by description, as the web lists them; inactive ones only with `includeInactive`. */
@@ -65,7 +76,7 @@ export async function loadGoalSummaries(includeInactive: boolean): Promise<GoalS
   return goals
     .filter((goal) => includeInactive || goal.status)
     .sort((left, right) => left.descricao.localeCompare(right.descricao, 'pt-BR') || left.id - right.id)
-    .map(summarize);
+    .map((goal) => summarize(figured(goal)));
 }
 
 /** The goal names by id, for entries that carry a savings goal id. */
@@ -77,8 +88,9 @@ export async function loadGoalNames(): Promise<Map<number, string>> {
 /** The goal with `id` and its statement over `period`; null when no goal has that id. */
 export async function loadGoalStatement(id: number, period: DateRange): Promise<GoalStatement | null> {
   const goals = await fetchSavingsGoals();
-  const goal = goals.find((candidate) => candidate.id === id);
-  if (!goal) return null;
+  const found = goals.find((candidate) => candidate.id === id);
+  if (!found) return null;
+  const goal = figured(found);
   const before = addInterval(period.start, -1, 'd');
   const query = new URLSearchParams({ inicio: period.start, fim: period.end });
   const [rows, openingBalance] = await Promise.all([
@@ -98,14 +110,14 @@ export async function loadGoalStatement(id: number, period: DateRange): Promise<
  * the statement's year and the balance before it is still the initial one.
  * The web compares years because its statement period is a year.
  */
-function openingOf(goal: SavingsGoal, start: string, before: string, balance: number): StatementOpening {
+function openingOf(goal: FiguredGoal, start: string, before: string, balance: number): StatementOpening {
   const initial = goal.dataSaldoInicial.slice(0, 4) === start.slice(0, 4) && balance === goal.saldoInicial;
   return initial
     ? { kind: 'initial', date: goal.dataSaldoInicial.slice(0, 10), balance }
     : { kind: 'previous', date: before, balance };
 }
 
-function summarize(goal: SavingsGoal): GoalSummary {
+function summarize(goal: FiguredGoal): GoalSummary {
   const remaining = roundToCents(goal.valor - goal.saldo);
   const contribution = monthlyContribution(goal);
   return {
@@ -139,7 +151,7 @@ function monthIndex(date: string): number {
  * balance compounds at `taxa` from the current month to the deadline. With no
  * contribution month left the web answers the whole target.
  */
-function monthlyContribution(goal: SavingsGoal): { monthsLeft: number; web: number } {
+function monthlyContribution(goal: FiguredGoal): { monthsLeft: number; web: number } {
   const moved = goal.saldo !== goal.saldoInicial ? 1 : 0;
   const deadline = monthIndex(goal.data);
   const monthsLeft = deadline - (monthIndex(goal.dataSaldo || goal.dataSaldoInicial) + moved);

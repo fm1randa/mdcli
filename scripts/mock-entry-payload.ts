@@ -100,8 +100,11 @@ const FULL_PERMISSIONS: CreateEntryResponse['permissoes'] = {
   acoes: { conciliar: true, confirmar: true, editar: true, excluir: true, clonar: true },
 };
 
-/** The API's answer to POST /v1/lancamentos for a payload that passed checkCreatePayload. */
-export function createdEntry(body: Body, id: CreateEntryResponse['id']): CreateEntryResponse {
+/**
+ * The API's answer to POST /v1/lancamentos for a payload that passed
+ * checkCreatePayload. A transfer answers the savings goal link it sent (#340).
+ */
+export function createdEntry(body: Body, id: CreateEntryResponse['id']): CreateEntryResponse & SavingsGoal {
   const reconciled = Boolean(body.conciliado);
   const parcelas = body.parcelas as { valor: number; data: string }[] | undefined;
   const agenda = body.agenda as { inicial?: number; quantidade?: number } | undefined;
@@ -132,7 +135,7 @@ export function createdEntry(body: Body, id: CreateEntryResponse['id']): CreateE
     observacoes: String(body.observacoes ?? ''),
     lembrete: '0',
     automatico: body.automatico === true,
-    ...(body.transferencia === true && { contaT: requiredId(body.contaDestino, 'contaDestino'), valorT: requiredNumber(body.valorT, 'valorT') }),
+    ...(body.transferencia === true && { contaT: requiredId(body.contaDestino, 'contaDestino'), valorT: requiredNumber(body.valorT, 'valorT'), ...savingsGoal(body) }),
     ...(parcelas && { parcela: `${agenda?.inicial ?? 1}/${agenda?.quantidade}` }),
   };
 }

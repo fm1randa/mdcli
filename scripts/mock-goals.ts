@@ -1,4 +1,5 @@
-import { goalBalanceAt, goalMovements, SAVINGS_GOALS } from '../test/goals-fixtures.js';
+import { SAVINGS_GOALS } from '../test/fixtures.js';
+import { goalBalanceAt, goalMovements } from '../test/goals-fixtures.js';
 import { badRequest, json } from './mock-http.js';
 
 export const GOALS_PATH = '/api/v1/metas/economia';

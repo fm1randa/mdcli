@@ -18,6 +18,7 @@ import { defaultTransferCategory, resolveTransferDestination } from './create-tr
 import { intervalLabel, parseSchedule, type Schedule, type ScheduleOptions } from './schedule.js';
 import { parseAmount } from '../../utils/parse.js';
 import { buildEntryStatus } from './status.js';
+import { parseSavingsGoalId, resolveSavingsGoalLink } from './create-savings-goal.js';
 
 interface CreateOptions extends ScheduleOptions {
   account: string;
@@ -34,6 +35,8 @@ interface CreateOptions extends ScheduleOptions {
   scheduled?: boolean;
   confirmed?: boolean;
   invoice?: string;
+  savingsGoal?: string;
+  dryRun?: boolean;
   json?: boolean;
 }
 
@@ -67,6 +70,9 @@ function checkOptions(options: CreateOptions, tipo: 'd' | 'r' | 't'): void {
   if (tipo !== 't' && options.toAccount) {
     exitWithError(t('errorToAccountOnlyTransfers'));
   }
+  if (tipo !== 't' && options.savingsGoal !== undefined) {
+    exitWithError(t('errorSavingsGoalOnlyTransfers'));
+  }
   if (tipo !== 't' && !options.category) {
     exitWithError(t('errorCategoryRequiredForEntry'));
   }
@@ -83,6 +89,7 @@ export async function createAction(options: CreateOptions): Promise<void> {
 
   const tipo = parseEntryType(options.type ?? 'expense');
   checkOptions(options, tipo);
+  const savingsGoalId = options.savingsGoal === undefined ? undefined : parseSavingsGoalId(options.savingsGoal);
 
   const createdAt = now();
   const dateStr = options.date ?? toLocalDateString(createdAt);
@@ -138,6 +145,9 @@ export async function createAction(options: CreateOptions): Promise<void> {
   if (destinationId !== null && categoryId === null) {
     categoryId = await defaultTransferCategory();
   }
+  const savingsGoalLink = destinationId !== null && savingsGoalId !== undefined
+    ? await resolveSavingsGoalLink(savingsGoalId, accountId, destinationId)
+    : {};
 
   // Card purchases belong to an open invoice: the web app sends the purchase
   // date as dataCompetencia, the invoice due date as dataPrevista, and leaves
@@ -182,6 +192,7 @@ export async function createAction(options: CreateOptions): Promise<void> {
     base: null,
     categoria: categoryId,
     metaEconomia: null,
+    ...savingsGoalLink,
     observacoes: options.notes ?? '',
     tags: tagIds,
     transferencia: destinationId !== null,
@@ -198,6 +209,12 @@ export async function createAction(options: CreateOptions): Promise<void> {
       valorEfetivoT: hasEffective ? Math.abs(total) : null,
     }),
   };
+
+  if (options.dryRun) {
+    console.log(JSON.stringify(payload, null, 2));
+    console.error(chalk.blue('ℹ'), t('entriesCreateDryRunNote'));
+    return;
+  }
 
   const created = await createEntry(payload);
   const lookup = cardDueDate

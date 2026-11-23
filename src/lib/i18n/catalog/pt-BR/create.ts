@@ -34,4 +34,16 @@ export const ptBREntriesCreate = {
     'Parcelas: --value é o valor de cada parcela, não o total',
   entriesCreateInvoiceOption: () =>
     'Cartões de crédito: mês da fatura em que lançar (padrão: a fatura em que a data cai)',
+  entriesCreateSavingsGoalOption: () =>
+    'Transferências: ID da meta de economia ativa a ligar (aporte quando a conta de destino é da meta, resgate quando é a de origem)',
+  entriesCreateDryRunOption: () => 'Mostrar o payload sem gravar. Só lê a API',
+  entriesCreateDryRunNote: () => 'Simulação: nada foi gravado.',
+  errorSavingsGoalOnlyTransfers: () => '--savings-goal só se aplica a transferências (-T transfer --to-account).',
+  errorInvalidSavingsGoal: (input: string) => `ID de meta de economia inválido: ${input}`,
+  errorSavingsGoalNotFound: (id: number) => `Meta de economia ${id} não encontrada.`,
+  errorSavingsGoalInactive: (id: number, name: string) => `A meta de economia ${id} (${name}) está inativa.`,
+  errorSavingsGoalNoAccount: (id: number, name: string, origin: number, destination: number) =>
+    `A meta de economia ${id} (${name}) não usa a conta ${origin} nem a conta ${destination}.`,
+  errorSavingsGoalBothAccounts: (id: number, name: string) =>
+    `A meta de economia ${id} (${name}) usa as duas contas da transferência: não dá para saber se é aporte ou resgate.`,
 };

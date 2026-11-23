@@ -1,12 +1,13 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createHome, MANUAL_AUTH, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
-import { ACCOUNTS_RESPONSE, SAVINGS_ACCOUNT } from './fixtures.js';
-import { GOALS_TODAY, goalBalanceAt, goalMovements, SAVINGS_GOALS } from './goals-fixtures.js';
+import { ACCOUNTS_RESPONSE, SAVINGS_ACCOUNT, SAVINGS_GOALS } from './fixtures.js';
+import { GOALS_TODAY, goalBalanceAt, goalMovements } from './goals-fixtures.js';
 
 // #339: goals list and goals show read GET /v1/metas/economia and a goal's
 // /lancamentos and /saldo. "Today" is pinned so the compound-interest figure
-// is a literal: Viagem Teste (7) has 12 contribution months left, Reserva
-// Teste (8) has none, Carro Teste (9) is inactive.
+// is a literal: Viagem Teste (7) has 12 contribution months left, Meta Teste
+// (8) has none, Meta Duas Contas Teste (11) has 7 at no rate, and 9 and 10 are
+// inactive.
 
 let api: MockApi;
 let home: TestHome;
@@ -43,8 +44,22 @@ describe('goals list', () => {
     expect(result.exitCode).toBe(0);
     expect(JSON.parse(result.stdout)).toEqual([
       {
+        id: 11,
+        description: 'Meta Duas Contas Teste',
+        active: true,
+        target: 2000,
+        deadline: '2027-06-01',
+        monthlyRate: 0,
+        balance: 0,
+        remaining: 2000,
+        percent: 0,
+        idealMonthlyContribution: 285.71,
+        webIdealMonthlyContribution: 285.71,
+        accounts: [{ accountId: 201, balance: 0 }, { accountId: 204, balance: 0 }],
+      },
+      {
         id: 8,
-        description: 'Reserva Teste',
+        description: 'Meta Teste',
         active: true,
         target: 5000,
         deadline: '2026-06-01',
@@ -77,15 +92,15 @@ describe('goals list', () => {
     const result = await cli(['goals', 'list']);
 
     expect(result.exitCode).toBe(0);
-    const reserva = result.stdout.split('\n').find((line) => line.includes('Reserva Teste'));
-    expect(reserva?.split('│').map((part) => part.trim())).toEqual([
-      '', '8', 'Reserva Teste', 'R$ 5.000,00', '2026-06-01', 'R$ 4.200,00', 'R$ 800,00', '84.00%', 'R$ 800,00', '',
+    const meta = result.stdout.split('\n').find((line) => line.includes('│ Meta Teste '));
+    expect(meta?.split('│').map((part) => part.trim())).toEqual([
+      '', '8', 'Meta Teste', 'R$ 5.000,00', '2026-06-01', 'R$ 4.200,00', 'R$ 800,00', '84.00%', 'R$ 800,00', '',
     ]);
     expect(result.stdout).toContain('R$ 709,76');
     expect(result.stdout).not.toContain('Carro Teste');
   });
 
-  test('--all adds the inactive goal with a status column', async () => {
+  test('--all adds the inactive goals with a status column', async () => {
     const result = await cli(['goals', 'list', '--all']);
 
     expect(result.exitCode).toBe(0);
@@ -93,6 +108,19 @@ describe('goals list', () => {
     expect(carro?.split('│').map((part) => part.trim())).toEqual([
       '', '9', 'Carro Teste', 'R$ 30.000,00', '2028-06-01', 'R$ 0,00', 'R$ 30.000,00', '0.00%', 'R$ 991,91', 'inactive', '',
     ]);
+    expect(result.stdout).toContain('Meta Inativa Teste');
+    expect(result.stdout).toContain('5 savings goal(s)');
+  });
+});
+
+describe('goals without figures', () => {
+  test('refuses a goal the API sent without its figures instead of reading them as 0', async () => {
+    api.on('GET /v1/metas/economia', [{ id: 12, descricao: 'Meta Sem Valores Teste', status: true, contas: [{ conta: 204 }] }]);
+    const result = await cli(['goals', 'list', '--json']);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe('');
+    expect(result.stderr).toContain('answered goal 12 without valor, data, taxa, saldo, saldoInicial, dataSaldoInicial, contas[204]');
   });
 });
 
