@@ -10,6 +10,7 @@ import { connectionsRoute, recordMockRequest } from './mock-connections.js';
 import { importRoute, withRecentStatement } from './mock-import.js';
 import { balancesRoute } from './mock-balances.js';
 import { budgetRoute } from './mock-budget.js';
+import { GOALS_PATH, goalsRoute } from './mock-goals.js';
 import { cardsRoute } from './mock-cards.js';
 import { sessionRoute } from './mock-session.js';
 import { CLOSED_INVOICE_CARD } from './mock-closed-invoice.js';
@@ -171,6 +172,10 @@ const server = Bun.serve({
     if (url.pathname === '/api/v2/lancamentos/metasorcamento' || url.pathname === '/api/v1/metas/orcamento') {
       const budget = await budgetRoute(req.method, url, req);
       if (budget) return budget;
+    }
+    if (url.pathname === GOALS_PATH || url.pathname.startsWith(`${GOALS_PATH}/`)) {
+      const goals = goalsRoute(req.method, url);
+      if (goals) return goals;
     }
     return connectionsRoute(req.method, url.pathname) ?? plasticsRoute(req.method, url.pathname) ?? sessionRoute(req.method, url.pathname) ?? notFound();
   },

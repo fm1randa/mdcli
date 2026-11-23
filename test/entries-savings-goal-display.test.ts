@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createHome, MANUAL_AUTH, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, SAVINGS_ACCOUNT, TAGS_RESPONSE, entriesPage } from './fixtures.js';
 import type { Entry } from '../src/types/index.js';
+import { SAVINGS_GOALS } from './goals-fixtures.js';
 
 // The GET of an entry linked to a savings goal carries metaEconomiaDestino on
 // a deposit, metaEconomiaOrigem on a withdrawal and metaEconomia on an expense
@@ -38,6 +39,8 @@ beforeEach(() => {
   api.on('GET /v1/cadastros/categorias', CATEGORIES_RESPONSE);
   api.on('GET /v1/cadastros/tags', TAGS_RESPONSE);
   api.on('GET /v2/lancamentos', entriesPage([deposit, withdrawal, expense, unlinked]));
+  // 7 Viagem Teste, 8 Reserva Teste, 9 Carro Teste (#339).
+  api.on('GET /v1/metas/economia', SAVINGS_GOALS);
   home = createHome(MANUAL_AUTH);
 });
 
@@ -58,13 +61,14 @@ describe('entries show savings goal', () => {
     for (const id of ['81', '83', '84', '85', '86']) {
       const result = await runCli(['entries', 'show', id, '--json'], { home, api });
       expect(result.exitCode).toBe(0);
-      goals.push(JSON.parse(result.stdout).savingsGoalId);
+      const shown = JSON.parse(result.stdout);
+      goals.push([shown.savingsGoalId, shown.savingsGoalName]);
     }
 
-    expect(goals).toEqual([7, 8, 8, 9, null]);
+    expect(goals).toEqual([[7, 'Viagem Teste'], [8, 'Reserva Teste'], [8, 'Reserva Teste'], [9, 'Carro Teste'], [null, null]]);
   });
 
-  test('the text shows the goal line, and a dash without one', async () => {
+  test('the text shows the goal name, and a dash without one', async () => {
     api.on('GET /v1/lancamentos/81', deposit);
     api.on('GET /v1/lancamentos/86', unlinked);
 
@@ -72,7 +76,7 @@ describe('entries show savings goal', () => {
     const none = await runCli(['entries', 'show', '86'], { home, api });
 
     expect(linked.exitCode).toBe(0);
-    expect(linked.stdout).toContain('Savings goal: 7');
+    expect(linked.stdout).toContain('Savings goal: Viagem Teste\n');
     expect(none.exitCode).toBe(0);
     expect(none.stdout).toMatch(/Savings goal: -\n/);
   });
@@ -81,20 +85,44 @@ describe('entries show savings goal', () => {
 describe('entries list savings goal', () => {
   const LIST = ['entries', 'list', '-a', '204', '-f', '2026-01-01', '-t', '2026-01-31'];
 
-  test('--json carries savingsGoalId on every entry', async () => {
+  test('--json carries savingsGoalId and savingsGoalName on every entry', async () => {
     const result = await runCli([...LIST, '--json'], { home, api });
 
     expect(result.exitCode).toBe(0);
-    const entries: { id: number; savingsGoalId: unknown }[] = JSON.parse(result.stdout);
-    expect(entries.map((e) => [e.id, e.savingsGoalId])).toEqual([[81, 7], [83, 8], [85, 9], [86, null]]);
+    const entries: { id: number; savingsGoalId: unknown; savingsGoalName: unknown }[] = JSON.parse(result.stdout);
+    expect(entries.map((e) => [e.id, e.savingsGoalId, e.savingsGoalName])).toEqual([
+      [81, 7, 'Viagem Teste'], [83, 8, 'Reserva Teste'], [85, 9, 'Carro Teste'], [86, null, null],
+    ]);
   });
 
-  test('--csv ends each row with savings_goal_id', async () => {
+  test('--csv ends each row with savings_goal_id and savings_goal_name', async () => {
     const result = await runCli([...LIST, '--csv'], { home, api });
 
     expect(result.exitCode).toBe(0);
     const rows = result.stdout.split('\r\n').filter((row) => row !== '');
-    expect(rows[0].endsWith(',document_number,savings_goal_id')).toBe(true);
-    expect(rows.slice(1).map((row) => row.split(',').at(-1))).toEqual(['7', '8', '9', '']);
+    expect(rows[0].endsWith(',document_number,savings_goal_id,savings_goal_name')).toBe(true);
+    expect(rows.slice(1).map((row) => row.split(',').slice(-2))).toEqual([
+      ['7', 'Viagem Teste'], ['8', 'Reserva Teste'], ['9', 'Carro Teste'], ['', ''],
+    ]);
+  });
+
+  test('the table adds a goal column with the name', async () => {
+    const result = await runCli(LIST, { home, api });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toMatch(/│ Savings goal +│\n/);
+    const goalCell = (id: number) =>
+      result.stdout.split('\n').find((line) => line.startsWith(`│ ${id} `))?.split('│').at(-2)?.trim();
+    expect([81, 83, 85, 86].map(goalCell)).toEqual(['Viagem Teste', 'Reserva Teste', 'Carro Teste', '-']);
+  });
+
+  test('a list without goals neither reads the goals nor adds the column', async () => {
+    api.on('GET /v2/lancamentos', entriesPage([unlinked]));
+    const result = await runCli(LIST, { home, api });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain('Despesa Teste');
+    expect(result.stdout).not.toContain('Savings goal');
+    expect(api.requests.filter((request) => request.path === '/v1/metas/economia')).toHaveLength(0);
   });
 });

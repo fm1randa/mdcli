@@ -17,6 +17,7 @@ import type {
   Entry,
   FirstInvoiceResponse,
   LegacyCardFutureResponse,
+  SavingsGoal,
   SyncRequestResponse,
   TagsResponse,
 } from '../src/types/index.js';
@@ -63,6 +64,9 @@ export interface ApiResponses {
   'GET /v2/lancamentos/metasorcamento': BudgetGoalRow[];
   /** The web save. The CLI does not read the success body. */
   'POST /v1/metas/orcamento': unknown;
+  'GET /v1/metas/economia': SavingsGoal[];
+  [route: `GET /v1/metas/economia/${number}/lancamentos`]: Entry[];
+  [route: `GET /v1/metas/economia/${number}/saldo`]: number;
   'GET /v1/lancamentos/duplicidade': unknown;
   'POST /v1/lancamentos': CreateEntryResponse;
   [route: `GET /v1/lancamentos/${number}`]: Entry;

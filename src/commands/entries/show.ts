@@ -5,7 +5,7 @@ import { fetchEntry } from '../../lib/api.js';
 import { normalizeEntry } from '../../lib/normalize.js';
 import { formatStatus, formatType } from './format.js';
 import { formatCurrency } from '../../utils/currency.js';
-import { loadNames, nameOf, tagNames } from './names.js';
+import { loadGoalNamesFor, loadNames, nameOf, tagNames, withGoalName } from './names.js';
 import { parseEntryId } from './entry-id.js';
 import { cell, listCell } from '../../utils/text.js';
 
@@ -27,7 +27,8 @@ export async function showAction(id: string, options: ShowOptions): Promise<void
     console.log(JSON.stringify(raw, null, 2));
     return;
   }
-  const entry = normalizeEntry(raw);
+  const normalized = normalizeEntry(raw);
+  const entry = withGoalName(normalized, await loadGoalNamesFor([normalized]));
   if (options.json) {
     console.log(JSON.stringify(entry, null, 2));
     return;
@@ -45,7 +46,7 @@ export async function showAction(id: string, options: ShowOptions): Promise<void
     [t('labelCompetenceDate'), cell(entry.competenceDate)],
     [t('labelAccount'), nameOf(names.accounts, entry.accountId)],
     [t('labelTransferAccount'), cell(entry.transferAccountId, (id) => String(nameOf(names.accounts, id)))],
-    [t('labelSavingsGoal'), cell(entry.savingsGoalId)],
+    [t('labelSavingsGoal'), cell(entry.savingsGoalId, (id) => entry.savingsGoalName ?? String(id))],
     [t('labelCategory'), cell(entry.categoryId, (id) => String(nameOf(names.categories, id)))],
     [t('labelTags'), listCell(tagNames(names, entry.tagIds))],
     [t('labelRepetition'), t(REPETITION_LABELS[entry.repetition]) + (entry.installment && entry.repetition === 'installment' ? ` (${entry.installment})` : '')],

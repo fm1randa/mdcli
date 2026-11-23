@@ -4,15 +4,13 @@ import { formatCurrency } from '../utils/currency.js';
 import { logger } from '../utils/logger.js';
 import { newTable } from '../utils/table.js';
 import { t } from '../lib/i18n/index.js';
-import { dateRange, getCurrentMonthRange, isCalendarDate, isYearMonth, monthRange, type DateRange } from '../lib/dates.js';
+import { monthRange, today, type DateRange } from '../lib/dates.js';
+import { parsePeriodOptions, type PeriodOptions } from './period-options.js';
 import { loadBudget, type BudgetKind, type BudgetReport, type CategoryRef, type GoalFigures, type KindBudget } from '../lib/budget.js';
 import { registerBudgetWrites } from './budget-write.js';
 import { parseRegime, type Regime } from '../lib/regime.js';
 
-interface BudgetOptions {
-  month?: string;
-  from?: string;
-  to?: string;
+interface BudgetOptions extends PeriodOptions {
   regime?: string;
   json?: boolean;
 }
@@ -30,27 +28,7 @@ function kindLabel(kind: BudgetKind): string {
 function parseBudgetOptions(options: BudgetOptions): { period: DateRange; regime: Regime } {
   const regime = options.regime === undefined ? 'cash' : parseRegime(options.regime);
   if (regime === null) exitWithError(t('errorInvalidRegime', options.regime ?? ''));
-
-  if (options.month !== undefined && (options.from !== undefined || options.to !== undefined)) {
-    exitWithError(t('errorBudgetPeriodConflict'));
-  }
-  if (options.month !== undefined) {
-    if (!isYearMonth(options.month)) exitWithError(t('errorInvalidBudgetMonth', options.month));
-    return { period: monthRange(options.month), regime };
-  }
-
-  if (options.from !== undefined && !isCalendarDate(options.from)) {
-    exitWithError(t('errorInvalidFilterDate', '--from', options.from));
-  }
-  if (options.to !== undefined && !isCalendarDate(options.to)) {
-    exitWithError(t('errorInvalidFilterDate', '--to', options.to));
-  }
-  const current = getCurrentMonthRange();
-  const start = options.from ?? current.startDate;
-  const end = options.to ?? current.endDate;
-  const period = dateRange(start, end);
-  if (!period) exitWithError(t('errorBudgetRangeReversed', start, end));
-  return { period, regime };
+  return { period: parsePeriodOptions(options, monthRange(today().slice(0, 7))), regime };
 }
 
 function money(figures: GoalFigures | null): string[] {
