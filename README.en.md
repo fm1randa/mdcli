@@ -1,4 +1,4 @@
-<!-- traduzido de README.md @ 7edb375 (base: 7edb37556fbacca1dc109e95ab2d106682eadcfd; readme-blob: cf48e1dbc5d5631291f3033244fba539fd18cef4); ao atualizar o README.md, sincronize este arquivo e atualize o SHA e o readme-blob (git hash-object README.md) -->
+<!-- traduzido de README.md @ a06095b (base: a06095ba9673bda25ed90a9ac660c37e5ce4beb3; readme-blob: 2773f8f59ef46836f91efdce1b8e1097c2fc584c); ao atualizar o README.md, sincronize este arquivo e atualize o SHA e o readme-blob (git hash-object README.md) -->
 [Português (Brasil)](README.md) · **English**
 
 > The Portuguese [README.md](README.md) is the reference version; this English translation may lag behind it.
@@ -442,9 +442,13 @@ mdcli entries import run --account principal --ids 1a2b3c4d --category food --ov
 # {"transactions": [{"id": "1a2b3c4d", "action": "conciliate", "entry": 12345}]}
 mdcli entries import run --account principal --plan plan.json --yes
 # The output of "entries import list --json" is already a valid plan: edit action,
-# category, value, description or entry and pass the file to --plan. An import row
-# without a category (neither a rule nor the AI suggested one) makes the whole
-# plan be refused.
+# category, value, description or entry and pass the file to --plan.
+# The plan carries the listing's --since: the run loads the same statement. A
+# --since on the run overrides the plan's; without either, the run keeps the
+# default (the connection summary and, without it, the statement since the
+# account's last statement date, at most 90 days back).
+# An import row without a category (neither a rule nor the AI suggested one)
+# makes the whole plan be refused.
 
 # Or in $EDITOR, in the style of git rebase -i: one line per transaction
 # (<command> <prefix> <date> <value> <category> | <description>). An error

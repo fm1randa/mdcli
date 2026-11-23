@@ -146,14 +146,14 @@ async function fromFlags(options: ImportRunOptions, today: string): Promise<Plan
 
 /** --plan <file>: each item says its own action. The file is checked before any request. */
 async function fromPlan(options: ImportRunOptions, path: string, today: string): Promise<PlannedRun> {
-  const { accountId: planAccountId, transactions: items } = readPlanFile(path);
+  const { accountId: planAccountId, since: planSince, transactions: items } = readPlanFile(path);
   const accountId = await resolveAccountOrExit(options.account);
   if (planAccountId !== null && planAccountId !== accountId) {
     exitWithError(t('errorPlanAccountMismatch', String(planAccountId), String(accountId)));
   }
   const { categories, problems } = await selectionCategories(items);
   failOnProblems(problems);
-  const loaded = await loadImport(options);
+  const loaded = await loadImport({ ...options, since: options.since ?? planSince ?? undefined });
   if (loaded.document.transactions.length === 0) {
     failOnProblems(withNothingNew(items.map((item) => unmatchedPrefix(item.id ?? '', '--plan')), loaded.document));
   }
