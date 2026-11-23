@@ -51,6 +51,10 @@ _Avoid_: "limit", "target" alone
 The goals of a period with their figures, per kind (expense, income, investment): goal, confirmed, projected, remaining and surplus, as `budget` prints them. It is read under a Regime.
 _Avoid_: "orçamento" (Portuguese only), "budget" for a single goal (that is a Goal)
 
+**Savings goal**:
+A target amount saved by a deadline across one or more destination Accounts (meta de economia, the web's Metas de economia screen), read with `goals list` and `goals show`. **Remaining** is target minus balance; the **ideal monthly contribution** is the web's compound-interest figure at the goal's monthly rate, and with no contribution month left the CLI shows what is still missing while `--json` keeps the web's figure (the whole target) in `webIdealMonthlyContribution`. An Entry can be linked to one (`savingsGoalId`, `savingsGoalName`).
+_Avoid_: "goal" alone (that is a budget Goal)
+
 **Regime**:
 How a Budget or a report dates an Entry, the web reports' "Visão de caixa" / "Visão da competência" toggle: **cash** (caixa, `regime=ca`, the default) by its date, **accrual** (competência, `regime=co`) by its competence date (`dataCompetencia`). `budget --regime cash|accrual`. `entries summary --regime cash|accrual` sends the same parameter on `GET /v2/lancamentos`, groups `--by month` by the competence date under accrual, and refuses accrual when the user has the competence view off (`usuario.conta.config.visaoCompetencia`), where the web forces `ca`; without the flag it sends no `regime` and `--json` reports `regime: null`.
 _Avoid_: "mode", "basis", "competência" alone for the flag value (the CLI surface says `accrual`)

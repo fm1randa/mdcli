@@ -68,11 +68,11 @@ describe('entries list --csv', () => {
     expect(result.exitCode).toBe(0);
     const lines = result.stdout.split('\r\n');
     expect(lines[0]).toBe(
-      'id,date,description,value,type,status,account,category,installment,repetition,effective_date,competence_date,transfer_account,tags,notes,document_number,savings_goal_id'
+      'id,date,description,value,type,status,account,category,installment,repetition,effective_date,competence_date,transfer_account,tags,notes,document_number,savings_goal_id,savings_goal_name'
     );
-    expect(lines[1]).toBe('1,2026-01-05,Mercado,-100.5,expense,reconciled,Conta Teste,Alimentação/Mercado,,single,,,,,,,');
-    expect(lines).toContain('6,2026-02-01,"Café, ""especial""",-10,expense,reconciled,Conta Teste,,,single,,,,,,,');
-    expect(lines).toContain('4,2026-01-20,Restaurante,-200,expense,reconciled,Cartão Teste,Alimentação,,single,,,,,,,');
+    expect(lines[1]).toBe('1,2026-01-05,Mercado,-100.5,expense,reconciled,Conta Teste,Alimentação/Mercado,,single,,,,,,,,');
+    expect(lines).toContain('6,2026-02-01,"Café, ""especial""",-10,expense,reconciled,Conta Teste,,,single,,,,,,,,');
+    expect(lines).toContain('4,2026-01-20,Restaurante,-200,expense,reconciled,Cartão Teste,Alimentação,,single,,,,,,,,');
   });
 
   test('refuses --json together with --csv', async () => {

@@ -12,6 +12,7 @@ import { enEntriesImportOutput } from './catalog/en/import-output.js';
 import { enImport } from './catalog/en/import.js';
 import { enInternals } from './catalog/en/internals.js';
 import { enBudget } from './catalog/en/budget.js';
+import { enGoals } from './catalog/en/goals.js';
 
 /** The English catalog. Typed by the pt-BR catalog, so a missing key fails typecheck. */
 export const enCatalog: Catalog = {
@@ -28,4 +29,5 @@ export const enCatalog: Catalog = {
   ...enImport,
   ...enInternals,
   ...enBudget,
+  ...enGoals,
 };

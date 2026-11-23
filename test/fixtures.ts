@@ -170,12 +170,36 @@ export const TAG_PERSONAL: TagsResponse[number] = { id: 502, nome: 'Pessoal', st
 export const TAGS_RESPONSE: TagsResponse = [TAG_WORK, TAG_PERSONAL];
 
 /**
- * GET /v1/metas/economia (#340): an active goal on the savings account (the
- * one the seeded deposit and withdrawal link), an inactive one, and an active
- * one on both test accounts.
+ * GET /v1/metas/economia (#340, #339), read with "today" pinned to
+ * GOALS_TODAY in test/goals-fixtures.ts. 8 is active on the savings account
+ * (the one the seeded deposit and withdrawal link) with no contribution month
+ * left (deadline 2026-06, latest movement 2026-05); 7 is active with 12 months
+ * left; 9 and 10 are inactive; 11 is active on both test accounts.
  */
 export const SAVINGS_GOALS: SavingsGoal[] = [
-  { id: 8, descricao: 'Meta Teste', status: true, contas: [{ conta: 204 }] },
-  { id: 10, descricao: 'Meta Inativa Teste', status: false, contas: [{ conta: 204 }] },
-  { id: 11, descricao: 'Meta Duas Contas Teste', status: true, contas: [{ conta: 201 }, { conta: 204 }] },
+  {
+    id: 7, descricao: 'Viagem Teste', status: true, valor: 12000, data: '2027-12-01', taxa: 0.005, saldo: 3000,
+    contas: [{ conta: 204, saldo: 1500, saldoInicial: 1000 }, { conta: 201, saldo: 500, saldoInicial: 0 }],
+    saldoInicial: 1000, dataSaldoInicial: '2026-01-10', dataSaldo: '2026-11-05',
+  },
+  {
+    id: 8, descricao: 'Meta Teste', status: true, valor: 5000, data: '2026-06-01', taxa: 0, saldo: 4200,
+    contas: [{ conta: 204, saldo: 2200, saldoInicial: 2000 }],
+    saldoInicial: 2000, dataSaldoInicial: '2025-01-01', dataSaldo: '2026-05-10',
+  },
+  {
+    id: 9, descricao: 'Carro Teste', status: false, valor: 30000, data: '2028-06-01', taxa: 0.008, saldo: 0,
+    contas: [{ conta: 204, saldo: 0, saldoInicial: 0 }],
+    saldoInicial: 0, dataSaldoInicial: '2026-03-01', dataSaldo: null,
+  },
+  {
+    id: 10, descricao: 'Meta Inativa Teste', status: false, valor: 1000, data: '2027-01-01', taxa: 0, saldo: 0,
+    contas: [{ conta: 204, saldo: 0, saldoInicial: 0 }],
+    saldoInicial: 0, dataSaldoInicial: '2026-01-01', dataSaldo: null,
+  },
+  {
+    id: 11, descricao: 'Meta Duas Contas Teste', status: true, valor: 2000, data: '2027-06-01', taxa: 0, saldo: 0,
+    contas: [{ conta: 201, saldo: 0, saldoInicial: 0 }, { conta: 204, saldo: 0, saldoInicial: 0 }],
+    saldoInicial: 0, dataSaldoInicial: '2026-11-01', dataSaldo: null,
+  },
 ];

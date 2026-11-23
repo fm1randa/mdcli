@@ -544,6 +544,18 @@ mdcli budget set --category Alimentação --value -800 --month 2026-11
 mdcli budget set --category 20 --value 4500 --month 2026-11 --until 2026-12 --dry-run
 mdcli budget remove --category Alimentação --month 2026-11
 
+# Metas de economia (só leitura): objetivo, prazo, saldo, a realizar, progresso e aplicação
+# mensal ideal (juros compostos pela taxa da meta, como no web). Sem meses restantes, a
+# aplicação ideal é o que falta; o valor do web (o objetivo inteiro) vai em
+# webIdealMonthlyContribution no --json. --all inclui as metas inativas.
+mdcli goals list
+mdcli goals list --all --json
+
+# Uma meta, o saldo por conta e o extrato de aportes. O padrão é o ano atual, como no web.
+mdcli goals show 7
+mdcli goals show 7 --month 2026-11 --json
+mdcli goals show 7 --from 2026-01-01 --to 2026-06-30
+
 # Lista só as tags ativas
 mdcli tags list --active
 
@@ -630,6 +642,15 @@ Os testes em `test/` executam a CLI real como subprocesso contra um mock local d
 | Saída em JSON | Pronto |
 | Definir meta (`budget set`) | Pronto |
 | Remover meta (`budget remove`) | Pronto |
+
+### Metas de economia
+| Funcionalidade | Status |
+|---------|--------|
+| Listar (`goals list`, `--all` inclui inativas) | Pronto |
+| Mostrar com extrato (`goals show`, `--month`, `--from`, `--to`) | Pronto |
+| Saída em JSON | Pronto |
+| Nome da meta em `entries show` e `entries list` | Pronto |
+| Criar, editar e excluir | Fora do escopo |
 
 ### Tags
 | Funcionalidade | Status |

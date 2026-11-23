@@ -1,0 +1,33 @@
+import type { ptBRGoals as SectionType } from '../pt-BR/goals.js';
+
+/** Savings goals, in English. */
+export const enGoals: typeof SectionType = {
+  goalsDescription: () => 'Savings goals: target, deadline, balance and ideal monthly contribution (read only)',
+  goalsListDescription: () => 'List the active savings goals',
+  goalsListAllOption: () => 'Include inactive goals',
+  goalsShowDescription: () => 'Show a savings goal and its statement for the period',
+  goalsMonthOption: () => 'Statement month YYYY-MM. Not with --from/--to',
+  goalsFromOption: () => 'Statement start YYYY-MM-DD (default: January 1 of the current year)',
+  goalsToOption: () => 'Statement end YYYY-MM-DD (default: December 31 of the current year)',
+  goalsListHeader: (count) => `${count} savings goal(s)`,
+  goalsNone: () => 'No savings goals.',
+  goalTarget: () => 'Target',
+  goalDeadline: () => 'Deadline',
+  goalBalance: () => 'Balance',
+  goalRemaining: () => 'Remaining',
+  goalPercent: () => 'Progress',
+  goalIdealMonthly: () => 'Ideal monthly contribution',
+  goalWebIdealMonthly: () => 'Web ideal monthly contribution',
+  goalMonthlyRate: () => 'Monthly rate',
+  goalStatus: () => 'Status',
+  goalActive: () => 'active',
+  goalInactive: () => 'inactive',
+  goalAccounts: () => 'Accounts',
+  goalStatementHeader: (from, to) => `Statement ${from} → ${to}`,
+  goalOpeningInitial: () => 'Initial balance',
+  goalOpeningPrevious: () => 'Previous balance',
+  goalClosing: () => 'Closing balance',
+  goalStatementEmpty: () => 'No entries in the period.',
+  errorGoalNotFound: (id) => `Savings goal ${id} not found.`,
+  errorInvalidGoalId: (value) => `Invalid goal ID "${value}". Use a positive whole number.`,
+};
