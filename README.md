@@ -491,6 +491,16 @@ mdcli cards invoice --account <cardId> --month 2026-02 --summary
 # envia vem null. entries é o mesmo array que o --json imprime sozinho.
 mdcli cards invoice --account <cardId> --month 2026-02 --json --summary
 
+# Fecha a fatura atual do cartão, como "Fechar fatura" no web (grava na conta). Agenda o
+# pagamento do que falta pagar (total menos os pagamentos já agendados) a partir da conta de
+# pagamento do cartão, no vencimento; --from, --date e --no-payment mudam isso. Só depois de
+# fechada o pagamento da fatura vira candidato de conciliação do Pix no entries import.
+# --dry-run mostra o que seria gravado; --json exige --dangerously-skip-confirmation.
+mdcli cards invoice close --account <cardId> --dry-run
+
+# Reabre a última fatura fechada (ou a de --month), como "Reabrir fatura" no web
+mdcli cards invoice reopen --account <cardId>
+
 # Mostra as próximas parcelas de um cartão
 mdcli cards future --account <cardId>
 
@@ -666,6 +676,7 @@ Os testes em `test/` executam a CLI real como subprocesso contra um mock local d
 | Itens da fatura com datas de vencimento, compra e competência (`--json`, `date` = vencimento) | Pronto |
 | Resumo da fatura (fechamento, fatura anterior, pago, a pagar, conciliado, limite, disponível) | Pronto (texto; `--summary`; `--json --summary`) |
 | Configurações do cartão no `cards list --json` (limite, datas de vencimento/fechamento, conta de pagamento) | Pronto |
+| Fechar e reabrir a fatura (`cards invoice close`/`reopen`, com `--dry-run`) | Pronto |
 | Parcelas futuras | Pronto |
 
 ### Importação e sincronização

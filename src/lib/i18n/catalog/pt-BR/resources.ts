@@ -88,6 +88,32 @@ export const ptBRResources = {
     `Fatura de ${name} - ${dueDate} (${count} lançamentos) | Total: ${total}`,
   cardsFutureHeader: (name: string, count: number, total: string) =>
     `Parcelas Futuras de ${name} (${count} itens) | Total: ${total}`,
+  cardsInvoiceCloseDescription: () =>
+    'Fechar a fatura atual do cartão (proximoVencimento), como "Fechar fatura" no web, e agendar o pagamento',
+  cardsInvoiceCloseFromOption: () => 'Conta que paga a fatura (padrão: a conta de pagamento do cartão)',
+  cardsInvoiceCloseDateOption: () => 'Data do pagamento (padrão: o vencimento da fatura)',
+  cardsInvoiceCloseNoPaymentOption: () => 'Fechar sem agendar pagamento (valor 0)',
+  cardsInvoiceReopenDescription: () =>
+    'Reabrir uma fatura fechada, como "Reabrir fatura" no web (padrão: a última fechada; use --month)',
+  cardsInvoiceDryRunOption: () => 'Mostrar o que seria gravado sem gravar. Só lê a API e não pede confirmação',
+  cardsInvoiceSkipConfirmationOption: () => 'Não pedir confirmação (necessário com --json)',
+  invoiceClosePlan: (name: string, id: number, due: string, amount: string, from: string, date: string) =>
+    `Fechar a fatura de ${name} (${id}) com vencimento ${due} e agendar o pagamento de ${amount} da conta ${from} em ${date}`,
+  invoiceClosePlanNoPayment: (name: string, id: number, due: string) =>
+    `Fechar a fatura de ${name} (${id}) com vencimento ${due}, sem agendar pagamento`,
+  invoiceReopenPlan: (name: string, id: number, due: string) => `Reabrir a fatura de ${name} (${id}) com vencimento ${due}`,
+  invoiceDryRun: (plan: string) => `Simulação, nada gravado: ${plan}.`,
+  confirmInvoiceWrite: (plan: string) => `${plan}? (y/N) `,
+  invoiceWriteCancelled: () => 'Gravação cancelada.',
+  invoiceCloseDone: (name: string, due: string) => `Fatura de ${name} com vencimento ${due} fechada`,
+  invoiceReopenDone: (name: string, due: string) => `Fatura de ${name} com vencimento ${due} reaberta`,
+  errorInvoiceCloseMonth: () => 'O fechamento vale só para a fatura atual do cartão, como no web: tire o --month.',
+  errorInvoiceCloseNoPayingAccount: (id: number) =>
+    `O cartão ${id} não tem conta de pagamento: diga qual conta paga a fatura com --from.`,
+  errorInvoiceClosePaidByCard: (id: number) => `A conta ${id} é um cartão de crédito e não pode pagar a fatura.`,
+  errorInvoiceAlreadyClosed: (name: string, due: string) => `A fatura de ${name} com vencimento ${due} já está fechada.`,
+  errorInvoiceNotClosed: (name: string, due: string) => `A fatura de ${name} com vencimento ${due} não está fechada.`,
+  errorInvoiceWriteJsonNeedsSkip: () => '--json não pergunta. Use --dry-run ou --dangerously-skip-confirmation.',
   errorAccountNotFoundById: (id: number) => `Conta não encontrada: ${id}`,
   errorNotCreditCard: (id: number) => `A conta ${id} não é um cartão de crédito`,
 

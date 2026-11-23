@@ -5,6 +5,6 @@ export { normalizeCategories, normalizeAccounts, normalizeCards, normalizeTags, 
 export { apiGet, apiPost } from './api/request.js';
 export { fetchCategories, createCategory, updateCategory, deleteCategory, fetchAccounts, createAccount, updateAccount, deleteAccount, isCreditCard, fetchAccountById, fetchTags, createTag, updateTag, deleteTag, fetchPlastics } from './api/registry.js';
 export { fetchWebConfig, loadSessionPreferences, fetchAccountBalances } from './api/session.js';
-export { fetchFirstInvoice, fetchCardInvoice, fetchCardFuture } from './api/cards.js';
+export { fetchFirstInvoice, fetchCardInvoice, fetchCardFuture, closeCardInvoice, reopenCardInvoice } from './api/cards.js';
 export { fetchConnections, fetchBankTransactions, fetchImportDuplicates, fetchImportCandidates, suggestCategoriesWithAi, markBankTransactionsImported, conciliateBankTransactions, importBankTransactions, requestSync } from './api/bank-import.js';
 export { fetchEntry, fetchAllEntries, createEntry, updateEntry, deleteEntry } from './api/entries.js';
