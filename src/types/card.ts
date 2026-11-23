@@ -91,7 +91,7 @@ export interface CloseInvoiceRequest {
   contaT: string;
   confirmado: boolean;
   automatico: boolean;
-  /** The card's proximoVencimento, as the account returns it. */
+  /** The invoice's due date. The web sends the card's proximoVencimento; the CLI sends the same date as GET fatura returns it, since only card-invoice.ts may read proximoVencimento (local/no-due-anchor-fallback). */
   vencimento: string;
   anexos: number[];
   lembrete: number;
