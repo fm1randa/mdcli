@@ -337,6 +337,11 @@ mdcli entries create --account "Conta Teste" --description "Groceries" --value 1
 # para um cartão de crédito, ou entre moedas, ainda não são suportadas.
 mdcli entries create --account principal --type transfer --to-account conta --description "Reserva" --value 500
 
+# Transferência ligada a uma meta de economia ativa (ID): aporte quando a conta
+# de destino é da meta, resgate quando é a de origem. --dry-run mostra o
+# payload e não grava nada.
+mdcli entries create --account principal --type transfer --to-account reserva --description "Aporte" --value 200 --savings-goal 8 --dry-run
+
 # Parcelado: 1200 dividido em 10 parcelas mensais; a primeira absorve o centavo
 # do arredondamento. --per-installment faz de --value o valor de cada parcela,
 # --repeat/--frequency definem o intervalo, --first-installment o número inicial.
@@ -663,6 +668,7 @@ Os testes em `test/` executam a CLI real como subprocesso contra um mock local d
 | Criar (recorrente, `--repeat`/`--frequency`/`--times`) | Pronto |
 | Criar parcelado (`--installments`, `--per-installment`, `--first-installment`) | Pronto |
 | Criar transferência (`-T transfer --to-account`) | Pronto |
+| Ligar a transferência a uma meta de economia (`--savings-goal`) e simular (`--dry-run`) | Pronto |
 | Status ao criar/atualizar (`-p/--pending`, `--confirmed`, `-r/--reconciled` no update) | Pronto |
 | Compra no cartão de crédito em uma fatura escolhida (`--invoice`) | Pronto |
 | Atualizar | Pronto |
