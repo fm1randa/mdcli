@@ -695,12 +695,10 @@ self_update() {
   out=$(gcli bun "$GCLI" accounts list --json 2>"$SANDBOX/update-err" </dev/null) || return 1
   OUT="$out" bun -e 'JSON.parse(process.env.OUT)' || { echo "stdout não é JSON: $out"; return 1; }
   [ ! -s "$SANDBOX/update-err" ] || { echo "stderr inesperado: $(cat "$SANDBOX/update-err")"; return 1; }
-  # The background child must run both steps, in this order: the old code lost
-  # the install when the CLI exited before the remove finished.
-  for _ in $(seq 50); do [ "$(sed -n '2p' "$SANDBOX/update-args" 2>/dev/null)" = 'install -g github:fm1randa/mdcli#v2099.1.1' ] && break; sleep 0.1; done
-  [ "$(sed -n '1p' "$SANDBOX/update-args" 2>/dev/null)" = 'remove -g mdcli' ] \
-    && [ "$(sed -n '2p' "$SANDBOX/update-args" 2>/dev/null)" = 'install -g github:fm1randa/mdcli#v2099.1.1' ] \
-    && [ "$(wc -l < "$SANDBOX/update-args" 2>/dev/null | tr -d ' ')" = 2 ] \
+  # The background child installs the tag over the current package and never
+  # runs `remove -g` first, so the binary is never missing (#341).
+  for _ in $(seq 50); do [ "$(sed -n '1p' "$SANDBOX/update-args" 2>/dev/null)" = 'install -g github:fm1randa/mdcli#v2099.1.1' ] && break; sleep 0.1; done
+  [ "$(cat "$SANDBOX/update-args" 2>/dev/null)" = 'install -g github:fm1randa/mdcli#v2099.1.1' ] \
     || { echo "update-args: $(cat "$SANDBOX/update-args" 2>/dev/null)"; return 1; }
   # Within 24h of that check the next run must not check again.
   rm -f "$SANDBOX/update-args"

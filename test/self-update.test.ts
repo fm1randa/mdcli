@@ -91,7 +91,7 @@ describe('checkForUpdate', () => {
     expect(await checkForUpdate({ packageRoot: globalInstall('2026.10.13'), env, notify: (m) => notices.push(m) })).toBe('updating');
     expect(await waitFor(() => {
       const c = allCalls();
-      return c.length >= 2 ? c[c.length - 1] : null;
+      return c.length >= 1 ? c[c.length - 1] : null;
     })).toBe('install -g github:fm1randa/mdcli#v2026.10.20');
     expect(notices).toEqual([]);
   });
@@ -146,24 +146,11 @@ describe('checkForUpdate', () => {
     expect(hits).toBe(0);
   });
 
-  test('background update writes remove then install in sequence', async () => {
-    const { env, allCalls } = recorder();
-    expect(await checkForUpdate({ packageRoot: globalInstall('2026.10.13'), env })).toBe('updating');
-    const calls = await waitFor(() => {
-      const c = allCalls();
-      return c.length >= 2 ? c : null;
-    });
-    expect(calls).toBeDefined();
-    expect(calls![0]).toBe('remove -g mdcli');
-    expect(calls![1]).toBe('install -g github:fm1randa/mdcli#v2026.10.20');
-  });
-
-  test('finishes remove and install after the CLI that started them exits', async () => {
+  test('finishes the install after the CLI that started it exits', async () => {
     const root = globalInstall('2026.10.13');
     const log = join(dir, 'install-args');
     const script = join(dir, 'slow-bun');
-    // Each call outlives the parent: the old code chained the install on the
-    // remove child's "exit", so exiting first dropped the install for good.
+    // The call outlives the parent: the install must still land after the CLI exits.
     writeFileSync(script, `#!/bin/sh\nsleep 0.3\necho "$@" >> "${log}"\n`);
     chmodSync(script, 0o755);
     const env = {
@@ -185,9 +172,9 @@ describe('checkForUpdate', () => {
     expect(await child.exited).toBe(0);
     const calls = await waitFor(() => {
       const c = existsSync(log) ? readFileSync(log, 'utf-8').trim().split('\n').filter((l) => l.length > 0) : [];
-      return c.length >= 2 ? c : null;
+      return c.length >= 1 ? c : null;
     });
-    expect(calls).toEqual(['remove -g mdcli', 'install -g github:fm1randa/mdcli#v2026.10.20']);
+    expect(calls).toEqual(['install -g github:fm1randa/mdcli#v2026.10.20']);
   });
 
   test('keeps the update working when the bun path contains spaces', async () => {
@@ -205,9 +192,9 @@ describe('checkForUpdate', () => {
     expect(await checkForUpdate({ packageRoot: globalInstall('2026.10.13'), env })).toBe('updating');
     const calls = await waitFor(() => {
       const c = existsSync(log) ? readFileSync(log, 'utf-8').trim().split('\n').filter((l) => l.length > 0) : [];
-      return c.length >= 2 ? c : null;
+      return c.length >= 1 ? c : null;
     });
-    expect(calls).toEqual(['remove -g mdcli', 'install -g github:fm1randa/mdcli#v2026.10.20']);
+    expect(calls).toEqual(['install -g github:fm1randa/mdcli#v2026.10.20']);
   });
 
   test('a failing or unreachable check resolves quietly without installing', async () => {
@@ -246,48 +233,5 @@ describe('runManualUpdate', () => {
     latestTag = null;
     expect(await runManualUpdate({ packageRoot: globalInstall('2026.10.13'), env: failing.env, notify: quiet })).toBe(1);
     expect(await runManualUpdate({ packageRoot: join(import.meta.dir, '..'), env: failing.env, notify: quiet })).toBe(1);
-  });
-
-  test('runs remove before install and reports sequence', async () => {
-    const { env, allCalls } = recorder();
-    const notices: string[] = [];
-    const code = await runManualUpdate({ packageRoot: globalInstall('2026.10.13'), env, notify: (m) => notices.push(m) });
-    expect(code).toBe(0);
-    expect(allCalls()).toEqual([
-      'remove -g mdcli',
-      'install -g github:fm1randa/mdcli#v2026.10.20',
-    ]);
-    expect(notices.at(-1)).toBe('mdcli atualizado de 2026.10.13 para 2026.10.20');
-  });
-
-  test('fails when remove fails and does not proceed to install', async () => {
-    const { env, allCalls } = recorder(3);
-    const notices: string[] = [];
-    const code = await runManualUpdate({ packageRoot: globalInstall('2026.10.13'), env, notify: (m) => notices.push(m) });
-    expect(code).toBe(1);
-    expect(allCalls()).toEqual(['remove -g mdcli']);
-    expect(notices.at(-1)).toContain('Falha ao remover');
-  });
-
-  test('fails when install fails after successful remove and gives manual recovery', async () => {
-    const log = join(dir, 'install-args');
-    const script = join(dir, 'fake-bun-sequence');
-    // First call (remove) succeeds, second call (install) fails; both are logged.
-    writeFileSync(script, `#!/bin/sh\necho "$@" >> "${log}"\nif echo "$*" | grep -q "install"; then exit 3; else exit 0; fi\n`);
-    chmodSync(script, 0o755);
-    const envRec = {
-      ...recorder().env,
-      MDCLI_UPDATE_BUN: script,
-      MDCLI_UPDATE_CHECK_URL: server.url + 'releases/latest',
-      MDCLI_CONFIG_DIR: join(dir, 'config'),
-    };
-    const notices: string[] = [];
-    const code = await runManualUpdate({ packageRoot: globalInstall('2026.10.13'), env: envRec, notify: (m) => notices.push(m) });
-    expect(code).toBe(1);
-    expect(readFileSync(log, 'utf-8').trim().split('\n').filter((l) => l.length > 0)).toEqual([
-      'remove -g mdcli',
-      'install -g github:fm1randa/mdcli#v2026.10.20',
-    ]);
-    expect(notices.at(-1)).toContain('Recuperação manual');
   });
 });

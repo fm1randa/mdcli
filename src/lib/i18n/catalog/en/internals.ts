@@ -64,8 +64,6 @@ export const enInternals: typeof SectionType = {
   updateCheckFailed: () => '✗ Could not reach the latest release on GitHub.',
   updateAlreadyLatest: (version) => `mdcli is already on the latest version (${version}).`,
   updateUpdating: (from, to) => `Updating mdcli from ${from} to ${to}...`,
-  updateInstallFailed: (tag, code) =>
-    `✗ Failed to install ${tag} (bun exited with code ${code}). Manual recovery: bun install -g github:fm1randa/mdcli#${tag}.`,
-  updateRemoveFailed: (code) =>
-    `✗ Failed to remove the old mdcli installation (bun exited with code ${code}). The update was cancelled before installing the new version; run \`mdcli update\` again to retry.`,
+  updateInstallFailed: (tag, code, installed) =>
+    `✗ Failed to install ${tag} (bun exited with code ${code}). Version ${installed} is still installed; run \`mdcli update\` again to retry.`,
 };
