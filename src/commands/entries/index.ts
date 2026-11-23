@@ -57,6 +57,8 @@ entriesCommand
   .option('--first-installment <n>', t('entriesCreateFirstInstallmentOption'))
   .option('--per-installment', t('entriesCreatePerInstallmentOption'))
   .option('--invoice <YYYY-MM>', t('entriesCreateInvoiceOption'))
+  .option('--savings-goal <id>', t('entriesCreateSavingsGoalOption'))
+  .option('--dry-run', t('entriesCreateDryRunOption'))
   .option('--json', t('jsonOption'))
   .action(action(createAction));
 

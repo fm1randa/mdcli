@@ -1,4 +1,4 @@
-<!-- traduzido de README.md @ a06095b (base: a06095ba9673bda25ed90a9ac660c37e5ce4beb3; readme-blob: 2773f8f59ef46836f91efdce1b8e1097c2fc584c); ao atualizar o README.md, sincronize este arquivo e atualize o SHA e o readme-blob (git hash-object README.md) -->
+<!-- traduzido de README.md @ 747f3fb (base: 747f3fbdb8ec3961bc8aaa5b7a91efc814bab568; readme-blob: 3c79abaa19aa245761f31961b76d6fbad40109ae); ao atualizar o README.md, sincronize este arquivo e atualize o SHA e o readme-blob (git hash-object README.md) -->
 [Português (Brasil)](README.md) · **English**
 
 > The Portuguese [README.md](README.md) is the reference version; this English translation may lag behind it.
@@ -340,6 +340,11 @@ mdcli entries create --account "Conta Teste" --description "Groceries" --value 1
 # from a credit card, or between currencies, are not supported yet.
 mdcli entries create --account principal --type transfer --to-account conta --description "Reserva" --value 500
 
+# Transfer linked to an active savings goal (ID): a deposit when the
+# destination account belongs to the goal, a withdrawal when the origin does.
+# --dry-run shows the payload and writes nothing.
+mdcli entries create --account principal --type transfer --to-account reserva --description "Aporte" --value 200 --savings-goal 8 --dry-run
+
 # Installments (parcelada): 1200 split into 10 monthly installments; the first
 # one absorbs the rounding cent. --per-installment makes --value each one's,
 # --repeat/--frequency set the spacing, --first-installment the starting number.
@@ -666,6 +671,7 @@ The tests in `test/` run the real CLI as a subprocess against a local mock of th
 | Create (recurring, `--repeat`/`--frequency`/`--times`) | Done |
 | Create installments (`--installments`, `--per-installment`, `--first-installment`) | Done |
 | Create transfer (`-T transfer --to-account`) | Done |
+| Link the transfer to a savings goal (`--savings-goal`) and dry run (`--dry-run`) | Done |
 | Status on create/update (`-p/--pending`, `--confirmed`, `-r/--reconciled` on update) | Done |
 | Credit card purchase on a chosen invoice (`--invoice`) | Done |
 | Update | Done |

@@ -7,3 +7,4 @@ export type * from './config.js';
 export type * from './entry.js';
 export type * from './integration.js';
 export type * from './tag.js';
+export type * from './savings-goal.js';

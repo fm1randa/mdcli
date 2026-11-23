@@ -204,6 +204,10 @@ export interface CreateEntryPayload {
   base: string | null;
   categoria: number | null;
   metaEconomia: number | null;
+  /** A transfer into a savings goal (a deposit): the goal uses the destination account. */
+  metaEconomiaDestino?: number;
+  /** A transfer out of a savings goal (a withdrawal): the goal uses the origin account. */
+  metaEconomiaOrigem?: number;
   observacoes: string;
   tags: number[];
   transferencia: boolean;

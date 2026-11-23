@@ -37,4 +37,16 @@ export const enEntriesCreate: typeof SectionType = {
     'Installments: --value is each installment, not the total',
   entriesCreateInvoiceOption: () =>
     'Credit cards: invoice month to post to (default: the invoice the date falls in)',
+  entriesCreateSavingsGoalOption: () =>
+    'Transfers: ID of the active savings goal to link (a deposit when the destination account belongs to the goal, a withdrawal when the origin does)',
+  entriesCreateDryRunOption: () => 'Show the payload without saving. Only reads the API',
+  entriesCreateDryRunNote: () => 'Dry run: nothing was written.',
+  errorSavingsGoalOnlyTransfers: () => '--savings-goal only applies to transfers (-T transfer --to-account).',
+  errorInvalidSavingsGoal: (input) => `Invalid savings goal ID: ${input}`,
+  errorSavingsGoalNotFound: (id) => `Savings goal ${id} not found.`,
+  errorSavingsGoalInactive: (id, name) => `Savings goal ${id} (${name}) is inactive.`,
+  errorSavingsGoalNoAccount: (id, name, origin, destination) =>
+    `Savings goal ${id} (${name}) uses neither account ${origin} nor account ${destination}.`,
+  errorSavingsGoalBothAccounts: (id, name) =>
+    `Savings goal ${id} (${name}) uses both accounts of the transfer: it cannot tell a deposit from a withdrawal.`,
 };
