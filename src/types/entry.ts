@@ -86,7 +86,12 @@ export interface Entry {
   contaT?: number;
   /** Other side's id on a transfer or an invoice payment. An expense or income omits the key. */
   transferencia?: number;
+  /** Savings goal of a transfer's destination side (a deposit). */
   metaEconomiaDestino?: number;
+  /** Savings goal of a transfer's origin side (a withdrawal). */
+  metaEconomiaOrigem?: number;
+  /** Savings goal of an expense or income; the web also reads it as the goal of the half it is on. */
+  metaEconomia?: number | null;
   projecaoFatura?: number;
   /** A card purchase on a closed invoice (the web's "ff" filter); its account is locked. */
   fatura?: number;
@@ -275,7 +280,7 @@ export interface UpdateEntryPayload extends Omit<Entry, keyof UpdateEntryFields 
   /** A boolean, unlike the GET's number: the web app's save sends true for tipo t or p, else false. */
   transferencia: boolean;
   estorno: boolean;
-  metaEconomia: null;
+  metaEconomia: number | null;
   agenda?: EntryAgenda;
 }
 
@@ -286,7 +291,7 @@ export interface UpdateEntryPayload extends Omit<Entry, keyof UpdateEntryFields 
  */
 export interface UpdateTransferPayload
   extends UpdateEntryFields,
-    Partial<Pick<Entry, 'dataCompetencia' | 'parcela' | 'agendaId' | 'regime' | 'estorno' | 'detalhes' | 'metaEconomiaDestino' | 'categoriaPai' | 'plastico'>> {
+    Partial<Pick<Entry, 'dataCompetencia' | 'parcela' | 'agendaId' | 'regime' | 'estorno' | 'detalhes' | 'metaEconomiaDestino' | 'metaEconomiaOrigem' | 'categoriaPai' | 'plastico'>> {
   transferencia: true;
   /** A transfer also carries confirmado at the top. */
   confirmado: boolean;
