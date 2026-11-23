@@ -61,6 +61,8 @@ export const enEntriesUpdateDelete: typeof SectionType = {
   warningInvoiceReadFailed: (cardName, cardId, dueDate, detail) =>
     `Invoice for ${cardName} (${cardId}) due ${dueDate} failed: ${detail}`,
   entriesListHeader: (count, total) => `Entries (${count}) | Total: ${total}`,
+  errorAccrualViewOff: () =>
+    'The accrual view is off for this account. Turn it on in the web settings or use --regime cash.',
   errorInvalidBy: (value) => `Invalid --by "${value}". Use category, month, or account.`,
   labelNoCategory: () => '(no category)',
 };

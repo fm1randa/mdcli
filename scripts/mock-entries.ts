@@ -30,8 +30,10 @@ export function entriesListRoute(url: URL, accountTipo: AccountTipo): Response {
   const repetition = parseInteger(url.searchParams.get('tipoRepeticao') ?? '7');
   if (repetition === undefined) return badRequest('tipoRepeticao must be a whole number');
   const candidates = url.searchParams.get('finalidade') === '3' ? IMPORT_CANDIDATES : [];
+  // Under regime co (the web reports' accrual view) an entry falls in the range by its competence date.
+  const accrual = url.searchParams.get('regime') === 'co';
   const list = [...Object.values(SEEDED_ENTRIES), ...candidates].filter((e) => {
-    const date = String(e.dataPrevista);
+    const date = String(accrual ? (e.dataCompetencia ?? e.dataPrevista) : e.dataPrevista);
     // Like the real statement list (finalidade 1), card purchases are left out:
     // they only show up in the card's invoices.
     return ids.includes(e.conta) && !isCard(accountTipo, e.conta) && date >= from && date <= to && (repetitionBit(e) & repetition) !== 0;

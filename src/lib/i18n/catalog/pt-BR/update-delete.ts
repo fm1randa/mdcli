@@ -61,6 +61,8 @@ export const ptBREntriesUpdateDelete = {
   warningInvoiceReadFailed: (cardName: string, cardId: number, dueDate: string, detail: string) =>
     `Fatura de ${cardName} (${cardId}) com vencimento ${dueDate} falhou: ${detail}`,
   entriesListHeader: (count: number, total: string) => `Lançamentos (${count}) | Total: ${total}`,
+  errorAccrualViewOff: () =>
+    'A visão da competência está desligada nesta conta. Ative-a nas configurações da web ou use --regime cash.',
   errorInvalidBy: (value: string) => `--by inválido "${value}". Use category, month ou account.`,
   labelNoCategory: () => '(sem categoria)',
 };

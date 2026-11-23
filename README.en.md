@@ -1,4 +1,4 @@
-<!-- traduzido de README.md @ 1976652 (base: 19766524ed08cbced3f03599af48006dd085dc59; readme-blob: 3e798030e16abb2c73318744eb085e72cc60b394); ao atualizar o README.md, sincronize este arquivo e atualize o SHA e o readme-blob (git hash-object README.md) -->
+<!-- traduzido de README.md @ 8155b3c (base: 8155b3c5d482c6512de5ac9f7aa53739f40f7159; readme-blob: 33b6bc143ac1b204f8abe4726cd87b9c33bb245e); ao atualizar o README.md, sincronize este arquivo e atualize o SHA e o readme-blob (git hash-object README.md) -->
 [Português (Brasil)](README.md) · **English**
 
 > The Portuguese [README.md](README.md) is the reference version; this English translation may lag behind it.
@@ -315,6 +315,10 @@ mdcli entries summary --account principal,conta --by account --include-transfers
 # Leave out categories (and their subcategories), e.g. a card bill paid from
 # checking that would double-count the purchases already on the card
 mdcli entries summary --account principal,conta --exclude-category "Pagamento de cartão"
+
+# Cash or accrual view, as in the web reports; accrual needs the competence
+# view on for the account, and with --by month it groups by the competence date
+mdcli entries summary --account principal --by month --regime accrual
 
 # Create an entry. The type (-T, expense by default) and the category have to
 # match: the web app only lists categories of the entry's type, so a category
