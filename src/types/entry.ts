@@ -149,6 +149,12 @@ export interface NormalizedEntry {
   competenceDate: string | null;
   /** The other account of a transfer (contaT). */
   transferAccountId: number | null;
+  /**
+   * The savings goal the entry is linked to (a deposit, a withdrawal, or an
+   * expense or income); normalizeEntry always sets it, null without a goal.
+   * Optional so summary inputs built by hand need not name it.
+   */
+  savingsGoalId?: number | null;
   tagIds: number[];
   notes: string;
   documentNumber: string | null;

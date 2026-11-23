@@ -115,6 +115,20 @@ function mapRepetition(parcela: string | null | undefined): EntryRepetition {
   return parcela === 'fixa' ? 'fixed' : 'installment';
 }
 
+/**
+ * The web app (md.js) loads an outgoing half with metaEconomiaOrigem and an
+ * incoming one with metaEconomiaDestino, each falling back to metaEconomia,
+ * the field of an expense or income; 0 means no goal. The other side's field
+ * comes last: the GET of a withdrawal's destination half may carry only
+ * metaEconomiaOrigem.
+ */
+function savingsGoalOf(entry: Entry): number | null {
+  const outgoing = entry.valor < 0;
+  const own = outgoing ? entry.metaEconomiaOrigem : entry.metaEconomiaDestino;
+  const other = outgoing ? entry.metaEconomiaDestino : entry.metaEconomiaOrigem;
+  return own || entry.metaEconomia || other || null;
+}
+
 export function normalizeEntry(entry: Entry): NormalizedEntry {
   return {
     id: entry.id != null && entry.id !== '' ? entry.id : `invoice:${entry.projecaoFatura}`,
@@ -133,6 +147,7 @@ export function normalizeEntry(entry: Entry): NormalizedEntry {
     effectiveDate: entry.dataEfetiva?.slice(0, 10) ?? null,
     competenceDate: entry.dataCompetencia?.slice(0, 10) ?? null,
     transferAccountId: entry.contaT ?? null,
+    savingsGoalId: savingsGoalOf(entry),
     tagIds: entry.tags ?? [],
     notes: entry.observacoes ?? '',
     documentNumber: entry.ndocumento || null,

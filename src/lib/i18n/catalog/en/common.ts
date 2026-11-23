@@ -100,6 +100,7 @@ export const enCommon: typeof SectionType = {
   labelPlannedDate: () => 'Planned date',
   labelRepetition: () => 'Repetition',
   labelTransferAccount: () => 'Transfer account',
+  labelSavingsGoal: () => 'Savings goal',
   labelContact: () => 'Contact',
   labelCostCenter: () => 'Cost center',
   labelProject: () => 'Project',

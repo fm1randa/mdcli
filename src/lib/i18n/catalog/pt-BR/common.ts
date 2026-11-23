@@ -104,6 +104,7 @@ export const ptBRCommon = {
   labelPlannedDate: () => 'Data prevista',
   labelRepetition: () => 'Repetição',
   labelTransferAccount: () => 'Conta da transferência',
+  labelSavingsGoal: () => 'Meta de economia',
   labelContact: () => 'Contato',
   labelCostCenter: () => 'Centro de custo',
   labelProject: () => 'Projeto',
