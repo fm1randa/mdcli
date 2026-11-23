@@ -85,6 +85,7 @@ describe('entries list fields', () => {
       effectiveDate: '2026-01-16',
       competenceDate: '2026-01-03',
       transferAccountId: null,
+      savingsGoalId: null,
       tagIds: [501, 502],
       notes: 'em 6x',
       documentNumber: 'NF-1',
@@ -98,10 +99,10 @@ describe('entries list fields', () => {
     expect(result.exitCode).toBe(0);
     const [header, first, second] = result.stdout.split('\r\n');
     expect(header).toBe(
-      'id,date,description,value,type,status,account,category,installment,repetition,effective_date,competence_date,transfer_account,tags,notes,document_number'
+      'id,date,description,value,type,status,account,category,installment,repetition,effective_date,competence_date,transfer_account,tags,notes,document_number,savings_goal_id'
     );
-    expect(first).toBe('61,2026-01-16,Notebook,-250,expense,confirmed,Conta Teste,Alimentação,2/6,installment,2026-01-16,2026-01-03,,Trabalho; Pessoal,em 6x,NF-1');
-    expect(second).toBe('62,2026-01-20,Reserva,-500,transfer,pending,Conta Teste,Transferência,fixa,fixed,,,Poupança Teste,,,');
+    expect(first).toBe('61,2026-01-16,Notebook,-250,expense,confirmed,Conta Teste,Alimentação,2/6,installment,2026-01-16,2026-01-03,,Trabalho; Pessoal,em 6x,NF-1,');
+    expect(second).toBe('62,2026-01-20,Reserva,-500,transfer,pending,Conta Teste,Transferência,fixa,fixed,,,Poupança Teste,,,,');
   });
 
   test('tells confirmed and pending apart and shows the whole Installment header', async () => {

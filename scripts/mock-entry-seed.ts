@@ -130,6 +130,27 @@ const SEED_ENTRIES = {
     tags: [],
     observacoes: '',
   },
+  // A deposit into a savings goal (#337), seen from its destination half and
+  // dated outside the months the list steps read.
+  56: {
+    id: 56,
+    descricao: 'Aporte Meta Teste',
+    tipo: 't',
+    valor: 150,
+    valorT: -150,
+    data: '2025-06-17',
+    dataPrevista: '2025-06-17',
+    dataEfetiva: '2025-06-17',
+    status: 'conciliado',
+    conciliado: true,
+    conta: 204,
+    contaT: 201,
+    transferencia: 57,
+    metaEconomiaDestino: 8,
+    categoria: 30,
+    tags: [],
+    observacoes: '',
+  },
   // An expense linked to a savings goal (#334), outside the listed months and
   // on the savings account, so the checking balances stay as verify.sh pins them.
   72: {

@@ -45,6 +45,7 @@ export async function showAction(id: string, options: ShowOptions): Promise<void
     [t('labelCompetenceDate'), cell(entry.competenceDate)],
     [t('labelAccount'), nameOf(names.accounts, entry.accountId)],
     [t('labelTransferAccount'), cell(entry.transferAccountId, (id) => String(nameOf(names.accounts, id)))],
+    [t('labelSavingsGoal'), cell(entry.savingsGoalId)],
     [t('labelCategory'), cell(entry.categoryId, (id) => String(nameOf(names.categories, id)))],
     [t('labelTags'), listCell(tagNames(names, entry.tagIds))],
     [t('labelRepetition'), t(REPETITION_LABELS[entry.repetition]) + (entry.installment && entry.repetition === 'installment' ? ` (${entry.installment})` : '')],

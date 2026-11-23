@@ -70,7 +70,7 @@ export async function listAction(options: ListOptions): Promise<void> {
       toCsv(
         [
           'id', 'date', 'description', 'value', 'type', 'status', 'account', 'category', 'installment',
-          'repetition', 'effective_date', 'competence_date', 'transfer_account', 'tags', 'notes', 'document_number',
+          'repetition', 'effective_date', 'competence_date', 'transfer_account', 'tags', 'notes', 'document_number', 'savings_goal_id',
         ],
         entries.map((e) => [
           e.id,
@@ -89,6 +89,7 @@ export async function listAction(options: ListOptions): Promise<void> {
           tagNames(names, e.tagIds).join('; '),
           e.notes,
           e.documentNumber,
+          e.savingsGoalId,
         ])
       )
     );
