@@ -142,12 +142,29 @@ export function createdEntry(body: Body, id: CreateEntryResponse['id']): CreateE
  * stored entry. Like the real API, without todos: true an occurrence leaves
  * its series.
  */
-export function updatedEntry(existing: Entry, body: Body, id: EntryId): CreateEntryResponse & Pick<Entry, 'agendaId' | 'parcela'> & { plastico: number | null } {
+type SavingsGoal = Pick<Entry, 'metaEconomia' | 'metaEconomiaOrigem' | 'metaEconomiaDestino'>;
+
+/**
+ * The savings goal link the PUT leaves (#334): a transfer keeps only the
+ * metaEconomiaOrigem/metaEconomiaDestino it sends, any other entry the
+ * metaEconomia it sends (null unlinks it).
+ */
+function savingsGoal(body: Body): SavingsGoal {
+  if (body.transferencia !== true) return { metaEconomia: numberOrNull(body.metaEconomia) };
+  const goal: SavingsGoal = {};
+  if (typeof body.metaEconomiaOrigem === 'number') goal.metaEconomiaOrigem = body.metaEconomiaOrigem;
+  if (typeof body.metaEconomiaDestino === 'number') goal.metaEconomiaDestino = body.metaEconomiaDestino;
+  return goal;
+}
+
+export function updatedEntry(existing: Entry, body: Body, id: EntryId): CreateEntryResponse & Pick<Entry, 'agendaId' | 'parcela'> & SavingsGoal & { plastico: number | null } {
+  const { metaEconomia: _goal, metaEconomiaOrigem: _origin, metaEconomiaDestino: _destination, ...unlinked } = existing;
   const merged: Body = { ...existing, ...body, id };
   const inSeries = Boolean(existing.agendaId) && Boolean(existing.parcela);
   const keepsSeries = inSeries && body.todos === true;
   return {
-    ...existing,
+    ...unlinked,
+    ...savingsGoal(body),
     id,
     descricao: String(merged.descricao ?? existing.descricao),
     conciliado: merged.conciliado === true,

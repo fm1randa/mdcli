@@ -40,7 +40,7 @@ const transfer = {
   categoria: 30,
   tags: [],
   observacoes: '',
-} as const;
+} satisfies Partial<Entry>;
 
 const answer = { descricao: 'Meta Teste', valor: -500, data: '2026-01-15', status: 'conciliado' } as const;
 
