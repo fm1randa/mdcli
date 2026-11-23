@@ -52,8 +52,8 @@ The goals of a period with their figures, per kind (expense, income, investment)
 _Avoid_: "orçamento" (Portuguese only), "budget" for a single goal (that is a Goal)
 
 **Regime**:
-How a Budget dates an Entry: **cash** (caixa, `regime=ca`, the default) by its date, **accrual** (competência, `regime=co`) by its competence date. `budget --regime cash|accrual`.
-_Avoid_: "mode", "basis"
+How a Budget or a report dates an Entry, the web reports' "Visão de caixa" / "Visão da competência" toggle: **cash** (caixa, `regime=ca`, the default) by its date, **accrual** (competência, `regime=co`) by its competence date (`dataCompetencia`). `budget --regime cash|accrual`. `entries summary --regime cash|accrual` sends the same parameter on `GET /v2/lancamentos`, groups `--by month` by the competence date under accrual, and refuses accrual when the user has the competence view off (`usuario.conta.config.visaoCompetencia`), where the web forces `ca`; without the flag it sends no `regime` and `--json` reports `regime: null`.
+_Avoid_: "mode", "basis", "competência" alone for the flag value (the CLI surface says `accrual`)
 
 **Connection**:
 A link between a bank and Meu Dinheiro through the web app's bank integration (Integração bancária). A Connection has zero or more Accounts (a checking account and its card can share one). Each bank-side account is a connection account, optionally linked to an Account. **Sync** asks the bank for new data through the Connection (the web's "Atualizar conexão"), at most 3 times a day per connector.
