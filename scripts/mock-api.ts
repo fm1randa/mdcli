@@ -13,6 +13,7 @@ import { budgetRoute } from './mock-budget.js';
 import { cardsRoute } from './mock-cards.js';
 import { sessionRoute } from './mock-session.js';
 import { CLOSED_INVOICE_CARD } from './mock-closed-invoice.js';
+import { invoicePaymentRoute, PAYMENT_CARD, PIX_ACCOUNT } from './mock-invoice-payment.js';
 
 // GitHub "latest release" endpoint used by the self-updater (no auth).
 const MOCK_LATEST_TAG = 'v2099.1.1';
@@ -64,7 +65,7 @@ const MOCK_CATEGORIES: CategoriesResponse = {
 
 const MOCK_ACCOUNTS: AccountsResponse = {
   ...ACCOUNTS_RESPONSE,
-  items: [...ACCOUNTS_RESPONSE.items.map(withRecentStatement), CARD_NO_DUE, SAVINGS_ACCOUNT, CARD_DATE_ONLY, CLOSED_INVOICE_CARD],
+  items: [...ACCOUNTS_RESPONSE.items.map(withRecentStatement), CARD_NO_DUE, SAVINGS_ACCOUNT, CARD_DATE_ONLY, CLOSED_INVOICE_CARD, PIX_ACCOUNT, PAYMENT_CARD],
 };
 
 function accountType(tipoNovo: unknown) {
@@ -153,6 +154,8 @@ const server = Bun.serve({
       return json<'GET /v1/cadastros/tags'>(TAGS_RESPONSE);
     }
     if (url.pathname.startsWith('/api/v1/cartoes/')) {
+      const paid = await invoicePaymentRoute(req, url.pathname);
+      if (paid) return paid;
       const card = cardsRoute(req, url.pathname, isCreditCardId, (id) => MOCK_ACCOUNTS.items.find((a) => a.id === id)?.limite);
       if (card) return card;
     }

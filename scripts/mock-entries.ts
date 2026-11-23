@@ -6,6 +6,7 @@ import { badRequest, json, notFound, readJsonBody } from './mock-http.js';
 import { checkCreatePayload, checkUpdateAccounts, createdEntry, mockEntryId, updatedEntry } from './mock-entry-payload.js';
 import { createCardPurchase } from './mock-card-purchases.js';
 import { IMPORT_CANDIDATES } from './mock-import.js';
+import { invoicePaymentCandidates } from './mock-invoice-payment.js';
 import { SEEDED_ENTRIES } from './mock-entry-seed.js';
 
 export const ENTRIES_PATH = '/api/v1/lancamentos';
@@ -29,7 +30,7 @@ export function entriesListRoute(url: URL, accountTipo: AccountTipo): Response {
   const to = url.searchParams.get('fim') ?? '';
   const repetition = parseInteger(url.searchParams.get('tipoRepeticao') ?? '7');
   if (repetition === undefined) return badRequest('tipoRepeticao must be a whole number');
-  const candidates = url.searchParams.get('finalidade') === '3' ? IMPORT_CANDIDATES : [];
+  const candidates = url.searchParams.get('finalidade') === '3' ? [...IMPORT_CANDIDATES, ...invoicePaymentCandidates()] : [];
   const list = [...Object.values(SEEDED_ENTRIES), ...candidates].filter((e) => {
     const date = String(e.dataPrevista);
     // Like the real statement list (finalidade 1), card purchases are left out:

@@ -72,6 +72,40 @@ export interface CardInvoiceResponse {
   resumo?: CardInvoiceSummary;
   /** Present when the invoice is closed. */
   id?: number;
+  /** Payments already scheduled for the invoice (positive); the web's close dialog adds it to valor (mdb.js, PagarFaturaController). */
+  pagamentosAgendados?: number;
+}
+
+/**
+ * POST /v1/cartoes/:id/pagar: the web's "Fechar fatura" (mdb.js, cartoesService.fecharFatura and
+ * PagarFaturaController.ok). It closes the card's proximoVencimento invoice and, when valor is not 0,
+ * schedules its payment from contaT.
+ */
+export interface CloseInvoiceRequest {
+  conta: number;
+  /** Payment date (YYYY-MM-DD). */
+  data: string;
+  /** Amount to schedule, the invoice's sign (an expense bill is negative); 0 schedules nothing. */
+  valor: number;
+  /** Paying account, as the web sends it: the id as a string. */
+  contaT: string;
+  confirmado: boolean;
+  automatico: boolean;
+  /** The card's proximoVencimento, as the account returns it. */
+  vencimento: string;
+  anexos: number[];
+  lembrete: number;
+}
+
+/** What the web reads from the close answer (conta, vencimento); the rest of the body is unknown. */
+export interface CloseInvoiceResponse {
+  conta: number;
+  vencimento: string;
+}
+
+/** POST /v1/cartoes/:id/reabrir: the web's "Reabrir fatura" (mdb.js, cartoesService.reabrirFatura). */
+export interface ReopenInvoiceRequest {
+  vencimento: string;
 }
 
 /**
