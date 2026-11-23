@@ -1,0 +1,15 @@
+diff --git a/src/commands/budget-write.ts b/src/commands/budget-write.ts
+--- a/src/commands/budget-write.ts
++++ b/src/commands/budget-write.ts
+@@ -80,10 +80,7 @@ async function writeBudget(options: WriteFlags, value: number): Promise<void> {
+   const write = await resolveWrite(options, value);
+-  for (const month of write.months) {
+-    const report = await loadBudget({ period: monthRange(month), regime: 'cash' });
+-    const conflicts = findConflicts(report, write);
+-    if (conflicts.length > 0) exitWithError(formatConflicts(conflicts, month));
+-  }
++  const report = await loadBudget({ period: monthRange(write.months[0]!), regime: 'cash' });
++  const conflicts = findConflicts(report, write);
++  if (conflicts.length > 0) exitWithError(formatConflicts(conflicts, write.months[0]!));
+ 
+   const payload = buildSavePayload(write);

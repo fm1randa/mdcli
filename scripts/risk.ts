@@ -1,8 +1,9 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { behaviorIndexes, fileChangesBehavior, parseDiff, type DiffFile } from './behavior-change.js';
-import { diffAgainst, parseBase } from './git.js';
+import { DEFAULT_BASE, diffAgainst, gitResult, parseRevisionFlag, repoRoot, revisionExists } from './git.js';
 
-export type RiskTopic = 'auth' | 'write' | 'security';
+type RiskTopic = 'auth' | 'write' | 'security';
 
 export interface RiskReason {
   topic: RiskTopic;
@@ -39,6 +40,15 @@ const SECURITY_SURFACES: readonly SecuritySurface[] = [
   { path: /^scripts\/check-private-messages\.ts$/, detail: 'private-data message guard changed' },
   { path: /^test\/check-private-messages\.test\.ts$/, detail: 'private-data message guard test changed' },
   { path: /^scripts\/verify\.sh$/, detail: 'verification script changed' },
+  // The merge gates themselves: a PR that edits the classifier, the label
+  // writer, the gate runner, its exemption or the proof gate would otherwise
+  // be judged by the edited copy (#315).
+  { path: /^scripts\/risk\.ts$/, detail: 'risk classifier changed' },
+  { path: /^scripts\/risk-label\.ts$/, detail: 'risk label gate changed' },
+  { path: /^scripts\/new-tests-fail-on-main\.ts$/, detail: 'fails-on-main gate changed' },
+  { path: /^scripts\/fails-on-main-exemption\.ts$/, detail: 'fails-on-main exemption changed' },
+  { path: /^scripts\/prova\.ts$/, detail: 'proof gate changed' },
+  { path: /^\.github\/workflows\//, detail: 'CI gate workflow changed' },
   { path: /^eslint-rules\//, detail: 'local ESLint rule changed' },
   // The config decides where each local rule runs: dropping scripts/** from a
   // block silences the rule there as surely as editing the rule (#272).
@@ -76,6 +86,7 @@ const WRITE_FUNCTIONS = [
   'deleteEntry',
 ].join('|');
 const WRITE_CALL = new RegExp(`\\b(?:${WRITE_FUNCTIONS})\\s*\\(`);
+const WRITE_API_CALL = /\bapi(?:Post|Put|Delete)\s*[<(]/;
 const WRITE_REQUEST = /\brequest\s*<[^>]*>\s*\(\s*['"](?:POST|PUT|DELETE)['"]/;
 const WRITE_METHOD = /\bmethod\s*[:=]\s*['"](?:POST|PUT|DELETE)['"]/;
 
@@ -83,20 +94,63 @@ const OUTPUT_ONLY =
   /\b(?:flushStdout|exitAfterFlush|process\.exit|console\.(?:log|error|warn|info|debug)|logger\.\w+|chalk\.\w+)\b/;
 
 function commentStyle(path: string): 'js' | 'shell' {
-  return path.endsWith('.sh') ? 'shell' : 'js';
+  return path.endsWith('.sh') || path.endsWith('.yml') || path.endsWith('.yaml') ? 'shell' : 'js';
 }
 
 function topicOf(text: string): RiskTopic | null {
   if (AUTH_BEHAVIOR.test(text)) return 'auth';
-  if (WRITE_CALL.test(text) || WRITE_REQUEST.test(text) || WRITE_METHOD.test(text)) return 'write';
+  if (WRITE_CALL.test(text) || WRITE_API_CALL.test(text) || WRITE_REQUEST.test(text) || WRITE_METHOD.test(text)) {
+    return 'write';
+  }
   return null;
 }
 
-function sensitivity(path: string): RiskTopic[] {
+function sensitivity(path: string, writeModules: ReadonlySet<string> | undefined): RiskTopic[] {
   const topics: RiskTopic[] = [];
   if (AUTH_PATH.test(path)) topics.push('auth');
-  if (WRITE_PATH.test(path)) topics.push('write');
+  if (WRITE_PATH.test(path) || writeModules?.has(path) === true) topics.push('write');
   return topics;
+}
+
+/**
+ * The src modules that call the write API. WRITE_PATH keeps the modules whose
+ * path names the write, and a new writer used to need a manual entry there:
+ * budget-write.ts called apiPost and classified safe (#315).
+ */
+export function writeApiModules(root: string): ReadonlySet<string> {
+  const modules = new Set<string>();
+  const src = join(root, 'src');
+  if (!existsSync(src)) return modules;
+  for (const entry of readdirSync(src, { recursive: true, encoding: 'utf8' })) {
+    const path = `src/${entry.replaceAll('\\', '/')}`;
+    if (!path.endsWith('.ts')) continue;
+    if (WRITE_API_CALL.test(readFileSync(join(root, path), 'utf8'))) modules.add(path);
+  }
+  return modules;
+}
+
+/**
+ * The write modules of the tree the PR is compared against. A PR that moves
+ * `apiPost` out of a file would drop that file from the head surface while the
+ * base still wrote through it, so the classifier takes both sides (#315).
+ */
+export async function writeApiModulesAt(ref: string, root: string): Promise<ReadonlySet<string>> {
+  const modules = new Set<string>();
+  const result = await gitResult(
+    ['grep', '-l', '-E', 'api(Post|Put|Delete)[[:space:]]*[<(]', ref, '--', 'src'],
+    root
+  );
+  if (result.exitCode === 1) return modules;
+  if (result.exitCode !== 0) {
+    throw new Error(`cannot read the write surface of ${ref}: ${result.stderr.toString().trim()}`);
+  }
+  for (const line of result.stdout.toString().split('\n')) {
+    const separator = line.indexOf(':');
+    if (separator === -1) continue;
+    const path = line.slice(separator + 1);
+    if (path.endsWith('.ts')) modules.add(path);
+  }
+  return modules;
 }
 
 function sensitiveDetail(topic: RiskTopic): string {
@@ -120,7 +174,12 @@ function changesSecurityBehavior(file: DiffFile): boolean {
   return fileChangesBehavior(file, { commentStyle: commentStyle(file.path) });
 }
 
-export function classifyRisk(diff: string): RiskReport {
+interface RiskOptions {
+  /** src modules that call the write API; the CLI derives them from the checkout. */
+  writeModules?: ReadonlySet<string>;
+}
+
+export function classifyRisk(diff: string, options: RiskOptions = {}): RiskReport {
   const reasons: RiskReason[] = [];
   const seen = new Set<string>();
   for (const file of parseDiff(diff)) {
@@ -139,7 +198,7 @@ export function classifyRisk(diff: string): RiskReport {
         if (topic) {
           addReason(reasons, seen, { topic, path: file.path, detail: sensitiveDetail(topic) });
         } else if (!OUTPUT_ONLY.test(line.text)) {
-          for (const sensitive of sensitivity(file.path)) {
+          for (const sensitive of sensitivity(file.path, options.writeModules)) {
             addReason(reasons, seen, {
               topic: sensitive,
               path: file.path,
@@ -155,12 +214,14 @@ export function classifyRisk(diff: string): RiskReport {
 
 interface Options {
   base: string;
+  /** A caller-pinned `--base` fails when it does not resolve; a default may fall back to the head. */
+  explicitBase: boolean;
   diff?: string;
 }
 
 function parseOptions(argv: string[]): Options {
-  const { base, rest } = parseBase(argv);
-  const options: Options = { base };
+  const { value, rest } = parseRevisionFlag(argv, '--base');
+  const options: Options = { base: value ?? DEFAULT_BASE, explicitBase: value !== undefined };
   for (let index = 0; index < rest.length; index++) {
     const arg = rest[index];
     if (arg === '--diff') {
@@ -176,8 +237,19 @@ function parseOptions(argv: string[]): Options {
 async function main(): Promise<void> {
   try {
     const options = parseOptions(process.argv.slice(2));
-    const diff = options.diff ? readFileSync(options.diff, 'utf8') : await diffAgainst(options.base);
-    const report = classifyRisk(diff);
+    const root = await repoRoot();
+    const diff = options.diff ? readFileSync(options.diff, 'utf8') : await diffAgainst(options.base, { cwd: root });
+    // A `--diff` run does not need the base to build the diff. When nobody
+    // pinned one and the checkout has no origin/main, keep the run working
+    // with the head surface instead of failing on the default base.
+    const hasBase = options.explicitBase || (await revisionExists(options.base, root));
+    let baseWriters: ReadonlySet<string> = new Set();
+    if (hasBase) {
+      baseWriters = await writeApiModulesAt(options.base, root);
+    } else {
+      console.error(`risk: ${options.base} does not resolve; classifying with the head write surface only`);
+    }
+    const report = classifyRisk(diff, { writeModules: new Set([...writeApiModules(root), ...baseWriters]) });
     console.log(JSON.stringify(report, null, 2));
     if (report.risky) process.exitCode = 2;
   } catch (error) {
