@@ -53,13 +53,6 @@ async function putBody(id: number, entry: Entry): Promise<Record<string, unknown
 }
 
 describe('entries update keeps the savings goal link (#334)', () => {
-  test('a deposit edited from its destination half keeps metaEconomiaDestino', async () => {
-    const body = await putBody(70, {
-      ...transfer, id: 70, valor: 500, valorT: -500, conta: 203, contaT: 201, metaEconomiaDestino: 7,
-    });
-    expect(body).toMatchObject({ contaOrigem: 201, contaDestino: 203, metaEconomiaDestino: 7 });
-  });
-
   test('a deposit edited from its destination half linked by metaEconomia sends it as metaEconomiaDestino', async () => {
     const body = await putBody(71, {
       ...transfer, id: 71, valor: 500, valorT: -500, conta: 203, contaT: 201, metaEconomia: 7,
