@@ -1,5 +1,5 @@
 import type { EntriesPage } from './api-routes.js';
-import type { Account, AccountsResponse, CardInvoiceResponse, CategoriesResponse, FirstInvoiceResponse, Category, EntriesResponse, Entry, TagsResponse } from '../src/types/index.js';
+import type { Account, AccountsResponse, CardInvoiceResponse, CategoriesResponse, FirstInvoiceResponse, Category, EntriesResponse, Entry, SavingsGoal, TagsResponse } from '../src/types/index.js';
 
 const editable = { visivel: true, acoes: { editar: true, excluir: true } };
 const locked = { visivel: true, acoes: { editar: false, excluir: false } };
@@ -168,3 +168,14 @@ export const TAG_WORK: TagsResponse[number] = { id: 501, nome: 'Trabalho', statu
 export const TAG_PERSONAL: TagsResponse[number] = { id: 502, nome: 'Pessoal', status: false, cor: '00FF00' };
 
 export const TAGS_RESPONSE: TagsResponse = [TAG_WORK, TAG_PERSONAL];
+
+/**
+ * GET /v1/metas/economia (#340): an active goal on the savings account (the
+ * one the seeded deposit and withdrawal link), an inactive one, and an active
+ * one on both test accounts.
+ */
+export const SAVINGS_GOALS: SavingsGoal[] = [
+  { id: 8, descricao: 'Meta Teste', status: true, contas: [{ conta: 204 }] },
+  { id: 10, descricao: 'Meta Inativa Teste', status: false, contas: [{ conta: 204 }] },
+  { id: 11, descricao: 'Meta Duas Contas Teste', status: true, contas: [{ conta: 201 }, { conta: 204 }] },
+];

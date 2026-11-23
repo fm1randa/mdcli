@@ -8,3 +8,4 @@ export { fetchWebConfig, loadSessionPreferences, fetchAccountBalances } from './
 export { fetchFirstInvoice, fetchCardInvoice, fetchCardFuture, closeCardInvoice, reopenCardInvoice } from './api/cards.js';
 export { fetchConnections, fetchBankTransactions, fetchImportDuplicates, fetchImportCandidates, suggestCategoriesWithAi, markBankTransactionsImported, conciliateBankTransactions, importBankTransactions, requestSync } from './api/bank-import.js';
 export { fetchEntry, fetchAllEntries, createEntry, updateEntry, deleteEntry } from './api/entries.js';
+export { fetchSavingsGoals } from './api/savings-goals.js';
