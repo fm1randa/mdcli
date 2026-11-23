@@ -23,6 +23,9 @@ export function refusesMockPayloads(): Response[] {
     // @ts-expect-error the accounts list carries meta beside items.
     json<'GET /v1/cadastros/contas'>({ items: [CHECKING_ACCOUNT] }),
     json<'GET /v1/cadastros/contas'>({ meta: { tipos: [], gruposbp: [], finalidades: [] }, items: [CHECKING_ACCOUNT] }),
+    // @ts-expect-error #338: the statement row's _ca.t is a list of keyword objects, not strings.
+    json<'GET /v1/integracao/account/301/transactions'>({ lancamentos: [{ _ca: { t: ['mercado'] } }] }),
+    json<'GET /v1/integracao/account/301/transactions'>({ lancamentos: [{ _ca: { t: [{ k: { k: 'mercado', v: 'mercado' }, d: [] }] } }] }),
     // @ts-expect-error json without a route accepts no body.
     json(CHECKING_ACCOUNT),
   ];

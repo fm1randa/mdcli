@@ -43,6 +43,16 @@ interface SuggestionBucket {
   [field: string]: SuggestedField | undefined;
 }
 
+/** One learned keyword of the row: the web reads `k` as the keyword, `d` and `r` as field names. */
+interface LearnedKeyword {
+  /** The keyword id (`k`), its label (`v`) and its group (`g`). */
+  k: { k: string | number; v?: string; g?: string | number };
+  /** Fields the keyword already fills by default. */
+  d?: readonly string[];
+  /** Fields the keyword is restricted to; the others ignore it. */
+  r?: readonly string[];
+}
+
 interface CategoryAnnotation {
   /** The AI token for one kind. The row sends a string array. */
   ait?: Partial<Record<SuggestionKind, readonly string[]>>;
@@ -50,7 +60,8 @@ interface CategoryAnnotation {
   st?: boolean;
   /** The suggested description the web writes as the row's default. */
   d?: string;
-  t?: readonly unknown[];
+  /** Learned keywords. The CLI does not read them. */
+  t?: readonly LearnedKeyword[];
   /** Suggested fields by kind. */
   c?: Partial<Record<SuggestionKind, SuggestionBucket>>;
 }
@@ -62,8 +73,6 @@ interface BankTransaction {
   valor?: number;
   data?: string;
   moeda?: number;
-  /** Keyword list the real row carries. The CLI does not read it. */
-  k?: readonly unknown[];
   _ca?: CategoryAnnotation;
 }
 

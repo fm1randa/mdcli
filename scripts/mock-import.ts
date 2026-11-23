@@ -20,10 +20,9 @@ const PADARIA = {
   valor: -12.34,
   data: '2026-10-07',
   moeda: 1,
-  k: ['padaria'],
   _ca: {
     ait: { d: ['d', 'tok-padaria'] },
-    t: ['tok-padaria'],
+    t: [{ k: { k: 'padaria', v: 'padaria' }, d: [], r: ['categoria'] }],
     c: { r: { categoria: { v: '20' } } },
   },
 } satisfies BankTransaction;
@@ -38,7 +37,7 @@ const MERCADO = {
   moeda: 1,
   _ca: {
     st: false,
-    t: ['mercado'],
+    t: [{ k: { k: 'mercado', v: 'mercado' }, d: ['categoria'] }],
     c: {
       d: { categoria: { v: '11' } },
       r: { categoria: { v: '20' } },
