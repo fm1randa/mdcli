@@ -1,0 +1,7 @@
+{
+  "rule": "no-sync-spawn",
+  "origin": "34919826b7ea2a3403cfb886a67fb2a49be08147",
+  "source": "src/commands/entries/import/edit.ts",
+  "note": "The import editor called spawnSync through a named ESM import. On Bun 1.4.2 that binding reaches the guard and the child does not start. The rule still keeps the call in src/lib/sync-child.ts (#301).",
+  "code": "import { spawnSync } from 'node:child_process';"
+}

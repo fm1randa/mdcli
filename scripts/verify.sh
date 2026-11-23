@@ -6,6 +6,17 @@
 set -uo pipefail
 cd "$(dirname "$0")/.."
 
+# The private-data guard keys low-entropy numeric terms so the public hash set
+# is not a brute-forceable fingerprint (#221). The key lives outside the
+# repository; CI passes it as a secret.
+if [ -z "${MDCLI_PRIVATE_TERMS_KEY:-}" ] && [ -f "${HOME:-}/.mdcli-team/private-terms.key" ]; then
+  MDCLI_PRIVATE_TERMS_KEY=$(cat "${HOME}/.mdcli-team/private-terms.key")
+  export MDCLI_PRIVATE_TERMS_KEY
+fi
+if [ -z "${MDCLI_PRIVATE_TERMS_KEY:-}" ]; then
+  echo "aviso: MDCLI_PRIVATE_TERMS_KEY ausente; termos numéricos de baixa entropia não serão verificados"
+fi
+
 # Same result on any terminal: the caller's environment must not change what
 # the CLI prints. In GitHub CI TERM is unset; claude.ai containers set
 # TERM=linux (which makes @inquirer/prompts draw ">" instead of "❯") and may
@@ -70,6 +81,13 @@ wait_steps() {
   done
 }
 
+if ! command -v bun >/dev/null 2>&1; then
+  pin=$(sed -n 's/^[[:space:]]*"packageManager":[[:space:]]*"\([^"]*\)".*/\1/p' package.json | head -n 1)
+  echo "bun não está no PATH. package.json pede ${pin:-packageManager}."
+  exit 1
+fi
+bun scripts/bun-pin.ts || exit 1
+
 step "install"   bun install --frozen-lockfile
 # README.en.md translates README.md: its top comment records the git blob hash
 # of the README.md it matches (readme-blob). Computed in Bun, like
@@ -105,16 +123,37 @@ review_notes_not_tracked() {
   fi
 }
 step "review notes not tracked" review_notes_not_tracked
+# The gates' default base (origin/main, else main, else empty to skip) has
+# one owner, scripts/git.ts, so the shell and the gates cannot disagree (#286).
+gate_base() { bun scripts/git.ts --print-base; }
+# The private-data guard is derived from the migration: when a PR maintains
+# the guard, every value the diff removes must already have a hash or a reason,
+# so a sweep cannot close one finding at a time. The script skips an ordinary
+# PR; the test replays the #177 range.
+private_terms_corpus() {
+  local base
+  base=$(gate_base) || return 1
+  if [ -z "$base" ]; then echo "sem origin/main nem main: corpus da guarda ignorado"; return 0; fi
+  bun scripts/private-terms-corpus.ts --base "$base"
+}
+step "private-terms corpus" private_terms_corpus
+# A squash-merge copies the PR body into the commit, and a pushed message only
+# changes with a force-push (issue #216): scan both before they leave.
+private_messages() {
+  local base
+  base=$(gate_base) || return 1
+  if [ -z "$base" ]; then echo "sem origin/main nem main: comparação de mensagens ignorada"; return 0; fi
+  bun scripts/check-private-messages.ts --base "$base"
+}
+step "private messages" private_messages
 # A copied eslint-disable is a suppression, not a fix (#187): fail when an
 # added directive has no reason after "--"; a removal elsewhere never excuses
 # it. A shallow checkout without a base ref skips the comparison instead of
 # failing on something it cannot see.
 eslint_disables() {
   local base
-  if git rev-parse --verify --quiet origin/main >/dev/null; then base=origin/main
-  elif git rev-parse --verify --quiet main >/dev/null; then base=main
-  else echo "sem origin/main nem main: comparação de eslint-disable ignorada"; return 0
-  fi
+  base=$(gate_base) || return 1
+  if [ -z "$base" ]; then echo "sem origin/main nem main: comparação de eslint-disable ignorada"; return 0; fi
   bun scripts/check-eslint-disables.ts --base "$base"
 }
 start_step "eslint disables" eslint_disables
@@ -242,6 +281,31 @@ sync_list() {
 }
 step "cli accounts list (mock)"        expect_ok 'Conta Teste' accounts list
 step "cli sync list (mock)"            sync_list
+# The mock turns the connection UPDATING after the PUT and UPDATED on the next
+# status check. The CLI waits (statusCheckWindow) and prints the final status;
+# a second PUT would spend the daily limit, so the run must keep it at one.
+sync_run() {
+  local log="$MDCLI_MOCK_LOG"
+  local before=0
+  [ -f "$log" ] && before=$(wc -l <"$log")
+  local out
+  out=$("${CLI[@]}" sync run 201 --yes </dev/null 2>&1) || { echo "output: $out"; return 1; }
+  grep -Eq 'Sync finished: connection 501 UPDATED\.' <<<"$out" \
+    || { echo "expected the final status in: $out"; return 1; }
+  grep -Eq 'Still UPDATING after' <<<"$out" \
+    || { echo "expected the wait progress in: $out"; return 1; }
+  grep -Eq 'no final status' <<<"$out" && { echo "unexpected timeout in: $out"; return 1; }
+  local fresh
+  fresh=$(tail -n +"$((before + 1))" "$log")
+  [ "$(grep -Fc '"method":"PUT","path":"/api/v1/integracao/connection/update/501"' <<<"$fresh")" = 1 ] \
+    || { echo "expected exactly one Sync PUT: $fresh"; return 1; }
+  [ "$(grep -Fc '"method":"GET","path":"/api/v1/integracao/connections"' <<<"$fresh")" -ge 3 ] \
+    || { echo "expected the status checks after the PUT: $fresh"; return 1; }
+  local writes
+  writes=$(grep -Ev '"method":"GET"' <<<"$fresh" | grep -Fxv '{"method":"PUT","path":"/api/v1/integracao/connection/update/501"}')
+  [ -z "$writes" ] || { echo "sync run made another write: $writes"; return 1; }
+}
+step "cli sync run (mock)"             sync_run
 # The import steps only read. The one POST allowed is the AI category
 # suggestion (smartmatch/ai); a commit POST, a Sync PUT, or any other write
 # fails the step. The commit bodies are asserted by the test suite.
@@ -501,7 +565,7 @@ step "cli entries update -p texto (mock)" expect_ok 'Status: Pending' entries up
 step "cli entries update parcela (mock)"     expect_ok 'Entry updated' entries update 60 -d "Notebook (2/6)"
 step "cli entries update parcela --json (mock)" expect_json 'd.id === 60 && d.descricao === "Notebook (2/6)"' entries update 60 -d "Notebook (2/6)" --json
 step "cli entries update transferência (mock)" expect_ok 'Entry updated' entries update 50 -d "Poupança mensal" -v 1200
-step "cli entries update transferência --json (mock)" expect_json 'd.id === 50 && d.descricao === "Poupança mensal"' entries update 50 -d "Poupança mensal" -v 1200 --json
+step "cli entries update transferência --json (mock)" expect_json 'd.id === 50 && d.descricao === "Poupança mensal" && d.dataEfetiva === "2026-01-15"' entries update 50 -d "Poupança mensal" -v 1200 --json
 # Recurring series (#65): a scheduled occurrence stays scheduled, --scope maps
 # to todos (the mock keeps it in the series only with todos: true) and editing
 # without --scope warns on stderr.
@@ -519,7 +583,8 @@ step "cli entries update --account texto (mock)" expect_ok 'Account: 204' entrie
 # Into a card the invoice is the web form's (from proximoVencimento, closing
 # fechamento days before) and the plastic is the new card's holder, or null.
 step "cli entries update --account cartão (mock)" expect_json 'd.conta === 205 && d.dataCompetencia === "2026-11-10" && d.dataPrevista === "2026-12-16" && d.dataEfetiva === null && d.plastico === 62' entries update 70 --account 205 -D 2026-11-10 --json
-step "cli entries update --account cartão data passada (mock)" expect_json 'd.conta === 205 && d.dataCompetencia === "2026-01-12" && d.dataPrevista === "2026-11-16"' entries update 70 --account 205 --json
+step "cli entries update echoes dataEfetiva (mock)" expect_json 'd.dataEfetiva === "2026-01-14" && d.dataPrevista === "2026-01-12"' entries update 70 -d "Café quente" --json
+step "cli entries update --account cartão data passada (mock)" expect_json 'd.conta === 205 && d.dataCompetencia === "2026-01-14" && d.dataPrevista === "2026-11-16"' entries update 70 --account 205 --json
 step "cli entries update --account cartão sem plástico (mock)" expect_json 'd.conta === 202 && d.plastico === null' entries update 70 --account 202 --json
 step "cli entries update --account inexistente (mock)" expect_fail 'Unknown account: Inexistente' entries update 70 --account Inexistente
 step "cli entries update --to-account fora de transferência (mock)" expect_fail 'to-account only applies to transfers' entries update 70 --to-account 204
@@ -537,9 +602,17 @@ step "cli entries list --repetition (mock)" expect_json 'd.length === 1 && d[0].
 step "cli entries list --csv campos extras (mock)" expect_ok 'transfer_account,tags,notes,document_number' entries list -a 201 -f 2026-01-01 -t 2026-01-31 --csv
 step "cli entries list --csv nomes de tag (mock)" expect_ok ',Trabalho,parcelado,NF-1' entries list -a 201 -f 2026-01-01 -t 2026-01-31 --csv
 step "cli entries summary --repetition (mock)" expect_json 'd.total.count === 1 && d.skippedTransfers === 1' entries summary -a 201 -f 2026-01-01 -t 2026-01-31 -R single --json
+# #283: --regime sends the web reports' regime (ca/co); the mock dates a co entry by dataCompetencia.
+# Seed 73 is paid 2026-04-05 for work on 2026-03-28: cash puts it in April, accrual in March.
+step "cli entries summary --regime cash (mock)" expect_json 'd.regime === "cash" && d.rows.map((r) => r.key + ":" + r.count).join() === "2026-03:1,2026-04:1"' entries summary -a 204 -f 2026-03-01 -t 2026-04-30 --by month --regime cash --json
+step "cli entries summary --regime accrual (mock)" expect_json 'd.regime === "accrual" && d.rows.map((r) => r.key + ":" + r.count).join() === "2026-03:2" && d.total.expenses === -100' entries summary -a 204 -f 2026-03-01 -t 2026-04-30 --by month --regime accrual --json
+step "cli entries summary sem --regime (mock)" expect_json 'd.regime === null && d.total.count === 2' entries summary -a 204 -f 2026-03-01 -t 2026-04-30 --json
+step "cli entries summary --regime --csv (mock)" expect_ok '^month,entries,income,expenses,net' entries summary -a 204 -f 2026-03-01 -t 2026-03-31 --by month --regime accrual --csv
+step "cli entries summary --regime inválido (mock)" expect_fail 'Invalid regime "x"' entries summary -a 204 --regime x
 step "cli entries show (mock)" expect_ok 'Repetition: Installment \(2/6\)' entries show 60
 step "cli entries show --json (mock)" expect_json 'd.id === 60 && d.notes === "parcelado" && d.seriesId === 99 && d.competenceDate === "2026-01-10"' entries show 60 --json
-step "cli entries show --raw (mock)" expect_json 'd.agendaId === 77 && d.parcela === "fixa"' entries show 80 --raw
+step "cli entries show 60 --raw (mock)" expect_json 'd.dataEfetiva === "2026-01-10" && Object.hasOwn(d, "transferencia") === false' entries show 60 --raw
+step "cli entries show --raw (mock)" expect_json 'd.agendaId === 77 && d.parcela === "fixa" && Object.hasOwn(d, "dataEfetiva") === false' entries show 80 --raw
 step "cli entries show inexistente (mock)" expect_fail 'GET /v1/lancamentos/9999\): 404' entries show 9999
 step "cli entries list --to > 2031 (mock)" expect_fail 'is past 2031-12-31' entries list -a 201 -f 2026-11-01 -t 2035-12-31
 step "cli entries list --to > 2031 --json (mock)" expect_json_error 'is past 2031-12-31' entries list -a 201 -f 2026-11-01 -t 2035-12-31 --json
@@ -561,6 +634,12 @@ step "cli entries delete inexistente (mock)" expect_fail 'GET /v1/lancamentos/99
 # Delete with scope (#65): ?todos=true|false only for a series occurrence;
 # the mock answers 400 to any other todos.
 step "cli entries delete --scope following (mock)" expect_json 'd.deleted === true && d.id === 80 && d.scope === "following"' entries delete 80 --scope following --dangerously-skip-confirmation --json
+step "cli budget set --dry-run (mock)" expect_ok 'Would set the goal of "Outros"' budget set --category 40 --value -50 --month 2026-11 --dry-run
+step "cli budget set (mock)" expect_json 'd.saved === true && d.categoryId === 40 && d.meta === -50 && d.months[0] === "2026-11"' budget set --category 40 --value -50 --month 2026-11 --dangerously-skip-confirmation --json
+step "cli budget read after set (mock)" expect_json 'd.budgets.expense.categories.some((c) => c.category.id === 40 && c.figures.goal === -50)' budget --month 2026-11 --json
+step "cli budget set pai abaixo das filhas (mock)" expect_fail 'Alimentação' budget set --category 10 --value -10 --month 2026-11 --dangerously-skip-confirmation
+step "cli budget remove (mock)" expect_json 'd.saved === true && d.meta === 0 && d.categoryId === 40' budget remove --category 40 --month 2026-11 --dangerously-skip-confirmation --json
+step "cli budget read after remove (mock)" expect_json 'd.budgets.expense.categories.every((c) => c.category.id !== 40)' budget --month 2026-11 --json
 step "cli entries delete série sem --scope avisa (mock)" expect_ok 'only this occurrence will be deleted' entries delete 80 --dangerously-skip-confirmation
 step "cli entries delete --scope fora de série (mock)" expect_fail 'not part of a recurring series' entries delete 70 --scope following --dangerously-skip-confirmation
 
@@ -635,6 +714,11 @@ step "cli update manual (mock)" manual_update
 step "cli update fora de instalação global" expect_fail 'mdcli is not installed globally' update
 
 wait_steps
+
+# The guard reads every versioned file (about 2.3 MB). Inside the parallel batch
+# above it took 6-10 s and blew Bun's 5 s default timeout in review rounds; run
+# it alone here instead (#218).
+step "private terms" bun scripts/private-terms-cli.ts
 
 echo
 printf '⏱ total: %ss\n' "$(fmt_s $(( $(now_ms) - RUN_START_MS )))"

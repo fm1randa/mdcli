@@ -254,6 +254,11 @@ mdcli tags alias list
 mdcli tags alias update --id 678 --name trip
 mdcli tags alias rm --name trip
 
+# Sem --account, list e summary usam todas as contas ativas, cartões incluídos
+# (as mesmas de `mdcli accounts list --active`). Com --account, só as contas pedidas.
+mdcli entries summary
+mdcli entries list --from 2026-11-01 --to 2026-11-30
+
 # Lista lançamentos usando o alias
 mdcli entries list --account principal --from 2024-01-01 --to 2024-01-31
 
@@ -264,6 +269,11 @@ mdcli entries list --account "Conta Teste - Conta Corrente" --from 2024-01-01 --
 # antes de qualquer requisição. Erros vão para o stderr com código de saída 1; com
 # --json eles também são JSON ({"error": "..."}), então o stdout só contém o resultado.
 mdcli entries list --account principal --from 2026-11-01 --to 2031-12-31 --json
+
+# Sem --account, se a fatura de um cartão falha, list e summary avisam no stderr e
+# mostram o resto: saem com 0 se sobrou algum lançamento e com 1 se não sobrou nenhum.
+# Com --account, a falha da fatura derruba o comando (stderr, código de saída 1).
+mdcli entries summary
 
 # Exporta lançamentos para CSV (todas as páginas, com nomes de conta, categoria,
 # conta da transferência e tags, datas efetiva/de competência, repetição,
@@ -302,6 +312,10 @@ mdcli entries summary --account principal,conta --by account --include-transfers
 # Deixa categorias (e suas subcategorias) de fora, ex.: uma fatura de cartão paga
 # pela conta corrente, que contaria em dobro as compras já lançadas no cartão
 mdcli entries summary --account principal,conta --exclude-category "Pagamento de cartão"
+
+# Visão de caixa ou da competência, como nos relatórios da web; accrual exige a
+# visão da competência ligada na conta, e no --by month agrupa pela data de competência
+mdcli entries summary --account principal --by month --regime accrual
 
 # Cria um lançamento. O tipo (-T, despesa por padrão) e a categoria têm de
 # combinar: a web só lista categorias do tipo do lançamento, então uma
@@ -398,7 +412,9 @@ mdcli entries import list --account principal --since 2026-10-01 --json
 
 # Amplia a busca de lançamentos para conciliar (o "Alterar busca" da web; o
 # padrão é o período do extrato ±2 dias). Num cartão, os candidatos são a fatura
-# inteira do próximo vencimento; um cartão sem próximo vencimento não importa
+# inteira do próximo vencimento e as faturas já fechadas em que caem as compras
+# do extrato, então uma compra já conciliada numa fatura fechada não volta como
+# nova; um cartão sem próximo vencimento não importa
 mdcli entries import list --account principal --search-from 2026-10-01 --search-to 2026-10-20
 
 # Importa transações escolhidas pelo prefixo, todas na mesma categoria;
@@ -428,7 +444,8 @@ mdcli entries import run --account principal --plan plan.json --yes
 # no run sobrepõe o do plano; sem os dois, o run mantém o padrão (o resumo da
 # conexão e, sem ele, o extrato desde a data do último extrato da conta, no
 # máximo 90 dias atrás).
-# Uma linha sem categoria (IA indisponível ou --no-ai) faz o plano inteiro ser recusado.
+# Uma linha import sem categoria (nem a regra nem a IA sugeriram uma) faz o plano
+# inteiro ser recusado.
 
 # Ou no $EDITOR, no estilo do git rebase -i: uma linha por transação
 # (<comando> <prefixo> <data> <valor> <categoria> | <descrição>). Um erro reabre
@@ -439,9 +456,13 @@ mdcli entries import run --account principal --edit
 mdcli sync list
 
 # Pede a atualização (sync) da conexão de uma conta, ou de todas. Cada conector
-# aceita no máximo 3 por dia, por isso pede confirmação
+# aceita no máximo 3 por dia, por isso pede confirmação. A CLI espera pelo status
+# final (padrão: 120s, --timeout <segundos>) mostrando o progresso, termina com
+# o status final e sai com código 1 se ainda estiver UPDATING no limite.
+# --timeout 0 só pede a sincronização e imprime o estado atual.
 mdcli sync run principal
-mdcli sync run all --yes
+mdcli sync run all --yes --timeout 300
+mdcli sync run principal --timeout 0
 
 # Lista os cartões de crédito (o --json tem limit, dueDay, nextDueDate, nextClosingDate,
 # closingDaysBeforeDue e paymentAccountId; sem saldo, que não significa nada
@@ -491,6 +512,22 @@ mdcli categories update 12345 --inactive
 # Exclui uma categoria; seus lançamentos vão para --move-to (precisa ser do mesmo tipo).
 # Categorias com subcategorias precisam ter essas removidas antes.
 mdcli categories delete 12345 --move-to "Outros"
+
+# Metas do período (despesa, receita e investimento): meta, confirmado, projetado, falta e excedente.
+# O padrão é o mês atual e o regime cash (caixa). --month não combina com --from ou --to.
+mdcli budget
+mdcli budget --month 2026-11
+mdcli budget --from 2026-11-01 --to 2026-11-30 --regime accrual --json
+
+# Define ou remove a meta de uma categoria. O valor vai com o sinal que a leitura mostra
+# (despesa negativa, receita positiva). Pede confirmação. --dry-run não grava.
+# Remover grava 0, e a leitura seguinte deixa de mostrar a linha.
+# Limites: grava só os meses de --month a --until e não sobrescreve as metas dos meses
+# seguintes; cobre no máximo 600 meses; só define meta de categoria de despesa ou
+# receita (não grava a meta geral nem a de investimento).
+mdcli budget set --category Alimentação --value -800 --month 2026-11
+mdcli budget set --category 20 --value 4500 --month 2026-11 --until 2026-12 --dry-run
+mdcli budget remove --category Alimentação --month 2026-11
 
 # Lista só as tags ativas
 mdcli tags list --active
@@ -568,6 +605,16 @@ Os testes em `test/` executam a CLI real como subprocesso contra um mock local d
 | Atualizar | Pronto |
 | Excluir (move os lançamentos para outra categoria) | Pronto |
 | Arquivar | Pronto |
+
+### Orçamento
+| Funcionalidade | Status |
+|---------|--------|
+| Leitura do período (`budget`) | Pronto |
+| Mês ou intervalo (`--month`, `--from`, `--to`) | Pronto |
+| Regime caixa ou competência (`--regime`) | Pronto |
+| Saída em JSON | Pronto |
+| Definir meta (`budget set`) | Pronto |
+| Remover meta (`budget remove`) | Pronto |
 
 ### Tags
 | Funcionalidade | Status |

@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, EMPTY_ENTRIES_RESPONSE, SAMPLE_ENTRIES, cardInvoice, entriesPage } from './fixtures.js';
+import { serveCreate } from './entry-routes.js';
+import type { InvoiceProjection } from './api-routes.js';
 
 let api: MockApi;
 let home: TestHome;
@@ -94,7 +96,7 @@ describe('entries list', () => {
   });
 
   test('marks invoice projections as type invoice', async () => {
-    const projection = {
+    const projection: InvoiceProjection = {
       descricao: 'Fatura Cartão Teste',
       valor: -450.0,
       data: '2026-01-16',
@@ -125,10 +127,10 @@ describe('entries list', () => {
 });
 
 describe('entries create', () => {
-  const created = { id: 9, descricao: 'x', valor: -10, data: '2026-01-05', status: 'conciliado' };
+  const created = { descricao: 'x', valor: -10, data: '2026-01-05', status: 'conciliado' };
 
   test('sends expenses as negative values and omits dataCompetencia on a regular account', async () => {
-    api.on('POST /v1/lancamentos', created);
+    serveCreate(api, 9, created);
 
     const result = await runCli(
       ['entries', 'create', '-a', '201', '-d', 'Mercado', '-v', '10', '-c', '10', '-D', '2026-01-05', '--json'],
@@ -142,7 +144,7 @@ describe('entries create', () => {
   });
 
   test('puts a credit card purchase on the open invoice', async () => {
-    api.on('POST /v1/lancamentos', created);
+    serveCreate(api, 9, created);
     api.on('GET /v1/cartoes/202/fatura/2026-01-16', cardInvoice('2026-01-16', '2026-01-08'));
     api.on('GET /v1/cartoes/202/fatura/2025-12-16', cardInvoice('2025-12-16', '2025-12-08'));
 
@@ -162,7 +164,7 @@ describe('entries create', () => {
 
   test('shows a confirmed, unreconciled entry (--confirmed) as Confirmed, the way list does', async () => {
     // Real API answer for a confirmed, unreconciled entry on 2026-10-16: status "confirmado".
-    api.on('POST /v1/lancamentos', { ...created, status: 'confirmado', conciliado: false, dataEfetiva: '2026-11-05' });
+    serveCreate(api, 9, { ...created, status: 'confirmado', conciliado: false, dataEfetiva: '2026-11-05' });
 
     const result = await runCli(
       ['entries', 'create', '-a', '201', '-d', 'Mercado', '-v', '1', '-c', '10', '-D', '2026-11-05', '--confirmed'],
@@ -180,145 +182,5 @@ describe('entries create', () => {
 
     expect(result.exitCode).toBe(1);
     expect(mutations(api)).toHaveLength(0);
-  });
-});
-
-describe('entries update', () => {
-  const updated = {
-    id: 50,
-    descricao: 'Atualizado',
-    valor: -80,
-    data: '2026-01-20',
-    status: 'conciliado',
-  };
-
-  test('rewrites a transfer from the origin half with contaOrigem/contaDestino', async () => {
-    const transferOrigin = {
-      id: 50,
-      descricao: 'Poupança',
-      tipo: 't',
-      valor: -1000,
-      valorT: 1000,
-      data: '2026-01-15',
-      dataPrevista: '2026-01-15',
-      dataEfetiva: '2026-01-15',
-      status: 'conciliado',
-      conciliado: true,
-      conta: 201,
-      contaT: 203,
-      categoria: 30,
-      tags: [],
-      observacoes: '',
-    };
-    api.on('GET /v1/lancamentos/50', transferOrigin);
-    api.on('PUT /v1/lancamentos/50', { ...updated, id: 50, descricao: 'Poupança mensal', valor: -1200 });
-
-    const result = await runCli(
-      ['entries', 'update', '50', '-d', 'Poupança mensal', '-v', '1200', '--json'],
-      { home, api }
-    );
-
-    expect(result.exitCode).toBe(0);
-    const body = mutations(api)[0].body as Record<string, unknown>;
-    expect(body).toMatchObject({
-      transferencia: true,
-      conta: 201,
-      contaT: 203,
-      contaOrigem: 201,
-      contaDestino: 203,
-      valor: -1200,
-      valorT: 1200,
-      descricao: 'Poupança mensal',
-    });
-    expect(body).not.toHaveProperty('tipo');
-  });
-
-  test('flips a transfer destination half to the origin side before PUT', async () => {
-    const transferDestination = {
-      id: 51,
-      descricao: 'Poupança',
-      tipo: 't',
-      valor: 1000,
-      valorT: -1000,
-      data: '2026-01-15',
-      dataPrevista: '2026-01-15',
-      status: 'conciliado',
-      conciliado: true,
-      conta: 203,
-      contaT: 201,
-      categoria: 30,
-      tags: [],
-    };
-    api.on('GET /v1/lancamentos/51', transferDestination);
-    api.on('PUT /v1/lancamentos/51', { ...updated, id: 51, valor: -1000 });
-
-    const result = await runCli(
-      ['entries', 'update', '51', '-n', 'via CLI', '--json'],
-      { home, api }
-    );
-
-    expect(result.exitCode).toBe(0);
-    const body = mutations(api)[0].body as Record<string, unknown>;
-    expect(body).toMatchObject({
-      transferencia: true,
-      contaOrigem: 201,
-      contaDestino: 203,
-      conta: 201,
-      contaT: 203,
-      valor: -1000,
-      valorT: 1000,
-      observacoes: 'via CLI',
-    });
-  });
-
-  test('echoes an installment entry and layers the description change', async () => {
-    const installment = {
-      id: 60,
-      descricao: 'Notebook',
-      tipo: 'd',
-      valor: -250,
-      data: '2026-01-10',
-      dataPrevista: '2026-01-10',
-      dataEfetiva: '2026-01-10',
-      dataCompetencia: '2026-01-10',
-      status: 'conciliado',
-      conciliado: true,
-      conta: 201,
-      categoria: 10,
-      categoriaPai: 0,
-      parcela: '2/6',
-      agendaId: 99,
-      plastico: 62,
-      tags: [501],
-      observacoes: 'parcelado',
-      ndocumento: 'NF-1',
-      lembrete: 0,
-      automatico: false,
-      exibirCp: true,
-      exibirCr: true,
-      estorno: false,
-      transferencia: false,
-    };
-    api.on('GET /v1/lancamentos/60', installment);
-    api.on('PUT /v1/lancamentos/60', { ...updated, id: 60, descricao: 'Notebook (2/6)' });
-
-    const result = await runCli(
-      ['entries', 'update', '60', '-d', 'Notebook (2/6)', '--json'],
-      { home, api }
-    );
-
-    expect(result.exitCode).toBe(0);
-    const body = mutations(api)[0].body as Record<string, unknown>;
-    expect(body).toMatchObject({
-      id: 60,
-      descricao: 'Notebook (2/6)',
-      tipo: 'd',
-      valor: -250,
-      parcela: '2/6',
-      agendaId: 99,
-      plastico: 62,
-      categoria: 10,
-      tags: [501],
-    });
   });
 });

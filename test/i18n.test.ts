@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, test, afterEach } from 'bun:test';
 import { createHome, MANUAL_AUTH, runCli, startMockApi } from './helpers.js';
+import { ACCOUNTS_RESPONSE, CHECKING_ACCOUNT } from './fixtures.js';
 
 let api: ReturnType<typeof startMockApi>;
 let home: ReturnType<typeof createHome>;
@@ -81,7 +82,7 @@ describe('i18n', () => {
 
   test('table header in pt-BR', async () => {
     home = createHome(MANUAL_AUTH);
-    api.on('GET /v1/cadastros/contas', { meta: { tipos: [{ id: 100, nome: 'Corrente' }] }, items: [] });
+    api.on('GET /v1/cadastros/contas', { meta: { ...ACCOUNTS_RESPONSE.meta, tipos: [{ id: 100, nome: 'Corrente' }] }, items: [] });
     const result = await runCli(['accounts', 'types'], { home, api, extraEnv: { MDCLI_LANG: undefined } });
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain('Tipos de Conta');
@@ -89,7 +90,7 @@ describe('i18n', () => {
 
   test('table header in en', async () => {
     home = createHome(MANUAL_AUTH);
-    api.on('GET /v1/cadastros/contas', { meta: { tipos: [{ id: 100, nome: 'Checking' }] }, items: [] });
+    api.on('GET /v1/cadastros/contas', { meta: { ...ACCOUNTS_RESPONSE.meta, tipos: [{ id: 100, nome: 'Checking' }] }, items: [] });
     const result = await runCli(['accounts', 'types', '--lang', 'en'], { home, api });
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain('Account Types');
@@ -117,9 +118,11 @@ describe('i18n', () => {
 
   test('JSON output identical under both languages', async () => {
     home = createHome(MANUAL_AUTH);
-    api.on('GET /v1/cadastros/contas', { items: [{ id: 1, nome: 'Conta Teste' }] });
+    api.on('GET /v1/cadastros/contas', { ...ACCOUNTS_RESPONSE, items: [CHECKING_ACCOUNT] });
+    api.on('GET /v2/lancamentos', { sum: [{ conta: CHECKING_ACCOUNT.id, projetado: 250.5, confirmado: 250.5 }] });
     const pt = await runCli(['accounts', 'list', '--json'], { home, api });
     const en = await runCli(['accounts', 'list', '--json', '--lang', 'en'], { home, api });
+    expect(pt.exitCode).toBe(0);
     expect(pt.stdout).toBe(en.stdout);
   });
 });

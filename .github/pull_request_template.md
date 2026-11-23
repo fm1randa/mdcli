@@ -34,7 +34,15 @@ Closes #n
      contra o mock (`bun scripts/mock-api.ts`) e uma config falsa em `/tmp`,
      nunca contra uma conta real. Cole o comando e a saída em cada bloco de
      código. O check `prova` reprova o PR sem a linha `Web:` e sem os dois
-     blocos preenchidos. -->
+     blocos preenchidos. Se o PR muda `src/` ou `bin/` e não é isento, inclua
+     também a saída das 3 execuções de `bun scripts/new-tests-fail-on-main.ts
+     --base <pre-fix> --files <test>`; uma execução vermelha isolada sob carga
+     não prova nada (issue #235). -->
+
+<!-- Um PR que preserva comportamento não precisa provar falha na main. O
+     check `fails-on-main` é dispensado quando o título começa com `refactor`,
+     `test` ou `chore`, ou quando o corpo declara a isenção com um motivo:
+     `Fails-on-main: isento — <motivo>`. O summary do check repete o motivo. -->
 
 <!-- Paridade com a web (AGENTS.md, item 9): cite o trecho do bundle
      `$HOME/.mdcli-team/ref/mdb.js` que mostra o comportamento, ou escreva

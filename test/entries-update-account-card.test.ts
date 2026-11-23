@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { mutations, runCli, type MockApi, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CHECKING_ACCOUNT } from './fixtures.js';
 import { BASE_CARD, CARD_PURCHASE, CONFIRMED_ENTRY, FIXED_OCCURRENCE, putBody as sentPut, startUpdateAccountApi } from './update-account-harness.js';
+import { serveEntry } from './entry-routes.js';
 
 let api: MockApi;
 let home: TestHome;
@@ -37,7 +38,7 @@ describe('entries update --account to or from a credit card', () => {
   });
 
   test('to a card: a reconciled occurrence of an endless series stays reconciled with its effective date', async () => {
-    api.on('GET /v1/lancamentos/82', {
+    serveEntry(api, {
       ...FIXED_OCCURRENCE,
       id: 82,
       data: '2026-01-05',
@@ -47,7 +48,6 @@ describe('entries update --account to or from a credit card', () => {
       status: 'conciliado',
       conciliado: true,
     });
-    api.on('PUT /v1/lancamentos/82', (req) => req.body as object);
 
     const result = await runCli(['entries', 'update', '82', '-a', '202', '--scope', 'following'], { home, api });
 
@@ -146,14 +146,13 @@ describe('entries update --account to or from a credit card', () => {
   });
 
   test('to a card: an installment series starting past installment 1 counts the date from that installment', async () => {
-    api.on('GET /v1/lancamentos/83', {
+    serveEntry(api, {
       ...CONFIRMED_ENTRY,
       id: 83,
       parcela: '3/6',
       agendaId: 78,
       agenda: { frequencia: 1, intervalo: 'M', quantidade: 6, inicial: 3, primeiraData: '2026-01-05' },
     });
-    api.on('PUT /v1/lancamentos/83', (req) => req.body as object);
 
     const result = await runCli(['entries', 'update', '83', '-a', '202', '--scope', 'this'], { home, api });
 
@@ -173,9 +172,9 @@ describe('entries update --account to or from a credit card', () => {
 
   test("to a card: the purchase goes on the new card's holder plastic", async () => {
     api.on('GET /v1/cadastros/plasticos', [
-      { id: 31, conta: 205, tipo: 'T', titular: true, nome: 'Outro Titular', status: true },
-      { id: 22, conta: 202, tipo: 'A', titular: false, nome: 'Outro Titular', status: true },
-      { id: 21, conta: 202, tipo: 'T', titular: true, nome: 'Titular Teste', status: true },
+      { id: 31, conta: 205, tipo: 'T', nome: 'Outro Titular', status: true },
+      { id: 22, conta: 202, tipo: 'A', nome: 'Outro Titular', status: true },
+      { id: 21, conta: 202, tipo: 'T', nome: 'Titular Teste', status: true },
     ]);
 
     const result = await runCli(['entries', 'update', '70', '-a', '202'], { home, api });
@@ -186,8 +185,8 @@ describe('entries update --account to or from a credit card', () => {
 
   test('to a card: an inactive holder plastic is skipped', async () => {
     api.on('GET /v1/cadastros/plasticos', [
-      { id: 21, conta: 202, tipo: 'T', titular: true, nome: 'Titular Teste', status: false },
-      { id: 24, conta: 202, tipo: 'T', titular: true, nome: 'Pessoa Alfa', status: true },
+      { id: 21, conta: 202, tipo: 'T', nome: 'Titular Teste', status: false },
+      { id: 24, conta: 202, tipo: 'T', nome: 'Pessoa Alfa', status: true },
     ]);
 
     const result = await runCli(['entries', 'update', '70', '-a', '202'], { home, api });
@@ -198,8 +197,8 @@ describe('entries update --account to or from a credit card', () => {
 
   test('to a card: with two holder plastics, the first by name is picked, as the web lists them', async () => {
     api.on('GET /v1/cadastros/plasticos', [
-      { id: 25, conta: 202, tipo: 'T', titular: true, nome: 'Pessoa Beta', status: true },
-      { id: 24, conta: 202, tipo: 'T', titular: true, nome: 'Pessoa Alfa', status: true },
+      { id: 25, conta: 202, tipo: 'T', nome: 'Pessoa Beta', status: true },
+      { id: 24, conta: 202, tipo: 'T', nome: 'Pessoa Alfa', status: true },
     ]);
 
     const result = await runCli(['entries', 'update', '70', '-a', '202'], { home, api });
@@ -226,8 +225,8 @@ describe('entries update --account to or from a credit card', () => {
 
   test('to a card: a holder plastic the user cannot see is skipped, as the web does not list it', async () => {
     api.on('GET /v1/cadastros/plasticos', [
-      { id: 26, conta: 202, tipo: 'T', titular: true, nome: 'Outro Titular', status: true, permissoes: { visivel: false } },
-      { id: 24, conta: 202, tipo: 'T', titular: true, nome: 'Pessoa Alfa', status: true, permissoes: { visivel: true } },
+      { id: 26, conta: 202, tipo: 'T', nome: 'Outro Titular', status: true, permissoes: { visivel: false } },
+      { id: 24, conta: 202, tipo: 'T', nome: 'Pessoa Alfa', status: true, permissoes: { visivel: true } },
     ]);
 
     const result = await runCli(['entries', 'update', '70', '-a', '202'], { home, api });
@@ -238,7 +237,7 @@ describe('entries update --account to or from a credit card', () => {
 
   test('to a card: when the only holder plastic is hidden from the user, no plastic is sent', async () => {
     api.on('GET /v1/cadastros/plasticos', [
-      { id: 26, conta: 202, tipo: 'T', titular: true, nome: 'Outro Titular', status: true, permissoes: { visivel: false } },
+      { id: 26, conta: 202, tipo: 'T', nome: 'Outro Titular', status: true, permissoes: { visivel: false } },
     ]);
 
     const result = await runCli(['entries', 'update', '70', '-a', '202'], { home, api });
@@ -285,8 +284,8 @@ describe('entries update --account to or from a credit card', () => {
 
   test("off a card and back: the purchase keeps its additional plastic, which is still in the card's list", async () => {
     api.on('GET /v1/cadastros/plasticos', [
-      { id: 31, conta: 205, tipo: 'T', titular: true, nome: 'Outro Titular', status: true },
-      { id: 32, conta: 205, tipo: 'A', titular: false, nome: 'Titular Teste', status: true },
+      { id: 31, conta: 205, tipo: 'T', nome: 'Outro Titular', status: true },
+      { id: 32, conta: 205, tipo: 'A', nome: 'Titular Teste', status: true },
     ]);
     api.on('GET /v1/lancamentos/90', { ...CARD_PURCHASE, conta: 205, plastico: 32 });
 

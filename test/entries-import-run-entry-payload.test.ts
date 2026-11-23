@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
-import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE } from './fixtures.js';
-import { CONNECTIONS, mockStatement, SINCE } from './import-harness.js';
+import { ACCOUNTS_RESPONSE, cardInvoice, CATEGORIES_RESPONSE } from './fixtures.js';
+import { CONNECTIONS, mockStatement, SINCE, type BankTransaction } from './import-harness.js';
+import type { Entry } from '../src/types/index.js';
 
 // The new Entry's payload in /lancamentos/importar, field by field as the web builds it.
 // Fictional ids. 201 is Conta Teste (connection account 301). Category 10 is Alimentação (d).
@@ -30,15 +31,15 @@ afterEach(() => {
   home.cleanup();
 });
 
-function bank(integrationId: string, extra: Record<string, unknown> = {}) {
+function bank(integrationId: string, extra: Partial<BankTransaction> = {}) {
   return { integrationId, descricao: 'Padaria Ficticia', valor: -12.34, data: '2026-10-07', moeda: 1, ...extra };
 }
 
-function statement(rows: unknown[]) {
+function statement(rows: BankTransaction[]) {
   mockStatement(api, rows, { saldo: 250.5 });
 }
 
-function entries(list: unknown[]) {
+function entries(list: Entry[]) {
   api.on('GET /v2/lancamentos', { list, meta: { total: list.length, page: 1, pageSize: 500 } });
 }
 
@@ -88,7 +89,7 @@ describe('entries import run: the new Entry payload', () => {
     api.on('GET /v1/integracao/connections', [
       { id: 502, status: 'UPDATED', accounts: [{ id: 302, type: 'CARTAO DE CREDITO', conta: 202 }] },
     ]);
-    api.on('GET /v1/cartoes/202/fatura/2026-01-16', { lancamentos: [] });
+    api.on('GET /v1/cartoes/202/fatura/2026-01-16', cardInvoice('2026-01-16', '2026-01-08'));
     api.on('GET /v1/integracao/account/302/transactions', {
       inicio: '2026-10-01',
       fim: '2026-10-10',

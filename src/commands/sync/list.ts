@@ -14,7 +14,7 @@ interface SyncListAccount {
   type: string | null;
 }
 
-interface SyncListConnection {
+export interface SyncListConnection {
   id: number | null;
   status: string | null;
   accounts: SyncListAccount[];

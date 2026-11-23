@@ -2,7 +2,7 @@ import { Command } from 'commander';
 import { action } from '../../utils/action.js';
 import { t } from '../../lib/i18n/index.js';
 import { listAction } from './list.js';
-import { runAction } from './run.js';
+import { DEFAULT_SYNC_TIMEOUT_SECONDS, runAction } from './run.js';
 
 export const syncCommand = new Command('sync')
   .description(t('syncManageDescription'));
@@ -19,4 +19,5 @@ syncCommand
   .argument('<account>', t('syncRunAccountArgument'))
   .option('--yes', t('syncRunYesOption'))
   .option('--json', t('syncRunJsonOption'))
+  .option('--timeout <seconds>', t('syncRunTimeoutOption'), String(DEFAULT_SYNC_TIMEOUT_SECONDS))
   .action(action(runAction));

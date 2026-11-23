@@ -6,12 +6,14 @@ This document describes the bitmask filters used in the `/v2/lancamentos` endpoi
 
 The `status` parameter is a bitmask where each bit represents a status type:
 
-| Bit | Value | Status       | API Value    |
-|-----|-------|--------------|--------------|
-| 0   | 1     | Pendentes    | `pendente`   |
-| 1   | 2     | Confirmados  | `confirmado` |
-| 2   | 4     | Conciliados  | `conciliado` |
-| 3   | 8     | Agendados    | `agendado`   |
+| Bit | Value | Status       | API Value                     |
+|-----|-------|--------------|-------------------------------|
+| 0   | 1     | Pendentes    | `pendente`                    |
+| 1   | 2     | Confirmados  | `confirmado`, `nconciliado`   |
+| 2   | 4     | Conciliados  | `conciliado`                  |
+| 3   | 8     | Agendados    | `agendado`                    |
+
+`nconciliado` is a confirmed entry that is not reconciled, such as a credit card purchase before its invoice is paid; the CLI shows it as `confirmed`, like `confirmado` (`API_STATUS_NAMES` in `src/commands/entries/filters.ts`).
 
 ### Common Combinations
 
@@ -114,6 +116,7 @@ Despesas (1) + Receitas (2) + Transf. saída (4) = 7
 Or use bitwise OR:
 
 ```typescript
-const status = StatusFlags.Pendentes | StatusFlags.Conciliados; // 5
-const tipo = TypeFlags.Despesas | TypeFlags.Receitas; // 3
+// STATUS_FLAGS and TYPE_FLAGS in src/commands/entries/filters.ts
+const status = STATUS_FLAGS.pending | STATUS_FLAGS.reconciled; // 5
+const tipo = TYPE_FLAGS.expense | TYPE_FLAGS.income; // 3
 ```

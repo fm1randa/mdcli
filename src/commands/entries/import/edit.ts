@@ -1,8 +1,8 @@
-import { spawnSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { t } from '../../../lib/i18n/index.js';
+import { runInheritedShell } from '../../../lib/sync-child.js';
 import type { Category } from '../../../types/index.js';
 import type { CategoryCatalog } from '../category.js';
 import type { ImportCandidate } from './candidates.js';
@@ -61,8 +61,8 @@ export async function editRun(
 }
 
 function openEditor(editor: string, file: string): void {
-  // Through the shell, like git: $EDITOR may carry arguments (e.g. "code --wait").
-  const result = spawnSync(`${editor} "${file}"`, { shell: true, stdio: 'inherit' });
+  // $EDITOR may contain arguments (`code --wait`), so the command is one shell string.
+  const result = runInheritedShell(`${editor} "${file}"`);
   if (result.error !== undefined) {
     throw new Error(t('errorCouldNotRunEditor', editor, result.error.message));
   }

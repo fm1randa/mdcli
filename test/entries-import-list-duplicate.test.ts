@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE } from './fixtures.js';
-import { CONNECTIONS, mockStatement, SINCE } from './import-harness.js';
+import { CONNECTIONS, mockStatement, SINCE, type BankTransaction } from './import-harness.js';
 
 // Fictional ids. 201 is Conta Teste. 301 is its connection account, not the Account id.
 
@@ -34,7 +34,7 @@ function cli(args: string[]) {
   return runCli(args, { home, api });
 }
 
-function statement(rows: unknown[]) {
+function statement(rows: BankTransaction[]) {
   mockStatement(api, rows, { inicio: '2026-09-01', fim: '2026-10-31', saldo: 10 });
 }
 
@@ -46,7 +46,7 @@ describe('entries import list duplicates', () => {
         descricao: 'Categoria Sumida',
         valor: -8,
         data: '2026-10-19',
-        _ca: { c: { d: { categoria: { v: 999 } } } },
+        _ca: { c: { d: { categoria: { v: '999' } } } },
       },
     ]);
 
@@ -72,7 +72,7 @@ describe('entries import list duplicates', () => {
         descricao: 'Padaria do Bairro',
         valor: -12.34,
         data: '2026-10-20',
-        _ca: { c: { d: { categoria: { v: 11 }, conta: { v: 204 } } } },
+        _ca: { c: { d: { categoria: { v: '11' }, conta: { v: 204 } } } },
       },
       {
         integrationId: DUP_OTHER_VALUE,
@@ -173,7 +173,7 @@ describe('entries import list duplicates', () => {
         _ca: {
           c: {
             d: {
-              categoria: { v: 11 },
+              categoria: { v: '11' },
               descricao: { v: 'Padaria Sugerida' },
               tags: { v: [501, 502] },
             },
@@ -185,7 +185,7 @@ describe('entries import list duplicates', () => {
         descricao: 'Sem Nome',
         valor: -2,
         data: '2026-10-08',
-        _ca: { c: { d: { categoria: { v: 999 } } } },
+        _ca: { c: { d: { categoria: { v: '999' } } } },
       },
     ]);
     api.on('GET /v1/lancamentos/duplicidade', {

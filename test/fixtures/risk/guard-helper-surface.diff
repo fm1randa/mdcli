@@ -1,0 +1,10 @@
+diff --git a/src/utils/parse.ts b/src/utils/parse.ts
+--- a/src/utils/parse.ts
++++ b/src/utils/parse.ts
+@@ -10,5 +10,5 @@ const DIGITS = /^\d+$/;
+ /** A whole number written in plain decimal digits, at least `min`. */
+ export function parseInteger(input: string, min = 0): number | undefined {
+-  if (!DIGITS.test(input)) return undefined;
++  if (!DIGITS.test(input.trim())) return undefined;
+   const value = Number.parseInt(input, 10);
+   return Number.isSafeInteger(value) && value >= min ? value : undefined;

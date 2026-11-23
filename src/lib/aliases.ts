@@ -6,6 +6,7 @@ import { t } from './i18n/index.js';
 import type { Alias, AliasMap, AliasType } from '../types/index.js';
 import { parseId } from '../utils/parse.js';
 import { newTable } from '../utils/table.js';
+import { getNameIndex, nameKey } from './name-cache.js';
 
 function loadAliases(): AliasMap {
   const config = getFullConfig();
@@ -94,9 +95,6 @@ export async function resolveId(type: AliasType, input: string): Promise<number 
     return alias.id;
   }
 
-  // Lazy: importing name-cache pulls in api.ts, which reads MDCLI_API_URL at
-  // module load. Keep that off the path for alias CRUD and offline resolution.
-  const { getNameIndex, nameKey } = await import('./name-cache.js');
   const index = await getNameIndex(type);
   return index[nameKey(input)] ?? null;
 }
@@ -124,7 +122,6 @@ export async function resolveIds(type: AliasType, input: string): Promise<{ ids:
     return { ids, unresolved: [] };
   }
 
-  const { getNameIndex, nameKey } = await import('./name-cache.js');
   const index = await getNameIndex(type);
   const unresolved: string[] = [];
   for (const part of remaining) {

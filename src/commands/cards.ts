@@ -3,7 +3,7 @@ import chalk from 'chalk';
 import { logger } from '../utils/logger.js';
 import { action, exitWithError } from '../utils/action.js';
 import { t } from '../lib/i18n/index.js';
-import { fetchAccounts, fetchAccountById, normalizeCards, isCreditCard, fetchCardInvoice, normalizeCardEntries, fetchCardFuture, normalizeCardInstallments } from '../lib/api.js';
+import { fetchAccounts, fetchAccountById, normalizeCards, isActiveAccount, isCreditCard, fetchCardInvoice, normalizeCardEntries, fetchCardFuture, normalizeCardInstallments } from '../lib/api.js';
 import { resolveAccountOrExit } from './account-id.js';
 import { formatCurrency } from '../utils/currency.js';
 import { cell, truncate } from '../utils/text.js';
@@ -25,7 +25,7 @@ async function listAction(options: { json?: boolean; active?: boolean }): Promis
   let creditCards = allAccounts.filter(isCreditCard);
 
   if (options.active) {
-    creditCards = creditCards.filter((a) => a.status && !a.encerrada);
+    creditCards = creditCards.filter(isActiveAccount);
   }
 
   if (options.json) {

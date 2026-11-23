@@ -1,4 +1,4 @@
-<!-- traduzido de README.md @ f4d3274 (base: f4d32748b04faac2fdfa01270c0cfc948089f0b4; readme-blob: 939d52cc30f6c70df063b52b02ebf06c92beb27d); ao atualizar o README.md, sincronize este arquivo e atualize o SHA e o readme-blob (git hash-object README.md) -->
+<!-- traduzido de README.md @ 7edb375 (base: 7edb37556fbacca1dc109e95ab2d106682eadcfd; readme-blob: 16e4d860b965337adbde48a440ee72db157a7336); ao atualizar o README.md, sincronize este arquivo e atualize o SHA e o readme-blob (git hash-object README.md) -->
 [Português (Brasil)](README.md) · **English**
 
 > The Portuguese [README.md](README.md) is the reference version; this English translation may lag behind it.
@@ -257,6 +257,11 @@ mdcli tags alias list
 mdcli tags alias update --id 678 --name trip
 mdcli tags alias rm --name trip
 
+# Without --account, list and summary use every active account, cards included
+# (the same set as `mdcli accounts list --active`). With --account, only those accounts.
+mdcli entries summary
+mdcli entries list --from 2026-11-01 --to 2026-11-30
+
 # List entries using alias
 mdcli entries list --account principal --from 2024-01-01 --to 2024-01-31
 
@@ -267,6 +272,11 @@ mdcli entries list --account "Conta Teste - Conta Corrente" --from 2024-01-01 --
 # any request. Errors go to stderr with exit code 1; under --json they are
 # JSON too ({"error": "..."}), so stdout only ever holds the result.
 mdcli entries list --account principal --from 2026-11-01 --to 2031-12-31 --json
+
+# Without --account, when a card invoice fails, list and summary warn on stderr and
+# show the rest: they exit 0 if any entry is left and 1 if none is.
+# With --account, the invoice failure stops the command (stderr, exit code 1).
+mdcli entries summary
 
 # Export entries to CSV (all pages, with account, category, transfer-account and tag names,
 # effective/competence dates, repetition, notes and document number;
@@ -305,6 +315,10 @@ mdcli entries summary --account principal,conta --by account --include-transfers
 # Leave out categories (and their subcategories), e.g. a card bill paid from
 # checking that would double-count the purchases already on the card
 mdcli entries summary --account principal,conta --exclude-category "Pagamento de cartão"
+
+# Cash or accrual view, as in the web reports; accrual needs the competence
+# view on for the account, and with --by month it groups by the competence date
+mdcli entries summary --account principal --by month --regime accrual
 
 # Create an entry. The type (-T, expense by default) and the category have to
 # match: the web app only lists categories of the entry's type, so a category
@@ -401,7 +415,9 @@ mdcli entries import list --account principal --since 2026-10-01 --json
 
 # Widens the search for entries to reconcile (the web's "Alterar busca"; the
 # default is the statement period ±2 days). On a card, the candidates are the
-# whole invoice of the next due date; a card without a next due date cannot be imported
+# whole invoice of the next due date and the closed invoices the statement's
+# purchases fall in, so a purchase already reconciled in a closed invoice does
+# not come back as new; a card without a next due date cannot be imported
 mdcli entries import list --account principal --search-from 2026-10-01 --search-to 2026-10-20
 
 # Imports transactions chosen by prefix, all in one category; --reject marks
@@ -431,7 +447,8 @@ mdcli entries import run --account principal --plan plan.json --yes
 # --since on the run overrides the plan's; without either, the run keeps the
 # default (the connection summary and, without it, the statement since the
 # account's last statement date, at most 90 days back).
-# A row without a category (AI unavailable or --no-ai) makes the whole plan be refused.
+# An import row without a category (neither a rule nor the AI suggested one)
+# makes the whole plan be refused.
 
 # Or in $EDITOR, in the style of git rebase -i: one line per transaction
 # (<command> <prefix> <date> <value> <category> | <description>). An error
@@ -442,9 +459,13 @@ mdcli entries import run --account principal --edit
 mdcli sync list
 
 # Requests an update (sync) of an account's connection, or of all of them. Each
-# connector accepts at most 3 per day, so it asks for confirmation
+# connector accepts at most 3 per day, so it asks for confirmation. The CLI waits
+# for the final status (default: 120s, --timeout <seconds>) showing progress,
+# ends with the final status and exits 1 when the connection is still UPDATING
+# at the limit. --timeout 0 only requests the Sync and prints the current status.
 mdcli sync run principal
-mdcli sync run all --yes
+mdcli sync run all --yes --timeout 300
+mdcli sync run principal --timeout 0
 
 # List credit cards (--json has limit, dueDay, nextDueDate, nextClosingDate,
 # closingDaysBeforeDue and paymentAccountId; no balance, which means nothing
@@ -494,6 +515,22 @@ mdcli categories update 12345 --inactive
 # Delete a category; its entries move to --move-to (must be the same type).
 # Categories with subcategories must have those removed first.
 mdcli categories delete 12345 --move-to "Outros"
+
+# Budget goals for the period (expense, income and investment): goal, confirmed, projected, remaining and surplus.
+# The default is the current month and cash. --month is not combined with --from or --to.
+mdcli budget
+mdcli budget --month 2026-11
+mdcli budget --from 2026-11-01 --to 2026-11-30 --regime accrual --json
+
+# Set or remove one category goal. The amount uses the sign the read shows
+# (negative for an expense, positive for income). It asks for confirmation. --dry-run does not save.
+# Remove stores 0, and the next read drops the row.
+# Limits: it saves only the months from --month to --until and does not overwrite the
+# goals of later months; it covers at most 600 months; it only sets an expense or income
+# category goal (it does not save the general goal or the investment goal).
+mdcli budget set --category Alimentação --value -800 --month 2026-11
+mdcli budget set --category 20 --value 4500 --month 2026-11 --until 2026-12 --dry-run
+mdcli budget remove --category Alimentação --month 2026-11
 
 # List only active tags
 mdcli tags list --active
@@ -571,6 +608,16 @@ The tests in `test/` run the real CLI as a subprocess against a local mock of th
 | Update | Done |
 | Delete (moves entries to another category) | Done |
 | Archive | Done |
+
+### Budget
+| Feature | Status |
+|---------|--------|
+| Read the period (`budget`) | Done |
+| Month or range (`--month`, `--from`, `--to`) | Done |
+| Cash or accrual regime (`--regime`) | Done |
+| JSON output | Done |
+| Set a goal (`budget set`) | Done |
+| Remove a goal (`budget remove`) | Done |
 
 ### Tags
 | Feature | Status |

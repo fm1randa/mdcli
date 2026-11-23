@@ -1,6 +1,6 @@
 # 0001: Name-based identifier resolution with persistent on-disk cache
 
-Users can pass a real Account, Category, or Tag name (the API's `nome` field) to `--account`, `--category`, or `--tag` in addition to numeric IDs and user-defined Aliases. Resolving a name requires the full entity list, so we cache the `nome → id` maps in `~/.config/mdcli/mdcli.config.json` with a 30-day TTL, and auto-invalidate the cache the first time a request that used a cached mapping returns a non-2xx.
+Users can pass a real Account, Category, or Tag name (the API's `nome` field) to `--account`, `--category`, or `--tag` in addition to numeric IDs and user-defined Aliases. Resolving a name requires the full entity list, so we cache the `nome → id` maps in `~/.config/mdcli/mdcli.config.json` with a 30-day TTL, and auto-invalidate the cache when a request returns a non-2xx within 60 seconds of the last lookup that used a cached mapping.
 
 **Considered Options**
 
@@ -15,4 +15,4 @@ Users can pass a real Account, Category, or Tag name (the API's `nome` field) to
 - `resolveId` and `resolveIds` in `src/lib/aliases.ts` gain a third fallback step. Existing callers are unchanged.
 - The Name cache adds three new optional fields to `MdcliConfig` (`nameCache.accounts`, `nameCache.categories`, `nameCache.tags`, plus a `cachedAt` timestamp per type).
 - Any command that resolves a name pays at most one API call per entity type per 30 days. Aliases and numeric IDs cost nothing.
-- The auto-invalidation is best-effort: it only fires when a request that actually used a cached mapping fails. A user who renames an entity and then runs an Alias-only or ID-only command will not trigger invalidation until a name-using command fails.
+- The auto-invalidation is best-effort: it only fires when a request fails within 60 seconds of a lookup that used a cached mapping (`INVALIDATION_WINDOW_MS` in `src/lib/cache-invalidation.ts`); a later failure leaves the cache alone. A user who renames an entity and then runs an Alias-only or ID-only command will not trigger invalidation until a name-using command fails.

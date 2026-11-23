@@ -1,0 +1,75 @@
+// Responses and payload readers shared by the scripts/mock-api.ts routes.
+import { isPositiveSafeInteger, parseId } from '../src/utils/parse.js';
+import type { ApiResponses, ApiRoute } from '../test/api-routes.js';
+
+export type Body = Record<string, unknown>;
+
+/**
+ * The JSON answer of `R` ("METHOD /path", test/api-routes.ts), typed by the
+ * response the CLI reads. `R` has no default route, so a call without it
+ * accepts no body: `json<'GET /v1/cadastros/contas'>(accounts)`.
+ */
+export function json<R extends ApiRoute = never>(body: ApiResponses[R], status = 200): Response {
+  return Response.json(body, { status });
+}
+
+export function notFound(): Response {
+  return Response.json({ message: 'not found' }, { status: 404 });
+}
+
+export function unauthorized(): Response {
+  return Response.json({ message: 'unauthorized' }, { status: 401 });
+}
+
+/** GitHub's latest release, the one the self-updater reads; not a Meu Dinheiro route. */
+export function latestRelease(tag: string): Response {
+  return Response.json({ tag_name: tag });
+}
+
+export function badRequest(message: string): Response {
+  return Response.json({ message }, { status: 400 });
+}
+
+/** 422 whose body is `{ conflitos }`, the budget parent's answer when it would sit below its children. */
+export function conflict(conflitos: readonly unknown[]): Response {
+  return Response.json({ conflitos }, { status: 422 });
+}
+
+export async function readJsonBody(req: Request): Promise<Body | Response> {
+  if (!req.headers.get('Content-Type')?.startsWith('application/json')) {
+    return Response.json({ message: 'expected a JSON body' }, { status: 415 });
+  }
+  try {
+    return (await req.json()) as Body;
+  } catch {
+    return badRequest('invalid JSON body');
+  }
+}
+
+export function numberOrNull(value: unknown): number | null {
+  return typeof value === 'number' ? value : null;
+}
+
+// The routes check a payload before they build an answer from it, so a field
+// that is still not a number here is a CLI regression: fail the request loudly
+// instead of coercing it the way Number() would.
+export function requiredNumber(value: unknown, field: string): number {
+  if (typeof value !== 'number') throw new Error(`mock: ${field} must be a number, got ${JSON.stringify(value)}`);
+  return value;
+}
+
+/** An account ID as the CLI sends it: a JSON number, or a digit string in a create payload's conta. */
+export function idOf(value: unknown): number | undefined {
+  if (typeof value === 'string') return parseId(value);
+  return isPositiveSafeInteger(value) ? value : undefined;
+}
+
+export function requiredId(value: unknown, field: string): number {
+  const id = idOf(value);
+  if (id === undefined) throw new Error(`mock: ${field} must be an ID, got ${JSON.stringify(value)}`);
+  return id;
+}
+
+export function numberArray(value: unknown): number[] {
+  return Array.isArray(value) ? value.filter((item): item is number => typeof item === 'number') : [];
+}

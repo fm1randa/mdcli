@@ -1,4 +1,5 @@
 import { chromium, type Browser } from 'playwright';
+import { BROWSER_CLOSE_TIMEOUT_MS, BROWSER_LAUNCH_TIMEOUT_MS } from './timeouts.js';
 
 // A hook timed out after 20 s in CI (run 40568587595): its file reported no
 // test, only "a beforeEach/afterEach hook timed out", and bun killed the
@@ -15,11 +16,18 @@ const LAUNCH_ARGS = [
   '--disable-features=TranslateUI',
 ] as const;
 
+// The flags alone did not stop it: 5 of 60 CI runs still timed out in the
+// launch (#248), and in each one the other browser file also took 6-10 s for
+// a single page flow. Chrome was starving next to the `bun test --parallel`
+// workers, so `bun run test` runs test/browser-*.test.ts in a serial phase
+// after the pool. A launch inside a pool worker fails here instead of
+// flaking in CI.
 export async function launchTestBrowser(): Promise<Browser> {
-  return chromium.launch({ channel: 'chrome', headless: true, timeout: 15000, args: [...LAUNCH_ARGS] });
+  if (process.env.BUN_TEST_WORKER_ID !== undefined) {
+    throw new Error('Chrome launched inside a --parallel worker: name the file test/browser-*.test.ts so `bun run test` runs it serially.');
+  }
+  return chromium.launch({ channel: 'chrome', headless: true, timeout: BROWSER_LAUNCH_TIMEOUT_MS, args: [...LAUNCH_ARGS] });
 }
-
-const CLOSE_TIMEOUT_MS = 10000;
 
 // bun kills a dangling browser when a hook hangs and reports only the timeout:
 // fail with the reason and keep the timer from outliving the close.
@@ -31,7 +39,7 @@ export async function closeTestBrowser(browser: Browser | undefined): Promise<vo
     await Promise.race([
       browser.close(),
       new Promise<never>((_, reject) => {
-        timer = setTimeout(() => reject(new Error('browser close timeout')), CLOSE_TIMEOUT_MS);
+        timer = setTimeout(() => reject(new Error('browser close timeout')), BROWSER_CLOSE_TIMEOUT_MS);
       }),
     ]);
   } finally {

@@ -99,6 +99,7 @@ export const ptBRResources = {
   syncRunAccountArgument: () => 'Identificador da conta (id, alias ou nome exato), ou "all"',
   syncRunYesOption: () => 'Pular a confirmação',
   syncRunJsonOption: () => 'Saída em JSON (requer --yes)',
+  syncRunTimeoutOption: () => 'Segundos de espera por um status final depois da sincronização; 0 não espera',
   syncConnectionColumn: () => 'Conexão',
   syncConnectionAccountColumn: () => 'Conta da conexão',
   syncNoAccount: () => 'Sem conta',
@@ -116,6 +117,30 @@ export const ptBRResources = {
     `A conexão ${id} está UPDATING. Execute sync list novamente para ver o resultado.`,
   syncUpdatingMany: (ids: string) =>
     `As conexões ${ids} estão UPDATING. Execute sync list novamente para ver o resultado.`,
+  errorSyncTimeoutInvalid: (value: string) =>
+    `Timeout inválido "${value}": use um número inteiro de segundos, 0 ou mais.`,
+  syncWaitingOne: (id: string, seconds: number) =>
+    `Aguardando até ${seconds}s pela conexão ${id} terminar a sincronização...`,
+  syncWaitingMany: (ids: string, seconds: number) =>
+    `Aguardando até ${seconds}s pelas conexões ${ids} terminarem a sincronização...`,
+  syncStillUpdatingOne: (id: string, seconds: number) =>
+    `Ainda UPDATING após ${seconds}s: conexão ${id}.`,
+  syncStillUpdatingMany: (ids: string, seconds: number) =>
+    `Ainda UPDATING após ${seconds}s: conexões ${ids}.`,
+  syncFinishedOne: (id: string, status: string) => `Sincronização concluída: conexão ${id} ${status}.`,
+  syncFinishedMany: (statuses: string) => `Sincronização concluída: ${statuses}.`,
+  syncNeedsActionOne: (id: string, status: string) =>
+    `A conexão ${id} precisa de ação: ${status}. Execute sync list novamente para ver o resultado.`,
+  syncNeedsActionMany: (statuses: string) =>
+    `As conexões precisam de ação: ${statuses}. Execute sync list novamente para ver o resultado.`,
+  syncFailedOne: (id: string, status: string) =>
+    `A sincronização falhou para a conexão ${id}: ${status}. Execute sync list novamente para ver o resultado.`,
+  syncFailedMany: (statuses: string) =>
+    `A sincronização falhou: ${statuses}. Execute sync list novamente para ver o resultado.`,
+  syncTimedOutOne: (id: string, seconds: number) =>
+    `A conexão ${id} continua UPDATING após ${seconds}s; sem status final. Execute sync list novamente para ver o resultado.`,
+  syncTimedOutMany: (ids: string, seconds: number) =>
+    `As conexões ${ids} continuam UPDATING após ${seconds}s; sem status final. Execute sync list novamente para ver o resultado.`,
   errorConnectionsPayload: () => 'GET /v1/integracao/connections não retornou uma lista de conexões',
   errorConnectionMissingId: (id: number) =>
     `A conta ${id} está vinculada a uma conexão que não incluiu o ID dela.`,

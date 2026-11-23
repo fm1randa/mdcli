@@ -5,6 +5,7 @@ import { getFirefoxProfilePath } from './firefox.js';
 import { extractUidFromJwt, fetchPublicApiKey } from './jwt.js';
 import { cleanupTempDir, copyProfileToTemp } from './profile-copy.js';
 import { setupAuthCapture } from '../browser-auth.js';
+import { COOKIE_DOMAIN, WEB_URL } from '../meu-dinheiro-host.js';
 
 
 export {
@@ -20,6 +21,11 @@ interface LoginConfigRaw {
   mdApiKey?: string;
   mdauthtoken?: string;
   uid?: number | null;
+}
+
+interface MdWindow {
+  loginconfig?: LoginConfigRaw;
+  __captured_loginconfig?: LoginConfigRaw;
 }
 
 interface BrowserSessionOptions {
@@ -70,10 +76,9 @@ export async function extractSessionFromBrowser(
 
       // Capture loginconfig via setter trap - prevents losing it if page redirects to dashboard
       await page.addInitScript(() => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- the page's own global is untyped inside addInitScript
-        const browserWindow = globalThis as any;
+        const browserWindow = globalThis as typeof globalThis & MdWindow;
         Object.defineProperty(browserWindow, 'loginconfig', {
-          set(value: unknown) {
+          set(value: LoginConfigRaw) {
             browserWindow.__captured_loginconfig = value;
             Object.defineProperty(browserWindow, 'loginconfig', { value, writable: true });
           },
@@ -97,7 +102,7 @@ export async function extractSessionFromBrowser(
         apiHeadersRef.captured = headers;
       });
 
-      await page.goto('https://app.meudinheiroweb.com.br/', { waitUntil: 'domcontentloaded' });
+      await page.goto(WEB_URL, { waitUntil: 'domcontentloaded' });
 
       // Wait for whichever signal shows up first: the Angular app setting
       // loginconfig (unauthenticated -> login page), or a real API request
@@ -110,8 +115,7 @@ export async function extractSessionFromBrowser(
         // until the deadline instead of failing the whole extraction.
         const hasLoginConfig = await page
           .evaluate(() => {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- the page's own global is untyped inside evaluate
-            const browserWindow = globalThis as any;
+            const browserWindow = globalThis as typeof globalThis & MdWindow;
             return Boolean(browserWindow.__captured_loginconfig || browserWindow.loginconfig);
           })
           .catch(() => false);
@@ -121,8 +125,7 @@ export async function extractSessionFromBrowser(
 
       const loginConfig = await page
         .evaluate((): LoginConfigRaw | null => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- the page's own global is untyped inside evaluate
-          const browserWindow = globalThis as any;
+          const browserWindow = globalThis as typeof globalThis & MdWindow;
           const config = browserWindow.__captured_loginconfig || browserWindow.loginconfig;
           if (!config) return null;
           return {
@@ -135,7 +138,7 @@ export async function extractSessionFromBrowser(
         // captured-header fallbacks instead of throwing.
         .catch(() => null);
 
-      const cookies = await context.cookies('https://app.meudinheiroweb.com.br/');
+      const cookies = await context.cookies(WEB_URL);
       const authCookie = cookies.find((c) => c.name === 'mdauthtoken0');
 
       const capturedApiHeaders = apiHeadersRef.captured;
@@ -146,7 +149,7 @@ export async function extractSessionFromBrowser(
         (capturedApiHeaders?.authorization?.replace(/^Bearer\s+/i, '') ?? '');
 
       if (!token && browserType === 'chrome') {
-        token = getChromeCookieValue('mdauthtoken0', '.meudinheiroweb.com.br') ?? '';
+        token = getChromeCookieValue('mdauthtoken0', COOKIE_DOMAIN) ?? '';
       }
 
       // The current frontend no longer sets window.loginconfig: it reads the
@@ -181,8 +184,10 @@ export async function extractSessionFromBrowser(
             try {
               const rememberedUsers = localStorage.getItem('meudinheiro::rememberedUsers');
               if (!rememberedUsers) return null;
-              const users = JSON.parse(rememberedUsers);
-              return users[0]?.id ? String(users[0].id) : null;
+              const users: unknown = JSON.parse(rememberedUsers);
+              const first: unknown = Array.isArray(users) ? users[0] : undefined;
+              const id = typeof first === 'object' && first !== null && 'id' in first ? first.id : undefined;
+              return id ? String(id) : null;
             } catch {
               return null;
             }

@@ -12,6 +12,8 @@ export const enInternals: typeof SectionType = {
     `API request failed (${context}): ${status} ${statusText} - ${body}`,
   errorApiInvalidJson: (context, reason) =>
     `API returned invalid JSON (${context}): ${reason}`,
+  errorFirstInvoiceNoDueDate: (cardId) =>
+    `The API did not send the due date of card ${cardId}'s first invoice (primeiraFatura without vencimento).`,
   errorNotAuthenticated: () => 'Not authenticated. Run "mdcli auth login" first.',
   contextAfterRefresh: (context) => `${context}, after refresh`,
   captchaNoApiKey: () => '⚠ reCAPTCHA detected but no 2captcha API key configured.',

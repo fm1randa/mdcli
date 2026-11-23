@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createHome, MANUAL_AUTH, runCli, startMockApi, type MockApi, type RecordedRequest, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, CREDIT_CARD_ACCOUNT, EMPTY_ENTRIES_RESPONSE, cardInvoice } from './fixtures.js';
+import type { CardInvoiceEntry } from '../src/types/index.js';
 
 // Maintenance 2026-10-21: entries list read one invoice per month per card one
 // after the other (a year on two cards: 24 sequential requests).
@@ -12,7 +13,7 @@ let maxInFlight = 0;
 const SECOND_CARD = { ...CREDIT_CARD_ACCOUNT, id: 210, nome: 'Cartão Teste Dois', proximoVencimento: '2026-01-05' };
 const MONTHS = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'];
 
-function slowInvoice(due: string, lancamentos: unknown[], ms: number) {
+function slowInvoice(due: string, lancamentos: CardInvoiceEntry[], ms: number) {
   return async (_req: RecordedRequest) => {
     inFlight++;
     maxInFlight = Math.max(maxInFlight, inFlight);

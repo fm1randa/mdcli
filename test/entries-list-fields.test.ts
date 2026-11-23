@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createHome, MANUAL_AUTH, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, EMPTY_ENTRIES_RESPONSE, SAVINGS_ACCOUNT, TAGS_RESPONSE, entriesPage } from './fixtures.js';
+import type { Entry } from '../src/types/index.js';
 
 let api: MockApi;
 let home: TestHome;
@@ -24,7 +25,7 @@ const installment = {
   tags: [501, 502],
   observacoes: 'em 6x',
   ndocumento: 'NF-1',
-};
+} satisfies Entry;
 
 const transfer = {
   id: 62,
@@ -39,7 +40,7 @@ const transfer = {
   categoria: 30,
   parcela: 'fixa',
   agendaId: 7,
-};
+} satisfies Entry;
 
 beforeEach(() => {
   api = startMockApi();

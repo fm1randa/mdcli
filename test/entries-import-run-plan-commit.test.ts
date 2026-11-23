@@ -3,7 +3,7 @@ import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE } from './fixtures.js';
-import { CONNECTIONS, mockStatement, SINCE } from './import-harness.js';
+import { CONNECTIONS, mockStatement, SINCE, type BankTransaction } from './import-harness.js';
 
 // Fictional ids. 201 is Conta Teste (connection account 301). 10 Alimentação (d), 20 Salário (r).
 const FONTE = 'Importado via Integração bancária automática';
@@ -34,11 +34,11 @@ afterEach(() => {
   home.cleanup();
 });
 
-function bank(integrationId: string, extra: Record<string, unknown> = {}) {
+function bank(integrationId: string, extra: Partial<BankTransaction> = {}) {
   return { integrationId, descricao: 'Padaria Ficticia', valor: -12.34, data: '2026-10-07', moeda: 1, ...extra };
 }
 
-function statement(rows: unknown[]) {
+function statement(rows: BankTransaction[]) {
   mockStatement(api, rows, { saldo: 80 });
 }
 

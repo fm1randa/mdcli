@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { createHome, MANUAL_AUTH, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
+import { createHome, MANUAL_AUTH, runCli, startMockApi, type MockApi, type TestHome, offContract } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CREDIT_CARD_ACCOUNT, cardInvoice } from './fixtures.js';
 
 let api: MockApi;
@@ -171,7 +171,7 @@ describe('cards future', () => {
   });
 
   test('treats a payload that is not a list as no installments', async () => {
-    api.on('GET /v1/cartoes/202/parcelasFuturas', {});
+    api.on('GET /v1/cartoes/202/parcelasFuturas', offContract({}));
 
     const result = await runCli(['cards', 'future', '-a', '202', '--json'], { home, api });
 

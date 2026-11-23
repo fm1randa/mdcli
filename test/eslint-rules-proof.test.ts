@@ -1,20 +1,24 @@
 import { describe, expect, test } from 'bun:test';
-import { execFileSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ESLint, Linter } from 'eslint';
 import tseslint from 'typescript-eslint';
 import local from '../eslint-rules/index.js';
+import { git, revisionExists } from '../scripts/git.js';
+import { commitAll } from './git-repo.js';
 
 // Every local rule must prove two things in CI: it catches the code that
 // motivated it (a `before` fixture from that commit), and the config enables
-// it on the default src/** + test/** scope unless a named exemption says no.
+// it on the default src/** + test/** + scripts/** scope unless a named
+// exemption says no. Each area is probed through one file no block ignores, so
+// dropping an area from a block's `files` leaves a gap this test reports (#272).
 const ROOT = join(import.meta.dir, '..');
 const FIXTURES = join(import.meta.dir, 'fixtures/lint-rules');
 const RULE_AREAS = {
   'src/**': 'src/lib/api.ts',
   'test/**': 'test/helpers.ts',
+  'scripts/**': 'scripts/risk.ts',
 } as const;
 
 const eslint = new ESLint({ cwd: ROOT });
@@ -55,22 +59,13 @@ function hasDescribe(rule: string): boolean {
   return sources.some((source) => pattern.test(source));
 }
 
-function git(args: string[], cwd = ROOT): string {
-  return execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
-}
-
 function normalize(source: string): string {
   return source.split('\n').map((line) => line.trim()).filter((line) => line !== '').join('\n');
 }
 
-function mainRef(cwd: string): string {
+async function mainRef(cwd: string): Promise<string> {
   for (const ref of ['origin/main', 'main']) {
-    try {
-      git(['rev-parse', '--verify', '--quiet', `${ref}^{commit}`], cwd);
-      return ref;
-    } catch {
-      // Try the next ref; a checkout without main history has neither.
-    }
+    if (await revisionExists(`${ref}^{commit}`, cwd)) return ref;
   }
   throw new Error('cannot verify fixture origins without origin/main or main; fetch the main history');
 }
@@ -78,10 +73,10 @@ function mainRef(cwd: string): string {
 // A fixture whose origin survives only on the PR branch passes this checkout
 // but disappears when the squash merge rewrites that branch, leaving main red.
 // Requiring the origin to be in main's history refuses it before the merge.
-function assertReachable(rule: string, origin: string, cwd = ROOT): void {
-  const base = mainRef(cwd);
+async function assertReachable(rule: string, origin: string, cwd = ROOT): Promise<void> {
+  const base = await mainRef(cwd);
   try {
-    git(['merge-base', '--is-ancestor', origin, base], cwd);
+    await git(['merge-base', '--is-ancestor', origin, base], cwd);
   } catch {
     throw new Error(`${rule}: fixture origin ${origin} is not reachable from ${base}; the squash merge drops branch-only commits, so anchor the fixture in a commit already on main`);
   }
@@ -90,16 +85,14 @@ function assertReachable(rule: string, origin: string, cwd = ROOT): void {
 // The fixture proves the rule catches real code only when that code is still
 // in the commit that motivated the rule. A hand-written approximation lets a
 // narrow selector pass while missing the shape it was built for.
-function assertOriginCode(rule: string, fixture: Fixture): void {
-  try {
-    git(['cat-file', '-e', `${fixture.origin}^{commit}`]);
-  } catch {
+async function assertOriginCode(rule: string, fixture: Fixture): Promise<void> {
+  if (!(await revisionExists(`${fixture.origin}^{commit}`, ROOT))) {
     throw new Error(`${rule}: fixture origin ${fixture.origin} is not a commit in this repository`);
   }
-  assertReachable(rule, fixture.origin);
+  await assertReachable(rule, fixture.origin);
   let blob: string;
   try {
-    blob = git(['show', `${fixture.origin}:${fixture.source}`]);
+    blob = await git(['show', `${fixture.origin}:${fixture.source}`], ROOT);
   } catch {
     throw new Error(`${rule}: ${fixture.source} does not exist at ${fixture.origin}`);
   }
@@ -127,7 +120,7 @@ describe('every local rule is proven against the code that motivated it', () => 
       expect(fixture!.origin).toMatch(/^[0-9a-f]{7,40}\^?$/);
       expect(fixture!.note.trim()).not.toBe('');
       expect(existsSync(join(ROOT, fixture!.source))).toBe(true);
-      assertOriginCode(rule, fixture!);
+      await assertOriginCode(rule, fixture!);
 
       // A plain Linter keeps this check off the typed-project startup in
       // eslint-local-rules.test.ts; the scope is proven by calculateConfigForFile above.
@@ -166,21 +159,18 @@ describe('every local rule is proven against the code that motivated it', () => 
 });
 
 describe('fixture origins survive the squash merge', () => {
-  test('accepts a commit on main and rejects one only on a side branch', () => {
+  test('accepts a commit on main and rejects one only on a side branch', async () => {
     const repo = mkdtempSync(join(tmpdir(), 'mdcli-fixture-origin-'));
     try {
-      const commit = (message: string): string => {
-        git(['-c', 'user.name=test', '-c', 'user.email=test@example.com', 'commit', '-q', '--allow-empty', '-m', message], repo);
-        return git(['rev-parse', 'HEAD'], repo).trim();
-      };
-      git(['init', '-q', '-b', 'main'], repo);
-      const mainCommit = commit('main');
-      git(['update-ref', 'refs/remotes/origin/main', mainCommit], repo);
-      git(['checkout', '-q', '-b', 'feature'], repo);
-      const sideCommit = commit('side');
+      const commit = (message: string): Promise<string> => commitAll(repo, message, '--allow-empty');
+      await git(['init', '-q', '-b', 'main'], repo);
+      const mainCommit = await commit('main');
+      await git(['update-ref', 'refs/remotes/origin/main', mainCommit], repo);
+      await git(['checkout', '-q', '-b', 'feature'], repo);
+      const sideCommit = await commit('side');
 
-      expect(() => assertReachable('rule', mainCommit, repo)).not.toThrow();
-      expect(() => assertReachable('rule', sideCommit, repo)).toThrow(/not reachable from origin\/main/);
+      expect(assertReachable('rule', mainCommit, repo)).resolves.toBeUndefined();
+      expect(assertReachable('rule', sideCommit, repo)).rejects.toThrow(/not reachable from origin\/main/);
     } finally {
       rmSync(repo, { recursive: true, force: true });
     }

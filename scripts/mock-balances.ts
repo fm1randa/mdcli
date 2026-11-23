@@ -1,9 +1,10 @@
 // GET /v2/lancamentos type=sum for scripts/mock-api.ts (the web's account balances, #67).
 import type { AccountBalancesResponse, AccountBalanceSum } from '../src/types/index.js';
-import { SEEDED_ENTRIES } from './mock-entries.js';
+import { roundToCents } from '../src/utils/currency.js';
+import { SEEDED_ENTRIES } from './mock-entry-seed.js';
+import { json } from './mock-http.js';
 
-const round = (value: number): number => Math.round(value * 100) / 100;
-const sum = (items: ReadonlyArray<{ valor: unknown }>): number => round(items.reduce((total, e) => total + Number(e.valor), 0));
+const sum = (items: ReadonlyArray<{ valor: number }>): number => roundToCents(items.reduce((total, e) => total + e.valor, 0));
 
 const CONFIRMED_LABELS = ['conciliado', 'confirmado'];
 
@@ -17,7 +18,7 @@ export function balancesRoute(url: URL, isCreditCardId: (conta: unknown) => bool
   const to = url.searchParams.get('fim') ?? '';
   const entries = Object.values(SEEDED_ENTRIES).filter((e) => String(e.dataPrevista) <= to);
   const sumRows: AccountBalanceSum[] = ids.filter((id) => !isCreditCardId(id)).map((conta) => {
-    const own = entries.filter((e) => Number(e.conta) === conta);
+    const own = entries.filter((e) => e.conta === conta);
     return {
       conta,
       projetado: sum(own),
@@ -25,5 +26,5 @@ export function balancesRoute(url: URL, isCreditCardId: (conta: unknown) => bool
     };
   });
   const response: AccountBalancesResponse = { sum: sumRows };
-  return Response.json(response);
+  return json<'GET /v2/lancamentos'>(response);
 }

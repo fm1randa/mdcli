@@ -1,10 +1,13 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { createHome, MANUAL_AUTH, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
-import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, CREDIT_CARD_ACCOUNT, EMPTY_ENTRIES_RESPONSE, cardInvoice } from './fixtures.js';
+import { createHome, MANUAL_AUTH, runCli, startMockApi, type MockApi, type TestHome, offContract } from './helpers.js';
+import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, CREDIT_CARD_ACCOUNT, EMPTY_ENTRIES_RESPONSE, cardInvoice, firstInvoice } from './fixtures.js';
+import { serveCreate } from './entry-routes.js';
 
 // Maintenance 2026-10-21: for a card without proximoVencimento, cards invoice
 // --month assumed day 10, cards invoice and entries list asked primeiraFatura
 // and entries create refused. All of them now take primeiraFatura's day.
+// primeiraFatura answers an object, not a date string (issue #266): before
+// the fix, reading it as a string threw a TypeError on every command here.
 let api: MockApi;
 let home: TestHome;
 
@@ -19,7 +22,7 @@ beforeEach(() => {
     items: [{ ...CREDIT_CARD_ACCOUNT, proximoVencimento: undefined, proximoFechamento: undefined }],
   });
   api.on('GET /v1/cadastros/categorias', CATEGORIES_RESPONSE);
-  api.on('GET /v1/cartoes/202/primeiraFatura', () => '2026-02-21');
+  api.on('GET /v1/cartoes/202/primeiraFatura', firstInvoice(202, '2026-02-21T00:00:00', '2026-02-11T00:00:00'));
   home = createHome(MANUAL_AUTH);
 });
 
@@ -62,7 +65,7 @@ describe('card without a next due date', () => {
   });
 
   test('entries create --invoice puts the purchase on the invoice due that day, where it used to refuse', async () => {
-    api.on('POST /v1/lancamentos', { id: 555, descricao: 'Voo', valor: -10, data: '2026-04-05', status: 'confirmado', conta: 202 });
+    serveCreate(api, 555, { descricao: 'Voo', valor: -10, data: '2026-04-05', status: 'confirmado', conta: 202 });
 
     const result = await runCli(
       ['entries', 'create', '-a', '202', '-d', 'Voo', '-v', '10', '-c', '10', '-D', '2026-04-05', '--invoice', '2026-04', '--json'],
@@ -80,7 +83,7 @@ describe('card without a next due date', () => {
       api.on('GET /v1/cartoes/202/fatura/2026-02-21', cardInvoice('2026-02-21', '2026-02-11'));
       api.on('GET /v1/cartoes/202/fatura/2026-03-21', cardInvoice('2026-03-21', '2026-03-11'));
       api.on('GET /v1/cartoes/202/fatura/2026-04-21', cardInvoice('2026-04-21', '2026-04-11'));
-      api.on('POST /v1/lancamentos', { id: 556, descricao: 'Voo', valor: -10, status: 'confirmado', conta: 202 });
+      serveCreate(api, 556, { descricao: 'Voo', valor: -10, status: 'confirmado', conta: 202 });
     });
 
     async function createPurchase(date: string): Promise<unknown> {
@@ -96,5 +99,18 @@ describe('card without a next due date', () => {
     test('a purchase after the March closing (03-11) goes on the invoice due 04-21', async () => {
       expect(await createPurchase('2026-03-15')).toMatchObject({ dataCompetencia: '2026-03-15', dataPrevista: '2026-04-21' });
     });
+  });
+
+  test('a primeiraFatura without vencimento fails with a clear error and loads no invoice', async () => {
+    const { vencimento: _omit, ...withoutDue } = firstInvoice(202, '2026-02-21T00:00:00', '2026-02-11T00:00:00');
+    api.on('GET /v1/cartoes/202/primeiraFatura', offContract(withoutDue));
+
+    const result = await runCli(['cards', 'invoice', '-a', '202', '--json'], { home, api });
+
+    expect(result.exitCode).toBe(1);
+    expect(JSON.parse(result.stderr).error).toBe(
+      "The API did not send the due date of card 202's first invoice (primeiraFatura without vencimento)."
+    );
+    expect(cardPaths()).toEqual(['/v1/cartoes/202/primeiraFatura']);
   });
 });

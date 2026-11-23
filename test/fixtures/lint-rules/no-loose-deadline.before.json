@@ -1,0 +1,7 @@
+{
+  "rule": "no-loose-deadline",
+  "origin": "cec9525eca70f94953b0b6bf0c2dbdc2535adc47",
+  "source": "test/helpers.ts",
+  "note": "runCliInTerminal defaulted stepTimeoutMs to 10_000, a handwritten half of TEST_TIMEOUT_MS (#303).",
+  "code": "stepTimeoutMs = 10_000"
+}

@@ -25,21 +25,53 @@ export function now(): Date {
   return current;
 }
 
+/** The current moment from now() in epoch milliseconds, as the web stamps an import. */
+export function nowMs(): number {
+  return now().getTime();
+}
+
 /** Today's local calendar day (YYYY-MM-DD), from now(). */
 export function today(): string {
   return toLocalDateString(now());
 }
 
+declare const dateRangeBrand: unique symbol;
+
+/**
+ * An inclusive YYYY-MM-DD range. The brand makes `dateRange` and `monthRange`
+ * the only constructors, so start <= end holds by type.
+ */
+export interface DateRange {
+  readonly start: string;
+  readonly end: string;
+  readonly [dateRangeBrand]: true;
+}
+
+/** The inclusive range from start to end. Null when start is after end. */
+export function dateRange(start: string, end: string): DateRange | null {
+  return start > end ? null : ({ start, end } as DateRange);
+}
+
+const YEAR_MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
+
+/** True for YYYY-MM with a month 01-12. */
+export function isYearMonth(value: string): boolean {
+  return YEAR_MONTH.test(value);
+}
+
+/** First and last calendar day of a YYYY-MM month. Throws when the month is not real. */
+export function monthRange(month: string): DateRange {
+  if (!isYearMonth(month)) {
+    throw new Error(t('errorInvalidInvoiceMonth', month));
+  }
+  const [year, mon] = dateParts(month);
+  return { start: `${month}-01`, end: toLocalDateString(new Date(year, mon, 0)) } as DateRange;
+}
+
 /** First and last calendar day of the current local month. */
 export function getCurrentMonthRange(): { startDate: string; endDate: string } {
-  const current = now();
-  const startDate = new Date(current.getFullYear(), current.getMonth(), 1);
-  const endDate = new Date(current.getFullYear(), current.getMonth() + 1, 0);
-
-  return {
-    startDate: toLocalDateString(startDate),
-    endDate: toLocalDateString(endDate),
-  };
+  const { start, end } = monthRange(today().slice(0, 7));
+  return { startDate: start, endDate: end };
 }
 
 /** Year, month and day of a YYYY-MM-DD date; a part that is not plain digits is NaN. */
@@ -56,10 +88,9 @@ export function shiftDueDate(dueDate: string, months: number): string {
   return toLocalDateString(target);
 }
 
-const INVOICE_MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
-/** Validates a YYYY-MM invoice month (month 01-12); throws a message for the user otherwise. */
+/** Validates a YYYY-MM invoice month (month 01-12). Throws a message for the user otherwise. */
 export function parseInvoiceMonth(value: string): string {
-  if (!INVOICE_MONTH.test(value)) {
+  if (!isYearMonth(value)) {
     throw new Error(t('errorInvalidInvoiceMonth', value));
   }
   return value;

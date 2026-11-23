@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs';
 import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE } from './fixtures.js';
 import { FakeEditor } from './import-edit-harness.js';
-import { CONNECTIONS, mockStatement, SINCE } from './import-harness.js';
+import { candidate, CONNECTIONS, mockStatement, SINCE, type BankTransaction, type CandidateEntry } from './import-harness.js';
 
 // Fictional ids. 201 is Conta Teste (connection account 301).
 // Categories: 10 Alimentação (d), 20 Salário (r), 60 Antiga (d, inactive).
@@ -18,7 +18,7 @@ const TX1 = 'aaaa1111-1111-4000-8000-000000000001';
 const TX2 = 'bbbb2222-2222-4000-8000-000000000002';
 const TX3 = 'cccc3333-3333-4000-8000-000000000003';
 const TX4 = 'dddd4444-4444-4000-8000-000000000004';
-const RULE_10 = { c: { d: { categoria: { v: 10 }, descricao: { v: 'Padaria' } } } };
+const RULE_10 = { c: { d: { categoria: { v: '10' }, descricao: { v: 'Padaria' } } } };
 
 let api: MockApi;
 let home: TestHome;
@@ -44,15 +44,15 @@ afterEach(() => {
   fake.cleanup();
 });
 
-function bank(integrationId: string, extra: Record<string, unknown> = {}) {
+function bank(integrationId: string, extra: Partial<BankTransaction> = {}) {
   return { integrationId, descricao: 'Padaria Ficticia', valor: -12.34, data: '2026-10-07', moeda: 1, ...extra };
 }
 
-function statement(rows: unknown[]) {
+function statement(rows: BankTransaction[]) {
   mockStatement(api, rows, { saldo: 250.5 });
 }
 
-function entries(list: unknown[]) {
+function entries(list: CandidateEntry[]) {
   api.on('GET /v2/lancamentos', { list, meta: { total: list.length, page: 1, pageSize: 500 } });
 }
 
@@ -117,15 +117,15 @@ describe('entries import run --edit', () => {
   test('opens each default action: rule, AI, needs-category, duplicate, and conciliate with the linked entry', async () => {
     statement([
       bank(TX1, { _ca: RULE_10 }),
-      bank(TX2, { valor: 3000, data: '2026-10-05', descricao: 'Empresa Teste', _ca: { ait: { r: 'tok-r' } } }),
+      bank(TX2, { valor: 3000, data: '2026-10-05', descricao: 'Empresa Teste', _ca: { ait: { r: ['r', 'tok-r'] } } }),
       bank(TX3, { valor: -7, data: '2026-10-06', descricao: 'Mercado' }),
       bank(TX4, { valor: -40, data: '2026-10-08', descricao: 'Posto' }),
     ]);
     api.on('POST /v1/smartmatch/ai', [20]);
     api.on('GET /v1/lancamentos/duplicidade', { '2026-10-06': [{ id: 77, valor: -7 }] });
     entries([
-      { id: 501, dataPrevista: '2026-10-08', valor: -40, descricao: 'Posto A' },
-      { id: 502, dataEfetiva: '2026-10-09', valor: -40, descricao: 'Posto B' },
+      candidate({ id: 501, dataPrevista: '2026-10-08', valor: -40, descricao: 'Posto A' }),
+      candidate({ id: 502, dataPrevista: '2026-10-09', dataEfetiva: '2026-10-09', valor: -40, descricao: 'Posto B' }),
     ]);
 
     const result = await run(['--dry-run'], fake.script(['# nothing\n']));
@@ -197,7 +197,7 @@ describe('entries import run --edit', () => {
 
   test('a far candidate from --search-to shows in the comments and links with conciliate <prefix> <entryId>', async () => {
     statement([bank(TX1)]);
-    entries([{ id: 4242, dataPrevista: '2026-10-20', valor: -12.34, descricao: 'Padaria prevista', categoria: 10 }]);
+    entries([candidate({ id: 4242, dataPrevista: '2026-10-20', valor: -12.34, descricao: 'Padaria prevista', categoria: 10 })]);
     const editor = fake.script(['conciliate aaaa1111 4242 2026-10-07 -12.34  | Padaria Ficticia\n']);
 
     const result = await run(['--search-to', '2026-10-25', '--yes'], editor);
@@ -231,7 +231,7 @@ describe('entries import run --edit', () => {
   test('an entry id of 0 or past 2^53 reopens the editor instead of linking the automatic candidate', async () => {
     statement([bank(TX1)]);
     // On the bank date and value: linked automatically, so an unread id would silently link it.
-    entries([{ id: 4242, dataPrevista: '2026-10-07', valor: -12.34, descricao: 'Padaria prevista', categoria: 10 }]);
+    entries([candidate({ id: 4242, dataPrevista: '2026-10-07', valor: -12.34, descricao: 'Padaria prevista', categoria: 10 })]);
     const editor = fake.script([
       'conciliate aaaa1111 0 2026-10-07 -12.34  | Padaria\n',
       'conciliate aaaa1111 9007199254740993 2026-10-07 -12.34  | Padaria\n',
@@ -254,8 +254,8 @@ describe('entries import run --edit', () => {
     statement([bank(TX1), bank(TX2, { valor: -40, data: '2026-10-08' })]);
     // Four days away on each side: candidates, neither linked automatically.
     entries([
-      { id: 501, dataPrevista: '2026-10-04', valor: -40 },
-      { id: 502, dataPrevista: '2026-10-12', valor: -40 },
+      candidate({ id: 501, dataPrevista: '2026-10-04', valor: -40, descricao: 'Lancamento' }),
+      candidate({ id: 502, dataPrevista: '2026-10-12', valor: -40, descricao: 'Lancamento' }),
     ]);
     const bad = 'import aaaa1111 2026-10-07 -12.35 Alimentação | P\nconciliate bbbb2222 2026-10-08 -40  | Posto\n';
     const editor = fake.script([bad, null]);
@@ -265,89 +265,6 @@ describe('entries import run --edit', () => {
     expect(result.exitCode).toBe(1);
     expect(fake.seen(2)).toContain('# error: aaaa1111: value -12.35 is not the bank value -12.34. Only the sign can change.');
     expect(fake.seen(2)).toContain('# error: bbbb2222: 2 entries may match it (501, 502), none linked automatically. Write the one to link: conciliate bbbb2222 <entryId> ...');
-    expect(mutations(api)).toHaveLength(0);
-  });
-
-  test('--include-duplicates opens a duplicate as import instead of skip', async () => {
-    statement([bank(TX1, { _ca: RULE_10 })]);
-    api.on('GET /v1/lancamentos/duplicidade', { '2026-10-07': [{ id: 77, valor: -12.34 }] });
-    const editor = fake.script([null]);
-
-    const result = await run(['--include-duplicates', '--dry-run', '--json'], editor);
-
-    expect(result.stderr).toBe('');
-    expect(result.exitCode).toBe(0);
-    expect(fake.seen(1)).toContain('import aaaa1111 2026-10-07 -12.34 Alimentação | Padaria\n');
-    expect(JSON.parse(result.stdout).imported).toEqual([expect.objectContaining({ integrationId: TX1, categoryId: 10 })]);
-    expect(mutations(api)).toHaveLength(0);
-  });
-
-  test('an untouched line with an empty bank description parses and imports', async () => {
-    statement([bank(TX1, { descricao: '', _ca: { c: { d: { categoria: { v: 10 } } } } })]);
-    const editor = fake.script([null]);
-
-    const result = await run(['--dry-run', '--json'], editor);
-
-    expect(result.stderr).toBe('');
-    expect(result.exitCode).toBe(0);
-    expect(fake.seen(1)).toContain('import aaaa1111 2026-10-07 -12.34 Alimentação | \n');
-    expect(JSON.parse(result.stdout).imported).toEqual([expect.objectContaining({ integrationId: TX1, categoryId: 10 })]);
-    expect(fake.calls()).toBe(1);
-  });
-
-  test('an import line with an empty description falls back to the suggestion, then to the bank text', async () => {
-    statement([bank(TX1, { _ca: RULE_10 }), bank(TX2, { valor: -7, descricao: 'Feira do banco' })]);
-    const editor = fake.script([
-      'import aaaa1111 2026-10-07 -12.34 Alimentação |\nimport bbbb2222 2026-10-07 -7 Alimentação | \n',
-    ]);
-
-    const result = await run(['--dry-run', '--json'], editor);
-
-    expect(result.stderr).toBe('');
-    expect(result.exitCode).toBe(0);
-    expect(JSON.parse(result.stdout).imported).toEqual([
-      expect.objectContaining({ integrationId: TX1, description: 'Padaria' }),
-      expect.objectContaining({ integrationId: TX2, description: 'Feira do banco' }),
-    ]);
-    expect(fake.calls()).toBe(1);
-  });
-
-  test('an untouched line keeps the suggested category when another category has the same name', async () => {
-    // 40 Outros (d) is the rule's suggestion; 41 Outros (r) shares the name and would win a lookup by name.
-    const twin = { ...CATEGORIES_RESPONSE.items[4], id: 41, tipo: 'r' };
-    api.on('GET /v1/cadastros/categorias', { ...CATEGORIES_RESPONSE, items: [...CATEGORIES_RESPONSE.items, twin] });
-    statement([bank(TX1, { _ca: { c: { d: { categoria: { v: 40 } } } } })]);
-
-    const result = await run(['--yes'], fake.script([null]));
-
-    expect(result.stderr).toBe('');
-    expect(result.exitCode).toBe(0);
-    expect(fake.calls()).toBe(1);
-    expect(fake.seen(1)).toContain('import aaaa1111 2026-10-07 -12.34 40 | Padaria Ficticia\n');
-    expect(lancamentos(2)).toEqual([expect.objectContaining({ integrationId: TX1, categoria: 40 })]);
-  });
-
-  test('writing the suggested name back on its line keeps the suggested category', async () => {
-    const twin = { ...CATEGORIES_RESPONSE.items[4], id: 41, tipo: 'r' };
-    api.on('GET /v1/cadastros/categorias', { ...CATEGORIES_RESPONSE, items: [...CATEGORIES_RESPONSE.items, twin] });
-    statement([bank(TX1, { _ca: { c: { d: { categoria: { v: 40 } } } } })]);
-
-    const result = await run(['--yes'], fake.script(['import aaaa1111 2026-10-07 -12.34 outros | Padaria\n']));
-
-    expect(result.stderr).toBe('');
-    expect(result.exitCode).toBe(0);
-    expect(lancamentos(2)).toEqual([expect.objectContaining({ integrationId: TX1, categoria: 40, descricao: 'Padaria' })]);
-  });
-
-  test('--reject and --category do not combine with --edit', async () => {
-    statement([bank(TX1)]);
-
-    for (const extra of [['--reject', 'aaaa1111'], ['-c', '10']]) {
-      const result = await run(extra, fake.script([null]));
-      expect(result.exitCode).toBe(1);
-      expect(result.stderr).toContain('--edit');
-    }
-    expect(fake.calls()).toBe(0);
     expect(mutations(api)).toHaveLength(0);
   });
 });

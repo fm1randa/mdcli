@@ -1,0 +1,197 @@
+// What POST and PUT /v1/lancamentos accept and answer in scripts/mock-api.ts.
+import type { CreateEntryResponse, Entry, EntryId, OccurrenceId } from '../src/types/index.js';
+import { localDay } from '../test/helpers.js';
+import { roundToCents } from '../src/utils/currency.js';
+import { asEntryId, asOccurrenceId } from '../src/lib/entry-id-brands.js';
+import { type Body, numberArray, numberOrNull, requiredId, requiredNumber } from './mock-http.js';
+
+/**
+ * The label the API answers with after a POST or PUT, from the status object
+ * the payload sends, the way the web app words it after a save (md.js):
+ * conciliado; else confirmado when the entry has an effective date (which
+ * confirms it even with confirmado: false) or confirmado: true; else agendado
+ * for a planned date after today and pendente otherwise. `stored` is the
+ * entry as saved (the PUT merges the payload over the existing entry).
+ * Undefined when the payload has no status object.
+ */
+export function statusLabel(payload: Body, stored: Body = payload): Entry['status'] | undefined {
+  const status = payload.status;
+  if (status === null || typeof status !== 'object') return undefined;
+  const { confirmado, conciliado } = status as { confirmado?: boolean; conciliado?: boolean };
+  if (conciliado === true) return 'conciliado';
+  if (stored.dataEfetiva != null || confirmado === true) return 'confirmado';
+  const planned = String(stored.dataPrevista ?? stored.data ?? '').slice(0, 10);
+  return planned > localDay(0) ? 'agendado' : 'pendente';
+}
+
+/**
+ * What the web app sends for the shapes the CLI creates (deduced from the
+ * public bundle md.js); anything else answers 400 so verify.sh catches a
+ * regression through the real CLI path.
+ */
+export function checkCreatePayload(body: Body): string | null {
+  const status = body.status as { confirmado?: boolean; conciliado?: boolean } | undefined;
+  if (body.transferencia === true) {
+    if (body.tipo !== 't') return 'a transfer has tipo t';
+    if (body.conta !== undefined) return 'a transfer names contaOrigem/contaDestino, not conta';
+    if (typeof body.contaOrigem !== 'number' || typeof body.contaDestino !== 'number') {
+      return 'contaOrigem and contaDestino are required for a transfer';
+    }
+    if (body.contaOrigem === body.contaDestino) return 'origin and destination must differ';
+    if (typeof body.valor !== 'number' || body.valor >= 0) return 'a transfer is sent from the origin side (negative valor)';
+  } else if (body.tipo === 't') {
+    return 'tipo t without transferencia: true';
+  }
+  if (status?.confirmado === false && (body.dataEfetiva != null || body.valorEfetivo != null)) {
+    return 'an unconfirmed entry has no dataEfetiva/valorEfetivo';
+  }
+  if (status?.confirmado === false && (status.conciliado === true || body.conciliado === true)) {
+    return 'an unconfirmed entry cannot be reconciled';
+  }
+  const agenda = body.agenda as { repeticao?: string; quantidade?: number } | undefined;
+  if (agenda?.repeticao === 'p') {
+    const parcelas = body.parcelas as { valor: number; data: string }[] | undefined;
+    if (!Array.isArray(parcelas) || parcelas.length !== agenda.quantidade) {
+      return 'an installment series needs one parcela per installment';
+    }
+    const sum = parcelas.reduce((acc, p) => acc + p.valor, 0);
+    if (roundToCents(sum) !== roundToCents(requiredNumber(body.valor, 'valor'))) return 'valor must be the sum of the parcelas';
+  }
+  return null;
+}
+
+/**
+ * The accounts of a PUT /v1/lancamentos/:id (update --account, #123): a
+ * transfer names them as contaOrigem/contaDestino, any other entry as conta;
+ * all must exist, and a card purchase carries its purchase date.
+ * `accountType` is the tipo of an account ID, undefined when there is none.
+ */
+export function checkUpdateAccounts(body: Body, accountType: (conta: unknown) => string | undefined): string | null {
+  const transfer = body.transferencia === true;
+  const accounts = transfer ? [body.contaOrigem, body.contaDestino] : [body.conta];
+  if (accounts.some((conta) => accountType(conta) === undefined)) return 'conta must name an existing account';
+  if (transfer && body.contaOrigem === body.contaDestino) return 'origin and destination must differ';
+  if (!transfer && accountType(body.conta) === 'CARTAOCREDITO' && typeof body.dataCompetencia !== 'string') {
+    return 'dataCompetencia is required for credit card entries';
+  }
+  return null;
+}
+
+function entryType(tipo: unknown): CreateEntryResponse['tipo'] {
+  return tipo === 'r' || tipo === 't' || tipo === 'p' ? tipo : 'd';
+}
+
+/** A numeric entry ID from the mock. */
+export function mockEntryId(id: number): EntryId {
+  const entryId = asEntryId(id);
+  if (entryId === undefined) throw new Error(`mock entry ID ${id} is not a positive integer`);
+  return entryId;
+}
+
+/** An occurrence ID ("<series>A<date>") from the mock. */
+export function mockOccurrenceId(id: string): OccurrenceId {
+  const occurrenceId = asOccurrenceId(id);
+  if (occurrenceId === undefined) throw new Error(`mock occurrence ID ${id} is not <series>A<date>`);
+  return occurrenceId;
+}
+
+const FULL_PERMISSIONS: CreateEntryResponse['permissoes'] = {
+  visivel: true,
+  acoes: { conciliar: true, confirmar: true, editar: true, excluir: true, clonar: true },
+};
+
+/** The API's answer to POST /v1/lancamentos for a payload that passed checkCreatePayload. */
+export function createdEntry(body: Body, id: CreateEntryResponse['id']): CreateEntryResponse {
+  const reconciled = Boolean(body.conciliado);
+  const parcelas = body.parcelas as { valor: number; data: string }[] | undefined;
+  const agenda = body.agenda as { inicial?: number; quantidade?: number } | undefined;
+  return {
+    id,
+    descricao: String(body.descricao),
+    conciliado: reconciled,
+    dataCompetencia: typeof body.dataCompetencia === 'string' ? body.dataCompetencia : null,
+    // The real API answers confirmado for a confirmed, unreconciled entry (#70)
+    // and pendente for an unconfirmed one dated today (Real use 2026-10-19).
+    status: statusLabel(body) ?? 'pendente',
+    tipo: entryType(body.tipo),
+    // The server stores one entry per installment; this is the first one.
+    valor: parcelas ? parcelas[0].valor : requiredNumber(body.valor, 'valor'),
+    valorPrevisto: parcelas ? parcelas[0].valor : requiredNumber(body.valorPrevisto ?? body.valor, 'valorPrevisto'),
+    valorEfetivo: numberOrNull(body.valorEfetivo),
+    data: String(body.data ?? new Date().toISOString()),
+    dataPrevista: String(body.dataPrevista ?? ''),
+    dataEfetiva: typeof body.dataEfetiva === 'string' ? body.dataEfetiva : null,
+    dataCriacao: new Date().toISOString(),
+    exibirCp: true,
+    exibirCr: true,
+    permissoes: FULL_PERMISSIONS,
+    estorno: false,
+    conta: requiredId(body.conta ?? body.contaOrigem, 'conta'),
+    categoria: numberOrNull(body.categoria),
+    tags: numberArray(body.tags),
+    observacoes: String(body.observacoes ?? ''),
+    lembrete: '0',
+    automatico: body.automatico === true,
+    ...(body.transferencia === true && { contaT: requiredId(body.contaDestino, 'contaDestino'), valorT: requiredNumber(body.valorT, 'valorT') }),
+    ...(parcelas && { parcela: `${agenda?.inicial ?? 1}/${agenda?.quantidade}` }),
+  };
+}
+
+/**
+ * The API's answer to PUT /v1/lancamentos/:id: the payload merged over the
+ * stored entry. Like the real API, without todos: true an occurrence leaves
+ * its series.
+ */
+type SavingsGoal = Pick<Entry, 'metaEconomia' | 'metaEconomiaOrigem' | 'metaEconomiaDestino'>;
+
+/**
+ * The savings goal link the PUT leaves (#334): a transfer keeps only the
+ * metaEconomiaOrigem/metaEconomiaDestino it sends, any other entry the
+ * metaEconomia it sends (null unlinks it).
+ */
+function savingsGoal(body: Body): SavingsGoal {
+  if (body.transferencia !== true) return { metaEconomia: numberOrNull(body.metaEconomia) };
+  const goal: SavingsGoal = {};
+  if (typeof body.metaEconomiaOrigem === 'number') goal.metaEconomiaOrigem = body.metaEconomiaOrigem;
+  if (typeof body.metaEconomiaDestino === 'number') goal.metaEconomiaDestino = body.metaEconomiaDestino;
+  return goal;
+}
+
+export function updatedEntry(existing: Entry, body: Body, id: EntryId): CreateEntryResponse & Pick<Entry, 'agendaId' | 'parcela'> & SavingsGoal & { plastico: number | null } {
+  const { metaEconomia: _goal, metaEconomiaOrigem: _origin, metaEconomiaDestino: _destination, ...unlinked } = existing;
+  const merged: Body = { ...existing, ...body, id };
+  const inSeries = Boolean(existing.agendaId) && Boolean(existing.parcela);
+  const keepsSeries = inSeries && body.todos === true;
+  return {
+    ...unlinked,
+    ...savingsGoal(body),
+    id,
+    descricao: String(merged.descricao ?? existing.descricao),
+    conciliado: merged.conciliado === true,
+    dataCompetencia: typeof merged.dataCompetencia === 'string' ? merged.dataCompetencia : null,
+    status: statusLabel(body, merged) ?? existing.status,
+    agendaId: keepsSeries ? existing.agendaId : null,
+    parcela: keepsSeries ? existing.parcela : null,
+    tipo: entryType(merged.tipo),
+    valor: requiredNumber(merged.valor, 'valor'),
+    valorPrevisto: requiredNumber(merged.valor, 'valor'),
+    valorEfetivo: numberOrNull(merged.valorEfetivo),
+    estorno: merged.estorno === true,
+    data: String(merged.data ?? existing.data),
+    dataPrevista: String(merged.dataPrevista ?? existing.dataPrevista),
+    dataEfetiva: typeof merged.dataEfetiva === 'string' ? merged.dataEfetiva : null,
+    dataCriacao: new Date().toISOString(),
+    exibirCp: true,
+    exibirCr: true,
+    permissoes: existing.permissoes ?? FULL_PERMISSIONS,
+    // A transfer names its origin as contaOrigem; an invoice payment keeps conta.
+    conta: requiredId(body.contaOrigem ?? merged.conta, 'conta'),
+    categoria: numberOrNull(merged.categoria),
+    tags: numberArray(merged.tags),
+    observacoes: String(merged.observacoes ?? ''),
+    lembrete: String(merged.lembrete ?? '0'),
+    automatico: merged.automatico === true,
+    plastico: numberOrNull(merged.plastico),
+    ...(body.contaDestino !== undefined && { contaT: requiredId(body.contaDestino, 'contaDestino') }),
+  };
+}

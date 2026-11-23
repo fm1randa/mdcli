@@ -1,0 +1,219 @@
+import type { Entry } from '../src/types/index.js';
+
+// Seeded entries for GET/PUT/DELETE /v1/lancamentos/:id.
+
+type ScheduledSeed = Omit<Entry, 'dataEfetiva' | 'transferencia' | 'status' | 'tipo'> & {
+  status: 'agendado';
+  tipo: 'd' | 'r';
+};
+
+type SettledEntrySeed = Omit<Entry, 'dataEfetiva' | 'transferencia' | 'status' | 'tipo'> & {
+  status: 'conciliado' | 'confirmado';
+  tipo: 'd' | 'r';
+  dataEfetiva: string;
+};
+
+type SettledTransferSeed = Omit<Entry, 'dataEfetiva' | 'transferencia' | 'status' | 'tipo'> & {
+  status: 'conciliado' | 'confirmado';
+  tipo: 't' | 'p';
+  dataEfetiva: string;
+  transferencia: number;
+};
+
+export type SeedEntry = ScheduledSeed | SettledEntrySeed | SettledTransferSeed;
+
+const SEED_ENTRIES = {
+  50: {
+    id: 50,
+    descricao: 'Poupança',
+    tipo: 't',
+    valor: -1000,
+    valorT: 1000,
+    data: '2026-01-15',
+    dataPrevista: '2026-01-15',
+    dataEfetiva: '2026-01-15',
+    status: 'conciliado',
+    conciliado: true,
+    conta: 201,
+    contaT: 203,
+    transferencia: 51,
+    regime: 'ca',
+    categoria: 30,
+    tags: [],
+    observacoes: '',
+  },
+  60: {
+    id: 60,
+    descricao: 'Notebook',
+    tipo: 'd',
+    valor: -250,
+    data: '2026-01-10',
+    dataPrevista: '2026-01-10',
+    dataEfetiva: '2026-01-10',
+    dataCompetencia: '2026-01-10',
+    status: 'conciliado',
+    conciliado: true,
+    conta: 201,
+    categoria: 10,
+    categoriaPai: 0,
+    parcela: '2/6',
+    agendaId: 99,
+    agenda: { frequencia: 1, intervalo: 'M', quantidade: 6, primeiraData: '2025-12-10' },
+    regime: 'ca',
+    plastico: 62,
+    tags: [501],
+    observacoes: 'parcelado',
+    ndocumento: 'NF-1',
+    lembrete: 0,
+    automatico: false,
+    exibirCp: true,
+    exibirCr: true,
+    estorno: false,
+  },
+  // A future occurrence of a fixed monthly series (#65): scheduled, so no
+  // effective date or value yet.
+  80: {
+    id: 80,
+    descricao: 'Assinatura Teste',
+    tipo: 'd',
+    valor: -45,
+    valorPrevisto: -45,
+    data: '2027-01-10',
+    dataPrevista: '2027-01-10',
+    status: 'agendado',
+    conciliado: false,
+    conta: 201,
+    categoria: 10,
+    parcela: 'fixa',
+    agendaId: 77,
+    agenda: { frequencia: 1, intervalo: 'M', quantidade: -1, primeiraData: '2026-11-10' },
+    tags: [],
+  },
+  // A transfer between two regular accounts, Conta Teste -> Poupança (#123),
+  // dated outside the months the list steps read.
+  52: {
+    id: 52,
+    descricao: 'Reserva',
+    tipo: 't',
+    valor: -300,
+    valorT: 300,
+    data: '2025-06-15',
+    dataPrevista: '2025-06-15',
+    dataEfetiva: '2025-06-15',
+    status: 'conciliado',
+    conciliado: true,
+    conta: 201,
+    contaT: 204,
+    transferencia: 53,
+    categoria: 30,
+    tags: [],
+    observacoes: '',
+  },
+  // A withdrawal from a savings goal (#334), seen from its origin half and
+  // dated outside the months the list steps read.
+  54: {
+    id: 54,
+    descricao: 'Resgate Meta Teste',
+    tipo: 't',
+    valor: -200,
+    valorT: 200,
+    data: '2025-06-16',
+    dataPrevista: '2025-06-16',
+    dataEfetiva: '2025-06-16',
+    status: 'conciliado',
+    conciliado: true,
+    conta: 204,
+    contaT: 201,
+    transferencia: 55,
+    metaEconomiaOrigem: 8,
+    categoria: 30,
+    tags: [],
+    observacoes: '',
+  },
+  // An expense linked to a savings goal (#334), outside the listed months and
+  // on the savings account, so the checking balances stay as verify.sh pins them.
+  72: {
+    id: 72,
+    descricao: 'Despesa Meta Teste',
+    tipo: 'd',
+    valor: -40,
+    data: '2025-06-16',
+    dataPrevista: '2025-06-16',
+    dataEfetiva: '2025-06-16',
+    status: 'conciliado',
+    conciliado: true,
+    conta: 204,
+    categoria: 10,
+    metaEconomia: 9,
+    tags: [],
+  },
+  70: {
+    id: 70,
+    descricao: 'Café',
+    tipo: 'd',
+    valor: -12.5,
+    data: '2026-01-12',
+    dataPrevista: '2026-01-12',
+    dataEfetiva: '2026-01-14',
+    status: 'conciliado',
+    conciliado: true,
+    conta: 201,
+    categoria: 10,
+    tags: [],
+  },
+  // A service paid in April for work done in March: entries summary --regime
+  // splits the cash month (dataPrevista) from the accrual month (dataCompetencia).
+  73: {
+    id: 73,
+    descricao: 'Serviço Teste',
+    tipo: 'd',
+    valor: -80,
+    data: '2026-04-05',
+    dataPrevista: '2026-04-05',
+    dataEfetiva: '2026-04-05',
+    dataCompetencia: '2026-03-28',
+    status: 'conciliado',
+    conciliado: true,
+    conta: 204,
+    categoria: 10,
+    tags: [],
+  },
+  74: {
+    id: 74,
+    descricao: 'Mercado Teste',
+    tipo: 'd',
+    valor: -20,
+    data: '2026-03-10',
+    dataPrevista: '2026-03-10',
+    dataEfetiva: '2026-03-10',
+    dataCompetencia: '2026-03-10',
+    status: 'conciliado',
+    conciliado: true,
+    conta: 204,
+    categoria: 11,
+    tags: [],
+  },
+  // A refund as the server stored one (Real use 2026-10-27): tipo r with a
+  // negative value and estorno on, which the web app never sends - update -T
+  // income has to fix both.
+  71: {
+    id: 71,
+    descricao: 'Estorno Teste',
+    tipo: 'r',
+    valor: -1700,
+    valorPrevisto: -1700,
+    valorEfetivo: -1700,
+    data: '2026-01-12',
+    dataPrevista: '2026-01-12',
+    dataEfetiva: '2026-01-12',
+    dataReconhecimento: '2026-01-12',
+    status: 'conciliado',
+    conciliado: true,
+    estorno: true,
+    conta: 204,
+    categoria: 20,
+    tags: [],
+  },
+} satisfies Record<number, SeedEntry>;
+
+export const SEEDED_ENTRIES: Record<number, Entry> = { ...SEED_ENTRIES };

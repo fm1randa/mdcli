@@ -3,7 +3,7 @@ import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE } from './fixtures.js';
-import { CONNECTIONS, mockStatement, SINCE } from './import-harness.js';
+import { candidate, CONNECTIONS, mockStatement, SINCE, type BankTransaction, type CandidateEntry } from './import-harness.js';
 
 // The --plan file itself: its keys and types, the flags it combines with, and its prefixes.
 // Fictional ids. 201 is Conta Teste (connection account 301).
@@ -34,15 +34,15 @@ afterEach(() => {
   home.cleanup();
 });
 
-function bank(integrationId: string, extra: Record<string, unknown> = {}) {
+function bank(integrationId: string, extra: Partial<BankTransaction> = {}) {
   return { integrationId, descricao: 'Padaria Ficticia', valor: -12.34, data: '2026-10-07', moeda: 1, ...extra };
 }
 
-function statement(rows: unknown[]) {
+function statement(rows: BankTransaction[]) {
   mockStatement(api, rows);
 }
 
-function entries(list: unknown[]) {
+function entries(list: CandidateEntry[]) {
   api.on('GET /v2/lancamentos', { list, meta: { total: list.length, page: 1, pageSize: 500 } });
 }
 
@@ -257,7 +257,7 @@ describe('entries import run --plan file checks', () => {
 
   test('entry is the only name for the linked Entry; conciliateWith is not accepted', async () => {
     statement([bank(TX1)]);
-    entries([{ id: 4242, dataPrevista: '2026-10-07', valor: -12.34, categoria: 11 }]);
+    entries([candidate({ id: 4242, dataPrevista: '2026-10-07', valor: -12.34, categoria: 11, descricao: 'Lancamento' })]);
 
     const linked = await run([
       '--plan',

@@ -1,12 +1,21 @@
 import { afterEach, beforeEach, describe, expect, setSystemTime, test } from 'bun:test';
 import {
   addInterval,
+  dateRange,
   getCurrentMonthRange,
   isCalendarDate,
   shiftDueDate,
   today,
   toLocalDateString,
 } from '../src/lib/dates.js';
+
+describe('dateRange', () => {
+  test('keeps an ordered or one-day range and refuses a reversed one', () => {
+    expect({ ...dateRange('2026-11-01', '2026-11-30') }).toEqual({ start: '2026-11-01', end: '2026-11-30' });
+    expect({ ...dateRange('2026-11-15', '2026-11-15') }).toEqual({ start: '2026-11-15', end: '2026-11-15' });
+    expect(dateRange('2026-11-30', '2026-11-01')).toBeNull();
+  });
+});
 
 describe('toLocalDateString', () => {
   test('formats local calendar parts as YYYY-MM-DD', () => {

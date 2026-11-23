@@ -84,9 +84,14 @@ export interface Entry {
   valorEfetivoT?: number;
   plasticoT?: number;
   contaT?: number;
-  /** The GET sends a number; the web app's PUT sends a boolean. */
-  transferencia?: number | boolean;
+  /** Other side's id on a transfer or an invoice payment. An expense or income omits the key. */
+  transferencia?: number;
+  /** Savings goal of a transfer's destination side (a deposit). */
   metaEconomiaDestino?: number;
+  /** Savings goal of a transfer's origin side (a withdrawal). */
+  metaEconomiaOrigem?: number;
+  /** Savings goal of an expense or income; the web also reads it as the goal of the half it is on. */
+  metaEconomia?: number | null;
   projecaoFatura?: number;
   /** A card purchase on a closed invoice (the web's "ff" filter); its account is locked. */
   fatura?: number;
@@ -116,7 +121,11 @@ export interface EntriesParams {
   entryType?: number;
   /** tipoRepeticao bitmask: 1 single, 2 installment, 4 fixed. */
   repetition?: number;
+  /** The web reports' regime: ca (cash) or co (accrual); undefined = not sent. */
+  regime?: ApiRegime;
 }
+
+export type ApiRegime = 'ca' | 'co';
 
 /** unknown: a label the CLI does not know (see entries show --raw). */
 export type EntryStatus = 'reconciled' | 'confirmed' | 'pending' | 'scheduled' | 'unknown';
@@ -207,11 +216,11 @@ export interface CreateEntryPayload {
 export interface CreateEntryResponse {
   /**
    * An entry ID, except for a card purchase or a future pending entry, where
-   * POST answers an occurrence ID: see entries/entry-id.ts. `entries create`
-   * resolves it before printing, and `ResolvedCreateEntry` is what its output
-   * accepts.
+   * POST answers an occurrence ID: see entries/entry-id.ts. It stays unbranded
+   * because nothing checked it on the way in; `entries create` resolves it
+   * before printing, and `ResolvedCreateEntry` is what its output accepts.
    */
-  id: EntryId | OccurrenceId;
+  id: number | string;
   descricao: string;
   conciliado: boolean;
   /** Only a card purchase carries the purchase date. */
@@ -272,10 +281,10 @@ interface UpdateEntryFields {
 export interface UpdateEntryPayload extends Omit<Entry, keyof UpdateEntryFields | 'transferencia' | 'plastico'>, UpdateEntryFields {
   /** null: moved to a card without a holder plastic (update --account). */
   plastico?: number | null;
-  /** The GET sends a number; the web app's PUT, false for a non-transfer. */
-  transferencia: number | boolean;
+  /** A boolean, unlike the GET's number: the web app's save sends true for tipo t or p, else false. */
+  transferencia: boolean;
   estorno: boolean;
-  metaEconomia: null;
+  metaEconomia: number | null;
   agenda?: EntryAgenda;
 }
 
@@ -286,7 +295,7 @@ export interface UpdateEntryPayload extends Omit<Entry, keyof UpdateEntryFields 
  */
 export interface UpdateTransferPayload
   extends UpdateEntryFields,
-    Partial<Pick<Entry, 'dataCompetencia' | 'parcela' | 'agendaId' | 'regime' | 'estorno' | 'detalhes' | 'metaEconomiaDestino' | 'categoriaPai' | 'plastico'>> {
+    Partial<Pick<Entry, 'dataCompetencia' | 'parcela' | 'agendaId' | 'regime' | 'estorno' | 'detalhes' | 'metaEconomiaDestino' | 'metaEconomiaOrigem' | 'categoriaPai' | 'plastico'>> {
   transferencia: true;
   /** A transfer also carries confirmado at the top. */
   confirmado: boolean;

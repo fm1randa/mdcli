@@ -25,6 +25,8 @@ export interface ExistingEntry {
   /** Status `conciliado`. The web hides it from the candidates and links it only on the same day. */
   reconciled: boolean;
   ndocumento: string | null;
+  /** The Bank Transaction the Entry was imported from (the import sends it, commit.ts), when the API returns it. */
+  integrationId: string | null;
   /** Read once here, so a linked Entry's before needs no other request. */
   fields: OverwrittenFields;
 }
@@ -33,6 +35,7 @@ interface BankSide {
   date: string | null;
   value: number | null;
   ndocumento: string | null;
+  integrationId?: string | null;
 }
 
 /**
@@ -52,6 +55,7 @@ export function readExisting(rows: readonly unknown[], source: 'entry' | 'invoic
       candidate: { id, date, value, description: textOrNull(record.descricao), categoryId: idOrNull(record.categoria) },
       reconciled: record.status === 'conciliado',
       ndocumento: nonEmptyTextOrNull(record.ndocumento),
+      integrationId: nonEmptyTextOrNull(record.integrationId),
       fields: overwrittenFields(record),
     });
   }
@@ -77,19 +81,31 @@ const SHIFTS = [0, 1, -1, 2, -2];
  * For each shift, each Entry not used yet looks up the Bank Transactions on its date plus the shift
  * with its value (first also with its document number, then without) and takes the first one not
  * linked yet. A Reconciled Entry links only with shift 0; on another shift it is used up unlinked.
+ * First, unlike the web, an Entry that carries a Bank Transaction's id links to it whatever its
+ * date, and leaves the day matching (issue #281): it came from that Bank Transaction.
  */
 export function automaticLinks(banks: readonly BankSide[], existing: readonly ExistingEntry[]): (number | null)[] {
   const linked: (number | null)[] = banks.map(() => null);
+  const byBankId = new Map<string, number>();
+  banks.forEach((bank, index) => {
+    if (bank.integrationId != null && !byBankId.has(bank.integrationId)) byBankId.set(bank.integrationId, index);
+  });
+  let left = existing.filter((item) => {
+    const index = item.integrationId === null ? undefined : byBankId.get(item.integrationId);
+    if (index === undefined || linked[index] !== null) return true;
+    linked[index] = item.candidate.id;
+    return false;
+  });
+
   const withDocument = new Map<string, number[]>();
   const withoutDocument = new Map<string, number[]>();
   banks.forEach((bank, index) => {
-    if (bank.date === null || bank.value === null) return;
+    if (linked[index] !== null || bank.date === null || bank.value === null) return;
     const key = `${bank.date}_${bank.value}`;
     push(withoutDocument, key, index);
     if (bank.ndocumento !== null) push(withDocument, `${key}_${bank.ndocumento}`, index);
   });
 
-  let left = [...existing];
   const pass = (shift: number, byDocument: boolean): void => {
     left = left.filter((item) => {
       const day = addInterval(item.candidate.date, shift, 'd');

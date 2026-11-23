@@ -1,7 +1,8 @@
 import { readFileSync } from 'node:fs';
 import type { RiskReport } from './risk.js';
+import { spawn } from './git.js';
 
-export const RISK_LABEL = 'risco';
+const RISK_LABEL = 'risco';
 
 export type LabelAction = 'add' | 'remove' | 'keep';
 
@@ -65,15 +66,15 @@ interface CommandResult {
   output: string;
 }
 
-function gh(args: string[]): CommandResult {
-  const result = Bun.spawnSync(['gh', ...args], { stdout: 'pipe', stderr: 'pipe' });
+async function gh(args: string[]): Promise<CommandResult> {
+  const result = await spawn(['gh', ...args]);
   const output = `${result.stdout.toString()}${result.stderr.toString()}`.trim();
   return { ok: result.exitCode === 0, output };
 }
 
-function ensureLabel(repo: string): boolean {
-  if (gh(['api', `repos/${repo}/labels/${RISK_LABEL}`, '--silent']).ok) return true;
-  const created = gh([
+async function ensureLabel(repo: string): Promise<boolean> {
+  if ((await gh(['api', `repos/${repo}/labels/${RISK_LABEL}`, '--silent'])).ok) return true;
+  const created = await gh([
     'api',
     '--method',
     'POST',
@@ -92,13 +93,13 @@ function ensureLabel(repo: string): boolean {
   return created.ok;
 }
 
-function applyAction(action: LabelAction, pr: string): boolean {
+async function applyAction(action: LabelAction, pr: string): Promise<boolean> {
   if (action === 'keep') return true;
   const repo = process.env.GITHUB_REPOSITORY;
   if (!repo) throw new Error('GITHUB_REPOSITORY is required with --apply');
-  if (action === 'add' && !ensureLabel(repo)) return false;
+  if (action === 'add' && !(await ensureLabel(repo))) return false;
   const flag = action === 'add' ? '--add-label' : '--remove-label';
-  const edited = gh(['pr', 'edit', pr, flag, RISK_LABEL]);
+  const edited = await gh(['pr', 'edit', pr, flag, RISK_LABEL]);
   if (!edited.ok) console.error(`risk-label: gh pr edit failed: ${edited.output}`);
   return edited.ok;
 }
@@ -124,7 +125,7 @@ function summary(report: RiskReport, action: LabelAction, apply: boolean, applie
   return lines.join('\n');
 }
 
-function main(): void {
+async function main(): Promise<void> {
   try {
     const options = parseOptions(process.argv.slice(2));
     const report = parseReport(options.report);
@@ -136,7 +137,7 @@ function main(): void {
       return;
     }
 
-    const applied = options.apply ? applyAction(action, options.pr as string) : false;
+    const applied = options.apply ? await applyAction(action, options.pr as string) : false;
     console.log(summary(report, action, options.apply, applied));
     if (options.apply && !applied) process.exitCode = 1;
   } catch (error) {
@@ -145,4 +146,4 @@ function main(): void {
   }
 }
 
-if (import.meta.main) main();
+if (import.meta.main) await main();

@@ -1,4 +1,5 @@
-import type { Account, AccountsResponse, CardInvoiceResponse, CategoriesResponse, Category, EntriesResponse, Entry, TagsResponse } from '../src/types/index.js';
+import type { EntriesPage } from './api-routes.js';
+import type { Account, AccountsResponse, CardInvoiceResponse, CategoriesResponse, FirstInvoiceResponse, Category, EntriesResponse, Entry, TagsResponse } from '../src/types/index.js';
 
 const editable = { visivel: true, acoes: { editar: true, excluir: true } };
 const locked = { visivel: true, acoes: { editar: false, excluir: false } };
@@ -58,7 +59,7 @@ export const ACCOUNTS_RESPONSE: AccountsResponse = {
   items: [CHECKING_ACCOUNT, CREDIT_CARD_ACCOUNT],
 };
 
-function category(id: number, nome: string, tipo: 'd' | 'r' | 't', extra: Record<string, unknown> = {}): Category {
+export function category(id: number, nome: string, tipo: 'd' | 'r' | 't', extra: Record<string, unknown> = {}): Category {
   const nomeRel = nome.split('/').at(-1) ?? nome;
   return {
     id,
@@ -93,9 +94,9 @@ export interface SessionResponse {
   branch: string;
   payload: {
     ngInit: {
-      mdUid?: number;
+      mdUid?: string;
       usuario: {
-        conta?: { config?: { pendentesPresente?: boolean; metasRD?: boolean; moeda?: number } };
+        conta?: { config?: { pendentesPresente?: boolean; metasRD?: boolean; moeda?: number; visaoCompetencia?: boolean } };
         config?: { mdweb?: { moeda?: { m?: number }; [key: string]: unknown } };
         [key: string]: unknown;
       };
@@ -108,7 +109,7 @@ export const SESSION_RESPONSE: SessionResponse = {
   branch: 'app',
   payload: {
     ngInit: {
-      mdUid: 42,
+      mdUid: '42',
       usuario: {
         conta: { config: { pendentesPresente: true, metasRD: false, moeda: 1 } },
         config: { mdweb: { moeda: { m: 1 } } },
@@ -130,7 +131,7 @@ export const SAMPLE_ENTRIES: Entry[] = [
   entry(6, 201, undefined, 'd', -10, '2026-02-01', 'Café, "especial"'),
 ];
 
-export function entriesPage(list: unknown[], total = list.length) {
+export function entriesPage(list: EntriesPage['list'], total = list.length): EntriesPage {
   return { list, meta: { total, page: 1, pageSize: 200 } };
 }
 
@@ -144,6 +145,22 @@ export function cardInvoice(vencimento: string, fechamento: string, totalFatura 
     fechamento,
     valor: totalFatura,
     resumo: { totalFatura, totalPagar: totalFatura },
+  };
+}
+
+/** The card's first invoice as GET /v1/cartoes/:id/primeiraFatura returns it:
+ * an object (real use 2026-11-09), not a date string. Synthetic values. */
+export function firstInvoice(conta: number, vencimento: string, fechamento: string): FirstInvoiceResponse {
+  return {
+    vencimento,
+    fechamento,
+    valor: 0,
+    conta,
+    pagamentos: 0,
+    pagamentosAgendados: 0,
+    conciliado: 0,
+    nconciliado: 0,
+    id: 1,
   };
 }
 

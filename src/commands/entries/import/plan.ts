@@ -169,6 +169,8 @@ export function checkWrittenValue(row: BankTransactionRow, value: number | undef
 }
 
 export function planReject(row: BankTransactionRow, run: RunDocument): string | null {
+  const placed = alreadyPlaced(row, run);
+  if (placed !== null) return placed;
   // The commit dates each page by its latest bank date, rejects included.
   if (bankDate(row) === null) return noBankDate();
   run.rejected.push(reference(row));
@@ -182,6 +184,8 @@ export function linkedCandidate(row: BankTransactionRow): ImportCandidate | null
 
 /** Links the row to `entry`. `after` keeps the Entry's value and description until `applyOverwrite`. */
 export function planConciliate(row: BankTransactionRow, entry: ImportCandidate, run: RunDocument): string | null {
+  const placed = alreadyPlaced(row, run);
+  if (placed !== null) return placed;
   if (bankDate(row) === null) return noBankDate();
   if (row.value === 0) return zeroValue();
   const kept = { value: entry.value, description: entry.description };
@@ -189,8 +193,21 @@ export function planConciliate(row: BankTransactionRow, entry: ImportCandidate, 
   return null;
 }
 
+/** One bank transaction belongs to one bucket. A second disposition is not a state. */
+function alreadyPlaced(row: BankTransactionRow, run: RunDocument): string | null {
+  const integrationId = row.integrationId;
+  if (integrationId === null || integrationId === '') return null;
+  const placed = run.imported.some((item) => item.integrationId === integrationId)
+    || run.conciliated.some((item) => item.integrationId === integrationId)
+    || run.rejected.some((item) => item.integrationId === integrationId)
+    || run.skipped.some((item) => item.integrationId === integrationId);
+  return placed ? t('errorRowAlreadyPlaced', label(row)) : null;
+}
+
 /** Adds the item to `run`, or returns why it cannot be part of the batch. */
 function planSelected(row: BankTransactionRow, selection: RunSelection, run: RunDocument): string | null {
+  const placed = alreadyPlaced(row, run);
+  if (placed !== null) return placed;
   const linked = linkedCandidate(row);
   if (linked !== null) return planConciliate(row, linked, run);
   // An unlinked candidate is only a hint: it is linked by hand (conciliate with its id), never blocks import.
@@ -213,6 +230,8 @@ export interface ImportChoice {
 
 /** Adds a new Entry for the row to `run`, or returns why it cannot be created. */
 export function planImport(row: BankTransactionRow, choice: ImportChoice, run: RunDocument): string | null {
+  const placed = alreadyPlaced(row, run);
+  if (placed !== null) return placed;
   const category = choice.category;
   if (category === null) return t('importNoCategory');
   const date = bankDate(row);

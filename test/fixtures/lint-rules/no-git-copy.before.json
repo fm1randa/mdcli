@@ -1,0 +1,7 @@
+{
+  "rule": "no-git-copy",
+  "origin": "abcef7d",
+  "source": "scripts/check-private-messages.ts",
+  "note": "After #260 the gates still spawned git by hand, parsed --base with a silent origin/main fallback, and built their own base...HEAD diff; this log call skipped core.quotepath=false and git.ts's error text (#268).",
+  "code": "  const { stdout, stderr, exitCode } = await spawnAsync(\n    ['git', '--no-pager', 'log', `${base}..HEAD`, '--format=%H%x00%B%x00'],\n    { cwd: root }\n  );"
+}

@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
+import { createHome, MANUAL_AUTH, mutations, offContract, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, TAGS_RESPONSE, entriesPage } from './fixtures.js';
+import type { Entry } from '../src/types/index.js';
+import { serveCreate, serveEntry } from './entry-routes.js';
 
 // Maintenance 2026-10-19: values shown without sign in create/update/delete
 // (the #72 bug, left outside list), tag resolution copied three times,
@@ -20,7 +22,7 @@ const coffee = {
   conta: 201,
   categoria: 10,
   tags: [],
-};
+} satisfies Entry;
 
 const text = (s: string): string => s.replace(/\u00a0/g, ' ');
 
@@ -29,9 +31,8 @@ beforeEach(() => {
   api.on('GET /v1/cadastros/contas', ACCOUNTS_RESPONSE);
   api.on('GET /v1/cadastros/categorias', CATEGORIES_RESPONSE);
   api.on('GET /v1/cadastros/tags', TAGS_RESPONSE);
-  api.on('POST /v1/lancamentos', { id: 9, descricao: 'Feira', valor: -30, data: '2026-01-05', status: 'conciliado' });
-  api.on('GET /v1/lancamentos/70', coffee);
-  api.on('PUT /v1/lancamentos/70', (req) => ({ ...coffee, ...(req.body as object) }));
+  serveCreate(api);
+  serveEntry(api, coffee);
   home = createHome(MANUAL_AUTH);
 });
 
@@ -105,13 +106,13 @@ describe('unknown tags', () => {
 
 describe('status labels', () => {
   test('entries create reads a status object in the answer', async () => {
-    api.on('POST /v1/lancamentos', {
+    api.on('POST /v1/lancamentos', offContract({
       id: 9,
       descricao: 'Feira',
       valor: -30,
       data: '2026-01-05',
       status: { confirmado: true, conciliado: false },
-    });
+    }));
 
     const result = await runCli(['entries', 'create', '-a', '201', '-d', 'Feira', '-v', '30', '-c', '10', '-D', '2026-01-05'], { home, api });
 
@@ -120,7 +121,7 @@ describe('status labels', () => {
   });
 
   test('a status outside the table is unknown, not pending', async () => {
-    api.on('GET /v2/lancamentos', entriesPage([{ ...coffee, status: 'estornado' }]));
+    api.on('GET /v2/lancamentos', offContract({ ...entriesPage([coffee]), list: [{ ...coffee, status: 'estornado' }] }));
 
     const json = await runCli(['entries', 'list', '-a', '201', '-f', '2026-01-01', '-t', '2026-01-31', '--json'], { home, api });
     const table = await runCli(['entries', 'list', '-a', '201', '-f', '2026-01-01', '-t', '2026-01-31'], { home, api });

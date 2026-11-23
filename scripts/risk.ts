@@ -1,6 +1,9 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { behaviorIndexes, fileChangesBehavior, parseDiff, type DiffFile } from './behavior-change.js';
+import { DEFAULT_BASE, diffAgainst, gitResult, parseRevisionFlag, repoRoot, revisionExists } from './git.js';
 
-export type RiskTopic = 'auth' | 'write' | 'security';
+type RiskTopic = 'auth' | 'write' | 'security';
 
 export interface RiskReason {
   topic: RiskTopic;
@@ -13,22 +16,13 @@ export interface RiskReport {
   reasons: RiskReason[];
 }
 
-type LineKind = 'add' | 'remove' | 'context';
-
-interface DiffLine {
-  kind: LineKind;
-  text: string;
-}
-
-interface DiffFile {
-  path: string;
-  hunks: DiffLine[][];
-}
-
+// src/lib/api.ts re-exports the client split under src/lib/api/ (#318): the
+// request core there carries the auth headers and the 401 refresh, and every
+// module there sends its resource's writes.
 const AUTH_PATH =
-  /^src\/(?:commands\/auth\/|lib\/(?:api|browser-auth|web-session|captcha|onepassword|config)\.ts|lib\/browser-session\/[^/]+\.ts|types\/config\.ts)/;
+  /^src\/(?:commands\/auth\/|lib\/(?:api|api\/request|browser-auth|web-session|captcha|onepassword|config|sync-child)\.ts|lib\/browser-session\/[^/]+\.ts|types\/config\.ts)/;
 const WRITE_PATH =
-  /^src\/(?:lib\/api\.ts|commands\/(?:.*\/)?(?:create|update|delete)(?:-[^/]*)?\.ts|commands\/(?:categories|tags)\.ts|commands\/(?:entries\/import|sync)\/(?:run|commit)\.ts)$/;
+  /^src\/(?:lib\/api(?:\/[^/]+)?\.ts|commands\/(?:.*\/)?(?:create|update|delete)(?:-[^/]*)?\.ts|commands\/(?:categories|tags)\.ts|commands\/(?:entries\/import|sync)\/(?:run|commit)\.ts)$/;
 
 interface SecuritySurface {
   path: RegExp;
@@ -37,9 +31,34 @@ interface SecuritySurface {
 
 const SECURITY_SURFACES: readonly SecuritySurface[] = [
   { path: /^scripts\/private-terms\.ts$/, detail: 'private-data guard changed' },
+  { path: /^scripts\/private-terms-hashes\.ts$/, detail: 'private-data hash set changed' },
+  { path: /^scripts\/private-terms-history\.ts$/, detail: 'private-data history helper changed' },
+  { path: /^scripts\/private-terms-cli\.ts$/, detail: 'private-data guard entry point changed' },
+  { path: /^scripts\/private-terms-corpus\.ts$/, detail: 'private-data corpus check changed' },
   { path: /^test\/private-terms\.test\.ts$/, detail: 'private-data guard test changed' },
+  { path: /^test\/private-terms-corpus\.test\.ts$/, detail: 'private-data corpus check test changed' },
+  { path: /^scripts\/check-private-messages\.ts$/, detail: 'private-data message guard changed' },
+  { path: /^test\/check-private-messages\.test\.ts$/, detail: 'private-data message guard test changed' },
   { path: /^scripts\/verify\.sh$/, detail: 'verification script changed' },
+  // The merge gates themselves: a PR that edits the classifier, the label
+  // writer, the gate runner, its exemption or the proof gate would otherwise
+  // be judged by the edited copy (#315).
+  { path: /^scripts\/risk\.ts$/, detail: 'risk classifier changed' },
+  { path: /^scripts\/risk-label\.ts$/, detail: 'risk label gate changed' },
+  { path: /^scripts\/new-tests-fail-on-main\.ts$/, detail: 'fails-on-main gate changed' },
+  { path: /^scripts\/fails-on-main-exemption\.ts$/, detail: 'fails-on-main exemption changed' },
+  { path: /^scripts\/prova\.ts$/, detail: 'proof gate changed' },
+  { path: /^\.github\/workflows\//, detail: 'CI gate workflow changed' },
   { path: /^eslint-rules\//, detail: 'local ESLint rule changed' },
+  // The config decides where each local rule runs: dropping scripts/** from a
+  // block silences the rule there as surely as editing the rule (#272).
+  { path: /^eslint\.config\.js$/, detail: 'ESLint config that scopes the local rules changed' },
+  // The guard parses git output with these helpers (#262), so a change here
+  // changes what the guard reads even when no guard file moves.
+  { path: /^src\/utils\/parse\.ts$/, detail: 'parse helper the private-data guard imports changed' },
+  // The guard spawns git and parses its diffs through these modules (#260).
+  { path: /^scripts\/git\.ts$/, detail: 'child-process owner the private-data guard imports changed' },
+  { path: /^scripts\/behavior-change\.ts$/, detail: 'diff parser the private-data guard imports changed' },
 ];
 
 const TEST_PATH = /^(?:test\/|.*\.(?:test|spec)\.[cm]?[jt]sx?$)/;
@@ -67,99 +86,71 @@ const WRITE_FUNCTIONS = [
   'deleteEntry',
 ].join('|');
 const WRITE_CALL = new RegExp(`\\b(?:${WRITE_FUNCTIONS})\\s*\\(`);
+const WRITE_API_CALL = /\bapi(?:Post|Put|Delete)\s*[<(]/;
 const WRITE_REQUEST = /\brequest\s*<[^>]*>\s*\(\s*['"](?:POST|PUT|DELETE)['"]/;
 const WRITE_METHOD = /\bmethod\s*[:=]\s*['"](?:POST|PUT|DELETE)['"]/;
 
 const OUTPUT_ONLY =
   /\b(?:flushStdout|exitAfterFlush|process\.exit|console\.(?:log|error|warn|info|debug)|logger\.\w+|chalk\.\w+)\b/;
 
-const COMMENT = /^\s*(?:\/\/|\/\*|\*|\*\/)/;
-// A bare leading `*` or `#` is only a comment marker when followed by a space or the line end, so a shell case
-// pattern like `*)` or a JS private field like `#x` still counts as a behavior change.
-const SECURITY_NON_BEHAVIOR = /^\s*(?:$|\/\/|\/\*|\*(?:\s|\/|$)|#(?:\s|!|$))/;
-const TYPE_DECLARATION = /^\s*(?:export\s+)?(?:declare\s+)?(?:interface\s+\w|type\s+\w+\s*[=<]|import\s+type\b)/;
-const TYPE_OPEN = /^\s*(?:export\s+)?(?:declare\s+)?(?:interface|type)\s+\w+/;
-
-function stripTypeSyntax(line: string): string {
-  return line
-    .replace(/\bimport\s+type\b[^\n]*$/, '')
-    .replace(
-      /(?<![A-Za-z0-9_$\]>])\(([^()]*(?:\([^()]*\)[^()]*)*)\s+as\s+(?:unknown|any|[A-Z_$][\w$.]*)(?:\s*<[^>]*>)?\)/g,
-      '$1',
-    )
-    .replace(/\s+as\s+(?:unknown|any|[A-Z_$][\w$.]*)(?:\s*<[^>]*>)?/g, '')
-    .replace(/\)\s*:\s*[A-Z_$][\w$.]*(?:\s*<[^>]*>)?(?=\s*\{)/g, ')')
-    .replace(/\b(const|let|var)\s+([A-Za-z_$][\w$]*)\s*:\s*[A-Za-z_$][\w$.]*(?:\s*<[^>]*>)?(?=\s*=)/g, '$1 $2')
-    .replace(/\(([A-Za-z_$][\w$]*)\??\s*:\s*[A-Z_$][\w$.]*(?:\s*<[^>]*>)?(?=\))/g, '($1');
-}
-
-function typeOnlyForm(line: string): string {
-  return stripTypeSyntax(line)
-    .replace(/[\s;]/g, '')
-    .replace(/,+$/, '');
-}
-
-function braceDelta(text: string): number {
-  const opens = text.split('{').length - 1;
-  const closes = text.split('}').length - 1;
-  return opens - closes;
-}
-
-function diffsFrom(text: string): DiffFile[] {
-  const files: DiffFile[] = [];
-  let file: DiffFile | undefined;
-  let hunk: DiffLine[] | undefined;
-  for (const raw of text.split('\n')) {
-    const header = /^diff --git a\/(.+) b\/(.+)$/.exec(raw);
-    if (header) {
-      file = { path: header[2] === '/dev/null' ? header[1] : header[2], hunks: [] };
-      files.push(file);
-      hunk = undefined;
-      continue;
-    }
-    if (!file) continue;
-    if (raw.startsWith('@@')) {
-      hunk = [];
-      file.hunks.push(hunk);
-      continue;
-    }
-    if (!hunk) continue;
-    if (raw.startsWith('+')) hunk.push({ kind: 'add', text: raw.slice(1) });
-    else if (raw.startsWith('-')) hunk.push({ kind: 'remove', text: raw.slice(1) });
-    else if (raw.startsWith(' ')) hunk.push({ kind: 'context', text: raw.slice(1) });
-  }
-  return files;
-}
-
-function markTypePairs(hunk: DiffLine[]): Set<number> {
-  const ignored = new Set<number>();
-  const removals = hunk.map((line, index) => ({ line, index })).filter((entry) => entry.line.kind === 'remove');
-  const additions = hunk.map((line, index) => ({ line, index })).filter((entry) => entry.line.kind === 'add');
-  const usedAdditions = new Set<number>();
-  for (const removal of removals) {
-    const form = typeOnlyForm(removal.line.text);
-    const match = additions.find(
-      (addition) => !usedAdditions.has(addition.index) && typeOnlyForm(addition.line.text) === form,
-    );
-    if (!match) continue;
-    usedAdditions.add(match.index);
-    ignored.add(removal.index);
-    ignored.add(match.index);
-  }
-  return ignored;
+function commentStyle(path: string): 'js' | 'shell' {
+  return path.endsWith('.sh') || path.endsWith('.yml') || path.endsWith('.yaml') ? 'shell' : 'js';
 }
 
 function topicOf(text: string): RiskTopic | null {
   if (AUTH_BEHAVIOR.test(text)) return 'auth';
-  if (WRITE_CALL.test(text) || WRITE_REQUEST.test(text) || WRITE_METHOD.test(text)) return 'write';
+  if (WRITE_CALL.test(text) || WRITE_API_CALL.test(text) || WRITE_REQUEST.test(text) || WRITE_METHOD.test(text)) {
+    return 'write';
+  }
   return null;
 }
 
-function sensitivity(path: string): RiskTopic[] {
+function sensitivity(path: string, writeModules: ReadonlySet<string> | undefined): RiskTopic[] {
   const topics: RiskTopic[] = [];
   if (AUTH_PATH.test(path)) topics.push('auth');
-  if (WRITE_PATH.test(path)) topics.push('write');
+  if (WRITE_PATH.test(path) || writeModules?.has(path) === true) topics.push('write');
   return topics;
+}
+
+/**
+ * The src modules that call the write API. WRITE_PATH keeps the modules whose
+ * path names the write, and a new writer used to need a manual entry there:
+ * budget-write.ts called apiPost and classified safe (#315).
+ */
+export function writeApiModules(root: string): ReadonlySet<string> {
+  const modules = new Set<string>();
+  const src = join(root, 'src');
+  if (!existsSync(src)) return modules;
+  for (const entry of readdirSync(src, { recursive: true, encoding: 'utf8' })) {
+    const path = `src/${entry.replaceAll('\\', '/')}`;
+    if (!path.endsWith('.ts')) continue;
+    if (WRITE_API_CALL.test(readFileSync(join(root, path), 'utf8'))) modules.add(path);
+  }
+  return modules;
+}
+
+/**
+ * The write modules of the tree the PR is compared against. A PR that moves
+ * `apiPost` out of a file would drop that file from the head surface while the
+ * base still wrote through it, so the classifier takes both sides (#315).
+ */
+export async function writeApiModulesAt(ref: string, root: string): Promise<ReadonlySet<string>> {
+  const modules = new Set<string>();
+  const result = await gitResult(
+    ['grep', '-l', '-E', 'api(Post|Put|Delete)[[:space:]]*[<(]', ref, '--', 'src'],
+    root
+  );
+  if (result.exitCode === 1) return modules;
+  if (result.exitCode !== 0) {
+    throw new Error(`cannot read the write surface of ${ref}: ${result.stderr.toString().trim()}`);
+  }
+  for (const line of result.stdout.toString().split('\n')) {
+    const separator = line.indexOf(':');
+    if (separator === -1) continue;
+    const path = line.slice(separator + 1);
+    if (path.endsWith('.ts')) modules.add(path);
+  }
+  return modules;
 }
 
 function sensitiveDetail(topic: RiskTopic): string {
@@ -175,20 +166,23 @@ function addReason(reasons: RiskReason[], seen: Set<string>, reason: RiskReason)
   reasons.push(reason);
 }
 
-function securityDetail(path: string): string | undefined {
+export function securityDetail(path: string): string | undefined {
   return SECURITY_SURFACES.find((surface) => surface.path.test(path))?.detail;
 }
 
 function changesSecurityBehavior(file: DiffFile): boolean {
-  return file.hunks.some((hunk) =>
-    hunk.some((line) => line.kind !== 'context' && !SECURITY_NON_BEHAVIOR.test(line.text)),
-  );
+  return fileChangesBehavior(file, { commentStyle: commentStyle(file.path) });
 }
 
-export function classifyRisk(diff: string): RiskReport {
+interface RiskOptions {
+  /** src modules that call the write API; the CLI derives them from the checkout. */
+  writeModules?: ReadonlySet<string>;
+}
+
+export function classifyRisk(diff: string, options: RiskOptions = {}): RiskReport {
   const reasons: RiskReason[] = [];
   const seen = new Set<string>();
-  for (const file of diffsFrom(diff)) {
+  for (const file of parseDiff(diff)) {
     const surface = securityDetail(file.path);
     if (surface !== undefined) {
       if (changesSecurityBehavior(file)) {
@@ -198,57 +192,40 @@ export function classifyRisk(diff: string): RiskReport {
     }
     if (!file.path.startsWith('src/') || TEST_PATH.test(file.path)) continue;
     for (const hunk of file.hunks) {
-      const ignored = markTypePairs(hunk);
-      let typeDepth = 0;
-      for (const [index, line] of hunk.entries()) {
-        const changed = line.kind !== 'context';
-        if (changed && !ignored.has(index)) {
-          const typeOnly = COMMENT.test(line.text) || TYPE_DECLARATION.test(line.text) || typeDepth > 0;
-          const topic = typeOnly ? null : topicOf(line.text);
-          if (topic) {
-            addReason(reasons, seen, { topic, path: file.path, detail: sensitiveDetail(topic) });
-          } else if (!typeOnly && !OUTPUT_ONLY.test(line.text)) {
-            for (const sensitive of sensitivity(file.path)) {
-              addReason(reasons, seen, {
-                topic: sensitive,
-                path: file.path,
-                detail: 'unclassified change in a sensitive file',
-              });
-            }
+      for (const index of behaviorIndexes(hunk, { ignoreTypeOnly: true })) {
+        const line = hunk[index];
+        const topic = topicOf(line.text);
+        if (topic) {
+          addReason(reasons, seen, { topic, path: file.path, detail: sensitiveDetail(topic) });
+        } else if (!OUTPUT_ONLY.test(line.text)) {
+          for (const sensitive of sensitivity(file.path, options.writeModules)) {
+            addReason(reasons, seen, {
+              topic: sensitive,
+              path: file.path,
+              detail: 'unclassified change in a sensitive file',
+            });
           }
         }
-        if (TYPE_OPEN.test(line.text)) typeDepth += braceDelta(line.text);
-        else if (typeDepth > 0) typeDepth = Math.max(0, typeDepth + braceDelta(line.text));
       }
     }
   }
   return { risky: reasons.length > 0, reasons };
 }
 
-function gitDiff(base: string): string {
-  const result = Bun.spawnSync(
-    ['git', 'diff', '--no-renames', '--no-color', `${base}...HEAD`],
-    { stdout: 'pipe', stderr: 'pipe' },
-  );
-  if (result.exitCode !== 0) {
-    throw new Error(`git diff against ${base} failed: ${result.stderr.toString().trim()}`);
-  }
-  return result.stdout.toString();
-}
-
 interface Options {
   base: string;
+  /** A caller-pinned `--base` fails when it does not resolve; a default may fall back to the head. */
+  explicitBase: boolean;
   diff?: string;
 }
 
 function parseOptions(argv: string[]): Options {
-  const options: Options = { base: 'origin/main' };
-  for (let index = 0; index < argv.length; index++) {
-    const arg = argv[index];
-    if (arg === '--base') {
-      options.base = argv[++index] ?? options.base;
-    } else if (arg === '--diff') {
-      options.diff = argv[++index];
+  const { value, rest } = parseRevisionFlag(argv, '--base');
+  const options: Options = { base: value ?? DEFAULT_BASE, explicitBase: value !== undefined };
+  for (let index = 0; index < rest.length; index++) {
+    const arg = rest[index];
+    if (arg === '--diff') {
+      options.diff = rest[++index];
       if (!options.diff) throw new Error('--diff needs a file');
     } else {
       throw new Error(`unknown argument: ${arg}`);
@@ -257,11 +234,22 @@ function parseOptions(argv: string[]): Options {
   return options;
 }
 
-function main(): void {
+async function main(): Promise<void> {
   try {
     const options = parseOptions(process.argv.slice(2));
-    const diff = options.diff ? readFileSync(options.diff, 'utf8') : gitDiff(options.base);
-    const report = classifyRisk(diff);
+    const root = await repoRoot();
+    const diff = options.diff ? readFileSync(options.diff, 'utf8') : await diffAgainst(options.base, { cwd: root });
+    // A `--diff` run does not need the base to build the diff. When nobody
+    // pinned one and the checkout has no origin/main, keep the run working
+    // with the head surface instead of failing on the default base.
+    const hasBase = options.explicitBase || (await revisionExists(options.base, root));
+    let baseWriters: ReadonlySet<string> = new Set();
+    if (hasBase) {
+      baseWriters = await writeApiModulesAt(options.base, root);
+    } else {
+      console.error(`risk: ${options.base} does not resolve; classifying with the head write surface only`);
+    }
+    const report = classifyRisk(diff, { writeModules: new Set([...writeApiModules(root), ...baseWriters]) });
     console.log(JSON.stringify(report, null, 2));
     if (report.risky) process.exitCode = 2;
   } catch (error) {
@@ -270,4 +258,4 @@ function main(): void {
   }
 }
 
-if (import.meta.main) main();
+if (import.meta.main) await main();

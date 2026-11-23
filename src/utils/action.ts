@@ -71,7 +71,8 @@ export function action<Args extends unknown[]>(
   return async (...args: Args) => {
     // Commander passes the Command itself as the last argument.
     const command = args.at(-1);
-    jsonErrors = command instanceof Command && command.opts().json === true;
+    // optsWithGlobals: a subcommand reads --json from the command that declares it.
+    jsonErrors = command instanceof Command && command.optsWithGlobals().json === true;
     try {
       await fn(...args);
     } catch (error) {

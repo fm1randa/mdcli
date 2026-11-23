@@ -273,8 +273,8 @@ export async function updateAction(id: string, options: UpdateOptions): Promise<
     ndocumento: existing.ndocumento ?? '',
     lembrete: existing.lembrete ?? 0,
     automatico: existing.automatico ?? false,
-    metaEconomia: null,
-    transferencia: existing.transferencia ?? false,
+    metaEconomia: existing.metaEconomia ?? null,
+    transferencia: finalType === 'p',
   };
 
   // categoriaPai is the parent of categoria, and the categories endpoint does

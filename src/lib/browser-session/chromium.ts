@@ -1,9 +1,9 @@
 import { t } from '../i18n/index.js';
+import { readCommandStdout } from '../sync-child.js';
 import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { homedir } from 'node:os';
-import { execSync } from 'node:child_process';
 import { createDecipheriv, pbkdf2Sync } from 'node:crypto';
 import { Database } from 'bun:sqlite';
 import { isMacOsSandboxError } from './profile-copy.js';
@@ -21,9 +21,7 @@ export function getChromeCookieValue(cookieName: string, domain: string): string
       return null;
     }
 
-    const safeStorageKey = execSync('security find-generic-password -s "Chrome Safe Storage" -w', {
-      encoding: 'utf-8',
-    }).trim();
+    const safeStorageKey = readCommandStdout('security find-generic-password -s "Chrome Safe Storage" -w').trim();
 
     const derivedKey = pbkdf2Sync(safeStorageKey, 'saltysalt', 1003, 16, 'sha1');
 

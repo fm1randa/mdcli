@@ -1,3 +1,14 @@
+import { groupNouns, summaryGroupingMessages } from '../../summary-grouping.js';
+
+const grouping = summaryGroupingMessages(
+  groupNouns(
+    { column: 'Categoria', header: 'categoria' },
+    { column: 'Mês', header: 'mês' },
+    { column: 'Conta', header: 'conta' },
+  ),
+  (noun, from, to) => `Resumo por ${noun} | ${from} a ${to}`,
+);
+
 /** Entries summary and filter, in Brazilian Portuguese. */
 export const ptBREntriesSummary = {
   entriesSummaryDescription: () =>
@@ -5,10 +16,12 @@ export const ptBREntriesSummary = {
   entriesSummaryByOption: () => 'Agrupar por: category, month ou account',
   entriesSummaryIncludeTransfersOption: () =>
     'Contar as transferências entre contas (deixadas de fora por padrão)',
-  summaryGroupCategory: () => 'Categoria',
-  summaryGroupMonth: () => 'Mês',
-  summaryGroupAccount: () => 'Conta',
-  entriesSummaryHeader: (by: string, from: string, to: string) => `Resumo por ${by} | ${from} a ${to}`,
+  entriesSummaryRegimeOption: () =>
+    'Visão dos totais: cash (caixa) ou accrual (competência), como nos relatórios da web',
+  summaryRegimeCash: () => 'visão de caixa',
+  summaryRegimeAccrual: () => 'visão da competência',
+  summaryGroupColumn: grouping.summaryGroupColumn,
+  entriesSummaryHeader: grouping.entriesSummaryHeader,
   entriesExcludedByCategory: (count: number) =>
     `${count} lançamento${count === 1 ? '' : 's'} deixado${count === 1 ? '' : 's'} de fora por --exclude-category.`,
   entriesSkippedTransfers: (count: number) =>

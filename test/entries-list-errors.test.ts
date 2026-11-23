@@ -63,7 +63,7 @@ describe('entries list date range', () => {
 
 describe('errors under --json', () => {
   test('an API error becomes a JSON error on stderr with nothing on stdout', async () => {
-    api.on('GET /v2/lancamentos', { type: 2, error: 'A data limite de carregamento dos lançamentos é 31/12/2031' }, 400);
+    api.fail('GET /v2/lancamentos', 400, { type: 2, error: 'A data limite de carregamento dos lançamentos é 31/12/2031' });
 
     const result = await runCli(['entries', 'list', '-a', '201', '--json'], { home, api });
 
@@ -75,7 +75,7 @@ describe('errors under --json', () => {
   });
 
   test('applies to every command wrapped by action(), not just entries', async () => {
-    api.on('GET /v1/cadastros/contas', { message: 'boom' }, 500);
+    api.fail('GET /v1/cadastros/contas', 500, { message: 'boom' });
 
     const json = await runCli(['accounts', 'list', '--json'], { home, api });
     expect(json.exitCode).toBe(1);

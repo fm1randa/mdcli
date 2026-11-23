@@ -7,7 +7,7 @@ export async function mapConcurrent<T, R>(items: readonly T[], limit: number, fn
   if (!Number.isInteger(limit) || limit < 1) {
     throw new RangeError(`mapConcurrent: limit must be an integer >= 1, got ${limit}`);
   }
-  const results: R[] = new Array(items.length);
+  const results = new Array<R>(items.length);
   let next = 0;
   const worker = async (): Promise<void> => {
     while (next < items.length) {

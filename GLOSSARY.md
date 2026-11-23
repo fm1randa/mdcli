@@ -32,12 +32,24 @@ Where an Entry stands. The web app's entry form has two toggles, Confirmado and 
 _Avoid_: "pending" for a confirmed, unreconciled Entry (that is Confirmed - the mistake behind the 2026-10-19 bug)
 
 **Invoice**:
-A credit card bill (fatura), fetched by its due date (`GET /v1/cartoes/:id/fatura/:dueDate`). Each item has three dates: the **due date** (`dataPrevista`, or the invoice's `vencimento`), which `cards invoice --json` and `entries list --json` both report as `date` (the invoice also repeats it as `dueDate`); the **purchase date** (`data`, `purchaseDate` in `--json`, the Purchase column of the table), a year earlier for an installment 12/18; and the competence date (`dataCompetencia`). The invoice's **summary** comes from `resumo` (names from md.js): due and closing dates (`vencimento`, `fechamento`), Previous invoice (`Fatura anterior` / `Previous invoice`) (`valorFaturaAnterior`), Paid (`Pago` / `Paid`) (`pagamentosConf`), Scheduled payments (`Pagamentos agendados` / `Scheduled payments`) (`pagamentosAgen`), Expenses (`Despesas` / `Expenses`) / Income (`Receitas` / `Income`) (`despesas`/`receitas`), Invoice total (`Total da fatura` / `Invoice total`) (`totalFatura`, falling back to `valor`), To pay (`A pagar` / `To pay`) (`totalPagar`), Reconciled (`Conciliado` / `Reconciled`) / Unreconciled (`Não conciliado` / `Unreconciled`) and Available (`Disponível` / `Available`) (`disponivel`); Limit is the card's `limite`, as in the web. A field the API leaves out is not shown. The summary is text-only for now: `--json` stays an array of items.
+A credit card bill (fatura), fetched by its due date (`GET /v1/cartoes/:id/fatura/:dueDate`). Each item has three dates: the **due date** (`dataPrevista`, or the invoice's `vencimento`), which `cards invoice --json` and `entries list --json` both report as `date` (the invoice also repeats it as `dueDate`); the **purchase date** (`data`, `purchaseDate` in `--json`, the Purchase column of the table), a year earlier for an installment 12/18; and the competence date (`dataCompetencia`). The invoice's **summary** comes from `resumo` (names from md.js): due and closing dates (`vencimento`, `fechamento`), Previous invoice (`Fatura anterior` / `Previous invoice`) (`valorFaturaAnterior`), Paid (`Pago` / `Paid`) (`pagamentosConf`), Scheduled payments (`Pagamentos agendados` / `Scheduled payments`) (`pagamentosAgen`), Expenses (`Despesas` / `Expenses`) / Income (`Receitas` / `Income`) (`despesas`/`receitas`), Invoice total (`Total da fatura` / `Invoice total`) (`totalFatura`, falling back to `valor`), To pay (`A pagar` / `To pay`) (`totalPagar`), Reconciled (`Conciliado` / `Reconciled`) / Unreconciled (`Não conciliado` / `Unreconciled`) and Available (`Disponível` / `Available`) (`disponivel`); Limit is the card's `limite`, as in the web. A field the API leaves out is not shown. `cards invoice --json` alone stays an array of items; `--json --summary` prints `{ invoice, entries }`, with the summary under `invoice`.
 _Avoid_: "balance" for a card (`cards list --json` has none: `saldoUltimoExtrato` is an Open Finance figure, not what is owed)
 
 **Series**:
 A recurring Entry rule (agenda). Occurrences carry `agendaId` and `parcela` (e.g. `fixa`, `2/6`). On update/delete, `--scope this` (default) touches only the current occurrence; `--scope following` touches this one and the ones after it. Both map to the API flag `todos` (`false` / `true`). The web labels are "Apenas neste" / "Neste e em todos na sequência". There is no `--scope all` — the web only exposes that boolean.
 _Avoid_: "recurrence" alone (prefer Series when talking about `--scope`)
+
+**Goal**:
+A monthly budget target (meta) of the web app's Orçamento screen, set on a Category or as the **general** goal of a kind (the API row with no category). Its sign follows the Category: an expense goal is negative, an income goal positive, so `budget set --value -800` is an 800 expense goal and `budget` reads it back with the same sign. A goal of 0 is no goal (`budget remove` stores 0). `budget set` writes only Category goals of expense or income, never the general or investment goal, only the months from `--month` to `--until` (at most 600) and never later months (`sobreescrever: false`).
+_Avoid_: "limit", "target" alone
+
+**Budget**:
+The goals of a period with their figures, per kind (expense, income, investment): goal, confirmed, projected, remaining and surplus, as `budget` prints them. It is read under a Regime.
+_Avoid_: "orçamento" (Portuguese only), "budget" for a single goal (that is a Goal)
+
+**Regime**:
+How a Budget or a report dates an Entry, the web reports' "Visão de caixa" / "Visão da competência" toggle: **cash** (caixa, `regime=ca`, the default) by its date, **accrual** (competência, `regime=co`) by its competence date (`dataCompetencia`). `budget --regime cash|accrual`. `entries summary --regime cash|accrual` sends the same parameter on `GET /v2/lancamentos`, groups `--by month` by the competence date under accrual, and refuses accrual when the user has the competence view off (`usuario.conta.config.visaoCompetencia`), where the web forces `ca`; without the flag it sends no `regime` and `--json` reports `regime: null`.
+_Avoid_: "mode", "basis", "competência" alone for the flag value (the CLI surface says `accrual`)
 
 **Connection**:
 A link between a bank and Meu Dinheiro through the web app's bank integration (Integração bancária). A Connection has zero or more Accounts (a checking account and its card can share one). Each bank-side account is a connection account, optionally linked to an Account. **Sync** asks the bank for new data through the Connection (the web's "Atualizar conexão"), at most 3 times a day per connector.
@@ -98,7 +110,7 @@ Aliases intentionally win over names so that short user-chosen shortcuts are nev
 > **Domain expert:** "The Alias wins. The user can rename or remove the Alias to fall through to name resolution."
 >
 > **Dev:** "What if they rename an account in the Meu Dinheiro web UI and the cached name still points to the old ID?"
-> **Domain expert:** "The Name cache is auto-invalidated the next time a request that used a cached mapping returns a non-2xx. The user doesn't need to run any manual refresh."
+> **Domain expert:** "The Name cache is auto-invalidated when a request fails with a non-2xx within 60 seconds of the last name lookup that used it (`src/lib/cache-invalidation.ts`); a failure after that window leaves the cache alone. The user doesn't need to run any manual refresh."
 
 ## Flagged ambiguities
 

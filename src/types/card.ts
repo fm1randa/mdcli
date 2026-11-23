@@ -26,6 +26,8 @@ export interface CardInvoiceEntry {
   plastico?: number;
   /** Present on closed invoices. */
   fatura?: number;
+  /** The Bank Transaction an imported item came from: the import sends it (commit.ts). Not read by the web. */
+  integrationId?: string;
 }
 
 /**
@@ -70,6 +72,26 @@ export interface CardInvoiceResponse {
   resumo?: CardInvoiceSummary;
   /** Present when the invoice is closed. */
   id?: number;
+}
+
+/**
+ * GET /v1/cartoes/:id/primeiraFatura: the card's first invoice as an object
+ * (real use 2026-11-09), not a date string. The web app reads only
+ * `vencimento` (md.js, `carregarPrimeiraFatura(...).then(k => k.vencimento)`)
+ * and `valor` (the previous bill on the account form); the other fields were
+ * seen in that real response and are typed loosely, since nothing reads them.
+ */
+export interface FirstInvoiceResponse {
+  /** Due date of the first invoice (YYYY-MM-DD, possibly with a time). */
+  vencimento: string;
+  fechamento?: string;
+  valor?: number;
+  conta?: number;
+  pagamentos?: number;
+  pagamentosAgendados?: number;
+  conciliado?: number;
+  nconciliado?: number;
+  id?: number | null;
 }
 
 /** One future installment. The real API returns these as a bare array from
@@ -160,8 +182,10 @@ export interface CardPlastic {
   conta: number;
   tipo: string;
   nome: string;
-  titular?: boolean;
   status?: boolean;
-  /** visivel false: hidden from the user, so the web app does not list it. */
+  /**
+   * Not sent by GET /v1/cadastros/plasticos (real use 2026-11-09); the web
+   * app's select skips any record whose permissoes hide it.
+   */
   permissoes?: { visivel: boolean };
 }

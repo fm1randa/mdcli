@@ -1,8 +1,10 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { afterAll } from 'bun:test';
+import { afterAll, setDefaultTimeout } from 'bun:test';
 import { localDay, TERMINAL_VARS } from './helpers.js';
+import { refuseSyncSpawn } from './sync-spawn-guard.js';
+import { TEST_TIMEOUT_MS } from './timeouts.js';
 
 // Preloaded before every test file (see bunfig.toml). Any code path that reaches
 // src/lib/config.ts in-process writes here instead of the real
@@ -48,6 +50,14 @@ process.env.NO_COLOR = '1';
 process.env.TERM = 'dumb';
 // The default CLI language is pt-BR; pin it explicitly for in-process tests.
 process.env.MDCLI_LANG = 'pt-BR';
+
+// One deadline for every test and hook, from test/timeouts.ts (#293).
+setDefaultTimeout(TEST_TIMEOUT_MS);
+
+// A parallel worker refuses synchronous spawns (see test/sync-spawn-guard.ts).
+// Only the worker: a script it runs inherits BUN_TEST_WORKER_ID but not this
+// preload, and the serial browser phase runs without the variable.
+if (process.env.BUN_TEST_WORKER_ID !== undefined) refuseSyncSpawn();
 
 afterAll(() => {
   rmSync(sandbox, { recursive: true, force: true });

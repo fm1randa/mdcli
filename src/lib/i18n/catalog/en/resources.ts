@@ -98,6 +98,7 @@ export const enResources: typeof SectionType = {
   syncRunAccountArgument: () => 'Account Identifier (id, alias, or exact name), or "all"',
   syncRunYesOption: () => 'Skip the confirmation prompt',
   syncRunJsonOption: () => 'Output as JSON (requires --yes)',
+  syncRunTimeoutOption: () => 'Seconds to wait for a final status after the Sync; 0 does not wait',
   syncConnectionColumn: () => 'Connection',
   syncConnectionAccountColumn: () => 'Connection account',
   syncNoAccount: () => 'No account',
@@ -114,6 +115,26 @@ export const enResources: typeof SectionType = {
   syncUpdatingOne: (id) => `Connection ${id} is UPDATING. Run sync list again to see the result.`,
   syncUpdatingMany: (ids) =>
     `Connections ${ids} are UPDATING. Run sync list again to see the result.`,
+  errorSyncTimeoutInvalid: (value) =>
+    `Invalid timeout "${value}": use a whole number of seconds, 0 or more.`,
+  syncWaitingOne: (id, seconds) => `Waiting up to ${seconds}s for connection ${id} to finish the Sync...`,
+  syncWaitingMany: (ids, seconds) => `Waiting up to ${seconds}s for connections ${ids} to finish the Sync...`,
+  syncStillUpdatingOne: (id, seconds) => `Still UPDATING after ${seconds}s: connection ${id}.`,
+  syncStillUpdatingMany: (ids, seconds) => `Still UPDATING after ${seconds}s: connections ${ids}.`,
+  syncFinishedOne: (id, status) => `Sync finished: connection ${id} ${status}.`,
+  syncFinishedMany: (statuses) => `Sync finished: ${statuses}.`,
+  syncNeedsActionOne: (id, status) =>
+    `Connection ${id} needs action: ${status}. Run sync list again to see the result.`,
+  syncNeedsActionMany: (statuses) =>
+    `Connections need action: ${statuses}. Run sync list again to see the result.`,
+  syncFailedOne: (id, status) =>
+    `Sync failed for connection ${id}: ${status}. Run sync list again to see the result.`,
+  syncFailedMany: (statuses) =>
+    `Sync failed: ${statuses}. Run sync list again to see the result.`,
+  syncTimedOutOne: (id, seconds) =>
+    `Connection ${id} is still UPDATING after ${seconds}s; no final status. Run sync list again to see the result.`,
+  syncTimedOutMany: (ids, seconds) =>
+    `Connections ${ids} are still UPDATING after ${seconds}s; no final status. Run sync list again to see the result.`,
   errorConnectionsPayload: () => 'GET /v1/integracao/connections did not return a list of connections',
   errorConnectionMissingId: (id) =>
     `Account ${id} is linked to a connection that did not include its id.`,

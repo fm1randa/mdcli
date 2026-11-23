@@ -1,11 +1,35 @@
 import { expect, test } from 'bun:test';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { findPrivateTerms, scanText, scanTrackedFiles, termHash } from '../scripts/private-terms.js';
+import {
+  KEYED_TERM_HASHES,
+  PRIVATE_TERM_HASHES,
+  findPrivateTerms,
+  keyedTermHash,
+  privateTermsKey,
+  requirePrivateTermsKey,
+  scanTrackedFiles,
+  scanText,
+  termHash,
+} from '../scripts/private-terms.js';
+import { git } from '../scripts/git.js';
+import { commitAll } from './git-repo.js';
+import { run } from './run.js';
 
 const fakeTerm = 'termo-sintetico-proibido';
 const fakeHashes = new Set([termHash(fakeTerm)]);
+
+/** A temporary repository the guard can read a commit from. */
+async function withRepo(callback: (root: string) => Promise<void>): Promise<void> {
+  const root = mkdtempSync(join(tmpdir(), 'mdcli-private-terms-'));
+  try {
+    await git(['init', '-q'], root);
+    await callback(root);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}
 
 test('finds a guarded term and passes without it', () => {
   expect(scanText(`linha limpa\n${fakeTerm} aqui\n`, fakeHashes)).toEqual([2]);
@@ -65,20 +89,144 @@ test('matches a hash in the stored normalized form, not one recomputed from the 
   expect(findPrivateTerms('  São JOÃO ', stored)).toHaveLength(1);
 });
 
-test('fails on a versioned file carrying a prohibited term and passes without it', () => {
-  const root = mkdtempSync(join(tmpdir(), 'mdcli-private-terms-'));
-  try {
-    Bun.spawnSync(['git', 'init', '-q'], { cwd: root });
-    writeFileSync(join(root, 'note.txt'), `linha limpa\n${fakeTerm} aqui\n`);
-    Bun.spawnSync(['git', 'add', 'note.txt'], { cwd: root });
+test('detects a keyed numeric term only with the key', () => {
+  const key = 'test-key';
+  const keyed = new Set([keyedTermHash('12345', key)]);
 
-    expect(scanTrackedFiles(root, fakeHashes)).toEqual([{ file: 'note.txt', line: 2 }]);
+  expect(findPrivateTerms('12345', new Set(), new Set(), keyed, key)).toHaveLength(1);
+  expect(findPrivateTerms('12345', new Set(), new Set(), keyed, undefined)).toEqual([]);
+  expect(findPrivateTerms('linha limpa', new Set(), new Set(), keyed, key)).toEqual([]);
+});
+
+test('an unsalted hash of a numeric term is not in the public set', () => {
+  expect(PRIVATE_TERM_HASHES.has(termHash('12345'))).toBe(false);
+  expect(KEYED_TERM_HASHES.has(termHash('12345'))).toBe(false);
+});
+
+// A synthetic number whose keyed hash is in the production set. Base64 keeps
+// this file free of the guarded number while the test rebuilds it. With the
+// key available (the maintainer's file or the CI secret), the guard detects
+// it; without the key it warns and skips it.
+const keyedCanary = Buffer.from('OTE4MjczNjQ1', 'base64').toString();
+
+test('detects the keyed canary from the production set when the key is available', () => {
+  const key = privateTermsKey();
+  if (key === undefined) return;
+  expect(findPrivateTerms(keyedCanary, new Set(), new Set(), KEYED_TERM_HASHES, key)).toHaveLength(1);
+  expect(PRIVATE_TERM_HASHES.has(termHash(keyedCanary))).toBe(false);
+});
+
+test('requires the key only when the environment demands it', () => {
+  const previousKey = process.env.MDCLI_PRIVATE_TERMS_KEY;
+  const previousRequire = process.env.MDCLI_REQUIRE_PRIVATE_TERMS_KEY;
+  try {
+    delete process.env.MDCLI_PRIVATE_TERMS_KEY;
+    delete process.env.MDCLI_REQUIRE_PRIVATE_TERMS_KEY;
+    expect(requirePrivateTermsKey()).toBeUndefined();
+
+    process.env.MDCLI_REQUIRE_PRIVATE_TERMS_KEY = '1';
+    expect(() => requirePrivateTermsKey()).toThrow(/MDCLI_PRIVATE_TERMS_KEY/);
+
+    process.env.MDCLI_PRIVATE_TERMS_KEY = 'test-key';
+    expect(requirePrivateTermsKey()).toBe('test-key');
+  } finally {
+    if (previousKey === undefined) delete process.env.MDCLI_PRIVATE_TERMS_KEY;
+    else process.env.MDCLI_PRIVATE_TERMS_KEY = previousKey;
+    if (previousRequire === undefined) delete process.env.MDCLI_REQUIRE_PRIVATE_TERMS_KEY;
+    else process.env.MDCLI_REQUIRE_PRIVATE_TERMS_KEY = previousRequire;
+  }
+});
+
+test('detects a keyed numeric term in a committed file with a test key', async () => {
+  const key = 'test-key';
+  const keyed = new Set([keyedTermHash('12345', key)]);
+  await withRepo(async (root) => {
+    writeFileSync(join(root, 'note.txt'), 'linha limpa\n12345 aqui\n');
+    await commitAll(root, 'add the id');
+
+    expect(await scanTrackedFiles(root, new Set(), new Set(), 'HEAD', keyed, key)).toEqual([
+      { file: 'note.txt', line: 2 },
+    ]);
+    expect(await scanTrackedFiles(root, new Set(), new Set(), 'HEAD', keyed, undefined)).toEqual([]);
+  });
+});
+
+test('fails on a committed file carrying a prohibited term and passes without it', async () => {
+  await withRepo(async (root) => {
+    writeFileSync(join(root, 'note.txt'), `linha limpa\n${fakeTerm} aqui\n`);
+    await commitAll(root, 'add the term');
+
+    expect(await scanTrackedFiles(root, fakeHashes)).toEqual([{ file: 'note.txt', line: 2 }]);
 
     writeFileSync(join(root, 'note.txt'), 'linha limpa\noutra linha limpa\n');
-    expect(scanTrackedFiles(root, fakeHashes)).toEqual([]);
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
+    await commitAll(root, 'remove the term');
+    expect(await scanTrackedFiles(root, fakeHashes)).toEqual([]);
+  });
+});
+
+test('detects a term that is only in the commit, after the file leaves the worktree', async () => {
+  await withRepo(async (root) => {
+    writeFileSync(join(root, 'note.txt'), `linha limpa\n${fakeTerm} aqui\n`);
+    await commitAll(root, 'add the term');
+    rmSync(join(root, 'note.txt'));
+    await git(['rm', '--cached', '-q', 'note.txt'], root);
+
+    // The file is invisible to the old working-tree source: `git ls-files`
+    // prints nothing, so only the commit still carries the term.
+    expect(await git(['ls-files'], root)).toBe('');
+    expect(await scanTrackedFiles(root, fakeHashes)).toEqual([{ file: 'note.txt', line: 2 }]);
+  });
+});
+
+test('detects a term that is only staged, before it is committed', async () => {
+  await withRepo(async (root) => {
+    writeFileSync(join(root, 'clean.txt'), 'linha limpa\n');
+    await commitAll(root, 'base');
+    writeFileSync(join(root, 'leak.txt'), `linha limpa\n${fakeTerm} aqui\n`);
+    await git(['add', 'leak.txt'], root);
+
+    // HEAD still lacks the file: only the index carries the staged term.
+    expect(await git(['ls-tree', '-r', '--name-only', 'HEAD'], root)).not.toContain('leak.txt');
+    expect(await scanTrackedFiles(root, fakeHashes)).toEqual([{ file: 'leak.txt', line: 2 }]);
+  });
+});
+
+test('detects a term in a tracked file that is not staged yet', async () => {
+  await withRepo(async (root) => {
+    writeFileSync(join(root, 'note.txt'), 'linha limpa\n');
+    await commitAll(root, 'base');
+    writeFileSync(join(root, 'note.txt'), `linha limpa\n${fakeTerm} aqui\n`);
+
+    expect(await git(['status', '--short', 'note.txt'], root)).toContain(' M note.txt');
+    expect(await scanTrackedFiles(root, fakeHashes)).toEqual([{ file: 'note.txt', line: 2 }]);
+  });
+});
+
+test('detects a guarded term in a file path, not only in its content', async () => {
+  await withRepo(async (root) => {
+    writeFileSync(join(root, `${fakeTerm}.txt`), 'linha limpa\n');
+    await commitAll(root, 'add a clean file with a guarded name');
+
+    expect(await scanTrackedFiles(root, fakeHashes)).toEqual([{ file: `${fakeTerm}.txt` }]);
+  });
+});
+
+test('scans a blob with NUL bytes instead of skipping it', async () => {
+  await withRepo(async (root) => {
+    writeFileSync(join(root, 'blob.bin'), Buffer.concat([Buffer.from([0, 0]), Buffer.from(fakeTerm)]));
+    await commitAll(root, 'add a binary blob');
+
+    expect(await scanTrackedFiles(root, fakeHashes)).toEqual([{ file: 'blob.bin', line: 1 }]);
+  });
+});
+
+test('fails loudly instead of skipping a blob above the scan limit', async () => {
+  await withRepo(async (root) => {
+    writeFileSync(join(root, 'big.txt'), 'a'.repeat(1_000_001));
+    await commitAll(root, 'add a large blob');
+
+    expect(scanTrackedFiles(root, fakeHashes)).rejects.toThrow(/big\.txt.*above the 1000000-byte scan limit/);
+  });
 });
 
 // A canary whose hash is in the production set. It is base64 here so this
@@ -86,21 +234,73 @@ test('fails on a versioned file carrying a prohibited term and passes without it
 // also prove the guard normalizes the text before hashing.
 const canaryTerm = Buffer.from('Q0FOw4FSSU8gc2ludMOpdGljbw==', 'base64').toString();
 
-test('detects a canary term from the production set in a temporary repository', () => {
-  const root = mkdtempSync(join(tmpdir(), 'mdcli-private-terms-'));
-  try {
-    Bun.spawnSync(['git', 'init', '-q'], { cwd: root });
+test('detects a canary term from the production set in a temporary repository', async () => {
+  await withRepo(async (root) => {
     writeFileSync(join(root, 'note.txt'), 'linha limpa\noutra linha limpa\n');
-    Bun.spawnSync(['git', 'add', 'note.txt'], { cwd: root });
-    expect(scanTrackedFiles(root)).toEqual([]);
+    await commitAll(root, 'clean note');
+    expect(await scanTrackedFiles(root)).toEqual([]);
 
     writeFileSync(join(root, 'note.txt'), `linha limpa\n${canaryTerm} aqui\n`);
-    expect(scanTrackedFiles(root)).toEqual([{ file: 'note.txt', line: 2 }]);
+    await commitAll(root, 'add the canary');
+    expect(await scanTrackedFiles(root)).toEqual([{ file: 'note.txt', line: 2 }]);
+  });
+});
+
+test('no committed file or path carries a private term', async () => {
+  expect(await scanTrackedFiles()).toEqual([]);
+});
+
+// The full-tree scan runs as the `private terms` step of scripts/verify.sh,
+// outside the parallel batch: under that load it took 6-10 s and blew Bun's 5 s
+// default timeout (#218). This asserts the entry point the verify step calls,
+// and that a subdirectory still scans the whole repository (#233).
+test('the guard script scans the repository root from a subdirectory', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'mdcli-private-terms-script-'));
+  const script = join(import.meta.dirname, '..', 'scripts', 'private-terms-cli.ts');
+  const sub = join(root, 'sub');
+  const guard = () => run([process.execPath, script], { cwd: sub });
+  try {
+    await git(['init', '-q'], root);
+    mkdirSync(sub);
+    writeFileSync(join(sub, 'note.txt'), 'linha limpa\noutra linha limpa\n');
+    await git(['add', '.'], root);
+
+    expect((await guard()).exitCode).toBe(0);
+
+    writeFileSync(join(root, 'canary.txt'), `linha limpa\n${canaryTerm} aqui\n`);
+    await git(['add', 'canary.txt'], root);
+    const hit = await guard();
+    expect(hit.exitCode).toBe(1);
+    expect(hit.stderr).toContain('canary.txt:2');
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
 });
 
-test('no versioned file carries a private term', () => {
-  expect(scanTrackedFiles()).toEqual([]);
+test('the guard script fails when the environment requires the key and it is unset', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'mdcli-private-require-'));
+  const script = join(import.meta.dirname, '..', 'scripts', 'private-terms-cli.ts');
+  const env: Record<string, string> = {};
+  for (const [name, value] of Object.entries(process.env)) {
+    if (value !== undefined) env[name] = value;
+  }
+  env.MDCLI_REQUIRE_PRIVATE_TERMS_KEY = '1';
+  delete env.MDCLI_PRIVATE_TERMS_KEY;
+  try {
+    await git(['init', '-q'], root);
+    writeFileSync(join(root, 'note.txt'), 'linha limpa\n');
+    await git(['add', '.'], root);
+
+    const missing = await run([process.execPath, script], { cwd: root, env });
+    expect(missing.exitCode).toBe(1);
+    expect(missing.stderr).toContain('MDCLI_PRIVATE_TERMS_KEY');
+
+    const present = await run([process.execPath, script], {
+      cwd: root,
+      env: { ...env, MDCLI_PRIVATE_TERMS_KEY: 'test-key' },
+    });
+    expect(present.exitCode).toBe(0);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });

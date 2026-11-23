@@ -42,20 +42,39 @@ export default tseslint.config(
   },
   {
     // Money is formatted and counted in cents in one place, signed by default.
-    files: ["src/**/*.ts", "test/**/*.ts"],
+    files: ["src/**/*.ts", "test/**/*.ts", "scripts/**/*.ts"],
     ignores: ["src/utils/currency.ts"],
     rules: { "local/no-raw-currency": "error", "local/no-raw-cents": "error" },
   },
   {
     // Strings become numbers only through the strict parse helpers.
-    files: ["src/**/*.ts", "test/**/*.ts"],
+    files: ["src/**/*.ts", "test/**/*.ts", "scripts/**/*.ts"],
     ignores: ["src/utils/parse.ts"],
     rules: { "local/no-loose-number": "error" },
   },
   {
     // User input payloads match their types instead of being cast.
-    files: ["src/**/*.ts", "test/**/*.ts"],
+    files: ["src/**/*.ts", "test/**/*.ts", "scripts/**/*.ts"],
     rules: { "local/no-double-cast": "error" },
+  },
+  {
+    // Entry and occurrence IDs are branded only by their constructors (#277).
+    files: ["src/**/*.ts", "test/**/*.ts", "scripts/**/*.ts"],
+    ignores: ["src/lib/entry-id-brands.ts"],
+    rules: { "local/no-brand-cast": "error" },
+  },
+  {
+    // An `any` reaches a typed slot unchecked, a branded one included
+    // (`const id: EntryId = JSON.parse(text)`, #290). test/** reads CLI output
+    // through JSON.parse in hundreds of assertions and brands nothing the CLI runs.
+    files: ["src/**/*.ts", "bin/**/*.ts", "scripts/**/*.ts"],
+    rules: {
+      "@typescript-eslint/no-unsafe-argument": "error",
+      "@typescript-eslint/no-unsafe-assignment": "error",
+      "@typescript-eslint/no-unsafe-call": "error",
+      "@typescript-eslint/no-unsafe-member-access": "error",
+      "@typescript-eslint/no-unsafe-return": "error",
+    },
   },
   {
     // An empty table cell is written by cell() alone.
@@ -103,8 +122,16 @@ export default tseslint.config(
   {
     // A test that compares a literal to itself, or asserts the text of a
     // src/ or bin/ file, cannot fail when the behavior breaks (issue #186).
-    files: ["test/**/*.test.ts"],
+    // Probes are bun:test files too (#303).
+    files: ["test/**/*.ts"],
     rules: { "local/no-tautological-expect": "error" },
+  },
+  {
+    // Suite deadlines live in test/timeouts.ts. A literal, or one local bound
+    // to a literal, is a second copy (#303).
+    files: ["test/**/*.ts"],
+    ignores: ["test/timeouts.ts"],
+    rules: { "local/no-loose-deadline": "error" },
   },
   {
     // Short options with = must be preprocessed before commander parses argv (#151).
@@ -116,6 +143,66 @@ export default tseslint.config(
     // Exit only through exitAfterFlush(), which flushes stdout first.
     files: ["src/**/*.ts", "test/**/*.ts", "bin/**/*.ts"],
     rules: { "local/no-bare-process-exit": "error" },
+  },
+  {
+    // scripts/ spawns git, gh and bun only through scripts/git.ts (#260).
+    // src/** is exempt in eslint-rules/scope-exemptions.json. The default
+    // syncNames is "self", so spawnSync in a gate stays this rule.
+    files: ["scripts/**/*.ts"],
+    ignores: ["scripts/git.ts"],
+    rules: { "local/no-raw-spawn": "error" },
+  },
+  {
+    // test/ spawns only through test/run.ts. Synchronous names stay on
+    // no-sync-spawn, so one spawnSync is one local rule (#301, #303).
+    files: ["test/**/*.ts"],
+    ignores: ["test/run.ts"],
+    rules: { "local/no-raw-spawn": ["error", { syncNames: "sync-rule" }] },
+  },
+  {
+    // Sync spawn has one owner. That file may import the three names only from
+    // node:child_process. A named import from "bun" captured before the guard
+    // still starts the child (Bun 1.4.2, #301). The guard, its probe, and the
+    // contract probe name the raw calls on purpose. bin/ is included so a
+    // named import in bin/cli.ts cannot skip the rule.
+    files: ["src/**/*.ts", "test/**/*.ts", "bin/**/*.ts"],
+    ignores: ["test/sync-spawn-guard.ts", "test/probes/sync-spawn.ts", "test/probes/sync-child-contract.ts"],
+    rules: { "local/no-sync-spawn": "error" },
+  },
+  {
+    // scripts/git.ts also owns --base, the base...head diff and the git calls
+    // of the gates' tests (#268). src/** is exempt in scope-exemptions.json.
+    files: ["scripts/**/*.ts", "test/**/*.ts"],
+    ignores: ["scripts/git.ts"],
+    rules: { "local/no-git-copy": "error" },
+  },
+  {
+    // The Meu Dinheiro host lives only in src/lib/meu-dinheiro-host.ts (#279).
+    // Help texts in the i18n catalogs name the site to the user, not a URL the
+    // CLI calls. test/** is exempt in eslint-rules/scope-exemptions.json.
+    files: ["src/**/*.ts", "scripts/**/*.ts", "bin/**/*.ts"],
+    ignores: ["src/lib/meu-dinheiro-host.ts", "src/lib/i18n/catalog/**"],
+    rules: { "local/no-host-literal": "error" },
+  },
+  {
+    // scripts/mock-http.ts owns the mock's error answers (#276, #286).
+    files: ["scripts/mock-*.ts"],
+    ignores: ["scripts/mock-http.ts"],
+    rules: {
+      "no-restricted-syntax": ["error", {
+        selector:
+          ":matches(:matches(CallExpression[callee.object.name='Response'], NewExpression[callee.name='Response']) Property[key.name='status'] > Literal, CallExpression[callee.name='json'] > Literal.arguments:nth-child(2))[raw=/^4\\d\\d$/]",
+        message: "Answer a 4xx through scripts/mock-http.ts (notFound, badRequest, unauthorized), never Response.json or json() with a 4xx status; it owns the error body every route returns.",
+      }],
+    },
+  },
+  {
+    files: ["src/**/*.ts", "scripts/**/*.ts", "test/**/*.ts"],
+    rules: {
+      "@typescript-eslint/no-floating-promises": "error",
+      "@typescript-eslint/await-thenable": "error",
+      "@typescript-eslint/require-await": "error",
+    },
   },
   {
     ignores: ["node_modules", "dist"],

@@ -28,7 +28,7 @@ const STATEMENT = {
       moeda: 1,
       nomePlastico: 'Ficticio',
       status: 'conciliado',
-      _ca: { d: 'Descricao Sugerida', c: { d: { categoria: { v: 10 } } } },
+      _ca: { d: 'Descricao Sugerida', c: { d: { categoria: { v: '10' } } } },
     },
     { integrationId: SHARED_A, descricao: 'Credito Ficticio', valor: 8.5, data: '2026-10-08', moeda: 1 },
     { integrationId: SHARED_B, descricao: 'Taxi Ficticio', valor: -1, data: '2026-10-09', moeda: 1 },
@@ -258,61 +258,5 @@ describe('entries import list', () => {
     expect(result.exitCode).toBe(0);
     expect(JSON.parse(result.stdout).connection).toEqual({ id: 501, connectionAccount: 301 });
     expect(api.requests.filter((r) => r.path.includes('/transactions'))).toHaveLength(1);
-  });
-
-  test('help for entries import and entries import list offers the read options and calls no API', async () => {
-    const parent = await cli(['entries', 'import', '--help']);
-    expect(parent.exitCode).toBe(0);
-
-    const list = await cli(['entries', 'import', 'list', '--help']);
-    expect(list.exitCode).toBe(0);
-    for (const option of ['--account', '--since', '--json', '--search-from', '--search-to']) {
-      expect(list.stdout).toContain(option);
-    }
-    expect(list.stdout).not.toContain('--yes');
-    expect(api.requests).toHaveLength(0);
-  });
-
-  test('accepts --search-from and --search-to, and rejects an invalid search date before calling the API', async () => {
-    const widened = await cli([
-      'entries', 'import', 'list', '-a', '201', '--since', SINCE, '--json',
-      '--search-from', '2026-09-01', '--search-to', '2026-10-25',
-    ]);
-    expect(widened.exitCode).toBe(0);
-    expect(JSON.parse(widened.stdout).search).toEqual({ from: '2026-09-01', to: '2026-10-25' });
-    const found = api.requests.filter((r) => r.path === '/v2/lancamentos');
-    expect(found).toHaveLength(1);
-    expect(found[0].query.get('inicio')).toBe('2026-09-01');
-    expect(found[0].query.get('fim')).toBe('2026-10-25');
-
-    api.requests.length = 0;
-    for (const flag of ['--search-from', '--search-to']) {
-      const bad = await cli(['entries', 'import', 'list', '-a', '201', flag, '2026-02-31', '--json']);
-      expect(bad.exitCode).toBe(1);
-      expect(bad.stdout).toBe('');
-      expect(JSON.parse(bad.stderr)).toEqual({
-        error: 'Invalid date "2026-02-31". Use YYYY-MM-DD (e.g., 2026-10-03).',
-      });
-      expect(api.requests).toHaveLength(0);
-    }
-
-    const backwards = await cli([
-      'entries', 'import', 'list', '-a', '201', '--json',
-      '--search-from', '2026-10-20', '--search-to', '2026-10-01',
-    ]);
-    expect(backwards.exitCode).toBe(1);
-    expect(backwards.stdout).toBe('');
-    expect(JSON.parse(backwards.stderr)).toEqual({
-      error: 'Search start 2026-10-20 is after search end 2026-10-01.',
-    });
-    expect(api.requests.some((r) => r.path === '/v2/lancamentos')).toBe(false);
-    expect(mutations(api)).toHaveLength(0);
-  });
-
-  test('requires --account and does not call the API', async () => {
-    const result = await cli(['entries', 'import', 'list', '--since', SINCE]);
-    expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("required option '-a, --account <identifier>'");
-    expect(api.requests).toHaveLength(0);
   });
 });

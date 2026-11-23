@@ -1,4 +1,14 @@
 import type { ptBREntriesSummary as SectionType } from '../pt-BR/summary.js';
+import { groupNouns, summaryGroupingMessages } from '../../summary-grouping.js';
+
+const grouping = summaryGroupingMessages(
+  groupNouns(
+    { column: 'Category', header: 'category' },
+    { column: 'Month', header: 'month' },
+    { column: 'Account', header: 'account' },
+  ),
+  (noun, from, to) => `Summary by ${noun} | ${from} to ${to}`,
+);
 
 /** Entries summary, in English. */
 export const enEntriesSummary: typeof SectionType = {
@@ -7,10 +17,12 @@ export const enEntriesSummary: typeof SectionType = {
   entriesSummaryByOption: () => 'Group by: category, month, or account',
   entriesSummaryIncludeTransfersOption: () =>
     'Count transfers between accounts (left out by default)',
-  summaryGroupCategory: () => 'Category',
-  summaryGroupMonth: () => 'Month',
-  summaryGroupAccount: () => 'Account',
-  entriesSummaryHeader: (by, from, to) => `Summary by ${by} | ${from} to ${to}`,
+  entriesSummaryRegimeOption: () =>
+    'Totals view: cash or accrual, like the web reports',
+  summaryRegimeCash: () => 'cash view',
+  summaryRegimeAccrual: () => 'accrual view',
+  summaryGroupColumn: grouping.summaryGroupColumn,
+  entriesSummaryHeader: grouping.entriesSummaryHeader,
   entriesExcludedByCategory: (count) =>
     `${count} entr${count === 1 ? 'y' : 'ies'} left out by --exclude-category.`,
   entriesSkippedTransfers: (count) =>

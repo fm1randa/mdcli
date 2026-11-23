@@ -1,0 +1,11 @@
+diff --git a/eslint.config.js b/eslint.config.js
+--- a/eslint.config.js
++++ b/eslint.config.js
+@@ -49,6 +49,6 @@ export default tseslint.config(
+   {
+     // Strings become numbers only through the strict parse helpers.
+-    files: ["src/**/*.ts", "test/**/*.ts", "scripts/**/*.ts"],
++    files: ["src/**/*.ts", "test/**/*.ts"],
+     ignores: ["src/utils/parse.ts"],
+     rules: { "local/no-loose-number": "error" },
+   },

@@ -1,5 +1,7 @@
 import { readFileSync } from 'node:fs';
 import tseslint from 'typescript-eslint';
+import { parseDiff } from './behavior-change.js';
+import { WORKING_TREE, diffAgainst, gitResult, mergeBase, parseBase, parseRevisionFlag } from './git.js';
 
 // A copied eslint-disable is how the bare-exit pattern spread (#155, #187).
 // Compare the branch with main and fail on any added directive without a
@@ -11,7 +13,7 @@ const DIRECTIVE = /^\s*eslint-disable(?:-next-line|-line)?\b/;
 const REASON = /\s--\s+\S/;
 const LINTED = /\.(?:[cm]?[jt]sx?)$/;
 
-export interface AddedDisable {
+interface AddedDisable {
   path: string;
   line: number;
   text: string;
@@ -31,41 +33,17 @@ interface DiffLine {
   text: string;
 }
 
-export type Side = 'old' | 'new';
+type Side = 'old' | 'new';
 export type ContentReader = (path: string, side: Side) => string | undefined;
 
-function parseDiff(diff: string): { added: DiffLine[]; removed: DiffLine[] } {
+function changedLines(diff: string): { added: DiffLine[]; removed: DiffLine[] } {
   const added: DiffLine[] = [];
   const removed: DiffLine[] = [];
-  let path = '';
-  let oldLine = 0;
-  let newLine = 0;
-  for (const raw of diff.split('\n')) {
-    if (raw.startsWith('diff --git ')) {
-      // `diff --git a/<path> b/<path>`: the b/ side names the file after the change.
-      path = raw.split(' b/', 2)[1] ?? '';
-      continue;
-    }
-    if (raw.startsWith('+++ b/')) {
-      path = raw.slice('+++ b/'.length);
-      continue;
-    }
-    const hunk = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/.exec(raw);
-    if (hunk) {
-      oldLine = Number(hunk[1]);
-      newLine = Number(hunk[2]);
-      continue;
-    }
-    if (path === '' || !LINTED.test(path)) continue;
-    if (raw.startsWith('+')) {
-      added.push({ path, line: newLine, text: raw.slice(1) });
-      newLine += 1;
-    } else if (raw.startsWith('-')) {
-      removed.push({ path, line: oldLine, text: raw.slice(1) });
-      oldLine += 1;
-    } else if (raw.startsWith(' ')) {
-      oldLine += 1;
-      newLine += 1;
+  for (const file of parseDiff(diff)) {
+    if (!LINTED.test(file.path)) continue;
+    for (const { kind, line, text } of file.hunks.flat()) {
+      if (kind === 'add') added.push({ path: file.path, line, text });
+      else if (kind === 'remove') removed.push({ path: file.path, line, text });
     }
   }
   return { added, removed };
@@ -100,7 +78,7 @@ export function directiveLines(content: string): Set<number> {
 
 /** Counts the directives a diff adds and removes, reading the file at each side. */
 export function countDisables(diff: string, read: ContentReader): DiffCount {
-  const { added, removed } = parseDiff(diff);
+  const { added, removed } = changedLines(diff);
   const cache = new Map<string, Map<number, Directive>>();
   const directiveAt = (path: string, line: number, side: Side): Directive | undefined => {
     const key = `${side}:${path}`;
@@ -123,8 +101,8 @@ export function countDisables(diff: string, read: ContentReader): DiffCount {
   };
 }
 
-function gitShow(ref: string, path: string): string | undefined {
-  const result = Bun.spawnSync(['git', 'show', `${ref}:${path}`], { stdout: 'pipe', stderr: 'pipe' });
+async function gitShow(ref: string, path: string): Promise<string | undefined> {
+  const result = await gitResult(['show', `${ref}:${path}`]);
   return result.exitCode === 0 ? result.stdout.toString() : undefined;
 }
 
@@ -136,52 +114,39 @@ function workingTree(path: string): string | undefined {
   }
 }
 
-function reader(base: string, head: string | undefined): ContentReader {
-  return (path, side) => {
-    if (side === 'old') return gitShow(base, path);
-    return head === undefined ? workingTree(path) : (gitShow(head, path) ?? workingTree(path));
-  };
-}
-
-interface Options {
-  base?: string;
-  head?: string;
-}
-
-function parseOptions(argv: string[]): Options {
-  const options: Options = {};
-  for (let index = 0; index < argv.length; index++) {
-    const arg = argv[index];
-    if (arg === '--base') {
-      options.base = argv[++index];
-    } else if (arg === '--head') {
-      options.head = argv[++index];
-    } else {
-      throw new Error(`unknown argument: ${arg}`);
-    }
+/**
+ * Both sides of every linted file the diff touches, read up front so
+ * countDisables stays synchronous: git runs only through the async spawn of
+ * scripts/git.ts (#293).
+ */
+async function reader(diff: string, oldSide: string, head: string | undefined): Promise<ContentReader> {
+  const contents = new Map<string, string | undefined>();
+  for (const { path } of parseDiff(diff)) {
+    if (!LINTED.test(path)) continue;
+    contents.set(`old:${path}`, await gitShow(oldSide, path));
+    const committed = head === undefined ? undefined : await gitShow(head, path);
+    contents.set(`new:${path}`, committed ?? workingTree(path));
   }
-  return options;
+  return (path, side) => contents.get(`${side}:${path}`);
 }
 
-function gitDiff(base: string, head: string | undefined): string {
-  const args = ['git', 'diff', '--unified=0', '--no-renames', '--no-color', base];
-  if (head !== undefined) args.push(head);
-  const result = Bun.spawnSync(args, { stdout: 'pipe', stderr: 'pipe' });
-  if (result.exitCode !== 0) {
-    throw new Error(`git diff against ${base}${head ? `..${head}` : ''} failed: ${result.stderr.toString().trim()}`);
-  }
-  return result.stdout.toString();
+/** Without `--head`, the files on disk are the new side, so an uncommitted directive fails too. */
+function parseOptions(argv: string[]): { base: string; head: string | undefined } {
+  const { base, rest } = parseBase(argv);
+  const { value: head, rest: unknown } = parseRevisionFlag(rest, '--head');
+  if (unknown.length > 0) throw new Error(`unknown argument: ${unknown[0]}`);
+  return { base, head };
 }
 
-function main(): void {
+async function main(): Promise<void> {
   try {
-    const options = parseOptions(process.argv.slice(2));
-    const base = options.base ?? 'origin/main';
-    const range = `${base}${options.head ? `..${options.head}` : ''}`;
-    const { added, removed, undocumented } = countDisables(gitDiff(base, options.head), reader(base, options.head));
+    const { base, head } = parseOptions(process.argv.slice(2));
+    const compared = `${base}, merge base to ${head ?? 'the working tree'}`;
+    const diff = await diffAgainst(base, { head: head ?? WORKING_TREE, flags: ['--unified=0'] });
+    const { added, removed, undocumented } = countDisables(diff, await reader(diff, await mergeBase(base, head), head));
     if (undocumented.length > 0) {
       console.error(
-        `✗ eslint-disable: o diff contra ${range} adiciona ${undocumented.length} directive(s) sem motivo depois de "--" ` +
+        `✗ eslint-disable: o diff contra ${compared} adiciona ${undocumented.length} directive(s) sem motivo depois de "--" ` +
           `(remove ${removed}). A supressão copiada não é a correção (#187); use a saída sancionada ` +
           '(exitAfterFlush, card-invoice), explique o motivo ou remova o disable.',
       );
@@ -190,11 +155,11 @@ function main(): void {
       return;
     }
     const addedText = added.length === 0 ? '0 added' : `${added.length} added, all with a reason`;
-    console.log(`✓ eslint-disable: ${addedText}, ${removed} removed (${range})`);
+    console.log(`✓ eslint-disable: ${addedText}, ${removed} removed (${compared})`);
   } catch (error) {
     console.error(`eslint-disable: ${error instanceof Error ? error.message : String(error)}`);
     process.exitCode = 1;
   }
 }
 
-if (import.meta.main) main();
+if (import.meta.main) await main();

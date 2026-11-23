@@ -1,9 +1,11 @@
 import chalk from 'chalk';
 import { logger } from '../../utils/logger.js';
 import { t } from '../../lib/i18n/index.js';
-import { exitWithError } from '../../utils/action.js';
-import { normalizeEntries } from '../../lib/api.js';
-import { fetchListEntries } from './card-entries.js';
+import { parseSummaryGrouping } from '../../lib/i18n/summary-grouping.js';
+import { exitAfterFlush, exitWithError } from '../../utils/action.js';
+import { fetchWebConfig, normalizeEntries } from '../../lib/api.js';
+import { competenceViewEnabled } from '../../lib/entries-preferences.js';
+import { fetchListEntries, type FailedInvoice } from './card-entries.js';
 import { toCsv } from '../../lib/csv.js';
 import { summarize, totalRow } from '../../lib/summary.js';
 import { type FilterOptions, resolveEntryFilters, resolveExcludedCategories } from './filters.js';
@@ -12,15 +14,34 @@ import { formatCurrency, formatMagnitude } from '../../utils/currency.js';
 import { loadNames, nameOf, tagNames } from './names.js';
 import { cell, truncate } from '../../utils/text.js';
 import { newTable } from '../../utils/table.js';
+import type { ApiRegime } from '../../types/index.js';
+import { parseRegime, regimeCode, type Regime } from '../../lib/regime.js';
 
 const LIST_COL_WIDTHS = [12, 12, 36, 15, 12, 12, 13];
 
-async function loadEntries(options: FilterOptions) {
-  const params = await resolveEntryFilters(options);
+function reportFailedInvoices(failures: FailedInvoice[]): void {
+  for (const failure of failures) {
+    console.error(
+      chalk.yellow('⚠'),
+      t('warningInvoiceReadFailed', failure.cardName, failure.cardId, failure.dueDate, failure.message),
+    );
+  }
+}
+
+async function loadEntries(options: FilterOptions, regime?: ApiRegime) {
+  const resolved = await resolveEntryFilters(options);
+  const params = { ...resolved.params, regime };
+  const { accounts } = resolved;
   const excludedCategories = await resolveExcludedCategories(options.excludeCategory);
-  const all = normalizeEntries(await fetchListEntries(params));
+  const policy = options.account === undefined ? 'continue' : 'strict';
+  const loaded = await fetchListEntries(params, accounts, policy);
+  const all = normalizeEntries(loaded.entries);
   const entries = all.filter((e) => e.categoryId === null || !excludedCategories.has(e.categoryId));
-  return { params, entries, excludedByCategory: all.length - entries.length };
+  reportFailedInvoices(loaded.failedInvoices);
+  if (loaded.failedInvoices.length > 0 && entries.length === 0) {
+    await exitAfterFlush(1);
+  }
+  return { params, accounts, entries, excludedByCategory: all.length - entries.length };
 }
 
 function checkOutputFormat(options: { json?: boolean; csv?: boolean }): void {
@@ -36,7 +57,7 @@ interface ListOptions extends FilterOptions {
 
 export async function listAction(options: ListOptions): Promise<void> {
   checkOutputFormat(options);
-  const { entries } = await loadEntries(options);
+  const { accounts, entries } = await loadEntries(options);
 
   if (options.json) {
     console.log(JSON.stringify(entries, null, 2));
@@ -44,7 +65,7 @@ export async function listAction(options: ListOptions): Promise<void> {
   }
 
   if (options.csv) {
-    const names = await loadNames({ tags: entries.some((e) => e.tagIds.length > 0) });
+    const names = await loadNames({ tags: entries.some((e) => e.tagIds.length > 0), accounts });
     process.stdout.write(
       toCsv(
         [
@@ -97,11 +118,23 @@ export async function listAction(options: ListOptions): Promise<void> {
   console.log(table.toString());
 }
 
-const SUMMARY_GROUPINGS = ['category', 'month', 'account'] as const;
-type SummaryGrouping = (typeof SUMMARY_GROUPINGS)[number];
+/**
+ * The --regime of the web reports' "Visão de caixa" / "Visão da competência" toggle. The web offers
+ * accrual only under visaoCompetencia and silently sends cash otherwise; the CLI refuses instead.
+ */
+async function resolveSummaryRegime(input: string | undefined): Promise<Regime | undefined> {
+  if (input === undefined) return undefined;
+  const regime = parseRegime(input);
+  if (regime === null) exitWithError(t('errorInvalidRegime', input));
+  if (regime === 'accrual' && !(await competenceViewEnabled(fetchWebConfig()))) {
+    exitWithError(t('errorAccrualViewOff'));
+  }
+  return regime;
+}
 
 interface SummaryOptions extends FilterOptions {
   by?: string;
+  regime?: string;
   includeTransfers?: boolean;
   json?: boolean;
   csv?: boolean;
@@ -109,12 +142,13 @@ interface SummaryOptions extends FilterOptions {
 
 export async function summaryAction(options: SummaryOptions): Promise<void> {
   checkOutputFormat(options);
-  const by = (options.by ?? 'category') as SummaryGrouping;
-  if (!SUMMARY_GROUPINGS.includes(by)) {
+  const by = parseSummaryGrouping(options.by);
+  if (by === undefined) {
     exitWithError(t('errorInvalidBy', options.by ?? ''));
   }
 
-  const { params, entries: filtered, excludedByCategory } = await loadEntries(options);
+  const regime = await resolveSummaryRegime(options.regime);
+  const { params, accounts, entries: filtered, excludedByCategory } = await loadEntries(options, regime && regimeCode(regime));
   // Transfers stay optional via --include-transfers. Payments (tipo p) and
   // invoice projections are never income/expense: always leave them out of
   // the summary (real use 2026-10-19).
@@ -129,10 +163,10 @@ export async function summaryAction(options: SummaryOptions): Promise<void> {
     return true;
   });
 
-  const names = by === 'month' ? null : await loadNames();
+  const names = by === 'month' ? null : await loadNames({ accounts });
   const rows = summarize(entries, (e) => {
     if (by === 'month') {
-      const month = e.date.slice(0, 7);
+      const month = (regime === 'accrual' ? (e.competenceDate ?? e.date) : e.date).slice(0, 7);
       return { key: month, label: month };
     }
     if (by === 'account') {
@@ -151,7 +185,7 @@ export async function summaryAction(options: SummaryOptions): Promise<void> {
   if (options.json) {
     console.log(
       JSON.stringify(
-        { groupBy: by, from: params.startDate, to: params.endDate, skippedTransfers, skippedPayments, skippedInvoices, excludedByCategory, rows, total },
+        { groupBy: by, regime: regime ?? null, from: params.startDate, to: params.endDate, skippedTransfers, skippedPayments, skippedInvoices, excludedByCategory, rows, total },
         null,
         2
       )
@@ -171,7 +205,7 @@ export async function summaryAction(options: SummaryOptions): Promise<void> {
 
   const table = newTable({
     head: [
-      by === 'month' ? t('summaryGroupMonth') : by === 'account' ? t('summaryGroupAccount') : t('summaryGroupCategory'),
+      t('summaryGroupColumn', by),
       t('labelEntries'),
       t('labelIncome'),
       t('labelExpenses'),
@@ -190,7 +224,8 @@ export async function summaryAction(options: SummaryOptions): Promise<void> {
     formatCurrency(total.net),
   ]);
 
-  logger.header(t('entriesSummaryHeader', by, params.startDate, params.endDate));
+  const header = t('entriesSummaryHeader', by, params.startDate, params.endDate);
+  logger.header(regime ? `${header} | ${t(regime === 'cash' ? 'summaryRegimeCash' : 'summaryRegimeAccrual')}` : header);
   console.log(table.toString());
   if (excludedByCategory > 0) {
     console.log(chalk.gray(`\n${t('entriesExcludedByCategory', excludedByCategory)}`));

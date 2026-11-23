@@ -3,7 +3,8 @@ import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE } from './fixtures.js';
-import { SINCE } from './import-harness.js';
+import { candidate, SINCE, type BankTransaction, type CandidateEntry } from './import-harness.js';
+import type { BankStatementResponse, ConnectionsResponse, Entry } from '../src/types/index.js';
 
 // Fictional ids. 201 is Conta Teste (connection account 301); 202 is Cartão Teste (connection
 // account 302, proximoVencimento 2026-01-16). Statement 2026-10-01 to 2026-10-28, so the
@@ -15,7 +16,7 @@ import { SINCE } from './import-harness.js';
 // same day; on another day it is used up without a link. Reconciled Entries are hidden from the
 // candidates unless linked (mdb.js `H`).
 
-const CONNECTIONS = [
+const CONNECTIONS: ConnectionsResponse = [
   {
     id: 501,
     status: 'UPDATED',
@@ -34,28 +35,28 @@ const B5 = '50000000-1111-4000-8000-000000000005';
 const B6 = '60000000-1111-4000-8000-000000000006';
 const B7 = '70000000-1111-4000-8000-000000000007';
 
-function bank(integrationId: string, data: string, valor: number, extra: Record<string, unknown> = {}) {
+function bank(integrationId: string, data: string, valor: number, extra: Partial<BankTransaction> = {}): BankTransaction {
   return { integrationId, descricao: `Banco ${integrationId.slice(0, 1)}`, valor, data, moeda: 1, ...extra };
 }
 
-function entry(id: number, date: string, valor: number, status: string, extra: Record<string, unknown> = {}) {
-  return { id, dataPrevista: date, valor, descricao: `Entry ${id}`, categoria: 40, status, ...extra };
+function entry(id: number, date: string, valor: number, status: Entry['status'], extra: Partial<CandidateEntry> = {}): CandidateEntry {
+  return candidate({ id, dataPrevista: date, valor, descricao: `Entry ${id}`, categoria: 40, status, ...extra });
 }
 
-const STATEMENT = {
+const STATEMENT: BankStatementResponse = {
   inicio: '2026-10-01',
   fim: '2026-10-28',
   saldo: 0,
   lancamentos: [
     // Two Bank Transactions with one key: +1 day comes before -1 day.
-    bank(B1, '2026-10-10', -50, { _ca: { ait: { d: 'tok-b1' } } }),
+    bank(B1, '2026-10-10', -50, { _ca: { ait: { d: ['d', 'tok-b1'] } } }),
     bank(B2, '2026-10-10', -50),
     // A Reconciled Entry on the same day links.
     bank(B3, '2026-10-15', 0.31),
     // A Reconciled Entry one day off is used up; the confirmed one on the other side links.
     bank(B4, '2026-10-20', -7),
     // Only a Reconciled Entry one day off: nothing is linked.
-    bank(B5, '2026-10-25', -9, { _ca: { ait: { d: 'tok-b5' } } }),
+    bank(B5, '2026-10-25', -9, { _ca: { ait: { d: ['d', 'tok-b5'] } } }),
     // The document number pass goes first: B7 is listed before B6, yet 709 (same document) wins it.
     bank(B7, '2026-10-05', -20, { ndocumento: 'D2' }),
     bank(B6, '2026-10-05', -20),
@@ -158,7 +159,7 @@ describe('entries import: one Entry linked automatically, like the web', () => {
 
     const ai = api.requests.filter((r) => r.path === '/v1/smartmatch/ai');
     expect(ai).toHaveLength(1);
-    expect(ai[0].body).toEqual({ t: ['tok-b5'] });
+    expect(ai[0].body).toEqual({ t: [['d', 'tok-b5']] });
   });
 
   test('a linked duplicate conciliates; an unlinked duplicate is skipped', async () => {

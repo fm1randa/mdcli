@@ -23,6 +23,38 @@ interface Connection {
 
 export type ConnectionsResponse = Connection[];
 
+/** The answer to PUT /v1/integracao/connection/update/:id. */
+export interface SyncRequestResponse {
+  id?: number;
+  status?: string;
+  /** Seconds the web waits before checking the connection again (5 when absent). */
+  statusCheckWindow?: number;
+}
+
+/** d expense, r income, t transfer. */
+type SuggestionKind = 'd' | 'r' | 't';
+
+interface SuggestedField {
+  v?: unknown;
+}
+
+interface SuggestionBucket {
+  categoria?: { v: string };
+  [field: string]: SuggestedField | undefined;
+}
+
+interface CategoryAnnotation {
+  /** The AI token for one kind. The row sends a string array. */
+  ait?: Partial<Record<SuggestionKind, readonly string[]>>;
+  /** True when the suggestion is a transfer. */
+  st?: boolean;
+  /** The suggested description the web writes as the row's default. */
+  d?: string;
+  t?: readonly unknown[];
+  /** Suggested fields by kind. */
+  c?: Partial<Record<SuggestionKind, SuggestionBucket>>;
+}
+
 /** One row of GET /v1/integracao/account/:connectionAccount/transactions. */
 interface BankTransaction {
   integrationId?: string;
@@ -30,16 +62,9 @@ interface BankTransaction {
   valor?: number;
   data?: string;
   moeda?: number;
-  /** The AI category token for the row. */
-  _ca?: {
-    ait?: Record<string, string>;
-    /** A transfer suggestion. */
-    st?: boolean;
-    /** The suggested description the web writes as the row's default. */
-    d?: string;
-    /** The suggested fields, by kind (d expense, r income, t transfer). */
-    c?: Partial<Record<'d' | 'r' | 't', Record<string, { v?: unknown }>>>;
-  };
+  /** Keyword list the real row carries. The CLI does not read it. */
+  k?: readonly unknown[];
+  _ca?: CategoryAnnotation;
 }
 
 /** A bank statement: one connection account's transactions for a period. */

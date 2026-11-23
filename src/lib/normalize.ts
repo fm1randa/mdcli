@@ -19,6 +19,20 @@ export function normalizeCategories(response: CategoriesResponse): NormalizedCat
   }));
 }
 
+/** Open and enabled: what `--active` lists, the card list keeps, and an account filter searches. */
+export function isActiveAccount(account: { status: boolean; encerrada: boolean }): boolean {
+  return account.status && !account.encerrada;
+}
+
+/**
+ * Offered by the web app's account selectors (mdwSelect, contas: status !==
+ * false), so an entry may move to it. A closed account that is still enabled
+ * passes: this is not {@link isActiveAccount}.
+ */
+export function isSelectableAccount(account: { status: boolean }): boolean {
+  return account.status !== false;
+}
+
 export function normalizeAccounts(response: AccountsResponse): NormalizedAccount[] {
   return response.items.map((acc) => ({
     id: acc.id,
@@ -169,7 +183,7 @@ function remainingFromInstallment(parcela: string | undefined): number {
  * parcelasRestantes; only the legacy wrapper does.
  */
 export function normalizeCardInstallments(response: CardFutureResponse | LegacyCardFutureResponse): NormalizedCardInstallment[] {
-  const raw: unknown = Array.isArray(response) ? response : response.parcelas;
+  const raw = Array.isArray(response) ? response : response.parcelas;
   if (!Array.isArray(raw)) return [];
   const items: Array<CardFutureResponse[number] & { parcelasRestantes?: number }> = raw;
   return items.map((item) => ({

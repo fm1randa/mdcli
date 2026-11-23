@@ -1,5 +1,5 @@
 import chalk from 'chalk';
-import { fetchAccounts, fetchPlastics, isCreditCard } from '../../lib/api.js';
+import { fetchAccounts, fetchPlastics, isCreditCard, isSelectableAccount } from '../../lib/api.js';
 import { exitWithError } from '../../utils/action.js';
 import { t } from '../../lib/i18n/index.js';
 import { today } from '../../lib/dates.js';
@@ -7,7 +7,7 @@ import type { Account, Entry, UpdateEntryPayload } from '../../types/index.js';
 import { formCardDueDate } from './card-invoice.js';
 import { checkTransferAccounts } from './create-transfer.js';
 import { signForType } from './type.js';
-import { buildEntryStatus, type EntryStatusFlags } from './status.js';
+import { buildEntryStatus, cardMoveFlags, statusRequest, type EntryStatusFlags } from './status.js';
 import { transferSides } from './update-transfer.js';
 
 /** Looks Accounts up by ID in one fetch, exiting on an ID the list lacks. */
@@ -20,12 +20,9 @@ async function accountLookup(): Promise<(id: number) => Account> {
   };
 }
 
-/**
- * Refuses an inactive account the entry moves to: the web app's account
- * selectors leave it out (mdwSelect, contas: status !== false).
- */
-function checkActive(account: Account): void {
-  if (account.status === false) {
+/** Refuses an account the entry moves to that the web app would not offer. */
+function refuseUnselectableDestination(account: Account): void {
+  if (!isSelectableAccount(account)) {
     exitWithError(t('errorAccountInactive', account.nome, account.id));
   }
 }
@@ -50,8 +47,8 @@ export async function moveTransfer(
     exitWithError(t('errorTransferSameAccounts', originId));
   }
   const get = await accountLookup();
-  if (originId !== current.origin) checkActive(get(originId));
-  if (destinationId !== current.destination) checkActive(get(destinationId));
+  if (originId !== current.origin) refuseUnselectableDestination(get(originId));
+  if (destinationId !== current.destination) refuseUnselectableDestination(get(destinationId));
   checkTransferAccounts(get(current.origin), get(current.destination));
   checkTransferAccounts(get(originId), get(destinationId));
   return { originId, destinationId };
@@ -75,13 +72,14 @@ const day = (date: string): string => date.slice(0, 10);
  * is accepted and changes nothing else (other updates keep echoing the entry).
  */
 export async function moveEntry(payload: UpdateEntryPayload, existing: Entry, accountId: number, context: MoveContext): Promise<void> {
+  statusRequest(context.flags);
   payload.conta = accountId;
   if (accountId === existing.conta) return;
 
   const get = await accountLookup();
   const fromCard = isCreditCard(get(existing.conta));
   const target = get(accountId);
-  checkActive(target);
+  refuseUnselectableDestination(target);
   if (isCreditCard(target)) {
     await moveToCard(payload, existing, target, fromCard, context);
     return;
@@ -104,16 +102,17 @@ async function moveToCard(
   fromCard: boolean,
   { date, flags }: MoveContext
 ): Promise<void> {
-  if (flags.reconciled) {
+  const request = statusRequest(flags);
+  if (request.request === 'reconciled') {
     exitWithError(t('errorReconcileCardPurchase'));
   }
-  if (flags.pending || flags.confirmed) {
+  if (request.request === 'pending' || request.request === 'confirmed') {
     console.error(
       chalk.yellow('⚠'),
       t(
         'warningCardPurchaseMoveStatus',
         existing.conciliado ? t('cardPurchaseReconciledState') : t('cardPurchaseUnreconciledState'),
-        flags.pending ? '--pending' : '--confirmed'
+        request.request === 'pending' ? '--pending' : '--confirmed',
       )
     );
   }
@@ -121,8 +120,8 @@ async function moveToCard(
   // planned date (sf, L).
   const purchaseDate = day(date ?? (fromCard ? existing.data : existing.dataEfetiva ?? existing.dataPrevista));
   // A card has only Conciliado: G sets confirmado = conciliado.
-  const conciliado = existing.conciliado === true;
-  payload.status = { confirmado: conciliado, conciliado };
+  const { confirmado, conciliado } = cardMoveFlags(existing.conciliado === true);
+  payload.status = { confirmado, conciliado };
   payload.conciliado = conciliado;
   payload.data = purchaseDate;
   payload.dataCompetencia = purchaseDate;

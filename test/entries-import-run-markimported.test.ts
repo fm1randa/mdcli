@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE } from './fixtures.js';
-import { CONNECTIONS, connections, mockStatement, SINCE } from './import-harness.js';
+import { candidate, CONNECTIONS, connections, mockStatement, SINCE, type BankTransaction, type CandidateEntry } from './import-harness.js';
 
 const TX1 = 'aaaa1111-1111-4000-8000-000000000001';
 const TX2 = 'bbbb2222-2222-4000-8000-000000000002';
@@ -27,15 +27,15 @@ afterEach(() => {
   home.cleanup();
 });
 
-function bank(integrationId: string, extra: Record<string, unknown> = {}) {
+function bank(integrationId: string, extra: Partial<BankTransaction> = {}) {
   return { integrationId, descricao: 'Padaria Ficticia', valor: -12.34, data: '2026-10-07', moeda: 1, ...extra };
 }
 
-function statement(rows: unknown[]) {
+function statement(rows: BankTransaction[]) {
   mockStatement(api, rows, { saldo: 250.5 });
 }
 
-function entries(list: unknown[]) {
+function entries(list: CandidateEntry[]) {
   api.on('GET /v2/lancamentos', { list, meta: { total: list.length, page: 1, pageSize: 500 } });
 }
 
@@ -60,8 +60,8 @@ describe('entries import run markImported', () => {
       bank(TX2, { data: '2026-10-07', valor: -5, descricao: 'Farmacia Ficticia' }),
     ]);
     entries([
-      { id: 4242, dataPrevista: '2026-10-07', valor: -12.34, descricao: 'Padaria do bairro' },
-      { id: 4243, dataPrevista: '2026-10-07', valor: -5, descricao: 'Farmacia do bairro' },
+      candidate({ id: 4242, dataPrevista: '2026-10-07', valor: -12.34, descricao: 'Padaria do bairro' }),
+      candidate({ id: 4243, dataPrevista: '2026-10-07', valor: -5, descricao: 'Farmacia do bairro' }),
     ]);
 
     const result = await run(['--ids', 'aaaa1111,bbbb2222', '-c', '10', '--yes', '--json']);
@@ -83,7 +83,7 @@ describe('entries import run markImported', () => {
       bank('cccc3333-3333-4000-8000-000000000003', { data: '2026-10-08', valor: -9 }),
     ]);
     api.on('GET /v1/lancamentos/duplicidade', { '2026-10-09': [{ id: 77, valor: -3 }] });
-    entries([{ id: 4242, dataPrevista: '2026-10-08', valor: -12.34, descricao: 'Padaria do bairro' }]);
+    entries([candidate({ id: 4242, dataPrevista: '2026-10-08', valor: -12.34, descricao: 'Padaria do bairro' })]);
 
     const result = await run(['--ids', 'aaaa1111,bbbb2222,cccc3333', '-c', '10', '--yes', '--json']);
 

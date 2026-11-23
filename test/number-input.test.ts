@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createHome, MANUAL_AUTH, mutations, runCli, startMockApi, type MockApi, type TestHome } from './helpers.js';
 import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE } from './fixtures.js';
+import { serveCreate } from './entry-routes.js';
 
 // Maintenance 2026-10-19: `entries create -v ""` created an R$ 0 entry and
 // `entries delete ""` reached the API with id 0, because Number('') is 0.
@@ -11,7 +12,7 @@ beforeEach(() => {
   api = startMockApi();
   api.on('GET /v1/cadastros/contas', ACCOUNTS_RESPONSE);
   api.on('GET /v1/cadastros/categorias', CATEGORIES_RESPONSE);
-  api.on('POST /v1/lancamentos', (req) => ({ id: 9, ...(req.body as object) }));
+  serveCreate(api);
   home = createHome(MANUAL_AUTH);
 });
 

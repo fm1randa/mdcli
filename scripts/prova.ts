@@ -1,4 +1,6 @@
 import { readFileSync } from 'node:fs';
+import { changesBehavior, parseDiff } from './behavior-change.js';
+import { diffAgainst, parseBase } from './git.js';
 
 export interface ProvaStatus {
   present: boolean;
@@ -77,43 +79,35 @@ export function parseProva(body: string): ProvaStatus {
   };
 }
 
-export function requiresProva(files: string[]): boolean {
-  return files.some((file) => file === 'src' || file.startsWith('src/'));
+const SRC_PATH = /^src(?:\/|$)/;
+
+/** The proof is required only when a src/ change carries behavior, not a comment. */
+export function requiresProva(diff: string): boolean {
+  return changesBehavior(parseDiff(diff), { includes: (path) => SRC_PATH.test(path) });
 }
 
-export function checkProva(body: string, files: string[]): ProvaCheck {
-  const required = requiresProva(files);
+export function checkProva(body: string, diff: string): ProvaCheck {
+  const required = requiresProva(diff);
   const status = parseProva(body);
   return { required, ok: !required || (status.web && status.before && status.after), status };
 }
 
-function changedFiles(base: string): string[] {
-  const result = Bun.spawnSync(['git', 'diff', '--name-only', '--no-renames', `${base}...HEAD`], {
-    stdout: 'pipe',
-    stderr: 'pipe',
-  });
-  if (result.exitCode !== 0) {
-    throw new Error(`git diff against ${base} failed: ${result.stderr.toString().trim()}`);
-  }
-  return result.stdout.toString().split('\n').filter((file) => file !== '');
-}
-
 interface Options {
   base: string;
-  files?: string[];
+  diff?: string;
   bodyFile?: string;
 }
 
 function parseOptions(argv: string[]): Options {
-  const options: Options = { base: 'origin/main' };
-  for (let index = 0; index < argv.length; index++) {
-    const arg = argv[index];
-    if (arg === '--base') {
-      options.base = argv[++index] ?? options.base;
-    } else if (arg === '--files') {
-      options.files = (argv[++index] ?? '').split(',').filter((file) => file !== '');
+  const { base, rest } = parseBase(argv);
+  const options: Options = { base };
+  for (let index = 0; index < rest.length; index++) {
+    const arg = rest[index];
+    if (arg === '--diff') {
+      options.diff = rest[++index];
+      if (!options.diff) throw new Error('--diff needs a file');
     } else if (arg === '--body-file') {
-      options.bodyFile = argv[++index];
+      options.bodyFile = rest[++index];
     } else {
       throw new Error(`unknown argument: ${arg}`);
     }
@@ -121,15 +115,15 @@ function parseOptions(argv: string[]): Options {
   return options;
 }
 
-function main(): void {
+async function main(): Promise<void> {
   try {
     const options = parseOptions(process.argv.slice(2));
     const body = options.bodyFile ? readFileSync(options.bodyFile, 'utf8') : (process.env.PR_BODY ?? '');
-    const files = options.files ?? changedFiles(options.base);
-    const check = checkProva(body, files);
+    const diff = options.diff ? readFileSync(options.diff, 'utf8') : await diffAgainst(options.base, { paths: ['src'] });
+    const check = checkProva(body, diff);
 
     if (!check.required) {
-      console.log('prova: not required (no src/ file changed)');
+      console.log('prova: not required (no src/ behavior change)');
       return;
     }
     if (check.ok) {
@@ -154,4 +148,4 @@ function main(): void {
   }
 }
 
-if (import.meta.main) main();
+if (import.meta.main) await main();

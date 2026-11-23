@@ -1,10 +1,10 @@
-import { fetchCardInvoice, fetchFirstInvoiceDate } from '../../lib/api.js';
+import { fetchCardInvoice, fetchFirstInvoice } from '../../lib/api.js';
 import { t } from '../../lib/i18n/index.js';
 import { addInterval, calendarDay, dueDateInMonth, parseInvoiceMonth, shiftDueDate } from '../../lib/dates.js';
 import { parseInteger } from '../../utils/parse.js';
 import type { Account, EntryAgenda } from '../../types/index.js';
 
-const MAX_INVOICE_STEPS = 24;
+export const MAX_INVOICE_STEPS = 24;
 
 /**
  * The due date (YYYY-MM-DD) the card's invoices are counted from. This file
@@ -20,16 +20,24 @@ const MAX_INVOICE_STEPS = 24;
  * - displayDueDate (cards list) shows the field as the API sends it. Display
  *   only, never an invoice anchor.
  * test/eslint-local-rules.test.ts pins these three as the only readers.
+ * primeiraFatura answers an object, like the web reads it
+ * (`carregarPrimeiraFatura(id).then(k => k.vencimento)`), not a date string
+ * (issue #266).
  */
 export async function cardDueAnchor(account: Account): Promise<string> {
-  return (account.proximoVencimento ?? (await fetchFirstInvoiceDate(account.id))).slice(0, 10);
+  const own = account.proximoVencimento;
+  if (own !== undefined && own !== null) return own.slice(0, 10);
+  const dueDate = calendarDay((await fetchFirstInvoice(account.id))?.vencimento);
+  if (!dueDate) throw new Error(t('errorFirstInvoiceNoDueDate', account.id));
+  return dueDate;
 }
 
 /**
  * The card's own proximoVencimento (YYYY-MM-DD), or null when it has no valid
- * one. No primeiraFatura fallback: the Import reconciles against the current
- * invoice only, like the web (carregarFatura(id, proximoVencimento)), so a
- * card without one fails the Import (decision of 2026-10-23, PR #115).
+ * one. No primeiraFatura fallback: the Import starts from the current invoice,
+ * like the web (carregarFatura(id, proximoVencimento)), so a card without one
+ * fails the Import (decision of 2026-10-23, PR #115). From there it also walks
+ * back to the closed invoices the purchases fall in (issue #281).
  */
 export function ownDueDate(account: Account): string | null {
   return calendarDay(account.proximoVencimento);

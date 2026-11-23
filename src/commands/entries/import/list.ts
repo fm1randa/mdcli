@@ -1,4 +1,4 @@
-import { fetchAccountById, fetchBankTransactions, fetchCardInvoice, fetchImportCandidates, fetchImportDuplicates, isCreditCard } from '../../../lib/api.js';
+import { fetchAccountById, fetchBankTransactions, fetchImportCandidates, fetchImportDuplicates, isCreditCard } from '../../../lib/api.js';
 import type { Account } from '../../../types/index.js';
 import { exitWithError } from '../../../utils/action.js';
 import { t } from '../../../lib/i18n/index.js';
@@ -8,6 +8,7 @@ import { logger } from '../../../utils/logger.js';
 import { cell, listCell } from '../../../utils/text.js';
 import { categoryCatalog, type CategoryCatalog } from '../category.js';
 import { fillAiCategories } from './ai.js';
+import { invoiceItems } from './card-invoices.js';
 import { automaticLinks, candidatesFor, readExisting, type ExistingEntry, type ImportCandidate } from './candidates.js';
 import { toImportDocument, type ImportDocument, type BankTransactionRow, type SuggestedCategory } from './document.js';
 import { aiRequest, duplicateId, loadedDateBounds } from './suggest.js';
@@ -159,13 +160,18 @@ async function fillCandidates(
   const linkable = document.transactions.map((): ImportCandidate[] => []);
   if (document.transactions.length === 0) return { linkable, existing: new Map() };
   const card = account !== undefined && isCreditCard(account);
-  const rows = card ? await invoiceRows(account) : await windowRows(document);
+  const rows = card ? await invoiceRows(account, document) : await windowRows(document);
   const { from, to } = document.search;
   const existing = readExisting(rows, card ? 'invoice' : 'entry').filter(
     (item) => card || (from !== null && to !== null && item.candidate.date >= from && item.candidate.date <= to),
   );
   const docs = documentNumbers(payload);
-  const banks = document.transactions.map((row, index) => ({ date: row.date, value: row.value, ndocumento: docs[index] ?? null }));
+  const banks = document.transactions.map((row, index) => ({
+    date: row.date,
+    value: row.value,
+    ndocumento: docs[index] ?? null,
+    integrationId: row.integrationId,
+  }));
   const linked = automaticLinks(banks, existing);
   document.transactions.forEach((bankTransaction, index) => {
     const id = linked[index] ?? null;
@@ -188,18 +194,17 @@ async function windowRows(document: ImportDocument): Promise<unknown[]> {
   return fetchImportCandidates(document.account.id, from, to);
 }
 
-/** A card's candidates are its whole `proximoVencimento` invoice, like the web: no date window. */
-async function invoiceRows(account: Account): Promise<unknown[]> {
+/**
+ * A card's candidates are its whole `proximoVencimento` invoice, like the web, plus the earlier
+ * invoices the purchases fall in (issue #281): no date window.
+ */
+async function invoiceRows(account: Account, document: ImportDocument): Promise<unknown[]> {
   const due = ownDueDate(account);
   if (due === null) {
     // No primeiraFatura fallback, like the web (see ownDueDate).
     exitWithError(t('errorCardNoDueDate', account.id));
   }
-  const invoice = await fetchCardInvoice(account.id, due);
-  if (!Array.isArray(invoice.lancamentos)) {
-    throw new Error(t('errorInvoiceNoLancamentos', account.id, due));
-  }
-  return invoice.lancamentos;
+  return invoiceItems(account.id, due, document.transactions.map((row) => row.date));
 }
 
 /** `{inicio, fim, saldo, lancamentos}` from the connection, or null without a Bank Transaction in it (the web shows no badge). */

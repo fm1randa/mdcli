@@ -1,4 +1,6 @@
 import { createHome, MANUAL_AUTH, mutations, type MockApi, startMockApi, type TestHome } from './helpers.js';
+import type { Entry } from '../src/types/index.js';
+import { serveEntry } from './entry-routes.js';
 import { ACCOUNTS_RESPONSE, CHECKING_ACCOUNT, CREDIT_CARD_ACCOUNT, SAVINGS_ACCOUNT } from './fixtures.js';
 
 // Shared by the entries update --account tests (#123).
@@ -19,7 +21,7 @@ export const FIXED_OCCURRENCE = {
   agendaId: 77,
   agenda: { frequencia: 1, intervalo: 'M', quantidade: -1, primeiraData: '2026-11-10' },
   tags: [],
-};
+} satisfies Entry;
 
 // Confirmed on Conta Teste, not reconciled.
 export const CONFIRMED_ENTRY = {
@@ -37,7 +39,7 @@ export const CONFIRMED_ENTRY = {
   conta: 201,
   categoria: 10,
   tags: [],
-};
+} satisfies Entry;
 
 export const SECOND_ACCOUNT = { ...CHECKING_ACCOUNT, id: 210, nome: 'Conta Teste Dois' };
 // Archived: the web app's account selectors leave it out.
@@ -62,7 +64,7 @@ export const CARD_PURCHASE = {
   categoria: 10,
   plastico: 62,
   tags: [],
-};
+} satisfies Entry;
 
 // Conta Teste (201) -> Poupança (204), seen from the destination half: the API
 // hands back either half of the pair.
@@ -81,18 +83,17 @@ export const TRANSFER_DESTINATION_HALF = {
   contaT: 201,
   categoria: 30,
   tags: [],
-};
+} satisfies Entry;
 
 /** A mock API with the accounts and entries above, and a home with the alias reserva -> 204. */
 export function startUpdateAccountApi(): { api: MockApi; home: TestHome } {
   const api = startMockApi();
   api.on('GET /v1/cadastros/contas', { ...ACCOUNTS_RESPONSE, items: [CHECKING_ACCOUNT, BASE_CARD, SAVINGS_ACCOUNT, SECOND_ACCOUNT, OTHER_CARD, ARCHIVED_ACCOUNT] });
   for (const entry of [TRANSFER_DESTINATION_HALF, FIXED_OCCURRENCE, CONFIRMED_ENTRY, CARD_PURCHASE]) {
-    api.on(`GET /v1/lancamentos/${entry.id}`, entry);
-    api.on(`PUT /v1/lancamentos/${entry.id}`, (req) => ({ ...entry, ...(req.body as object) }));
+    serveEntry(api, entry);
   }
   // Cartão Teste has a holder plastic; Cartão Teste Dois has none.
-  api.on('GET /v1/cadastros/plasticos', [{ id: 21, conta: 202, tipo: 'T', titular: true, nome: 'Titular Teste', status: true }]);
+  api.on('GET /v1/cadastros/plasticos', [{ id: 21, conta: 202, tipo: 'T', nome: 'Titular Teste', status: true }]);
   const home = createHome({
     ...MANUAL_AUTH,
     aliases: { accounts: [{ id: 204, name: 'reserva' }], categories: [], tags: [] },

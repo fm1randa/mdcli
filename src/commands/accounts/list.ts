@@ -2,7 +2,7 @@ import chalk from 'chalk';
 import { logger } from '../../utils/logger.js';
 import { exitWithError } from '../../utils/action.js';
 import { t } from '../../lib/i18n/index.js';
-import { fetchAccountBalances, fetchAccounts, normalizeAccounts } from '../../lib/api.js';
+import { fetchAccountBalances, fetchAccounts, isActiveAccount, normalizeAccounts } from '../../lib/api.js';
 import { calendarDay, getCurrentMonthRange, isCalendarDate } from '../../lib/dates.js';
 import type { AccountWithBalance } from '../../types/index.js';
 import { formatStatus } from './format.js';
@@ -20,9 +20,10 @@ export async function listAction(options: { json?: boolean; active?: boolean; at
   const response = await fetchAccounts();
   const sums = await fetchAccountBalances(response.items, balanceDate);
   const byAccount = new Map(sums.map((s) => [s.conta, s]));
+  const items = options.active ? response.items.filter(isActiveAccount) : response.items;
 
-  let accounts: AccountWithBalance[] = normalizeAccounts(response).map((acc, i) => {
-    const raw = response.items[i];
+  const accounts: AccountWithBalance[] = normalizeAccounts({ ...response, items }).map((acc, i) => {
+    const raw = items[i];
     const sum = byAccount.get(acc.id);
     return {
       ...acc,
@@ -33,10 +34,6 @@ export async function listAction(options: { json?: boolean; active?: boolean; at
       bankBalanceDate: calendarDay(raw.dataUltimoExtrato),
     };
   });
-
-  if (options.active) {
-    accounts = accounts.filter((a) => a.active && !a.closed);
-  }
 
   if (options.json) {
     console.log(JSON.stringify(accounts, null, 2));
