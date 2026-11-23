@@ -11,13 +11,14 @@ import { summarize, totalRow } from '../../lib/summary.js';
 import { type FilterOptions, resolveEntryFilters, resolveExcludedCategories } from './filters.js';
 import { formatStatus, formatType } from './format.js';
 import { formatCurrency, formatMagnitude } from '../../utils/currency.js';
-import { loadNames, nameOf, tagNames } from './names.js';
+import { loadGoalNamesFor, loadNames, nameOf, tagNames, withGoalName } from './names.js';
 import { cell, truncate } from '../../utils/text.js';
 import { newTable } from '../../utils/table.js';
 import type { ApiRegime } from '../../types/index.js';
 import { parseRegime, regimeCode, type Regime } from '../../lib/regime.js';
 
 const LIST_COL_WIDTHS = [12, 12, 36, 15, 12, 12, 13];
+const GOAL_COL_WIDTH = 20;
 
 function reportFailedInvoices(failures: FailedInvoice[]): void {
   for (const failure of failures) {
@@ -57,7 +58,10 @@ interface ListOptions extends FilterOptions {
 
 export async function listAction(options: ListOptions): Promise<void> {
   checkOutputFormat(options);
-  const { accounts, entries } = await loadEntries(options);
+  const loaded = await loadEntries(options);
+  const { accounts } = loaded;
+  const goals = await loadGoalNamesFor(loaded.entries);
+  const entries = loaded.entries.map((entry) => withGoalName(entry, goals));
 
   if (options.json) {
     console.log(JSON.stringify(entries, null, 2));
@@ -70,7 +74,7 @@ export async function listAction(options: ListOptions): Promise<void> {
       toCsv(
         [
           'id', 'date', 'description', 'value', 'type', 'status', 'account', 'category', 'installment',
-          'repetition', 'effective_date', 'competence_date', 'transfer_account', 'tags', 'notes', 'document_number', 'savings_goal_id',
+          'repetition', 'effective_date', 'competence_date', 'transfer_account', 'tags', 'notes', 'document_number', 'savings_goal_id', 'savings_goal_name',
         ],
         entries.map((e) => [
           e.id,
@@ -90,20 +94,24 @@ export async function listAction(options: ListOptions): Promise<void> {
           e.notes,
           e.documentNumber,
           e.savingsGoalId,
+          e.savingsGoalName,
         ])
       )
     );
     return;
   }
 
+  // The goal column shows only when some entry carries a goal, so a list without goals keeps its width.
+  const showGoal = entries.some((e) => e.savingsGoalId != null);
+  const head = [t('labelId'), t('labelDate'), t('labelDescription'), t('labelValue'), t('labelType'), t('labelStatus'), t('labelInstallment')];
   const table = newTable({
-    head: [t('labelId'), t('labelDate'), t('labelDescription'), t('labelValue'), t('labelType'), t('labelStatus'), t('labelInstallment')],
+    head: showGoal ? [...head, t('labelSavingsGoal')] : head,
     style: { head: ['cyan'] },
-    colWidths: LIST_COL_WIDTHS,
+    colWidths: showGoal ? [...LIST_COL_WIDTHS, GOAL_COL_WIDTH] : LIST_COL_WIDTHS,
   });
 
   for (const entry of entries) {
-    table.push([
+    const row = [
       entry.id,
       entry.date,
       truncate(entry.description, LIST_COL_WIDTHS[2]),
@@ -111,7 +119,9 @@ export async function listAction(options: ListOptions): Promise<void> {
       formatType(entry.type),
       formatStatus(entry.status),
       cell(entry.installment),
-    ]);
+    ];
+    const goal = cell(entry.savingsGoalId, (id) => truncate(entry.savingsGoalName ?? String(id), GOAL_COL_WIDTH));
+    table.push(showGoal ? [...row, goal] : row);
   }
 
   const total = entries.reduce((sum, e) => sum + e.value, 0);

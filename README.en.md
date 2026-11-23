@@ -1,4 +1,4 @@
-<!-- traduzido de README.md @ 747f3fb (base: 747f3fbdb8ec3961bc8aaa5b7a91efc814bab568; readme-blob: 3c79abaa19aa245761f31961b76d6fbad40109ae); ao atualizar o README.md, sincronize este arquivo e atualize o SHA e o readme-blob (git hash-object README.md) -->
+<!-- traduzido de README.md @ 747f3fb (base: 747f3fbdb8ec3961bc8aaa5b7a91efc814bab568; readme-blob: 1cba6b6c59f26e79294fa1a407ce88784cea4eca); ao atualizar o README.md, sincronize este arquivo e atualize o SHA e o readme-blob (git hash-object README.md) -->
 [Português (Brasil)](README.md) · **English**
 
 > The Portuguese [README.md](README.md) is the reference version; this English translation may lag behind it.
@@ -547,6 +547,18 @@ mdcli budget set --category Alimentação --value -800 --month 2026-11
 mdcli budget set --category 20 --value 4500 --month 2026-11 --until 2026-12 --dry-run
 mdcli budget remove --category Alimentação --month 2026-11
 
+# Savings goals (read only): target, deadline, balance, remaining, progress and ideal
+# monthly contribution (compound interest at the goal's rate, as on the web). With no
+# month left, the ideal contribution is what is missing; the web's figure (the whole
+# target) goes in webIdealMonthlyContribution in --json. --all includes inactive goals.
+mdcli goals list
+mdcli goals list --all --json
+
+# One goal, its balance per account and its statement. The default is the current year, as on the web.
+mdcli goals show 7
+mdcli goals show 7 --month 2026-11 --json
+mdcli goals show 7 --from 2026-01-01 --to 2026-06-30
+
 # List only active tags
 mdcli tags list --active
 
@@ -633,6 +645,15 @@ The tests in `test/` run the real CLI as a subprocess against a local mock of th
 | JSON output | Done |
 | Set a goal (`budget set`) | Done |
 | Remove a goal (`budget remove`) | Done |
+
+### Savings goals
+| Feature | Status |
+|---------|--------|
+| List (`goals list`, `--all` includes inactive) | Done |
+| Show with statement (`goals show`, `--month`, `--from`, `--to`) | Done |
+| JSON output | Done |
+| Goal name in `entries show` and `entries list` | Done |
+| Create, edit and delete | Out of scope |
 
 ### Tags
 | Feature | Status |

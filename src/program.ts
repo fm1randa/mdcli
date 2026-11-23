@@ -19,6 +19,7 @@ const COMMANDS: ReadonlyArray<readonly [name: string, load: CommandLoader]> = [
   ['auth', async () => (await import('./commands/auth/index.js')).authCommand],
   ['categories', async () => (await import('./commands/categories.js')).categoriesCommand],
   ['budget', async () => (await import('./commands/budget.js')).budgetCommand],
+  ['goals', async () => (await import('./commands/goals.js')).goalsCommand],
   ['accounts', async () => (await import('./commands/accounts/index.js')).accountsCommand],
   ['tags', async () => (await import('./commands/tags.js')).tagsCommand],
   ['entries', async () => (await import('./commands/entries/index.js')).entriesCommand],

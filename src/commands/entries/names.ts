@@ -1,5 +1,6 @@
 import { fetchAccounts, fetchCategories, fetchTags } from '../../lib/api.js';
-import type { Account } from '../../types/index.js';
+import type { Account, NormalizedEntry } from '../../types/index.js';
+import { loadGoalNames } from '../../lib/savings-goals.js';
 
 export interface Names {
   accounts: Map<number, string>;
@@ -28,4 +29,15 @@ export function nameOf(map: Map<number, string> | undefined, id: number): string
 
 export function tagNames(names: Names, ids: number[]): string[] {
   return ids.map((id) => String(nameOf(names.tags, id)));
+}
+
+/** The savings goal names, read only when some entry carries a goal. */
+export async function loadGoalNamesFor(entries: readonly NormalizedEntry[]): Promise<Map<number, string>> {
+  return entries.some((entry) => entry.savingsGoalId != null) ? loadGoalNames() : new Map();
+}
+
+/** The entry with `savingsGoalName`: its goal's name, null without a goal or when the goal is gone. */
+export function withGoalName<E extends NormalizedEntry>(entry: E, goals: Map<number, string>): E & { savingsGoalName: string | null } {
+  const id = entry.savingsGoalId;
+  return { ...entry, savingsGoalName: id == null ? null : goals.get(id) ?? null };
 }

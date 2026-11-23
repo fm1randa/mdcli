@@ -2,7 +2,7 @@
 // Uses the same fixtures as the unit tests; never touches the real API.
 import type { Account, AccountsResponse, CategoriesResponse } from '../src/types/index.js';
 import { BUDGET_EXTRA_CATEGORIES } from '../test/budget-fixtures.js';
-import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, CREDIT_CARD_ACCOUNT, SAVINGS_ACCOUNT, SAVINGS_GOALS, TAGS_RESPONSE } from '../test/fixtures.js';
+import { ACCOUNTS_RESPONSE, CATEGORIES_RESPONSE, CREDIT_CARD_ACCOUNT, SAVINGS_ACCOUNT, TAGS_RESPONSE } from '../test/fixtures.js';
 import { plasticsRoute } from './mock-plastics.js';
 import { ENTRIES_PATH, entriesListRoute, entriesRoute } from './mock-entries.js';
 import { badRequest, idOf, json, latestRelease, notFound, readJsonBody, requiredNumber, unauthorized } from './mock-http.js';
@@ -10,6 +10,7 @@ import { connectionsRoute, recordMockRequest } from './mock-connections.js';
 import { importRoute, withRecentStatement } from './mock-import.js';
 import { balancesRoute } from './mock-balances.js';
 import { budgetRoute } from './mock-budget.js';
+import { GOALS_PATH, goalsRoute } from './mock-goals.js';
 import { cardsRoute } from './mock-cards.js';
 import { sessionRoute } from './mock-session.js';
 import { CLOSED_INVOICE_CARD } from './mock-closed-invoice.js';
@@ -22,7 +23,6 @@ const LATEST_RELEASE_PATH = '/github/repos/fm1randa/mdcli/releases/latest';
 const ACCOUNTS_PATH = '/api/v1/cadastros/contas';
 const CATEGORIES_PATH = '/api/v1/cadastros/categorias';
 const TAGS_PATH = '/api/v1/cadastros/tags';
-const SAVINGS_GOALS_PATH = '/api/v1/metas/economia';
 const NEW_ACCOUNT_ID = 2001;
 
 // Extra card without proximoVencimento so cards invoice (no --month) hits
@@ -151,9 +151,6 @@ const server = Bun.serve({
     if (url.pathname === CATEGORIES_PATH && req.method === 'GET') {
       return json<'GET /v1/cadastros/categorias'>(MOCK_CATEGORIES);
     }
-    if (url.pathname === SAVINGS_GOALS_PATH && req.method === 'GET') {
-      return json<'GET /v1/metas/economia'>(SAVINGS_GOALS);
-    }
     if (url.pathname === TAGS_PATH && req.method === 'GET') {
       return json<'GET /v1/cadastros/tags'>(TAGS_RESPONSE);
     }
@@ -175,6 +172,10 @@ const server = Bun.serve({
     if (url.pathname === '/api/v2/lancamentos/metasorcamento' || url.pathname === '/api/v1/metas/orcamento') {
       const budget = await budgetRoute(req.method, url, req);
       if (budget) return budget;
+    }
+    if (url.pathname === GOALS_PATH || url.pathname.startsWith(`${GOALS_PATH}/`)) {
+      const goals = goalsRoute(req.method, url);
+      if (goals) return goals;
     }
     return connectionsRoute(req.method, url.pathname) ?? plasticsRoute(req.method, url.pathname) ?? sessionRoute(req.method, url.pathname) ?? notFound();
   },
