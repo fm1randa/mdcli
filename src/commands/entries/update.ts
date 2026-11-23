@@ -273,7 +273,7 @@ export async function updateAction(id: string, options: UpdateOptions): Promise<
     ndocumento: existing.ndocumento ?? '',
     lembrete: existing.lembrete ?? 0,
     automatico: existing.automatico ?? false,
-    metaEconomia: null,
+    metaEconomia: existing.metaEconomia ?? null,
     transferencia: finalType === 'p',
   };
 

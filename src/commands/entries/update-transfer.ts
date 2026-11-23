@@ -89,8 +89,15 @@ export function buildTransferPayload(
   // carry the fields an installment, a card, or a savings-goal transfer needs
   // one by one, and only when the entry actually has them.
   const carried: Partial<UpdateTransferPayload> = {};
-  for (const field of ['dataCompetencia', 'parcela', 'agendaId', 'regime', 'estorno', 'detalhes', 'metaEconomiaDestino'] as const) {
+  for (const field of ['dataCompetencia', 'parcela', 'agendaId', 'regime', 'estorno', 'detalhes', 'metaEconomiaDestino', 'metaEconomiaOrigem'] as const) {
     if (existing[field] !== undefined) Object.assign(carried, { [field]: existing[field] });
+  }
+  // The web app reads metaEconomia as the goal of the half it was handed: the
+  // origin's (a withdrawal) on the negative half, the destination's (a
+  // deposit) on the positive one.
+  if (existing.metaEconomia) {
+    if (outgoing) carried.metaEconomiaOrigem ||= existing.metaEconomia;
+    else carried.metaEconomiaDestino ||= existing.metaEconomia;
   }
   // categoriaPai is the parent of categoria and the categories endpoint does
   // not expose the parent, so a new category leaves us unable to recompute it.
