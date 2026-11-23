@@ -1,4 +1,4 @@
-<!-- traduzido de README.md @ 747f3fb (base: 747f3fbdb8ec3961bc8aaa5b7a91efc814bab568; readme-blob: 3c79abaa19aa245761f31961b76d6fbad40109ae); ao atualizar o README.md, sincronize este arquivo e atualize o SHA e o readme-blob (git hash-object README.md) -->
+<!-- traduzido de README.md @ 56cda82 (base: 56cda829d7fb95e6f574389e3cc2a0391f1773a2; readme-blob: 53b3f07d35fb1286577df48a47c3b61775f9b662); ao atualizar o README.md, sincronize este arquivo e atualize o SHA e o readme-blob (git hash-object README.md) -->
 [Português (Brasil)](README.md) · **English**
 
 > The Portuguese [README.md](README.md) is the reference version; this English translation may lag behind it.
@@ -25,7 +25,7 @@ bun install -g github:fm1randa/mdcli
 
 A global install keeps itself on the latest **release** (a `vYYYY.M.D` tag with a GitHub Release). Commits merged to `main` without a release are not installed.
 
-At most once every 24 hours, mdcli asks GitHub for the latest release (`api.github.com/repos/fm1randa/mdcli/releases/latest`, 1.5 s timeout, no token) and compares it with the installed version (the `package.json` of the install). If the release is newer, it removes the current install (`bun remove -g mdcli`) and installs the new one (`bun install -g github:fm1randa/mdcli#<tag>`), both steps in a single background process; the new version is used from the next run on, which prints one line to stderr, e.g. `mdcli atualizado de 2026.10.13 para 2026.10.20`. stdout is never touched, so `--json` and `--csv` output stays clean.
+At most once every 24 hours, mdcli asks GitHub for the latest release (`api.github.com/repos/fm1randa/mdcli/releases/latest`, 1.5 s timeout, no token) and compares it with the installed version (the `package.json` of the install). If the release is newer, it installs the new one over the current one (`bun install -g github:fm1randa/mdcli#<tag>`) in a background process, without removing the previous one first, so the `mdcli` command does not disappear during the update; the new version is used from the next run on, which prints one line to stderr, e.g. `mdcli atualizado de 2026.10.13 para 2026.10.20`. stdout is never touched, so `--json` and `--csv` output stays clean.
 
 The check is skipped when running from a source checkout, when `CI` is set, and when offline; a failed check or update never fails the command. The last check time is stored in `update-check.json` inside the config directory (`MDCLI_CONFIG_DIR`, default `~/.config/mdcli`).
 
@@ -35,7 +35,7 @@ To update right away (in the foreground, reporting the result; works even with a
 mdcli update
 ```
 
-If an update fails after removing the previous installation (for example, with a Bun `dependency loop` message on `mdcli update`, or silently on the automatic update), recover manually with:
+If an update fails (with a message on `mdcli update`, or silently on the automatic update), the previous version stays installed. To retry, run `mdcli update`, or install a specific release with:
 
 ```bash
 bun install -g github:fm1randa/mdcli#vYYYY.M.D
