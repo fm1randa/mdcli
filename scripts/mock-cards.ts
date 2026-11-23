@@ -5,6 +5,7 @@ import { cardInvoice, firstInvoice } from '../test/fixtures.js';
 import { roundToCents } from '../src/utils/currency.js';
 import { parseId } from '../src/utils/parse.js';
 import { invoiceItems } from './mock-card-purchases.js';
+import { paymentCardInvoice } from './mock-invoice-payment.js';
 import { json, notFound } from './mock-http.js';
 
 const sum = (items: ReadonlyArray<{ valor: number }>): number => roundToCents(items.reduce((total, e) => total + e.valor, 0));
@@ -76,6 +77,8 @@ export function cardsRoute(
     const id = parseId(invoice[1]);
     const due = invoice[2];
     if (id === undefined || !isCreditCard(id)) return notFound();
+    const payment = paymentCardInvoice(id, due);
+    if (payment) return json<`GET /v1/cartoes/${number}/fatura/${string}`>(payment);
     const lancamentos = invoiceItems(id, due);
     const invoiceBody: CardInvoiceResponse = {
       ...cardInvoice(due, closingFor(due)),

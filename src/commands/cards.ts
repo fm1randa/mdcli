@@ -1,16 +1,17 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import { logger } from '../utils/logger.js';
-import { action, exitWithError } from '../utils/action.js';
+import { action } from '../utils/action.js';
 import { t } from '../lib/i18n/index.js';
-import { fetchAccounts, fetchAccountById, normalizeCards, isActiveAccount, isCreditCard, fetchCardInvoice, normalizeCardEntries, fetchCardFuture, normalizeCardInstallments } from '../lib/api.js';
-import { resolveAccountOrExit } from './account-id.js';
+import { fetchAccounts, normalizeCards, isActiveAccount, isCreditCard, fetchCardInvoice, normalizeCardEntries, fetchCardFuture, normalizeCardInstallments } from '../lib/api.js';
+import { resolveCardOrExit } from './card-account.js';
+import { closeInvoiceAction, reopenInvoiceAction } from './cards-invoice-write.js';
 import { formatCurrency } from '../utils/currency.js';
 import { cell, truncate } from '../utils/text.js';
 import { cardDueAnchor, displayDueDate } from './entries/card-invoice.js';
 import { dueDateInMonth, parseInvoiceMonth } from '../lib/dates.js';
 import { normalizeInvoiceSummary } from '../lib/invoice-summary.js';
-import type { Account, NormalizedInvoiceSummary } from '../types/index.js';
+import type { NormalizedInvoiceSummary } from '../types/index.js';
 import { newTable } from '../utils/table.js';
 
 function formatStatus(active: boolean, closed: boolean): string {
@@ -103,21 +104,6 @@ function printInvoiceSummary(rows: SummaryRow[]): void {
   }
 }
 
-/** The credit card an -a value names, or exit with why it is not one. */
-async function resolveCardOrExit(input: string): Promise<Account> {
-  const accountId = await resolveAccountOrExit(input);
-
-  const account = await fetchAccountById(accountId);
-  if (!account) {
-    exitWithError(t('errorAccountNotFoundById', accountId));
-  }
-
-  if (!isCreditCard(account)) {
-    exitWithError(t('errorNotCreditCard', accountId));
-  }
-  return account;
-}
-
 const INVOICE_COL_WIDTHS = [12, 40, 15, 12];
 const FUTURE_COL_WIDTHS = [12, 32, 15, 15, 12];
 
@@ -170,7 +156,7 @@ async function invoiceAction(options: { account: string; month?: string; json?: 
   console.log(table.toString());
 }
 
-cardsCommand
+const invoiceCommand = cardsCommand
   .command('invoice')
   .description(t('cardsInvoiceDescription'))
   .requiredOption('-a, --account <id>', t('cardsAccountOption'))
@@ -178,6 +164,25 @@ cardsCommand
   .option('--json', t('cardsInvoiceJsonOption'))
   .option('--summary', t('cardsInvoiceSummaryOption'))
   .action(action(invoiceAction));
+
+// -a, --month and --json belong to `invoice`, which parses them wherever they
+// appear; the subcommands read them through optsWithGlobals().
+invoiceCommand
+  .command('close')
+  .description(t('cardsInvoiceCloseDescription'))
+  .option('--from <account>', t('cardsInvoiceCloseFromOption'))
+  .option('--date <YYYY-MM-DD>', t('cardsInvoiceCloseDateOption'))
+  .option('--no-payment', t('cardsInvoiceCloseNoPaymentOption'))
+  .option('--dry-run', t('cardsInvoiceDryRunOption'))
+  .option('--dangerously-skip-confirmation', t('cardsInvoiceSkipConfirmationOption'))
+  .action(action(closeInvoiceAction));
+
+invoiceCommand
+  .command('reopen')
+  .description(t('cardsInvoiceReopenDescription'))
+  .option('--dry-run', t('cardsInvoiceDryRunOption'))
+  .option('--dangerously-skip-confirmation', t('cardsInvoiceSkipConfirmationOption'))
+  .action(action(reopenInvoiceAction));
 
 async function futureAction(options: { account: string; json?: boolean }): Promise<void> {
   const account = await resolveCardOrExit(options.account);

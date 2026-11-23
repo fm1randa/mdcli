@@ -87,6 +87,30 @@ export const enResources: typeof SectionType = {
     `Invoice for ${name} - ${dueDate} (${count} entries) | Total: ${total}`,
   cardsFutureHeader: (name, count, total) =>
     `Future Installments for ${name} (${count} items) | Total: ${total}`,
+  cardsInvoiceCloseDescription: () =>
+    "Close the card's current invoice (proximoVencimento), like the web's \"Fechar fatura\", and schedule its payment",
+  cardsInvoiceCloseFromOption: () => "Account that pays the invoice (default: the card's payment account)",
+  cardsInvoiceCloseDateOption: () => "Payment date (default: the invoice's due date)",
+  cardsInvoiceCloseNoPaymentOption: () => 'Close without scheduling a payment (amount 0)',
+  cardsInvoiceReopenDescription: () =>
+    'Reopen a closed invoice, like the web\'s "Reabrir fatura" (default: the last closed one; use --month)',
+  cardsInvoiceDryRunOption: () => 'Show what would be written without writing. Only reads the API and does not prompt',
+  cardsInvoiceSkipConfirmationOption: () => 'Do not prompt for confirmation (required with --json)',
+  invoiceClosePlan: (name, id, due, amount, from, date) =>
+    `Close the invoice of ${name} (${id}) due ${due} and schedule its ${amount} payment from account ${from} on ${date}`,
+  invoiceClosePlanNoPayment: (name, id, due) => `Close the invoice of ${name} (${id}) due ${due}, without scheduling a payment`,
+  invoiceReopenPlan: (name, id, due) => `Reopen the invoice of ${name} (${id}) due ${due}`,
+  invoiceDryRun: (plan) => `Dry run, nothing written: ${plan}.`,
+  confirmInvoiceWrite: (plan) => `${plan}? (y/N) `,
+  invoiceWriteCancelled: () => 'Write cancelled.',
+  invoiceCloseDone: (name, due) => `Invoice of ${name} due ${due} closed`,
+  invoiceReopenDone: (name, due) => `Invoice of ${name} due ${due} reopened`,
+  errorInvoiceCloseMonth: () => "Closing applies only to the card's current invoice, like the web: drop --month.",
+  errorInvoiceCloseNoPayingAccount: (id) => `Card ${id} has no payment account: name the account that pays the invoice with --from.`,
+  errorInvoiceClosePaidByCard: (id) => `Account ${id} is a credit card and cannot pay the invoice.`,
+  errorInvoiceAlreadyClosed: (name, due) => `The invoice of ${name} due ${due} is already closed.`,
+  errorInvoiceNotClosed: (name, due) => `The invoice of ${name} due ${due} is not closed.`,
+  errorInvoiceWriteJsonNeedsSkip: () => '--json does not prompt. Use --dry-run or --dangerously-skip-confirmation.',
   errorAccountNotFoundById: (id) => `Account not found: ${id}`,
   errorNotCreditCard: (id) => `Account ${id} is not a credit card`,
 

@@ -515,6 +515,38 @@ step "cli cards list --json campos do cartão (mock)" expect_json 'd.some((c) =>
 step "cli cards future (mock)"               expect_ok 'Notebook' cards future -a 202
 # Bare-array API: remaining derived from "3/6" → 4 (old code always returned []).
 step "cli cards future --json (mock)"        expect_json 'Array.isArray(d) && d.length === 1 && d[0]?.installment === "3/6" && d[0]?.remaining === 4' cards future -a 202 --json
+# Issue #324: a Pix that pays a card invoice (Conta Teste Pix 208, Cartão Teste Pagamento 207 in
+# mock-invoice-payment.ts) is an import candidate only once the invoice is closed, as in the web. The
+# step closes the invoice, sees the scheduled payment become the Pix's candidate, and reopens it, so
+# the mock leaves the step as it found it. The only writes are the close and the reopen POSTs.
+pix_candidates() {
+  "${CLI[@]}" entries import list -a 208 --since "$IMPORT_SINCE" --json </dev/null \
+    | bun -e 'const d = JSON.parse(await Bun.stdin.text()); console.log(JSON.stringify(d.transactions.map((r) => [r.candidates.map((c) => c.id), r.entry])))'
+}
+invoice_close_roundtrip() {
+  local log="$MDCLI_MOCK_LOG"
+  local before=0
+  [ -f "$log" ] && before=$(wc -l <"$log")
+  local out
+  out=$(pix_candidates) || { echo "import list failed before the close"; return 1; }
+  [ "$out" = '[[[],null]]' ] || { echo "the open invoice's payment must not be a candidate: $out"; return 1; }
+  out=$("${CLI[@]}" cards invoice close -a 207 --dry-run </dev/null 2>&1) || { echo "close --dry-run: $out"; return 1; }
+  grep -Fq 'Dry run, nothing written: Close the invoice of Cartão Teste Pagamento (207) due 2026-03-16' <<<"$out" \
+    || { echo "expected the close plan in: $out"; return 1; }
+  [ -z "$(tail -n +"$((before + 1))" "$log" | grep -Ev '"method":"GET"')" ] || { echo "close --dry-run wrote"; return 1; }
+  out=$("${CLI[@]}" cards invoice close -a 207 --dangerously-skip-confirmation </dev/null 2>&1) || { echo "close: $out"; return 1; }
+  out=$(pix_candidates) || { echo "import list failed after the close"; return 1; }
+  [ "$out" = '[[[7001],7001]]' ] || { echo "the closed invoice's payment must be the Pix's candidate: $out"; return 1; }
+  out=$("${CLI[@]}" cards invoice reopen -a 207 --dangerously-skip-confirmation </dev/null 2>&1) || { echo "reopen: $out"; return 1; }
+  out=$(pix_candidates) || { echo "import list failed after the reopen"; return 1; }
+  [ "$out" = '[[[],null]]' ] || { echo "the reopened invoice's payment must not be a candidate: $out"; return 1; }
+  local writes
+  writes=$(tail -n +"$((before + 1))" "$log" | grep -Ev '"method":"GET"' | grep -Fxv '{"method":"POST","path":"/api/v1/smartmatch/ai"}')
+  [ "$writes" = $'{"method":"POST","path":"/api/v1/cartoes/207/pagar"}\n{"method":"POST","path":"/api/v1/cartoes/207/reabrir"}' ] \
+    || { echo "expected exactly the close and the reopen: $writes"; return 1; }
+}
+step "cli cards invoice close/reopen e candidato do Pix (mock)" invoice_close_roundtrip
+step "cli cards invoice ainda lê a fatura (mock)" expect_ok 'Cartão Teste Pagamento - 2026-03-16 \(2 entries\)' cards invoice -a 207
 # Card create: dataCompetencia=purchase, dataPrevista=invoice due, not reconciled.
 step "cli entries create cartão (mock)"      expect_ok 'ID: 91[0-9]{2}' entries create -a 202 -d Voo -v 10 -c 10 -D 2026-01-05
 step "cli entries create cartão --json (mock)" expect_json 'd.id === 9102 && d.occurrenceId === "1234567A2026-01-05" && d.dataCompetencia === "2026-01-05" && d.dataPrevista === "2026-01-16" && d.conciliado === false && d.status === "confirmado"' entries create -a 202 -d Voo -v 10 -c 10 -D 2026-01-05 --json

@@ -1,4 +1,4 @@
-<!-- traduzido de README.md @ 7edb375 (base: 7edb37556fbacca1dc109e95ab2d106682eadcfd; readme-blob: 16e4d860b965337adbde48a440ee72db157a7336); ao atualizar o README.md, sincronize este arquivo e atualize o SHA e o readme-blob (git hash-object README.md) -->
+<!-- traduzido de README.md @ a06095b (base: a06095ba9673bda25ed90a9ac660c37e5ce4beb3; readme-blob: 2773f8f59ef46836f91efdce1b8e1097c2fc584c); ao atualizar o README.md, sincronize este arquivo e atualize o SHA e o readme-blob (git hash-object README.md) -->
 [Português (Brasil)](README.md) · **English**
 
 > The Portuguese [README.md](README.md) is the reference version; this English translation may lag behind it.
@@ -498,6 +498,16 @@ mdcli cards invoice --account <cardId> --month 2026-02 --summary
 # send is null. entries is the same array --json prints alone.
 mdcli cards invoice --account <cardId> --month 2026-02 --json --summary
 
+# Close the card's current invoice, like the web's "Fechar fatura" (writes to the account). It
+# schedules the payment of what is left to pay (the total minus the payments already scheduled)
+# from the card's payment account, on the due date; --from, --date and --no-payment change that.
+# Only once it is closed does the invoice payment become the Pix's reconciliation candidate in
+# entries import. --dry-run shows what would be written; --json requires --dangerously-skip-confirmation.
+mdcli cards invoice close --account <cardId> --dry-run
+
+# Reopen the last closed invoice (or the --month one), like the web's "Reabrir fatura"
+mdcli cards invoice reopen --account <cardId>
+
 # Show upcoming installments on a card
 mdcli cards future --account <cardId>
 
@@ -673,6 +683,7 @@ The tests in `test/` run the real CLI as a subprocess against a local mock of th
 | Invoice items with due, purchase and competence dates (`--json`, `date` = due date) | Done |
 | Invoice summary (closing, previous invoice, paid, to pay, reconciled, limit, available) | Done (text; `--summary`; `--json --summary`) |
 | Card settings in `cards list --json` (limit, due/closing dates, payment account) | Done |
+| Close and reopen the invoice (`cards invoice close`/`reopen`, with `--dry-run`) | Done |
 | Future installments | Done |
 
 ### Import and sync

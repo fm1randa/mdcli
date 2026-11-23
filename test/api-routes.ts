@@ -8,6 +8,7 @@ import type {
   CardInvoiceResponse,
   CardPlastic,
   CategoriesResponse,
+  CloseInvoiceResponse,
   Category,
   ConnectionsResponse,
   CreateEntryResponse,
@@ -73,6 +74,9 @@ export interface ApiResponses {
   [route: `GET /v1/cartoes/${number}/primeiraFatura`]: FirstInvoiceResponse | null;
   [route: `GET /v1/cartoes/${number}/fatura/${string}`]: CardInvoiceResponse;
   [route: `GET /v1/cartoes/${number}/parcelasFuturas`]: CardFutureResponse | LegacyCardFutureResponse;
+  [route: `POST /v1/cartoes/${number}/pagar`]: CloseInvoiceResponse;
+  /** The web's reopen; the CLI does not read the answer. */
+  [route: `POST /v1/cartoes/${number}/reabrir`]: unknown;
 }
 
 export type ApiRoute = keyof ApiResponses;
