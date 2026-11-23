@@ -440,6 +440,10 @@ mdcli entries import run --account principal --ids 1a2b3c4d --category food --ov
 mdcli entries import run --account principal --plan plan.json --yes
 # A saída de "entries import list --json" já é um plano válido: edite action,
 # category, value, description ou entry e passe o arquivo para --plan.
+# O plano leva o --since da listagem: o run carrega o mesmo extrato. Um --since
+# no run sobrepõe o do plano; sem os dois, o run mantém o padrão (o resumo da
+# conexão e, sem ele, o extrato desde a data do último extrato da conta, no
+# máximo 90 dias atrás).
 # Uma linha import sem categoria (nem a regra nem a IA sugeriram uma) faz o plano
 # inteiro ser recusado.
 
