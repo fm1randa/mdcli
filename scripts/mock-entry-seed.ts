@@ -130,7 +130,8 @@ const SEED_ENTRIES = {
     tags: [],
     observacoes: '',
   },
-  // An expense linked to a savings goal (#334), outside the listed months.
+  // An expense linked to a savings goal (#334), outside the listed months and
+  // on the savings account, so the checking balances stay as verify.sh pins them.
   72: {
     id: 72,
     descricao: 'Despesa Meta Teste',
@@ -141,7 +142,7 @@ const SEED_ENTRIES = {
     dataEfetiva: '2025-06-16',
     status: 'conciliado',
     conciliado: true,
-    conta: 201,
+    conta: 204,
     categoria: 10,
     metaEconomia: 9,
     tags: [],
