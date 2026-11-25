@@ -34,7 +34,7 @@ describe('card purchase phase', () => {
 
   test('pending together with confirmed is not a card purchase', () => {
     expect(() => buildEntryStatus({ pending: true, confirmed: true }, { isCard: true })).toThrow(
-      'Use only one of pending, confirmed and reconciled.',
+      'Use apenas uma das opções --pending, --confirmed e --reconciled.',
     );
   });
 
@@ -46,7 +46,7 @@ describe('card purchase phase', () => {
     try {
       expect(moveEntry(payload, existing, 202, {
         flags: { pending: true, confirmed: true },
-      })).rejects.toThrow('Use only one of pending, confirmed and reconciled.');
+      })).rejects.toThrow('Use apenas uma das opções --pending, --confirmed e --reconciled.');
     } finally {
       if (previous === undefined) delete process.env.MDCLI_CONFIG_DIR;
       else process.env.MDCLI_CONFIG_DIR = previous;

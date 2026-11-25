@@ -164,7 +164,7 @@ describe('local/no-due-anchor-fallback', () => {
     '?.slice() ??': 'export const d = acc.proximoVencimento?.slice(0, 10) ?? null;',
     '||': 'export const d = acc.proximoVencimento || "2026-01-10";',
     ternary: 'export const d = acc.proximoVencimento ? acc.proximoVencimento : "2026-01-10";',
-    'if (!x) throw': 'export function d() { if (!acc.proximoVencimento) throw new Error("no due date"); }',
+    'if (!x) throw': 'export function d(reason: string) { if (!acc.proximoVencimento) throw new Error(reason); }',
     'optional chaining': 'export const d = (acc as typeof acc | undefined)?.proximoVencimento;',
     'computed key': 'export const d = acc["proximoVencimento"];',
     destructuring: 'export const { proximoVencimento } = acc;',

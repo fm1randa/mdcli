@@ -8,7 +8,7 @@ import { cell, truncate } from '../utils/text.js';
 import { parseId } from '../utils/parse.js';
 import { t } from '../lib/i18n/index.js';
 import { fetchAccounts } from '../lib/api.js';
-import { dateRange, today, type DateRange } from '../lib/dates.js';
+import { now, yearRange, type DateRange } from '../lib/dates.js';
 import { loadGoalStatement, loadGoalSummaries, type GoalStatement, type GoalSummary } from '../lib/savings-goals.js';
 import { parsePeriodOptions, type PeriodOptions } from './period-options.js';
 import { formatStatus } from './entries/format.js';
@@ -124,10 +124,7 @@ interface ShowOptions extends PeriodOptions {
 
 /** The web's default statement period: the current calendar year. */
 function currentYear(): DateRange {
-  const year = today().slice(0, 4);
-  const range = dateRange(`${year}-01-01`, `${year}-12-31`);
-  if (!range) throw new Error(`invalid year: ${year}`);
-  return range;
+  return yearRange(now().getFullYear());
 }
 
 async function showAction(id: string, options: ShowOptions): Promise<void> {

@@ -30,4 +30,7 @@ export const enGoals: typeof SectionType = {
   goalStatementEmpty: () => 'No entries in the period.',
   errorGoalNotFound: (id) => `Savings goal ${id} not found.`,
   errorInvalidGoalId: (value) => `Invalid goal ID "${value}". Use a positive whole number.`,
+  errorGoalMissingFigures: (path, id, fields) =>
+    `GET ${path} answered goal ${id} without ${fields}`,
+  errorInvalidGoalDate: (date) => `Invalid goal date: ${date}`,
 };

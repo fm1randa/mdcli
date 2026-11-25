@@ -28,4 +28,7 @@ export const ptBRGoals = {
   goalStatementEmpty: () => 'Nenhum lançamento no período.',
   errorGoalNotFound: (id: number) => `Meta de economia ${id} não encontrada.`,
   errorInvalidGoalId: (value: string) => `ID de meta inválido "${value}". Use um número inteiro positivo.`,
+  errorGoalMissingFigures: (path: string, id: number, fields: string) =>
+    `GET ${path} respondeu a meta ${id} sem ${fields}`,
+  errorInvalidGoalDate: (date: string) => `Data de meta inválida: ${date}`,
 };

@@ -136,7 +136,7 @@ describe('entry status phase', () => {
 
   test('pending together with confirmed is not a status', () => {
     expect(() => buildEntryStatus({ pending: true, confirmed: true })).toThrow(
-      'Use only one of pending, confirmed and reconciled.',
+      'Use apenas uma das opções --pending, --confirmed e --reconciled.',
     );
   });
 });

@@ -14,6 +14,7 @@ import noLiteralSince from "./no-literal-since.js";
 import noLooseDeadline from "./no-loose-deadline.js";
 import noLooseNumber from "./no-loose-number.js";
 import noRawDash from "./no-raw-dash.js";
+import noRawErrorMessage from "./no-raw-error-message.js";
 import noRawSpawn from "./no-raw-spawn.js";
 import noRawCents from "./no-raw-cents.js";
 import noRawCurrency from "./no-raw-currency.js";
@@ -40,6 +41,7 @@ export default {
     "no-raw-cents": noRawCents,
     "no-raw-currency": noRawCurrency,
     "no-raw-dash": noRawDash,
+    "no-raw-error-message": noRawErrorMessage,
     "no-raw-spawn": noRawSpawn,
     "no-short-option-equals": noShortOptionEquals,
     "no-sync-spawn": noSyncSpawn,

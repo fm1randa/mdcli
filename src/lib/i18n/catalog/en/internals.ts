@@ -66,4 +66,20 @@ export const enInternals: typeof SectionType = {
   updateUpdating: (from, to) => `Updating mdcli from ${from} to ${to}...`,
   updateInstallFailed: (tag, code, installed) =>
     `✗ Failed to install ${tag} (bun exited with code ${code}). Version ${installed} is still installed; run \`mdcli update\` again to retry.`,
+  errorMacOsProfileBlocked: (profile, path, alternatives) =>
+    `macOS blocked access to the ${profile === 'firefox' ? 'Firefox profile' : 'browser profile'} at: ${path}\n` +
+    'This is caused by macOS privacy protection (TCC), not a bug in mdcli. To fix it:\n' +
+    '  1. Open System Settings -> Privacy & Security -> Full Disk Access\n' +
+    "  2. Enable it for the terminal app you're running mdcli from (Terminal, iTerm, VS Code, etc.)\n" +
+    '  3. Restart the terminal and try again\n' +
+    `Alternatively, try: mdcli auth login ${alternatives.join(' or ')}`,
+  errorBrowserLaunchTimeout: () =>
+    'Browser took too long to start with the copied profile (this can happen on managed/corporate ' +
+    'machines where the browser tries to reach blocked network services on launch).\nTry: mdcli auth login --browser or --item',
+  errorAuthConfigNotFound: () =>
+    'Failed to extract authentication config from page. The site structure may have changed.\nTry: mdcli auth login --browser',
+  errorTooManyEntries: (limit) =>
+    `More than ${limit} entries match these filters. Narrow the date range or filters.`,
+  errorInvalidTodayOverride: (value) =>
+    `MDCLI_TODAY must be a YYYY-MM-DD calendar day, got "${value}"`,
 };

@@ -1,0 +1,7 @@
+{
+  "rule": "no-raw-error-message",
+  "origin": "e6c290d",
+  "source": "src/lib/budget.ts",
+  "note": "English error text written in place kept reaching the user outside the i18n catalogs (#327, #346, #350).",
+  "code": "if (!pair) throw new Error(`unknown budget kind code: ${code}`);"
+}

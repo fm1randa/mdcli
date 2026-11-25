@@ -1,3 +1,4 @@
+import { t } from '../../lib/i18n/index.js';
 import type { Entry } from '../../types/index.js';
 
 /**
@@ -50,7 +51,7 @@ const REQUEST_FLAGS = ['pending', 'confirmed', 'reconciled'] as const;
 export function statusRequest(flags: EntryStatusFlags): StatusRequest {
   const chosen = REQUEST_FLAGS.filter((name) => flags[name] === true);
   if (chosen.length > 1) {
-    throw new Error('Use only one of pending, confirmed and reconciled.');
+    throw new Error(t('errorOnlyOneStatus'));
   }
   if (chosen[0] === 'pending') return { request: 'pending' };
   if (chosen[0] === 'confirmed') return { request: 'confirmed' };

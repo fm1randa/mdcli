@@ -15,11 +15,16 @@ const BUDGET_KINDS = [
 
 export type BudgetKind = (typeof BUDGET_KINDS)[number][0];
 
-/** The kind an API code stands for, from {@link BUDGET_KINDS}. */
+/** The kind of each API code. The type pairs every code with its kind in {@link BUDGET_KINDS}, so a lookup cannot miss. */
+const KIND_OF_CODE = {
+  d: 'expense',
+  r: 'income',
+  i: 'investment',
+} as const satisfies { [C in BudgetKindCode]: Extract<(typeof BUDGET_KINDS)[number], readonly [string, C]>[0] };
+
+/** The kind an API code stands for. */
 export function kindOfCode(code: BudgetKindCode): BudgetKind {
-  const pair = BUDGET_KINDS.find(([, kindCode]) => kindCode === code);
-  if (!pair) throw new Error(`unknown budget kind code: ${code}`);
-  return pair[0];
+  return KIND_OF_CODE[code];
 }
 
 /** What the caller asks for. The command builds it from flags. This module trusts it. */

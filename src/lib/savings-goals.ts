@@ -1,5 +1,6 @@
 import { apiGet, fetchSavingsGoals } from './api.js';
 import { addInterval, today, type DateRange } from './dates.js';
+import { t } from './i18n/index.js';
 import { normalizeEntry } from './normalize.js';
 import type { Entry, NormalizedEntry, SavingsGoal } from '../types/index.js';
 import { roundToCents } from '../utils/currency.js';
@@ -65,7 +66,8 @@ function figured(goal: SavingsGoal): FiguredGoal {
   const missing = FIGURES.filter((field) => goal[field] === undefined);
   const accounts = goal.contas.filter((account) => account.saldo === undefined || account.saldoInicial === undefined);
   if (missing.length > 0 || accounts.length > 0) {
-    throw new Error(`GET ${GOALS_PATH} answered goal ${goal.id} without ${[...missing, ...accounts.map((a) => `contas[${a.conta}]`)].join(', ')}`);
+    const fields = [...missing, ...accounts.map((a) => `contas[${a.conta}]`)].join(', ');
+    throw new Error(t('errorGoalMissingFigures', GOALS_PATH, goal.id, fields));
   }
   return goal as FiguredGoal;
 }
@@ -140,7 +142,7 @@ function summarize(goal: FiguredGoal): GoalSummary {
 function monthIndex(date: string): number {
   const year = parseInteger(date.slice(0, 4));
   const month = parseInteger(date.slice(5, 7));
-  if (year === undefined || month === undefined) throw new Error(`invalid goal date: ${date}`);
+  if (year === undefined || month === undefined) throw new Error(t('errorInvalidGoalDate', date));
   return year * 12 + month - 1;
 }
 
