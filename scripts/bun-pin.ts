@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { parseValueFlag } from './git.js';
 
 const BUN_PREFIX = 'bun@';
 
@@ -24,19 +25,21 @@ export function pinMismatch(packageManagerField: string, runningVersion: string)
 
 /** CLI. No flags: package.json next to this script, and Bun.version. The two flags override both. */
 export function bunPinMain(argv: readonly string[]): number {
-  let running = Bun.version;
+  let running: string | undefined;
   let field: string | undefined;
-  for (let index = 0; index < argv.length; index++) {
-    const arg = argv[index];
-    if (arg === '--running') running = argv[++index] ?? '';
-    else if (arg === '--package-manager') field = argv[++index] ?? '';
-    else if (arg?.startsWith('-')) {
-      console.error(`unknown argument: ${arg}`);
-      return 1;
-    }
+  try {
+    const runningFlag = parseValueFlag(argv, '--running', 'a version');
+    const fieldFlag = parseValueFlag(runningFlag.rest, '--package-manager', 'a packageManager value');
+    running = runningFlag.value;
+    field = fieldFlag.value;
+    const unknown = fieldFlag.rest.find((arg) => arg.startsWith('-'));
+    if (unknown !== undefined) throw new Error(`unknown argument: ${unknown}`);
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : String(error));
+    return 1;
   }
   const packageManagerField = field ?? readPackageManager();
-  const message = pinMismatch(packageManagerField, running);
+  const message = pinMismatch(packageManagerField, running ?? Bun.version);
   if (message === undefined) return 0;
   console.log(message);
   return 1;

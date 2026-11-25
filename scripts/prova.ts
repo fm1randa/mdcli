@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { changesBehavior, parseDiff } from './behavior-change.js';
-import { diffAgainst, parseBase } from './git.js';
+import { diffAgainst, parseBase, parseValueFlag } from './git.js';
 
 export interface ProvaStatus {
   present: boolean;
@@ -100,19 +100,10 @@ interface Options {
 
 function parseOptions(argv: string[]): Options {
   const { base, rest } = parseBase(argv);
-  const options: Options = { base };
-  for (let index = 0; index < rest.length; index++) {
-    const arg = rest[index];
-    if (arg === '--diff') {
-      options.diff = rest[++index];
-      if (!options.diff) throw new Error('--diff needs a file');
-    } else if (arg === '--body-file') {
-      options.bodyFile = rest[++index];
-    } else {
-      throw new Error(`unknown argument: ${arg}`);
-    }
-  }
-  return options;
+  const diff = parseValueFlag(rest, '--diff', 'a file');
+  const bodyFile = parseValueFlag(diff.rest, '--body-file', 'a file');
+  if (bodyFile.rest.length > 0) throw new Error(`unknown argument: ${bodyFile.rest[0]}`);
+  return { base, diff: diff.value, bodyFile: bodyFile.value };
 }
 
 async function main(): Promise<void> {

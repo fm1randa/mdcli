@@ -1,0 +1,7 @@
+{
+  "rule": "no-hand-argv",
+  "origin": "2891978",
+  "source": "scripts/bun-pin.ts",
+  "note": "--running --package-manager bun@1.4.2 read --package-manager as the running Bun version (#353).",
+  "code": "if (arg === '--running') running = argv[++index] ?? '';"
+}

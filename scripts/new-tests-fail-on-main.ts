@@ -2,7 +2,7 @@ import { appendFileSync, cpSync, existsSync, mkdtempSync, rmSync, symlinkSync } 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { changesBehavior, parseDiff } from './behavior-change.js';
-import { diffAgainst, git, parseBase, repoRoot, spawn } from './git.js';
+import { diffAgainst, git, parseBase, parseValueFlag, repoRoot, spawn } from './git.js';
 import { parseInteger } from '../src/utils/parse.js';
 import { decideGate, exemptionSummary, invalidExemptionSummary } from './fails-on-main-exemption.js';
 
@@ -76,18 +76,15 @@ interface Options {
 
 function parseOptions(argv: string[]): Options {
   const { base, rest } = parseBase(argv);
+  const files = parseValueFlag(rest, '--files', 'a comma-separated list of test files');
+  const repeatFlag = parseValueFlag(files.rest, '--repeat', 'a whole number of at least 1');
+  if (repeatFlag.rest.length > 0) throw new Error(`unknown argument: ${repeatFlag.rest[0]}`);
   const options: Options = { base, repeat: DEFAULT_REPEAT };
-  for (let index = 0; index < rest.length; index++) {
-    const arg = rest[index];
-    if (arg === '--files') {
-      options.files = (rest[++index] ?? '').split(',').filter((file) => file !== '');
-    } else if (arg === '--repeat') {
-      const repeat = parseInteger(rest[++index] ?? '', 1);
-      if (repeat === undefined) throw new Error('--repeat needs a whole number of at least 1');
-      options.repeat = repeat;
-    } else {
-      throw new Error(`unknown argument: ${arg}`);
-    }
+  if (files.value !== undefined) options.files = files.value.split(',').filter((file) => file !== '');
+  if (repeatFlag.value !== undefined) {
+    const repeat = parseInteger(repeatFlag.value, 1);
+    if (repeat === undefined) throw new Error('--repeat needs a whole number of at least 1');
+    options.repeat = repeat;
   }
   return options;
 }

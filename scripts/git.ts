@@ -11,28 +11,52 @@ export const DEFAULT_BASE = 'origin/main';
 const FALLBACK_BASE = 'main';
 
 /**
- * Takes `<flag> <rev>` out of a gate's argv and leaves the rest to the gate.
- * A flag without a value fails, and so does a value that looks like another
- * flag: reading `--head -x` as a revision runs the gate against nothing anyone
- * asked for (#268, #286).
+ * Takes every `<flag> <value>` out of argv and leaves the rest to the caller,
+ * which then walks only booleans and unknown arguments. A flag without a value
+ * fails, and so does a value that looks like another flag: the hand-written
+ * `argv[++index]` read `--running --package-manager x` as the version
+ * `--package-manager` (#268, #286, #353). `what` names the value in the error,
+ * as in `--base needs a revision`. local/no-hand-argv keeps scripts/ on it.
  */
+export function parseValueFlags(
+  argv: readonly string[],
+  flag: string,
+  what: string
+): { values: string[]; rest: string[] } {
+  const values: string[] = [];
+  const rest: string[] = [];
+  let expectsValue = false;
+  for (const arg of argv) {
+    if (expectsValue) {
+      if (arg.startsWith('-')) throw new Error(`${flag} needs ${what}`);
+      values.push(arg);
+      expectsValue = false;
+    } else if (arg === flag) {
+      expectsValue = true;
+    } else {
+      rest.push(arg);
+    }
+  }
+  if (expectsValue) throw new Error(`${flag} needs ${what}`);
+  return { values, rest };
+}
+
+/** parseValueFlags for a flag given once: a repeated flag keeps its last value. */
+export function parseValueFlag(
+  argv: readonly string[],
+  flag: string,
+  what: string
+): { value: string | undefined; rest: string[] } {
+  const { values, rest } = parseValueFlags(argv, flag, what);
+  return { value: values.at(-1), rest };
+}
+
+/** `--base <rev>` or `--head <rev>` through parseValueFlag. */
 export function parseRevisionFlag(
   argv: readonly string[],
   flag: '--base' | '--head'
 ): { value: string | undefined; rest: string[] } {
-  let value: string | undefined;
-  const rest: string[] = [];
-  for (let index = 0; index < argv.length; index++) {
-    const arg = argv[index]!;
-    if (arg !== flag) {
-      rest.push(arg);
-      continue;
-    }
-    const next = argv[++index];
-    if (next === undefined || next.startsWith('-')) throw new Error(`${flag} needs a revision`);
-    value = next;
-  }
-  return { value, rest };
+  return parseValueFlag(argv, flag, 'a revision');
 }
 
 /** `--base <rev>`, defaulting to DEFAULT_BASE; a `--base` without a value fails instead of falling back. */
