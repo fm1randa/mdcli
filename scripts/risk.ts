@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { behaviorIndexes, fileChangesBehavior, parseDiff, type DiffFile } from './behavior-change.js';
-import { DEFAULT_BASE, diffAgainst, parseRevisionFlag, repoRoot, revisionExists } from './git.js';
+import { DEFAULT_BASE, diffAgainst, parseRevisionFlag, parseValueFlag, repoRoot, revisionExists } from './git.js';
 import { callPattern, mergeSurfaces, WRITE_API_CALL, writeSurface, writeSurfaceAt, type WriteSurface } from './write-surface.js';
 
 type RiskTopic = 'auth' | 'write' | 'security';
@@ -174,17 +174,9 @@ interface Options {
 
 function parseOptions(argv: string[]): Options {
   const { value, rest } = parseRevisionFlag(argv, '--base');
-  const options: Options = { base: value ?? DEFAULT_BASE, explicitBase: value !== undefined };
-  for (let index = 0; index < rest.length; index++) {
-    const arg = rest[index];
-    if (arg === '--diff') {
-      options.diff = rest[++index];
-      if (!options.diff) throw new Error('--diff needs a file');
-    } else {
-      throw new Error(`unknown argument: ${arg}`);
-    }
-  }
-  return options;
+  const diff = parseValueFlag(rest, '--diff', 'a file');
+  if (diff.rest.length > 0) throw new Error(`unknown argument: ${diff.rest[0]}`);
+  return { base: value ?? DEFAULT_BASE, explicitBase: value !== undefined, diff: diff.value };
 }
 
 async function main(): Promise<void> {

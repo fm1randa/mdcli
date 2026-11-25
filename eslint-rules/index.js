@@ -9,6 +9,7 @@ import noTypeSignTernary from "./no-type-sign-ternary.js";
 import noDoubleCast from "./no-double-cast.js";
 import noDueAnchorFallback from "./no-due-anchor-fallback.js";
 import noGitCopy from "./no-git-copy.js";
+import noHandArgv from "./no-hand-argv.js";
 import noHostLiteral from "./no-host-literal.js";
 import noLiteralSince from "./no-literal-since.js";
 import noLooseDeadline from "./no-loose-deadline.js";
@@ -34,6 +35,7 @@ export default {
     "no-double-cast": noDoubleCast,
     "no-due-anchor-fallback": noDueAnchorFallback,
     "no-git-copy": noGitCopy,
+    "no-hand-argv": noHandArgv,
     "no-host-literal": noHostLiteral,
     "no-literal-since": noLiteralSince,
     "no-loose-deadline": noLooseDeadline,

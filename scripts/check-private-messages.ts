@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { git, logRange, parseBase, spawn } from './git.js';
+import { git, logRange, parseBase, parseValueFlag, spawn } from './git.js';
 import { KEYED_TERM_HASHES, requirePrivateTermsKey, scanText } from './private-terms.js';
 
 export interface MessageSource {
@@ -71,13 +71,9 @@ interface Options {
 
 function parseOptions(argv: string[]): Options {
   const { base, rest } = parseBase(argv);
-  const options: Options = { base };
-  for (let index = 0; index < rest.length; index++) {
-    const arg = rest[index];
-    if (arg === '--body-file') options.bodyFile = rest[++index];
-    else throw new Error(`unknown argument: ${arg}`);
-  }
-  return options;
+  const bodyFile = parseValueFlag(rest, '--body-file', 'a file');
+  if (bodyFile.rest.length > 0) throw new Error(`unknown argument: ${bodyFile.rest[0]}`);
+  return { base, bodyFile: bodyFile.value };
 }
 
 async function main(): Promise<void> {
