@@ -42,15 +42,15 @@ describe('an API write outside src/lib/api', () => {
     expect(await hits(lib, 'src/lib/savings-goals.ts')).toEqual([2]);
     expect(await hits("import { apiPost } from '../src/lib/api.js';\n", 'bin/cli.ts')).toEqual([1]);
     expect(await hits("export * from './api.js';\n", 'src/lib/savings-goals.ts')).toEqual([1]);
-  });
-
-  test('passes on another module named api outside src/lib', async () => {
+    // src/types/api.ts is another module named api.
     expect(await hits("export * from './api.js';\n", 'src/types/index.ts')).toEqual([]);
   });
 
-  test('passes inside the API client', async () => {
+  test('passes inside the API client, where the same imports fail outside it', async () => {
     const owner = "import { apiPost, request } from './request.js';\nexport { apiPost, request };\n";
-    expect(await hits(owner, 'src/lib/api/budget.ts')).toEqual([]);
-    expect(await hits("export { apiGet, apiPost } from './api/request.js';\n", 'src/lib/api.ts')).toEqual([]);
+    expect(await hits(owner, 'src/lib/api/savings-goals.ts')).toEqual([]);
+    const reexport = "export { apiGet, apiPost } from './api/request.js';\n";
+    expect(await hits(reexport, 'src/lib/api.ts')).toEqual([]);
+    expect(await hits(reexport, 'src/lib/savings-goals.ts')).toEqual([1]);
   });
 });
