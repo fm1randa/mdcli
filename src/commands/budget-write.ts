@@ -6,7 +6,7 @@ import { formatCurrency } from '../utils/currency.js';
 import { parseAmount } from '../utils/parse.js';
 import { t } from '../lib/i18n/index.js';
 import { isYearMonth, monthRange, today } from '../lib/dates.js';
-import { fetchCategories, apiPost } from '../lib/api.js';
+import { fetchCategories, saveBudgetGoals } from '../lib/api.js';
 import { ApiError } from '../lib/api-error.js';
 import { resolveId } from '../lib/aliases.js';
 import { resolveCategoryReference } from '../lib/category-resolution.js';
@@ -41,11 +41,6 @@ interface WriteFlags {
 
 interface SetFlags extends WriteFlags {
   value: string;
-}
-
-/** POST /v1/metas/orcamento. The success body is unused; the next `mdcli budget` is the check. */
-function saveBudgetGoals(payload: BudgetGoalSave): Promise<unknown> {
-  return apiPost<unknown>('/v1/metas/orcamento', payload);
 }
 
 async function setBudgetAction(_options: SetFlags, command: Command): Promise<void> {

@@ -2,6 +2,17 @@ import eslint from "@eslint/js";
 import tseslint from "typescript-eslint";
 import local from "./eslint-rules/index.js";
 
+const API_CLIENT = ["src/lib/api.ts", "src/lib/api/**"];
+
+/** The API's raw writers, imported from a module `regex` names as the client. */
+function apiWrites(regex) {
+  return {
+    regex,
+    importNames: ["apiPost", "apiPut", "apiDelete", "request"],
+    message: "Call the API's write functions only inside src/lib/api/**: add a named function for the endpoint to its resource module there (e.g. saveBudgetGoals in src/lib/api/budget.ts), export it from src/lib/api.ts, and call that instead.",
+  };
+}
+
 export default tseslint.config(
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
@@ -189,6 +200,21 @@ export default tseslint.config(
     files: ["src/**/*.ts", "scripts/**/*.ts", "bin/**/*.ts"],
     ignores: ["src/lib/meu-dinheiro-host.ts", "src/lib/i18n/catalog/**"],
     rules: { "local/no-host-literal": "error" },
+  },
+  {
+    // The API client owns every write, one named function per endpoint in its
+    // resource module (#326, #354), so scripts/write-surface.ts derives the
+    // writers from src/lib/api/** alone (#348).
+    files: ["src/**/*.ts", "bin/**/*.ts"],
+    ignores: API_CLIENT,
+    rules: { "no-restricted-imports": ["error", { patterns: [apiWrites("(^|/)lib/api(/request)?(\\.js)?$")] }] },
+  },
+  {
+    // Inside src/lib/ the client is also reached by a relative path; outside
+    // it, ./api.js is another module (src/types/api.ts).
+    files: ["src/lib/**/*.ts"],
+    ignores: API_CLIENT,
+    rules: { "no-restricted-imports": ["error", { patterns: [apiWrites("(^|/)lib/api(/request)?(\\.js)?$|^(\\.\\.?/)+api(/request)?(\\.js)?$")] }] },
   },
   {
     // scripts/mock-http.ts owns the mock's error answers (#276, #286).

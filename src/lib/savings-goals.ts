@@ -63,13 +63,21 @@ const FIGURES = ['valor', 'data', 'taxa', 'saldo', 'saldoInicial', 'dataSaldoIni
 
 /** The goal with its figures, which the API always sends; an answer without them is refused, not read as 0. */
 function figured(goal: SavingsGoal): FiguredGoal {
+  const { valor, data, taxa, saldo, saldoInicial, dataSaldoInicial } = goal;
+  const contas = goal.contas.flatMap((account) =>
+    account.saldo === undefined || account.saldoInicial === undefined ? [] : [{ ...account, saldo: account.saldo, saldoInicial: account.saldoInicial }]
+  );
+  if (valor === undefined || data === undefined || taxa === undefined || saldo === undefined || saldoInicial === undefined || dataSaldoInicial === undefined || contas.length < goal.contas.length) {
+    throw new Error(t('errorGoalMissingFigures', GOALS_PATH, goal.id, missingFigures(goal)));
+  }
+  return { ...goal, valor, data, taxa, saldo, saldoInicial, dataSaldoInicial, contas };
+}
+
+/** The figures `goal` lacks, as the error lists them. */
+function missingFigures(goal: SavingsGoal): string {
   const missing = FIGURES.filter((field) => goal[field] === undefined);
   const accounts = goal.contas.filter((account) => account.saldo === undefined || account.saldoInicial === undefined);
-  if (missing.length > 0 || accounts.length > 0) {
-    const fields = [...missing, ...accounts.map((a) => `contas[${a.conta}]`)].join(', ');
-    throw new Error(t('errorGoalMissingFigures', GOALS_PATH, goal.id, fields));
-  }
-  return goal as FiguredGoal;
+  return [...missing, ...accounts.map((a) => `contas[${a.conta}]`)].join(', ');
 }
 
 /** The goals sorted by description, as the web lists them; inactive ones only with `includeInactive`. */
