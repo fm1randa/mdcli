@@ -22,9 +22,9 @@ function isBrowserLockFile(src: string): boolean {
 }
 
 /** Suggests login alternatives other than the browser that just failed. */
-function sessionAlternatives(failedBrowser: string): string {
+function sessionAlternatives(failedBrowser: string): string[] {
   const others = ['chrome', 'edge', 'firefox'].filter((b) => b !== failedBrowser);
-  return [...others.map((b) => `--session ${b}`), '--browser'].join(' or ');
+  return [...others.map((b) => `--session ${b}`), '--browser'];
 }
 
 export async function copyProfileToTemp(profilePath: string, browserType: string, excludeLocks = true): Promise<string> {
@@ -38,15 +38,7 @@ export async function copyProfileToTemp(profilePath: string, browserType: string
     await rm(tempDir, { recursive: true, force: true }).catch(() => {});
 
     if (error instanceof Error && 'code' in error && typeof error.code === 'string' && isMacOsSandboxError(error.code)) {
-      throw new Error(
-        `macOS blocked access to the browser profile at: ${profilePath}\n` +
-          `This is caused by macOS privacy protection (TCC), not a bug in mdcli. To fix it:\n` +
-          `  1. Open System Settings -> Privacy & Security -> Full Disk Access\n` +
-          `  2. Enable it for the terminal app you're running mdcli from (Terminal, iTerm, VS Code, etc.)\n` +
-          `  3. Restart the terminal and try again\n` +
-          `Alternatively, try: mdcli auth login ${sessionAlternatives(browserType)}`,
-        { cause: error }
-      );
+      throw new Error(t('errorMacOsProfileBlocked', 'browser', profilePath, sessionAlternatives(browserType)), { cause: error });
     }
     throw error;
   }

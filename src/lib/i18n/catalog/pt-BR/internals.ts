@@ -64,4 +64,20 @@ export const ptBRInternals = {
   updateUpdating: (from: string, to: string) => `Atualizando mdcli de ${from} para ${to}...`,
   updateInstallFailed: (tag: string, code: number, installed: string) =>
     `✗ Falha ao instalar ${tag} (bun saiu com código ${code}). A versão ${installed} continua instalada; rode \`mdcli update\` de novo para tentar outra vez.`,
+  errorMacOsProfileBlocked: (profile: 'browser' | 'firefox', path: string, alternatives: string[]) =>
+    `O macOS bloqueou o acesso ao ${profile === 'firefox' ? 'perfil do Firefox' : 'perfil do navegador'} em: ${path}\n` +
+    'Isso vem da proteção de privacidade do macOS (TCC), não de um bug do mdcli. Para corrigir:\n' +
+    '  1. Abra Ajustes do Sistema -> Privacidade e Segurança -> Acesso Total ao Disco\n' +
+    '  2. Ative para o app de terminal em que você roda o mdcli (Terminal, iTerm, VS Code etc.)\n' +
+    '  3. Reinicie o terminal e tente de novo\n' +
+    `Ou tente: mdcli auth login ${alternatives.join(' ou ')}`,
+  errorBrowserLaunchTimeout: () =>
+    'O navegador demorou demais para abrir com o perfil copiado (isso acontece em máquinas gerenciadas/corporativas, ' +
+    'onde o navegador tenta acessar serviços de rede bloqueados ao abrir).\nTente: mdcli auth login --browser ou --item',
+  errorAuthConfigNotFound: () =>
+    'Não foi possível extrair a configuração de autenticação da página. A estrutura do site pode ter mudado.\nTente: mdcli auth login --browser',
+  errorTooManyEntries: (limit: number) =>
+    `Mais de ${limit} lançamentos atendem a estes filtros. Restrinja o período ou os filtros.`,
+  errorInvalidTodayOverride: (value: string) =>
+    `MDCLI_TODAY precisa ser um dia do calendário em AAAA-MM-DD; recebido "${value}"`,
 };

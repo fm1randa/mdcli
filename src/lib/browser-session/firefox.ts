@@ -137,15 +137,7 @@ export function getFirefoxProfilePath(): string {
   } catch (error) {
     const code = error instanceof Error && 'code' in error && typeof error.code === 'string' ? error.code : '';
     if (isMacOsSandboxError(code)) {
-      throw new Error(
-        `macOS blocked access to the Firefox profile at: ${profilesIniPath}\n` +
-          `This is caused by macOS privacy protection (TCC), not a bug in mdcli. To fix it:\n` +
-          `  1. Open System Settings -> Privacy & Security -> Full Disk Access\n` +
-          `  2. Enable it for the terminal app you're running mdcli from (Terminal, iTerm, VS Code, etc.)\n` +
-          `  3. Restart the terminal and try again\n` +
-          `Alternatively, try: mdcli auth login --session chrome or --browser`,
-        { cause: error }
-      );
+      throw new Error(t('errorMacOsProfileBlocked', 'firefox', profilesIniPath, ['--session chrome', '--browser']), { cause: error });
     }
     throw error;
   }

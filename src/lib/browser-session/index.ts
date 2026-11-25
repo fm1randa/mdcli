@@ -61,12 +61,7 @@ export async function extractSessionFromBrowser(
       });
     } catch (error) {
       if (error instanceof Error && /Timeout .*exceeded/i.test(error.message)) {
-        throw new Error(
-          `Browser took too long to start with the copied profile (this can happen on managed/corporate ` +
-            `machines where the browser tries to reach blocked network services on launch).\n` +
-            `Try: mdcli auth login --browser or --item`,
-          { cause: error }
-        );
+        throw new Error(t('errorBrowserLaunchTimeout'), { cause: error });
       }
       throw error;
     }
@@ -165,9 +160,7 @@ export async function extractSessionFromBrowser(
         if (!loginConfig && !capturedApiHeaders && !token) {
           throw new Error(t('errorNotLoggedIn'));
         }
-        throw new Error(
-          'Failed to extract authentication config from page. The site structure may have changed.\nTry: mdcli auth login --browser'
-        );
+        throw new Error(t('errorAuthConfigNotFound'));
       }
 
       let uid =

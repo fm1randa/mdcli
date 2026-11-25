@@ -1,5 +1,6 @@
 import type { EntriesResponse, EntriesParams, CreateEntryPayload, CreateEntryResponse, UpdateEntryPayload, UpdateTransferPayload, Entry } from '../../types/index.js';
 import { setEntriesPreferences } from '../entries-preferences.js';
+import { t } from '../i18n/index.js';
 import { request } from './request.js';
 import { loadSessionPreferences } from './session.js';
 
@@ -30,9 +31,7 @@ export async function fetchAllEntries(params: Omit<EntriesParams, 'page' | 'page
       return entries;
     }
   }
-  throw new Error(
-    `More than ${MAX_ENTRIES_PAGES * ENTRIES_PAGE_SIZE} entries match these filters. Narrow the date range or filters.`
-  );
+  throw new Error(t('errorTooManyEntries', MAX_ENTRIES_PAGES * ENTRIES_PAGE_SIZE));
 }
 
 async function fetchEntries(params: EntriesParams): Promise<EntriesResponse> {

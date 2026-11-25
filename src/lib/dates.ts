@@ -18,7 +18,7 @@ export function now(): Date {
   const override = process.env.MDCLI_TODAY;
   if (override === undefined || override === '') return current;
   if (!isCalendarDate(override)) {
-    throw new Error(`MDCLI_TODAY must be a YYYY-MM-DD calendar day, got "${override}"`);
+    throw new Error(t('errorInvalidTodayOverride', override));
   }
   const [year, month, day] = dateParts(override);
   current.setFullYear(year, month - 1, day);
@@ -50,6 +50,12 @@ export interface DateRange {
 /** The inclusive range from start to end. Null when start is after end. */
 export function dateRange(start: string, end: string): DateRange | null {
   return start > end ? null : ({ start, end } as DateRange);
+}
+
+/** January 1 to December 31 of a calendar year. Same year, so start <= end holds. */
+export function yearRange(year: number): DateRange {
+  const yyyy = String(year).padStart(4, '0');
+  return { start: `${yyyy}-01-01`, end: `${yyyy}-12-31` } as DateRange;
 }
 
 const YEAR_MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;

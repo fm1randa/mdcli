@@ -140,6 +140,12 @@ export default tseslint.config(
     rules: { "local/no-short-option-equals": "error" },
   },
   {
+    // An Error message reaches the user, so it comes from the i18n catalog
+    // (#350). test/** and scripts/** are exempt in scope-exemptions.json.
+    files: ["src/**/*.ts", "bin/**/*.ts"],
+    rules: { "local/no-raw-error-message": "error" },
+  },
+  {
     // Exit only through exitAfterFlush(), which flushes stdout first.
     files: ["src/**/*.ts", "test/**/*.ts", "bin/**/*.ts"],
     rules: { "local/no-bare-process-exit": "error" },

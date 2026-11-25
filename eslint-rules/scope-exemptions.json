@@ -21,16 +21,20 @@
   "no-host-literal": {
     "test/**": "Tests pin the host as a literal to prove the owner's URLs, headers and cookie domain; deriving the expected value from the owner would hide a host change."
   },
-  "no-loose-deadline": {
-    "src/**": "The rule guards handwritten test deadlines; src/ does not poll the suite.",
-    "scripts/**": "The rule guards handwritten test deadlines; scripts/ does not sleep on a suite budget."
-  },
   "no-literal-since": {
     "src/**": "The rule guards fixed dates written in tests; commands read the --since value the user passed.",
     "scripts/**": "The rule guards fixed --since dates written in tests; scripts/ passes no --since."
   },
+  "no-loose-deadline": {
+    "src/**": "The rule guards handwritten test deadlines; src/ does not poll the suite.",
+    "scripts/**": "The rule guards handwritten test deadlines; scripts/ does not sleep on a suite budget."
+  },
   "no-raw-dash": {
     "scripts/**": "cell() writes the CLI's table cells; scripts/ prints JSON and plain gate reports, not CLI tables."
+  },
+  "no-raw-error-message": {
+    "test/**": "Tests throw to fail a probe or a helper with a message only the developer reads; nothing a test throws reaches a CLI user.",
+    "scripts/**": "The gates and the mock report to the developer and to CI, in the language of their own logs; the CLI user never runs them."
   },
   "no-raw-spawn": {
     "src/**": "The rule guards the gate infrastructure in scripts/; the CLI's own children (self-update, browser login, the import editor) belong to src/."
