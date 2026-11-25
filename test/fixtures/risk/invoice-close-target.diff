@@ -1,0 +1,13 @@
+diff --git a/src/commands/cards-invoice-write.ts b/src/commands/cards-invoice-write.ts
+index 341796a..62a5211 100644
+--- a/src/commands/cards-invoice-write.ts
++++ b/src/commands/cards-invoice-write.ts
+@@ -79,7 +79,7 @@ export async function closeInvoiceAction(_options: CloseFlags, command: Command)
+     : t('invoiceClosePlan', card.nome, card.id, dueDate, formatCurrency(body.valor), body.contaT, body.data);
+   if (!(await allowed(options, plan, body))) return;
+ 
+-  const saved = await closeCardInvoice(card.id, body);
++  const saved = await closeCardInvoice(card.id + 1, body);
+   report(options, t('invoiceCloseDone', card.nome, dueDate), { closed: true, dueDate, request: body, response: saved });
+ }
+ 

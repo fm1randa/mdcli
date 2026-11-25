@@ -28,7 +28,12 @@ async function withRepo(callback: (root: string, commits: Commits) => Promise<vo
   const root = mkdtempSync(join(tmpdir(), 'mdcli-replay-gates-'));
   try {
     await git(['init', '-q'], root);
-    await commit(root, 'base', { 'src/lib/api.ts': 'export const value = 1;\n', 'AGENTS.md': 'base\n' });
+    // The risk gate derives the write functions from the API client (#348).
+    await commit(root, 'base', {
+      'src/lib/api.ts': 'export const value = 1;\n',
+      'src/lib/api/entries.ts': "export const createEntry = (p: unknown) => request('POST', '/v1/lancamentos', p);\n",
+      'AGENTS.md': 'base\n',
+    });
     const risky = await commit(root, 'feat(entries): change a write', {
       'src/lib/api.ts': 'export const value = 1;\ncreateEntry(payload);\n',
     });

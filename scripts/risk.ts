@@ -1,7 +1,8 @@
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { behaviorIndexes, fileChangesBehavior, parseDiff, type DiffFile } from './behavior-change.js';
-import { DEFAULT_BASE, diffAgainst, gitResult, parseRevisionFlag, repoRoot, revisionExists } from './git.js';
+import { DEFAULT_BASE, diffAgainst, parseRevisionFlag, repoRoot, revisionExists } from './git.js';
+import { callPattern, mergeSurfaces, WRITE_API_CALL, writeSurface, writeSurfaceAt, type WriteSurface } from './write-surface.js';
 
 type RiskTopic = 'auth' | 'write' | 'security';
 
@@ -44,6 +45,7 @@ const SECURITY_SURFACES: readonly SecuritySurface[] = [
   // writer, the gate runner, its exemption or the proof gate would otherwise
   // be judged by the edited copy (#315).
   { path: /^scripts\/risk\.ts$/, detail: 'risk classifier changed' },
+  { path: /^scripts\/write-surface\.ts$/, detail: 'write surface the risk classifier derives changed' },
   { path: /^scripts\/risk-label\.ts$/, detail: 'risk label gate changed' },
   { path: /^scripts\/new-tests-fail-on-main\.ts$/, detail: 'fails-on-main gate changed' },
   { path: /^scripts\/fails-on-main-exemption\.ts$/, detail: 'fails-on-main exemption changed' },
@@ -66,27 +68,6 @@ const TEST_PATH = /^(?:test\/|.*\.(?:test|spec)\.[cm]?[jt]sx?$)/;
 const AUTH_BEHAVIOR =
   /\b(?:Mdapikey|Mduid|Authorization|Bearer|mdauthtoken|apiKey|captchaApiKey|opItem|password|credential|credentials|login|logout|session|cookie|token)\b/i;
 
-const WRITE_FUNCTIONS = [
-  'createCategory',
-  'updateCategory',
-  'deleteCategory',
-  'suggestCategoriesWithAi',
-  'markBankTransactionsImported',
-  'conciliateBankTransactions',
-  'importBankTransactions',
-  'requestSync',
-  'createAccount',
-  'updateAccount',
-  'deleteAccount',
-  'createTag',
-  'updateTag',
-  'deleteTag',
-  'createEntry',
-  'updateEntry',
-  'deleteEntry',
-].join('|');
-const WRITE_CALL = new RegExp(`\\b(?:${WRITE_FUNCTIONS})\\s*\\(`);
-const WRITE_API_CALL = /\bapi(?:Post|Put|Delete)\s*[<(]/;
 const WRITE_REQUEST = /\brequest\s*<[^>]*>\s*\(\s*['"](?:POST|PUT|DELETE)['"]/;
 const WRITE_METHOD = /\bmethod\s*[:=]\s*['"](?:POST|PUT|DELETE)['"]/;
 
@@ -97,9 +78,9 @@ function commentStyle(path: string): 'js' | 'shell' {
   return path.endsWith('.sh') || path.endsWith('.yml') || path.endsWith('.yaml') ? 'shell' : 'js';
 }
 
-function topicOf(text: string): RiskTopic | null {
+function topicOf(text: string, writeCall: RegExp | null): RiskTopic | null {
   if (AUTH_BEHAVIOR.test(text)) return 'auth';
-  if (WRITE_CALL.test(text) || WRITE_API_CALL.test(text) || WRITE_REQUEST.test(text) || WRITE_METHOD.test(text)) {
+  if (writeCall?.test(text) === true || WRITE_API_CALL.test(text) || WRITE_REQUEST.test(text) || WRITE_METHOD.test(text)) {
     return 'write';
   }
   return null;
@@ -110,47 +91,6 @@ function sensitivity(path: string, writeModules: ReadonlySet<string> | undefined
   if (AUTH_PATH.test(path)) topics.push('auth');
   if (WRITE_PATH.test(path) || writeModules?.has(path) === true) topics.push('write');
   return topics;
-}
-
-/**
- * The src modules that call the write API. WRITE_PATH keeps the modules whose
- * path names the write, and a new writer used to need a manual entry there:
- * budget-write.ts called apiPost and classified safe (#315).
- */
-export function writeApiModules(root: string): ReadonlySet<string> {
-  const modules = new Set<string>();
-  const src = join(root, 'src');
-  if (!existsSync(src)) return modules;
-  for (const entry of readdirSync(src, { recursive: true, encoding: 'utf8' })) {
-    const path = `src/${entry.replaceAll('\\', '/')}`;
-    if (!path.endsWith('.ts')) continue;
-    if (WRITE_API_CALL.test(readFileSync(join(root, path), 'utf8'))) modules.add(path);
-  }
-  return modules;
-}
-
-/**
- * The write modules of the tree the PR is compared against. A PR that moves
- * `apiPost` out of a file would drop that file from the head surface while the
- * base still wrote through it, so the classifier takes both sides (#315).
- */
-export async function writeApiModulesAt(ref: string, root: string): Promise<ReadonlySet<string>> {
-  const modules = new Set<string>();
-  const result = await gitResult(
-    ['grep', '-l', '-E', 'api(Post|Put|Delete)[[:space:]]*[<(]', ref, '--', 'src'],
-    root
-  );
-  if (result.exitCode === 1) return modules;
-  if (result.exitCode !== 0) {
-    throw new Error(`cannot read the write surface of ${ref}: ${result.stderr.toString().trim()}`);
-  }
-  for (const line of result.stdout.toString().split('\n')) {
-    const separator = line.indexOf(':');
-    if (separator === -1) continue;
-    const path = line.slice(separator + 1);
-    if (path.endsWith('.ts')) modules.add(path);
-  }
-  return modules;
 }
 
 function sensitiveDetail(topic: RiskTopic): string {
@@ -177,11 +117,24 @@ function changesSecurityBehavior(file: DiffFile): boolean {
 interface RiskOptions {
   /** src modules that call the write API; the CLI derives them from the checkout. */
   writeModules?: ReadonlySet<string>;
+  /**
+   * API client functions that send a POST, PUT or DELETE. The CLI derives them
+   * from the head and the base; a direct call derives them from this checkout.
+   */
+  writeFunctions?: ReadonlySet<string>;
+}
+
+let ownWriteFunctions: ReadonlySet<string> | undefined;
+
+function defaultWriteFunctions(): ReadonlySet<string> {
+  ownWriteFunctions ??= writeSurface(join(import.meta.dir, '..')).functions;
+  return ownWriteFunctions;
 }
 
 export function classifyRisk(diff: string, options: RiskOptions = {}): RiskReport {
   const reasons: RiskReason[] = [];
   const seen = new Set<string>();
+  const writeCall = callPattern(options.writeFunctions ?? defaultWriteFunctions());
   for (const file of parseDiff(diff)) {
     const surface = securityDetail(file.path);
     if (surface !== undefined) {
@@ -194,7 +147,7 @@ export function classifyRisk(diff: string, options: RiskOptions = {}): RiskRepor
     for (const hunk of file.hunks) {
       for (const index of behaviorIndexes(hunk, { ignoreTypeOnly: true })) {
         const line = hunk[index];
-        const topic = topicOf(line.text);
+        const topic = topicOf(line.text, writeCall);
         if (topic) {
           addReason(reasons, seen, { topic, path: file.path, detail: sensitiveDetail(topic) });
         } else if (!OUTPUT_ONLY.test(line.text)) {
@@ -243,13 +196,13 @@ async function main(): Promise<void> {
     // pinned one and the checkout has no origin/main, keep the run working
     // with the head surface instead of failing on the default base.
     const hasBase = options.explicitBase || (await revisionExists(options.base, root));
-    let baseWriters: ReadonlySet<string> = new Set();
+    let surface: WriteSurface = writeSurface(root);
     if (hasBase) {
-      baseWriters = await writeApiModulesAt(options.base, root);
+      surface = mergeSurfaces(surface, await writeSurfaceAt(options.base, root));
     } else {
       console.error(`risk: ${options.base} does not resolve; classifying with the head write surface only`);
     }
-    const report = classifyRisk(diff, { writeModules: new Set([...writeApiModules(root), ...baseWriters]) });
+    const report = classifyRisk(diff, { writeModules: surface.modules, writeFunctions: surface.functions });
     console.log(JSON.stringify(report, null, 2));
     if (report.risky) process.exitCode = 2;
   } catch (error) {
