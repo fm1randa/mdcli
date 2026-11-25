@@ -121,7 +121,7 @@ describe('today', () => {
 
     test('rejects a value that is not a calendar day', () => {
       process.env.MDCLI_TODAY = '2027-02-30';
-      expect(() => today()).toThrow('MDCLI_TODAY must be a YYYY-MM-DD calendar day, got "2027-02-30"');
+      expect(() => today()).toThrow('MDCLI_TODAY precisa ser um dia do calendário em AAAA-MM-DD; recebido "2027-02-30"');
     });
   });
 });
