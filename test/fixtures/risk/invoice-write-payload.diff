@@ -1,0 +1,13 @@
+diff --git a/src/commands/cards-invoice-write.ts b/src/commands/cards-invoice-write.ts
+index 341796a..3b606b1 100644
+--- a/src/commands/cards-invoice-write.ts
++++ b/src/commands/cards-invoice-write.ts
+@@ -72,7 +72,7 @@ export async function closeInvoiceAction(_options: CloseFlags, command: Command)
+     automatico: false,
+     vencimento: invoice.vencimento,
+     anexos: [],
+-    lembrete: 0,
++    lembrete: 1,
+   };
+   const plan = body.valor === 0
+     ? t('invoiceClosePlanNoPayment', card.nome, card.id, dueDate)
