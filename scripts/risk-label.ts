@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import type { RiskReport } from './risk.js';
-import { spawn } from './git.js';
+import { parseValueFlag, spawn } from './git.js';
 
 const RISK_LABEL = 'risco';
 
@@ -21,22 +21,14 @@ interface Options {
 }
 
 function parseOptions(argv: string[]): Options {
-  const options: Options = { report: '', labels: '[]', apply: false, json: false };
-  for (let index = 0; index < argv.length; index++) {
-    const arg = argv[index];
-    if (arg === '--report') {
-      options.report = argv[++index] ?? '';
-    } else if (arg === '--labels') {
-      options.labels = argv[++index] ?? '[]';
-    } else if (arg === '--pr') {
-      options.pr = argv[++index];
-    } else if (arg === '--apply') {
-      options.apply = true;
-    } else if (arg === '--json') {
-      options.json = true;
-    } else {
-      throw new Error(`unknown argument: ${arg}`);
-    }
+  const report = parseValueFlag(argv, '--report', 'a file');
+  const labels = parseValueFlag(report.rest, '--labels', 'a JSON array');
+  const pr = parseValueFlag(labels.rest, '--pr', 'a number');
+  const options: Options = { report: report.value ?? '', labels: labels.value ?? '[]', apply: false, pr: pr.value, json: false };
+  for (const arg of pr.rest) {
+    if (arg === '--apply') options.apply = true;
+    else if (arg === '--json') options.json = true;
+    else throw new Error(`unknown argument: ${arg}`);
   }
   if (options.report === '') throw new Error('--report <file> is required');
   if (options.apply && !options.pr) throw new Error('--apply needs --pr <number>');

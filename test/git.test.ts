@@ -11,6 +11,8 @@ import {
   gitQuiet,
   parseBase,
   parseRevisionFlag,
+  parseValueFlag,
+  parseValueFlags,
   revisionExists,
   spawn,
 } from '../scripts/git.js';
@@ -93,6 +95,18 @@ describe('scripts/git.ts', () => {
     expect(parseRevisionFlag(['--base', 'main'], '--head')).toEqual({ value: undefined, rest: ['--base', 'main'] });
     expect(() => parseRevisionFlag(['--head'], '--head')).toThrow('--head needs a revision');
     expect(() => parseRevisionFlag(['--head', '-x'], '--head')).toThrow('--head needs a revision');
+  });
+
+  test('takes every value of a repeatable flag and refuses a missing or flag-like one by its name', () => {
+    expect(parseValueFlags(['--gate', 'risco', '--json', '--gate', 'prova'], '--gate', 'a name')).toEqual({
+      values: ['risco', 'prova'],
+      rest: ['--json'],
+    });
+    expect(parseValueFlag(['--pr', '1', '--pr', '2'], '--pr', 'a number')).toEqual({ value: '2', rest: [] });
+    expect(() => parseValueFlags(['--gate'], '--gate', 'a name')).toThrow('--gate needs a name');
+    expect(() => parseValueFlag(['--running', '--package-manager', 'bun@1.4.2'], '--running', 'a version')).toThrow(
+      '--running needs a version'
+    );
   });
 
   // check-eslint-disables used to diff `base` against the files on disk with

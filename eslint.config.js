@@ -183,6 +183,12 @@ export default tseslint.config(
     rules: { "local/no-git-copy": "error" },
   },
   {
+    // Flag values go through parseValueFlag in scripts/git.ts, never
+    // argv[++index], which swallows the next flag as the value (#353).
+    files: ["src/**/*.ts", "test/**/*.ts", "scripts/**/*.ts", "bin/**/*.ts"],
+    rules: { "local/no-hand-argv": "error" },
+  },
+  {
     // The Meu Dinheiro host lives only in src/lib/meu-dinheiro-host.ts (#279).
     // Help texts in the i18n catalogs name the site to the user, not a URL the
     // CLI calls. test/** is exempt in eslint-rules/scope-exemptions.json.

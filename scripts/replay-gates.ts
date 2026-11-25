@@ -1,5 +1,5 @@
 import { parseInteger } from '../src/utils/parse.js';
-import { diffAgainst, git, gitQuiet, repoRoot, resolveBase, revisionExists } from './git.js';
+import { diffAgainst, git, gitQuiet, parseValueFlag, parseValueFlags, repoRoot, resolveBase, revisionExists } from './git.js';
 import { decideGate } from './fails-on-main-exemption.js';
 import { changesProduct } from './new-tests-fail-on-main.js';
 import { checkProva } from './prova.js';
@@ -169,26 +169,18 @@ interface Options {
 const DEFAULT_COMMITS = 10;
 
 function parseOptions(argv: string[]): Options {
-  const options: Options = { commits: DEFAULT_COMMITS, gates: [], json: false };
-  for (let index = 0; index < argv.length; index++) {
-    const arg = argv[index];
-    if (arg === '--rev') {
-      const rev = argv[++index];
-      if (rev === undefined) throw new Error('--rev needs a revision');
-      options.rev = rev;
-    } else if (arg === '--commits') {
-      const count = parseInteger(argv[++index] ?? '', 1);
-      if (count === undefined) throw new Error('--commits needs a whole number of at least 1');
-      options.commits = count;
-    } else if (arg === '--gate') {
-      const name = argv[++index];
-      if (name === undefined) throw new Error('--gate needs a name');
-      options.gates.push(name);
-    } else if (arg === '--json') {
-      options.json = true;
-    } else {
-      throw new Error(`unknown argument: ${arg}`);
-    }
+  const rev = parseValueFlag(argv, '--rev', 'a revision');
+  const commits = parseValueFlag(rev.rest, '--commits', 'a whole number of at least 1');
+  const gates = parseValueFlags(commits.rest, '--gate', 'a name');
+  const options: Options = { rev: rev.value, commits: DEFAULT_COMMITS, gates: gates.values, json: false };
+  if (commits.value !== undefined) {
+    const count = parseInteger(commits.value, 1);
+    if (count === undefined) throw new Error('--commits needs a whole number of at least 1');
+    options.commits = count;
+  }
+  for (const arg of gates.rest) {
+    if (arg === '--json') options.json = true;
+    else throw new Error(`unknown argument: ${arg}`);
   }
   return options;
 }
