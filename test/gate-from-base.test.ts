@@ -48,6 +48,12 @@ describe('gate scripts come from the base branch', () => {
     expect(prepareStep('risco.yml')?.run ?? '').toContain('origin/$BASE_REF');
   });
 
+  test('the risco workflow installs the dependencies the base gate imports (#357)', () => {
+    // scripts/write-surface.ts imports typescript; without node_modules in the
+    // base worktree the gate exits 1 on every pull request.
+    expect(prepareStep('risco.yml')?.run ?? '').toContain('bun install --frozen-lockfile --cwd "$GATE_BASE"');
+  });
+
   test('the fails-on-main workflow checks the base gate out in a worktree', () => {
     expectGateFromBase('fails-on-main.yml', 'new-tests-fail-on-main.ts');
     expect(prepareStep('fails-on-main.yml')?.run ?? '').toContain('origin/main');
