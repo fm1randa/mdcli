@@ -1,0 +1,7 @@
+{
+  "rule": "no-unchecked-parse",
+  "origin": "da780e1",
+  "source": "src/lib/config.ts",
+  "note": "mdcli.config.json read straight into MdcliConfig: a `null` file crashed every command that read the config (#362).",
+  "code": "return JSON.parse(data) as MdcliConfig;"
+}

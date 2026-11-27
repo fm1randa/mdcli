@@ -1,4 +1,5 @@
 import { DEFAULT_API_URL } from '../meu-dinheiro-host.js';
+import { asRecord } from '../payload.js';
 
 const SESSION_URL = `${DEFAULT_API_URL}/v1/frontend/sessao`;
 
@@ -7,8 +8,8 @@ export async function fetchPublicApiKey(): Promise<string | undefined> {
   try {
     const response = await fetch(SESSION_URL, { signal: AbortSignal.timeout(10000) });
     if (!response.ok) return undefined;
-    const body = (await response.json()) as { payload?: { api?: { key?: unknown } } };
-    const key = body.payload?.api?.key;
+    const body: unknown = await response.json();
+    const key = asRecord(asRecord(asRecord(body)?.payload)?.api)?.key;
     return typeof key === 'string' && key !== '' ? key : undefined;
   } catch {
     return undefined;

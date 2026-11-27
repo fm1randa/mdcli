@@ -22,6 +22,7 @@ import noRawCurrency from "./no-raw-currency.js";
 import noShortOptionEquals from "./no-short-option-equals.js";
 import noSyncSpawn from "./no-sync-spawn.js";
 import noTautologicalExpect from "./no-tautological-expect.js";
+import noUncheckedParse from "./no-unchecked-parse.js";
 
 export default {
   meta: { name: "local" },
@@ -48,5 +49,6 @@ export default {
     "no-short-option-equals": noShortOptionEquals,
     "no-sync-spawn": noSyncSpawn,
     "no-tautological-expect": noTautologicalExpect,
+    "no-unchecked-parse": noUncheckedParse,
   },
 };

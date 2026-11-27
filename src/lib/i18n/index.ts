@@ -25,7 +25,7 @@ const LOADERS: Record<Language, () => Catalog> = {
 
 function catalog(language: Language): Catalog {
   CATALOGS[language] ??= LOADERS[language]();
-  return CATALOGS[language] as Catalog;
+  return CATALOGS[language];
 }
 
 /** The accepted values as the error message lists them: "pt-BR, en". */

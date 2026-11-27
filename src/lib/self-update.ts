@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { ensurePrivateDir, writePrivateFile } from './config.js';
+import { asRecord, numberOrNull, textOrNull } from './payload.js';
 import { parseInteger } from '../utils/parse.js';
 import { t } from './i18n/index.js';
 import { homedir } from 'node:os';
@@ -38,8 +39,8 @@ export function isGlobalInstall(packageRoot: string): boolean {
 
 function installedVersion(packageRoot: string): string | null {
   try {
-    const { version } = JSON.parse(readFileSync(join(packageRoot, 'package.json'), 'utf-8')) as { version?: unknown };
-    return typeof version === 'string' ? version : null;
+    const pkg: unknown = JSON.parse(readFileSync(join(packageRoot, 'package.json'), 'utf-8'));
+    return textOrNull(asRecord(pkg)?.version);
   } catch {
     return null;
   }
@@ -74,7 +75,10 @@ interface UpdateState {
 
 function readState(env: NodeJS.ProcessEnv): UpdateState {
   try {
-    return JSON.parse(readFileSync(join(configDir(env), STATE_FILE), 'utf-8')) as UpdateState;
+    const state: unknown = JSON.parse(readFileSync(join(configDir(env), STATE_FILE), 'utf-8'));
+    // A field of the wrong type reads as absent, as on the first check.
+    const record = asRecord(state);
+    return { checkedAt: numberOrNull(record?.checkedAt) ?? undefined, seenVersion: textOrNull(record?.seenVersion) ?? undefined };
   } catch {
     return {};
   }
@@ -89,8 +93,8 @@ function writeState(env: NodeJS.ProcessEnv, patch: UpdateState): void {
 /** `"autoUpdate": false` in mdcli.config.json turns the background check off. */
 function disabledInConfig(env: NodeJS.ProcessEnv): boolean {
   try {
-    const config = JSON.parse(readFileSync(join(configDir(env), CONFIG_FILE), 'utf-8')) as { autoUpdate?: unknown };
-    return config.autoUpdate === false;
+    const config: unknown = JSON.parse(readFileSync(join(configDir(env), CONFIG_FILE), 'utf-8'));
+    return asRecord(config)?.autoUpdate === false;
   } catch {
     return false;
   }
@@ -104,8 +108,9 @@ async function fetchLatestTag(env: NodeJS.ProcessEnv, timeoutMs: number): Promis
       signal: AbortSignal.timeout(timeoutMs),
     });
     if (!res.ok) return null;
-    const { tag_name } = (await res.json()) as { tag_name?: unknown };
-    return typeof tag_name === 'string' && RELEASE_TAG.test(tag_name) ? tag_name : null;
+    const release: unknown = await res.json();
+    const tag = textOrNull(asRecord(release)?.tag_name);
+    return tag !== null && RELEASE_TAG.test(tag) ? tag : null;
   } catch {
     return null;
   }

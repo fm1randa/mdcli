@@ -2,6 +2,7 @@ import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'f
 import { homedir } from 'os';
 import { join } from 'path';
 import type { AliasMap, AuthConfig, AuthMethod, MdcliConfig, NameCache, AliasType, NameCacheEntry } from '../types/index.js';
+import { parseConfig } from './config-shape.js';
 
 // Resolved on every call, not at import time, so MDCLI_CONFIG_DIR (or HOME)
 // set after this module loads still decides where the config lives.
@@ -53,7 +54,7 @@ function loadConfig(): MdcliConfig {
 
   try {
     const data = readFileSync(file, 'utf-8');
-    return JSON.parse(data) as MdcliConfig;
+    return parseConfig(JSON.parse(data));
   } catch {
     return {};
   }

@@ -53,5 +53,9 @@
   },
   "no-type-sign-ternary": {
     "scripts/**": "The mock stores entry values as the request sends them; the sign by type is CLI logic owned by src/commands/entries/type.ts."
+  },
+  "no-unchecked-parse": {
+    "test/**": "Tests read the CLI's own --json output and the request bodies the suite itself sends; a wrong shape fails the assertion that reads it.",
+    "scripts/**": "The gates and the mock parse their own tools' output (gh, git, package.json) and the requests the suite sends; no user file or API answer reaches them."
   }
 }
