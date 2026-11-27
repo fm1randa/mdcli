@@ -63,21 +63,24 @@ export async function fetchWebBalances(
   return parseBalanceSums(await get(`/v2/lancamentos?${query.toString()}`));
 }
 
-/** The rows of a type=sum answer; a body that is not { sum: [...] } of
- * numeric conta/projetado/confirmado fails with the endpoint named, instead of
- * a balance silently going missing or NaN downstream (#362). */
 const SUM_CONTEXT = 'GET /v2/lancamentos type=sum';
 
+/** The account rows of a type=sum answer. A row whose conta is not an id
+ * (the web's "residuo" row, mdb.js 4616) belongs to no account and is skipped,
+ * as the web does; a body without a sum list, or an account row whose
+ * projetado or confirmado is not a number, fails with the endpoint named
+ * instead of a balance going missing or NaN downstream (#362). */
 function parseBalanceSums(body: unknown): AccountBalanceSum[] {
   const rows: unknown = asRecord(body)?.sum;
-  const items: unknown[] = Array.isArray(rows) ? rows : [];
-  const sums = items.flatMap((item): AccountBalanceSum[] => {
+  if (!Array.isArray(rows)) throw new Error(t('errorApiUnexpectedBody', SUM_CONTEXT));
+  const items: unknown[] = rows;
+  return items.flatMap((item): AccountBalanceSum[] => {
     const row = asRecord(item);
     const conta = numberOrNull(row?.conta);
+    if (conta === null) return [];
     const projetado = numberOrNull(row?.projetado);
     const confirmado = numberOrNull(row?.confirmado);
-    return conta !== null && projetado !== null && confirmado !== null ? [{ conta, projetado, confirmado }] : [];
+    if (projetado === null || confirmado === null) throw new Error(t('errorApiUnexpectedBody', SUM_CONTEXT));
+    return [{ conta, projetado, confirmado }];
   });
-  if (!Array.isArray(rows) || sums.length !== items.length) throw new Error(t('errorApiUnexpectedBody', SUM_CONTEXT));
-  return sums;
 }

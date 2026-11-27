@@ -61,6 +61,13 @@ describe('a type=sum answer that is not { sum: [...] }', () => {
     expect(result.output).toContain('API returned a response in an unexpected shape (GET /v2/lancamentos type=sum).');
   });
 
+  test('a row that is not an account, like the web\'s residuo row, is skipped', async () => {
+    api.on('GET /v2/lancamentos', offContract({ sum: [{ conta: 'residuo', projetado: 0, confirmado: 0 }, { conta: 201, projetado: 555, confirmado: 600 }] }));
+    const result = await runCli(['accounts', 'list', '--json'], { home, api });
+    expect(result.exitCode).toBe(0);
+    expect(JSON.parse(result.stdout)).toContainEqual(expect.objectContaining({ id: 201, balance: 600, projectedBalance: 555 }));
+  });
+
   test('a body without sum fails the same way', async () => {
     api.on('GET /v2/lancamentos', offContract({}));
     const result = await runCli(['accounts', 'list'], { home, api });
