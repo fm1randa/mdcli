@@ -24,7 +24,7 @@ const CASES: { script: string; argv: string[]; error: string }[] = [
 // The table is checked against the code, not kept by hand (#361): every script
 // that reads a value flag through scripts/git.ts has a row, so a new gate that
 // takes one cannot skip this test.
-const PARSERS = 'parseValueFlags\\?\\|parseRevisionFlag\\|parseBase';
+const PARSERS = 'parseValueFlags\\?\\|parseRevisionFlag\\|parseBase(';
 
 describe('scripts refuse a value flag followed by another flag', () => {
   test('every script that parses a value flag has a row', async () => {
