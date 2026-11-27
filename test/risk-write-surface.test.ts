@@ -78,6 +78,90 @@ function writeDiffFile(repo: string, text: string): string {
   return path;
 }
 
+// Each shape reaches a write through a name the old line regex could not
+// follow (#357). `write` and `read` are how src/commands/archive.ts calls the
+// writer and the reader; the reader is the negative control for the shape.
+interface SyntaxCase {
+  shape: string;
+  files: Record<string, string>;
+  imports: string;
+  write: string;
+  read: string;
+}
+
+const SYNTAX_CASES: readonly SyntaxCase[] = [
+  {
+    shape: 'an import alias',
+    files: { 'src/lib/api/archive.ts': ARCHIVE_API },
+    imports: "import { archiveThing as persist, fetchArchive as load } from '../lib/api/archive.js';",
+    write: 'persist',
+    read: 'load',
+  },
+  {
+    shape: 'a re-export alias',
+    files: {
+      'src/lib/api/archive.ts': ARCHIVE_API,
+      'src/lib/api.ts': "export { archiveThing as stash, fetchArchive as peek } from './api/archive.js';\n",
+    },
+    imports: "import { stash, peek } from '../lib/api.js';",
+    write: 'stash',
+    read: 'peek',
+  },
+  {
+    shape: 'an object method',
+    files: {
+      'src/lib/api/archive.ts': [
+        "import { request } from './request.js';",
+        'export const archive = {',
+        "  close(id: number) { return request('POST', `/v1/arquivo/${id}`, {}); },",
+        "  read(id: number) { return request('GET', `/v1/arquivo/${id}`); },",
+        '};',
+        '',
+      ].join('\n'),
+    },
+    imports: "import { archive } from '../lib/api/archive.js';",
+    write: 'archive.close',
+    read: 'archive.read',
+  },
+  {
+    shape: 'a class method',
+    files: {
+      'src/lib/api/archive.ts': [
+        "import { request } from './request.js';",
+        'export class Archiver {',
+        "  async close(id: number): Promise<void> { await request('DELETE', `/v1/arquivo/${id}`); }",
+        "  async read(id: number): Promise<unknown> { return request('GET', `/v1/arquivo/${id}`); }",
+        '}',
+        'export const archiver = new Archiver();',
+        '',
+      ].join('\n'),
+    },
+    imports: "import { archiver } from '../lib/api/archive.js';",
+    write: 'archiver.close',
+    read: 'archiver.read',
+  },
+  {
+    shape: 'a method held in a constant',
+    files: {
+      'src/lib/api/archive.ts': [
+        "import { request } from './request.js';",
+        "const METHOD = 'PUT';",
+        "const READ = 'GET';",
+        'export function archiveThing(id: number) { return request(METHOD, `/v1/arquivo/${id}`, {}); }',
+        'export function fetchArchive(id: number) { return request(READ, `/v1/arquivo/${id}`); }',
+        '',
+      ].join('\n'),
+    },
+    imports: "import { archiveThing, fetchArchive } from '../lib/api/archive.js';",
+    write: 'archiveThing',
+    read: 'fetchArchive',
+  },
+];
+
+function commandFile(imports: string, call: string): string {
+  return [imports, 'export async function run(id: number): Promise<void> {', `  await ${call}(id + 1);`, '}', ''].join('\n');
+}
+
 describe('risk write surface', () => {
   test('flags a changed closeCardInvoice target as a data write (#348)', async () => {
     const { code, report } = await risk(['--diff', join(fixtures, 'invoice-close-target.diff')]);
@@ -121,6 +205,21 @@ describe('risk write surface', () => {
       expect(report.reasons.map((reason) => reason.topic)).toEqual(['write']);
     });
   });
+
+  for (const { shape, files, imports, write, read } of SYNTAX_CASES) {
+    test(`follows a writer reached through ${shape} (#357)`, async () => {
+      const expectations: Array<{ call: string; code: number; topics: RiskReport['reasons'][number]['topic'][] }> = [
+        { call: write, code: 2, topics: ['write'] },
+        { call: read, code: 0, topics: [] },
+      ];
+      for (const expected of expectations) {
+        await withRepo({ ...files, 'src/commands/archive.ts': commandFile(imports, expected.call) }, async (repo, rev) => {
+          const { code, report } = await risk(['--base', rev, '--diff', writeDiffFile(repo, commandDiff(expected.call))], repo);
+          expect({ call: expected.call, code, topics: report.reasons.map((reason) => reason.topic) }).toEqual(expected);
+        });
+      }
+    });
+  }
 
   test('treats a change in the write surface derivation as a security surface', () => {
     const diff = [
