@@ -221,6 +221,22 @@ describe('risk write surface', () => {
     });
   }
 
+  test('follows a writer called inside an export default object', async () => {
+    const command = [
+      "import { archiveThing as persist } from '../lib/api/archive.js';",
+      'export default {',
+      '  async run(id: number): Promise<void> {',
+      '    await persist(id + 1);',
+      '  },',
+      '};',
+      '',
+    ].join('\n');
+    await withRepo({ 'src/lib/api/archive.ts': ARCHIVE_API, 'src/commands/archive.ts': command }, async (repo, rev) => {
+      const { code, report } = await risk(['--base', rev, '--diff', writeDiffFile(repo, commandDiff('persist'))], repo);
+      expect({ code, topics: report.reasons.map((reason) => reason.topic) }).toEqual({ code: 2, topics: ['write'] });
+    });
+  });
+
   test('treats a change in the write surface derivation as a security surface', () => {
     const diff = [
       'diff --git a/scripts/write-surface.ts b/scripts/write-surface.ts',

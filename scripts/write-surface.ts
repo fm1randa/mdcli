@@ -138,8 +138,9 @@ class Collector {
       visit(node);
     };
     const visit = (node: ts.Node): void => {
-      if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node) || ts.isExportAssignment(node)) return;
-      if (ts.isTypeNode(node) || ts.isInterfaceDeclaration(node) || ts.isTypeAliasDeclaration(node)) return;
+      if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) return;
+      // `extends Base` is an ExpressionWithTypeArguments: a value reference, not a type.
+      if ((ts.isTypeNode(node) && !ts.isExpressionWithTypeArguments(node)) || ts.isInterfaceDeclaration(node) || ts.isTypeAliasDeclaration(node)) return;
       if ((ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) && WRITE_METHOD.test(node.text)) {
         for (const unit of open) unit.literal = true;
         return;
@@ -332,6 +333,7 @@ async function readAt(ref: string, paths: readonly string[], root: string): Prom
   let offset = 0;
   for (const path of paths) {
     const end = output.indexOf(10, offset);
+    if (end === -1) throw new Error(`cannot read ${path} at ${ref}: git cat-file stopped early`);
     const header = output.subarray(offset, end).toString().split(' ');
     const size = parseInteger(header[2] ?? '');
     if (header[1] !== 'blob' || size === undefined) {
@@ -349,8 +351,8 @@ async function readAt(ref: string, paths: readonly string[], root: string): Prom
  * still wrote through it, so the classifier takes both sides (#315).
  */
 export async function writeSurfaceAt(ref: string, root: string): Promise<WriteSurface> {
-  const paths = (await git(['ls-tree', '-r', '--name-only', ref, '--', 'src'], root))
-    .split('\n')
+  const paths = (await git(['ls-tree', '-r', '-z', '--name-only', ref, '--', 'src'], root))
+    .split('\0')
     .filter((path) => path.endsWith('.ts'));
   return surfaceOf(await readAt(ref, paths, root));
 }

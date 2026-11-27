@@ -29,6 +29,9 @@ jobs:
         run: |
           git fetch --no-tags origin "$BASE_REF"
           git worktree add --detach "$GATE_BASE" "origin/$BASE_REF"
+          # The write surface resolves names with the TypeScript checker (#357),
+          # so the base gate needs its own locked dependencies.
+          bun install --frozen-lockfile --cwd "$GATE_BASE"
       - name: Classificar o diff e sincronizar a label `risco`
         env:
           GH_TOKEN: ${{ github.token }}
