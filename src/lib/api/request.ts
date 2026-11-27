@@ -84,6 +84,7 @@ async function readResponse<T>(response: Response, context: string): Promise<T> 
   const text = await response.text();
   if (!text) return undefined as T;
   try {
+    // eslint-disable-next-line local/no-unchecked-parse -- the API client is the one typed boundary for every endpoint: T is that endpoint's documented response type, and validating each body is outside #362.
     return JSON.parse(text) as T;
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);

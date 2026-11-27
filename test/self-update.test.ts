@@ -135,6 +135,21 @@ describe('checkForUpdate', () => {
     expect(notices).toEqual(['mdcli atualizado de 2026.10.13 para 2026.10.20']);
   });
 
+  // #362: the state file was cast to UpdateState unchecked.
+  test('reads a state file of the wrong shape as a first run', async () => {
+    const { env } = recorder();
+    const notices: string[] = [];
+    const opts = { packageRoot: globalInstall('2026.10.20'), env, notify: (m: string) => notices.push(m) };
+    mkdirSync(join(dir, 'config'), { recursive: true });
+    const state = join(dir, 'config', 'update-check.json');
+    writeFileSync(state, JSON.stringify({ seenVersion: 5, checkedAt: 'yesterday' }));
+    expect(await checkForUpdate(opts)).toBe('up-to-date');
+    expect(notices).toEqual([]);
+    writeFileSync(state, 'null');
+    expect(await checkForUpdate(opts)).toBe('up-to-date');
+    expect(JSON.parse(readFileSync(state, 'utf-8'))).toMatchObject({ seenVersion: '2026.10.20' });
+  });
+
   test('skips the network when opted out by env or config, in CI, or outside a global install', async () => {
     const { env } = recorder();
     const root = globalInstall('2026.10.13');

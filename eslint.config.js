@@ -99,6 +99,16 @@ export default tseslint.config(
     rules: { "local/no-double-cast": "error" },
   },
   {
+    // What JSON.parse, .json() or get(...) returns is validated, never cast
+    // (#362). src/lib/api/request.ts types every endpoint's body with one
+    // documented exception; scripts/ and test/ read their own tools' output.
+    files: ["src/**/*.ts", "bin/**/*.ts"],
+    rules: {
+      "local/no-unchecked-parse": "error",
+      "@typescript-eslint/no-unnecessary-type-assertion": "error",
+    },
+  },
+  {
     // Entry and occurrence IDs are branded only by their constructors (#277).
     files: ["src/**/*.ts", "test/**/*.ts", "scripts/**/*.ts"],
     ignores: ["src/lib/entry-id-brands.ts"],

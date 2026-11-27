@@ -1,6 +1,7 @@
-import type { Account, AccountBalanceSum, AccountBalancesResponse } from '../types/index.js';
+import type { Account, AccountBalanceSum } from '../types/index.js';
 import { setEntriesPreferences, type EntriesPreferences } from './entries-preferences.js';
-import { asRecord, idOrNull } from './payload.js';
+import { asRecord, idOrNull, numberOrNull } from './payload.js';
+import { t } from './i18n/index.js';
 import type { WebConfig } from './web-session.js';
 
 /**
@@ -59,5 +60,24 @@ export async function fetchWebBalances(
   setEntriesPreferences(query, prefs);
   query.set('contas', JSON.stringify({ ids, faturas: true, residuo: false }));
   query.set('sum', JSON.stringify({ groupBy: 'conta' }));
-  return ((await get(`/v2/lancamentos?${query.toString()}`)) as AccountBalancesResponse).sum;
+  return parseBalanceSums(await get(`/v2/lancamentos?${query.toString()}`));
+}
+
+/** The rows of a type=sum answer; a body that is not { sum: [...] } of
+ * numeric conta/projetado/confirmado fails with the endpoint named, instead of
+ * a balance silently going missing or NaN downstream (#362). */
+const SUM_CONTEXT = 'GET /v2/lancamentos type=sum';
+
+function parseBalanceSums(body: unknown): AccountBalanceSum[] {
+  const rows: unknown = asRecord(body)?.sum;
+  const items: unknown[] = Array.isArray(rows) ? rows : [];
+  const sums = items.flatMap((item): AccountBalanceSum[] => {
+    const row = asRecord(item);
+    const conta = numberOrNull(row?.conta);
+    const projetado = numberOrNull(row?.projetado);
+    const confirmado = numberOrNull(row?.confirmado);
+    return conta !== null && projetado !== null && confirmado !== null ? [{ conta, projetado, confirmado }] : [];
+  });
+  if (!Array.isArray(rows) || sums.length !== items.length) throw new Error(t('errorApiUnexpectedBody', SUM_CONTEXT));
+  return sums;
 }

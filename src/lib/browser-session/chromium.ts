@@ -7,6 +7,7 @@ import { homedir } from 'node:os';
 import { createDecipheriv, pbkdf2Sync } from 'node:crypto';
 import { Database } from 'bun:sqlite';
 import { isMacOsSandboxError } from './profile-copy.js';
+import { asRecord } from '../payload.js';
 
 export function getChromeCookieValue(cookieName: string, domain: string): string | null {
   if (process.platform !== 'darwin') {
@@ -29,14 +30,15 @@ export function getChromeCookieValue(cookieName: string, domain: string): string
     const db = new Database(`${pathToFileURL(cookiesPath).href}?immutable=1`, { readonly: true });
     const row = db.query(
       'SELECT encrypted_value FROM cookies WHERE name = ? AND host_key = ?'
-    ).get(cookieName, domain) as { encrypted_value: Uint8Array } | null;
+    ).get(cookieName, domain);
     db.close();
 
-    if (!row?.encrypted_value) {
+    const value = asRecord(row)?.encrypted_value;
+    if (!(value instanceof Uint8Array)) {
       return null;
     }
 
-    const encryptedValue = Buffer.from(row.encrypted_value);
+    const encryptedValue = Buffer.from(value);
 
     if (encryptedValue.slice(0, 3).toString() !== 'v10') {
       return null;
