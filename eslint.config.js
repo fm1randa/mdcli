@@ -32,8 +32,14 @@ const RAW_WRITER_LEAKS = [
     message: `Import apiPost, apiPut, apiDelete or request under its own name, so the risk gate and the lint see every call: ${RAW_WRITER_FIX}`,
   },
   {
-    selector: ":matches(ExportAllDeclaration, ImportDeclaration[specifiers.0.type='ImportNamespaceSpecifier'])[source.value=/(^|\\/)request(\\.js)?$/]",
+    selector: ":matches(ExportAllDeclaration, ImportDeclaration:has(ImportNamespaceSpecifier))[source.value=/(^|\\/)request(\\.[jt]s)?$/]",
     message: `Name what the client imports from src/lib/api/request.ts and never export * from it, so a raw writer cannot leave the client: ${RAW_WRITER_FIX}`,
+  },
+  {
+    // The value check above reads names, not scopes, so in the client these
+    // names always mean the imported writers.
+    selector: `:matches(VariableDeclarator > Identifier.id, :function > Identifier.params, CatchClause > Identifier.param, :function > AssignmentPattern.params > Identifier.left)[name=${RAW_WRITER}]`,
+    message: "Rename this binding: inside the API client apiPost, apiPut, apiDelete and request name the raw writers of src/lib/api/request.ts, which may only be imported and called.",
   },
 ];
 

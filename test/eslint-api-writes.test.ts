@@ -108,6 +108,23 @@ describe('a raw API writer handed out of the client (#358)', () => {
     expect(await leaks("export * from './request.js';\n", path)).toEqual([1]);
     expect(await leaks("export * from './api/request.js';\n", 'src/lib/api.ts')).toEqual([1]);
     expect(await leaks("import * as raw from './request.js';\nexport const post = raw.apiPost;\n", path)).toEqual([1]);
+    expect(await leaks("import * as raw from './request.ts';\n", path)).toEqual([1]);
+    expect(await leaks("import core, * as raw from './request.js';\nexport const post = raw.apiPost;\n", path)).toEqual([1]);
+  });
+
+  test('fails a local binding that shadows a writer name, with its own message', async () => {
+    const path = 'src/lib/api/budget.ts';
+    const shadows = [
+      'export const url = (request: { url: string }) => request.url;',
+      'export function f(apiPost = 1) { return apiPost; }',
+      'const apiPut = 1;',
+      'try { f(); } catch (request) { void request; }',
+    ];
+    for (const code of shadows) {
+      const [result] = await eslint.lintText(code, { filePath: path });
+      const renames = result.messages.filter((m) => m.ruleId === 'no-restricted-syntax' && m.message.startsWith('Rename this binding'));
+      expect({ code, renames: renames.length }).toEqual({ code, renames: 1 });
+    }
   });
 
   test('passes calls, keys and type queries of the same names, and request.ts itself', async () => {
