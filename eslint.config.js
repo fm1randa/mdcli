@@ -13,6 +13,30 @@ function apiWrites(regex) {
   };
 }
 
+const RAW_WRITER = "/^(apiPost|apiPut|apiDelete|request)$/";
+const RAW_WRITER_FIX =
+  "add a named function for the endpoint to the resource module in src/lib/api/ (e.g. saveBudgetGoals in src/lib/api/budget.ts), export it from src/lib/api.ts, and have the caller import that function instead.";
+/** Ways a client module could pass apiPost, apiPut, apiDelete or request on instead of calling it. */
+const RAW_WRITER_LEAKS = [
+  {
+    // A value use: export { apiPost }, export { apiPost as postIt } (with or
+    // without from), export default apiPost, { apiPost }, const x = apiPost,
+    // a class field, an argument. Only a call, the import itself, a type
+    // query, a non-computed key or member name with the same text, and the
+    // exported name (its local is the one reported) pass.
+    selector: `Identifier[name=${RAW_WRITER}]:not(CallExpression > Identifier.callee, ImportSpecifier > Identifier, TSTypeQuery > Identifier, MemberExpression[computed=false] > Identifier.property, ExportSpecifier > Identifier.exported, :matches(Property, PropertyDefinition, MethodDefinition, TSPropertySignature)[computed=false] > Identifier.key)`,
+    message: `Call apiPost, apiPut, apiDelete or request only inside the API client, never pass, store or export it: ${RAW_WRITER_FIX}`,
+  },
+  {
+    selector: `ImportSpecifier[imported.name=${RAW_WRITER}]:not([local.name=${RAW_WRITER}])`,
+    message: `Import apiPost, apiPut, apiDelete or request under its own name, so the risk gate and the lint see every call: ${RAW_WRITER_FIX}`,
+  },
+  {
+    selector: ":matches(ExportAllDeclaration, ImportDeclaration[specifiers.0.type='ImportNamespaceSpecifier'])[source.value=/(^|\\/)request(\\.js)?$/]",
+    message: `Name what the client imports from src/lib/api/request.ts and never export * from it, so a raw writer cannot leave the client: ${RAW_WRITER_FIX}`,
+  },
+];
+
 export default tseslint.config(
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
@@ -221,6 +245,14 @@ export default tseslint.config(
     files: ["src/lib/**/*.ts"],
     ignores: API_CLIENT,
     rules: { "no-restricted-imports": ["error", { patterns: [apiWrites("(^|/)lib/api(/request)?(\\.js)?$|^(\\.\\.?/)+api(/request)?(\\.js)?$")] }] },
+  },
+  {
+    // The import ban above only reads the import path, so a client module
+    // could hand a raw writer back out under its own path (#358). Inside the
+    // client, a raw writer is imported under its own name and only called.
+    files: API_CLIENT,
+    ignores: ["src/lib/api/request.ts"],
+    rules: { "no-restricted-syntax": ["error", ...RAW_WRITER_LEAKS] },
   },
   {
     // scripts/mock-http.ts owns the mock's error answers (#276, #286).
