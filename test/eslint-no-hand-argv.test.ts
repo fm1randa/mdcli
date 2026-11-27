@@ -25,6 +25,16 @@ const FORMS: Record<string, string> = {
   'a postfix step': 'export const v = argv[index++];',
   'a step with a fallback': "export const v = argv[++index] ?? '';",
   'a step on a member index': 'declare const state: { i: number };\nexport const v = argv[++state.i];',
+  // Each form below passed the rule while it listed only ++ and -- (#361).
+  'a compound assignment': 'export const v = argv[(index += 1)];',
+  'a plain assignment': 'export const v = argv[(index = index + 1)];',
+  'a step inside an expression': 'export const v = argv[1 + index++];',
+  '.at() with a step': 'export const v = argv.at(++index);',
+  '.at() read by a string key': "export const v = argv['at'](index += 1);",
+  '.slice() with a step': 'export const v = argv.slice(++index, index + 1)[0];',
+  '.splice() read by index': 'export const v = argv.splice(index, 2)[1];',
+  '.splice() read by .at()': 'export const v = argv.splice(index, 2).at(1);',
+  '.splice() destructured': 'export const [, v] = argv.splice(index, 2);',
 };
 
 // main when #353 was filed: every hand-written flag read the issue lists, by line.
@@ -50,6 +60,25 @@ describe('local/no-hand-argv', () => {
 
   test('does not fire on a plain index read or a step outside the member read', async () => {
     expect(await hits(`${PRELUDE}export const v = argv[index];\nindex++;`, AREAS[0])).toEqual([]);
+  });
+
+  test('does not fire on .at(-1), a removal whose items are not read, or a step inside a callback', async () => {
+    const code = [
+      'export const last = argv.at(-1);',
+      'argv.splice(index, 1);',
+      'export const removed = argv.splice(index, 1);',
+      'export const head = argv.slice(0, index + 1);',
+      'export const marks = argv.map((arg) => arg[0]);',
+      'export const counts = argv.map(() => [index++]);',
+    ].join('\n');
+    expect(await hits(`${PRELUDE}${code}`, AREAS[0])).toEqual([]);
+  });
+
+  test('the message names the forms and the parser that replaces them', async () => {
+    const [result] = await eslint.lintText(`${PRELUDE}export const v = argv.at(++index);\n`, { filePath: AREAS[0] });
+    const message = result.messages.find((m) => m.ruleId === RULE)?.message ?? '';
+    expect(message).toContain('argv.at(++i)');
+    expect(message).toContain("parseValueFlag(argv, '--flag', 'a value') from scripts/git.ts");
   });
 
   test(`catches every copy main carried at ${BEFORE}, and the branch carries none`, async () => {
