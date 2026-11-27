@@ -187,6 +187,12 @@ export default tseslint.config(
     rules: { "local/no-raw-error-message": "error" },
   },
   {
+    // Only an Error is thrown: `throw 'text'` skips the catalog rule above
+    // and loses the stack (#361).
+    files: ["src/**/*.ts", "bin/**/*.ts", "scripts/**/*.ts", "test/**/*.ts"],
+    rules: { "@typescript-eslint/only-throw-error": "error" },
+  },
+  {
     // Exit only through exitAfterFlush(), which flushes stdout first.
     files: ["src/**/*.ts", "test/**/*.ts", "bin/**/*.ts"],
     rules: { "local/no-bare-process-exit": "error" },
